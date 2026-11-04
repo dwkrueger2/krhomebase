@@ -1,0 +1,9 @@
+/**
+ * Global stylesheet for apps/web. Imported once by app/layout.tsx.
+ *
+ * Tailwind CSS 4 entry point: this single import pulls in Tailwind's reset (preflight), theme
+ * variables and utilities. Component styling uses Tailwind utilities held in the STYLES and
+ * LAYOUT_STYLES maps (AGENTS_05). Keep this file limited to resets, fonts, theme tokens and
+ * shell-wide defaults. The `--kr-theme-*` tokens are added here when the first screen is ported.
+ */
+@import "tailwindcss";

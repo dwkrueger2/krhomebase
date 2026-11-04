@@ -1,0 +1,91 @@
+/**
+ * Styles for RainbowBusySpinner.client.tsx (ported unchanged from the old KR Homebase app).
+ * `.root` is the row, `.spinner` is the rainbow ring (the ring's hole is the `::after` panel),
+ * and `.label` is the status text. The `.visible`, `.hiddenWhenIdle`, `.reserveSpace`, `.block`
+ * and `.error` classes are switched by the component's props and state.
+ */
+.root {
+  --rainbow-spinner-muted: #6f756f;
+  --rainbow-spinner-error: #b00020;
+  --rainbow-spinner-panel: #ffffff;
+  --rainbow-spinner-size: 14px;
+  --rainbow-spinner-inner-inset: 3px;
+
+  align-items: center;
+  color: var(--kr-theme-text-muted, var(--rainbow-spinner-muted));
+  display: inline-flex;
+  gap: 7px;
+  min-width: 0;
+}
+
+.block {
+  display: flex;
+  width: 100%;
+}
+
+.hiddenWhenIdle:not(.visible) {
+  display: none;
+}
+
+.reserveSpace:not(.visible) {
+  visibility: hidden;
+}
+
+.spinner {
+  background: conic-gradient(
+    #ff0000,
+    #ff9900,
+    #ffff00,
+    #00cc00,
+    #0066ff,
+    #6600cc,
+    #ff0000
+  );
+  border-radius: 50%;
+  box-sizing: border-box;
+  display: inline-block;
+  flex: 0 0 auto;
+  height: var(--rainbow-spinner-size);
+  position: relative;
+  width: var(--rainbow-spinner-size);
+}
+
+.spinner::after {
+  background: var(--rainbow-spinner-panel);
+  border-radius: 50%;
+  content: '';
+  inset: var(--rainbow-spinner-inner-inset);
+  position: absolute;
+}
+
+.visible .spinner {
+  animation: rainbowBusySpin 0.7s linear infinite;
+}
+
+.label {
+  align-items: center;
+  color: var(--kr-theme-text-muted, var(--rainbow-spinner-muted));
+  display: inline-flex;
+  font-size: var(--kr-theme-font-size-base, 13px);
+  line-height: 1.2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.error .label {
+  color: var(--kr-theme-danger, var(--rainbow-spinner-error));
+}
+
+@keyframes rainbowBusySpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .visible .spinner {
+    animation-duration: 1.4s;
+  }
+}

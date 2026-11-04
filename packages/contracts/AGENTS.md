@@ -1,11 +1,11 @@
 # Contracts Agent Guide
 
-<small>Version 1.0</small><br>
-<small>Updated Nov 2, 2026</small>
+<small>Version 1.2</small><br>
+<small>Updated Nov 3, 2026 10:58pm</small>
 
 ## Purpose
 
-`packages/contracts` holds the zod descriptions of every API request, response and error, plus shared constants. `apps/api` checks real requests against them. `apps/web` and the generated client use them to type and check replies. The repository rules in the root `AGENTS.md` apply as well.
+`packages/contracts` holds the zod descriptions of every API request, response and error, plus shared constants. `apps/api` checks real requests against them. `apps/web` and the generated client use them to type and check replies. The repository guides in the root (`AGENTS.md` and `AGENTS_01` to `AGENTS_06`) apply as well: versioning, commits, documentation headers, coding style, Tailwind and D1 procedures. This package is not a version track: a change here advances the API track, the web track, or both, depending on who consumes the changed shape (`AGENTS_01`, section 5). Leave this package's own `version` at `1.0.0`.
 
 ## Rules
 
@@ -22,3 +22,4 @@
 - [ ] No forbidden imports.
 - [ ] Every new field has `.describe()`.
 - [ ] `pnpm check` passes.
+- [ ] The tracks that consume the change were identified and advanced (`AGENTS_01`).

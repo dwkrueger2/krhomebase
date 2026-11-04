@@ -1,9 +1,13 @@
-# krhomebase Architecture Proposal v0.3
+# krhomebase Architecture Proposal
+
+<small>Version 0.4</small><br>
+<small>Updated Nov 3, 2026 10:02pm</small>
 
 **Date:** 2026-11-02
 **Status:** Accepted as the build plan. Open decisions are listed in section 14.
 **Basis:** Read-only review of `D:\Repos\krueger-richard-website\apps\kr-homebase`, plus the working skeleton built on 2026-11-02 (sections 3 and 13).
 **Changes from v0.2:** zod is adopted. A testing plan is added (section 9). The workspace skeleton (contracts, API, web) exists and passes its checks. The AGENTS files are ported (section 10). The outside-programs bridge is added (section 8). The unclear "vertical slice" wording is gone from the document.
+**Changes from v0.3:** The AGENTS system is ported in full: root index plus `AGENTS_01` to `AGENTS_06`, three version tracks, stop-port scripts, and `docs/patch-notes` (section 10).
 
 ---
 
@@ -162,15 +166,21 @@ Open decisions: where keys live (ask `api` through a private internal route, or 
 
 ## 10. AGENTS files
 
-Ported and adapted from the old app. The review of each rule (kept, changed, dropped, and why) is in `docs/02_AGENTS_Review.md`.
+Ported and adapted from the old repository. The review of each rule (kept, changed, dropped, and why) is in `docs/02_AGENTS_Review.md`.
 
 | File | Covers |
 |---|---|
-| `AGENTS.md` (root) | Hard rules, repository map, dependency direction, commands, standards, working agreement. |
+| `AGENTS.md` (root) | Index of the guides below, hard rules, response header, logging, styling preflight, dialog standard, repository map, dependency direction, ports and stop scripts, documentation locations, version metadata, standards, commands, collaboration notes. |
+| `AGENTS_01_version-procedures.md` | Three version tracks (repository, API, web), patch numbers and dates, reporting, task lists. |
+| `AGENTS_02_commit-push-procedures.md` | Dan commits and pushes; commit message rules; report format. |
+| `AGENTS_03_documentation-standards.md` | Title, version and updated-time header on every Markdown file. |
+| `AGENTS_04_coding-style.md` | Descriptive comments, JSDoc, section markers, filenames. |
+| `AGENTS_05_coding-style-tailwindcss.md` | Tailwind, `STYLES` and `LAYOUT_STYLES` maps, CSS boundaries. |
+| `AGENTS_06_d1-migration-procedures.md` | D1 SQL rules, owner-applied migrations, verification, snapshot imports. |
 | `apps/api/AGENTS.md` | Search before adding a route, `defineRoute()` requirement, folder pattern, testing requirements, standards, completion checklist. |
 | `apps/web/AGENTS.md` | Boundary rules, how the API is reached, tooling notes, conventions carried over from the old app. |
 | `packages/contracts/AGENTS.md` | Rules for the shared zod descriptions. |
-| `CLAUDE.md` (four copies) | One line, `@AGENTS.md`, so Claude Code reads the AGENTS file. |
+| `CLAUDE.md` (four copies) | One line, `@AGENTS.md`, so Claude Code reads the root or local AGENTS file. The companion guides are read when the index says so. |
 
 ---
 
@@ -210,8 +220,9 @@ krhomebase/
 │  ├─ api-client/                   # generated typed client                    (planned)
 │  ├─ db/                           # migrations, generated row types           (planned)
 │  └─ config/                       # shared lint settings                      (planned; tsconfig.base.json is at the root)
-├─ docs/  scripts/  snapshots/
-├─ AGENTS.md  CLAUDE.md  package.json  pnpm-workspace.yaml  tsconfig.base.json
+├─ docs/                          # includes patch-notes/ (repository, api, web task lists)
+├─ scripts/  snapshots/           # scripts includes stop-dev-port.windows.ps1
+├─ AGENTS.md  AGENTS_01..06  CLAUDE.md  package.json  pnpm-workspace.yaml  tsconfig.base.json
 ```
 
 Naming rules:
