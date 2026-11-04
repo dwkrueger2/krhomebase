@@ -1,0 +1,3631 @@
+{
+ "note": "Generated 2026-11-02 from krhomebase_dev_20261102_1009_schema.sql (DDL only). Used by order-data.mjs.",
+ "columns": {
+  "action_review_stamp": [
+   "id",
+   "funding_action_id",
+   "user_id",
+   "stamp_type",
+   "stamped_at",
+   "notes"
+  ],
+  "address": [
+   "id",
+   "building_name",
+   "street_level",
+   "street_number",
+   "street_name",
+   "street1",
+   "street2",
+   "city",
+   "state",
+   "postal_code",
+   "country",
+   "county",
+   "po_box_type",
+   "po_box_number",
+   "po_box_instructions",
+   "address_quality",
+   "source_system",
+   "source_raw_text",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "asset": [
+   "id",
+   "matter_id",
+   "asset_number",
+   "asset_type",
+   "asset_category",
+   "display_name",
+   "description",
+   "planning_status",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "asset_detail_bank": [
+   "id",
+   "asset_id",
+   "institution_name",
+   "account_type",
+   "account_number_masked",
+   "titling_confirmed",
+   "pod_tod_designation"
+  ],
+  "asset_detail_digital": [
+   "id",
+   "asset_id",
+   "platform_name",
+   "asset_identifier",
+   "access_instructions_location",
+   "two_factor_notes",
+   "custodian_contact"
+  ],
+  "asset_detail_entity": [
+   "id",
+   "asset_id",
+   "entity_interest_name",
+   "entity_id",
+   "interest_type",
+   "ownership_percentage",
+   "operating_agreement_known",
+   "buy_sell_restrictions",
+   "assignment_document_id"
+  ],
+  "asset_detail_insurance": [
+   "id",
+   "asset_id",
+   "carrier_name",
+   "policy_number_masked",
+   "insured_name",
+   "owner_name_exact",
+   "policy_type",
+   "death_benefit",
+   "cash_value",
+   "beneficiary_designations_known"
+  ],
+  "asset_detail_real_estate": [
+   "id",
+   "asset_id",
+   "property_address",
+   "county",
+   "state",
+   "legal_description",
+   "parcel_id",
+   "deed_type",
+   "homestead",
+   "mortgage_lender",
+   "deed_document_id"
+  ],
+  "asset_detail_retirement": [
+   "id",
+   "asset_id",
+   "custodian_name",
+   "plan_type",
+   "account_number_masked",
+   "beneficiary_designations_known",
+   "required_min_distribution_notes"
+  ],
+  "asset_detail_tangible": [
+   "id",
+   "asset_id",
+   "item_description",
+   "location",
+   "serial_number_masked",
+   "insured",
+   "appraisal_document_id"
+  ],
+  "asset_detail_vehicle": [
+   "id",
+   "asset_id",
+   "vin_masked",
+   "year",
+   "make",
+   "model",
+   "title_state",
+   "lienholder",
+   "title_document_id"
+  ],
+  "asset_ownership": [
+   "id",
+   "asset_id",
+   "ownership_type",
+   "current_owner_name_exact",
+   "owner_client_id",
+   "owner_individual_id",
+   "owner_entity_id",
+   "co_owner_name",
+   "co_owner_client_id",
+   "co_owner_individual_id",
+   "co_owner_entity_id",
+   "notes"
+  ],
+  "asset_valuation": [
+   "id",
+   "asset_id",
+   "estimated_value",
+   "value_date",
+   "value_source",
+   "debt_amount",
+   "equity_value",
+   "notes"
+  ],
+  "audit_log": [
+   "id",
+   "actor_user_id",
+   "action",
+   "target_table",
+   "target_id",
+   "matter_id",
+   "client_id",
+   "ip_address",
+   "user_agent",
+   "previous_json",
+   "new_json",
+   "request_id",
+   "actor_email",
+   "actor_role",
+   "source",
+   "resource",
+   "idempotency_key",
+   "success",
+   "error_message",
+   "created_at"
+  ],
+  "bank_deposit": [
+   "id",
+   "deposit_number",
+   "deposit_date",
+   "memo",
+   "bank_account_id",
+   "deposit_method",
+   "status",
+   "item_count",
+   "total_amount",
+   "deposited_by_user_id",
+   "teller_name",
+   "source_document_id",
+   "printed_at",
+   "created_by_user_id",
+   "created_at",
+   "updated_at"
+  ],
+  "bank_deposit_item": [
+   "id",
+   "bank_deposit_id",
+   "payment_id",
+   "ledger_entry_id",
+   "item_type",
+   "source_receipt_number",
+   "matter_id",
+   "matter_number_text",
+   "drawer_name",
+   "routing_last4",
+   "routing_number",
+   "account_last4",
+   "account_number",
+   "amount",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "beneficiary_designation": [
+   "id",
+   "asset_id",
+   "designation_type",
+   "beneficiary_name",
+   "percentage",
+   "relationship",
+   "beneficiary_client_id",
+   "beneficiary_individual_id",
+   "beneficiary_entity_id",
+   "designation_confirmed",
+   "notes"
+  ],
+  "billing_activity_code": [
+   "id",
+   "code",
+   "label",
+   "description",
+   "jurisdiction_state",
+   "default_billing_mode",
+   "default_rate",
+   "is_active",
+   "source_system",
+   "created_at",
+   "updated_at"
+  ],
+  "client": [
+   "id",
+   "client_number",
+   "client_type",
+   "individual_id",
+   "entity_id",
+   "display_name",
+   "short_name",
+   "card_image_media_id",
+   "prospect_status",
+   "intake_date",
+   "status",
+   "marketing_consent_status",
+   "marketing_consent_at",
+   "tax_identifier_last4",
+   "tax_identifier",
+   "source_system",
+   "source_client_number",
+   "source_card_name",
+   "source_short_name",
+   "import_batch_id",
+   "created_at",
+   "updated_at"
+  ],
+  "client_lead_profile": [
+   "id",
+   "individual_id",
+   "public_inquiry_id",
+   "source_id",
+   "pipeline_stage_id",
+   "lead_status",
+   "lead_source_text",
+   "referral_source",
+   "referring_url",
+   "campaign",
+   "first_contacted_at",
+   "last_contacted_at",
+   "qualified_at",
+   "converted_at",
+   "lost_at",
+   "lost_reason",
+   "assigned_to_user_id",
+   "created_at",
+   "updated_at"
+  ],
+  "client_lead_profile_legacy_orphan": [
+   "id",
+   "client_id",
+   "public_inquiry_id",
+   "source_id",
+   "pipeline_stage_id",
+   "lead_status",
+   "lead_source_text",
+   "referral_source",
+   "referring_url",
+   "campaign",
+   "first_contacted_at",
+   "last_contacted_at",
+   "qualified_at",
+   "converted_at",
+   "lost_at",
+   "lost_reason",
+   "assigned_to_user_id",
+   "created_at",
+   "updated_at",
+   "archived_at"
+  ],
+  "client_member": [
+   "id",
+   "client_id",
+   "individual_id",
+   "entity_id",
+   "member_role",
+   "is_primary",
+   "receives_bills",
+   "signs_engagement",
+   "start_date",
+   "end_date",
+   "source_system",
+   "source_name_snapshot",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "communication_attachment": [
+   "id",
+   "communication_id",
+   "document_record_id",
+   "media_asset_id",
+   "filename",
+   "content_type",
+   "external_url",
+   "created_at"
+  ],
+  "communication_log": [
+   "id",
+   "owner_type",
+   "owner_id",
+   "matter_id",
+   "client_id",
+   "individual_id",
+   "entity_id",
+   "communication_type",
+   "direction",
+   "subject",
+   "body_summary",
+   "occurred_at",
+   "status",
+   "external_message_id",
+   "source_system",
+   "source_record_id",
+   "created_by_user_id",
+   "created_at",
+   "updated_at"
+  ],
+  "communication_participant": [
+   "id",
+   "communication_id",
+   "participant_role",
+   "individual_id",
+   "entity_id",
+   "user_id",
+   "display_name",
+   "email",
+   "phone",
+   "is_primary",
+   "created_at"
+  ],
+  "compliance_filing": [
+   "id",
+   "entity_id",
+   "filing_type",
+   "filing_period",
+   "due_date",
+   "filed_date",
+   "status",
+   "confirmation_number",
+   "document_record_id",
+   "assigned_to_user_id",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "conflict_check": [
+   "id",
+   "matter_id",
+   "checked_against_client_id",
+   "checked_against_individual_id",
+   "checked_against_entity_id",
+   "checked_by_user_id",
+   "checked_date",
+   "result",
+   "notes",
+   "created_at"
+  ],
+  "conflict_check_party": [
+   "id",
+   "conflict_check_id",
+   "matter_id",
+   "client_id",
+   "party_name",
+   "party_role",
+   "individual_id",
+   "entity_id",
+   "relationship_to_matter",
+   "search_terms",
+   "created_at"
+  ],
+  "conflict_check_result": [
+   "id",
+   "conflict_check_id",
+   "matched_owner_type",
+   "matched_owner_id",
+   "matched_name",
+   "match_strength",
+   "conflict_type",
+   "disposition",
+   "notes",
+   "created_at"
+  ],
+  "contact_resolution": [
+   "id",
+   "source_kind",
+   "source_contact_id",
+   "source_client_id",
+   "target_kind",
+   "target_contact_id",
+   "target_client_id",
+   "operation",
+   "reason",
+   "actor_user_id",
+   "actor_email",
+   "request_id",
+   "idempotency_key",
+   "created_at"
+  ],
+  "content_asset": [
+   "id",
+   "content_id",
+   "original_relative_path",
+   "r2_key",
+   "public_url",
+   "mime_type",
+   "file_size",
+   "width",
+   "height",
+   "usage",
+   "alt_text",
+   "sha256",
+   "created_at"
+  ],
+  "content_author": [
+   "id",
+   "display_name",
+   "public_title",
+   "bio_html",
+   "headshot_r2_key",
+   "headshot_public_url",
+   "active",
+   "created_at",
+   "updated_at"
+  ],
+  "content_revision": [
+   "id",
+   "content_id",
+   "revision_number",
+   "content_json",
+   "sanitized_html",
+   "asset_manifest_json",
+   "changed_by_user_id",
+   "change_note",
+   "created_at"
+  ],
+  "content_sequence": [
+   "content_type",
+   "next_sequence",
+   "updated_at"
+  ],
+  "custom_field_definition": [
+   "id",
+   "set_id",
+   "field_key",
+   "label",
+   "field_type",
+   "is_required",
+   "options_json",
+   "sort_order",
+   "is_active",
+   "created_at",
+   "updated_at"
+  ],
+  "custom_field_set": [
+   "id",
+   "set_key",
+   "label",
+   "owner_type",
+   "description",
+   "is_active",
+   "sort_order",
+   "created_at",
+   "updated_at"
+  ],
+  "custom_field_value": [
+   "id",
+   "definition_id",
+   "owner_type",
+   "owner_id",
+   "value_text",
+   "value_number",
+   "value_date",
+   "value_json",
+   "created_by_user_id",
+   "updated_by_user_id",
+   "created_at",
+   "updated_at"
+  ],
+  "document_record": [
+   "id",
+   "document_number",
+   "owner_type",
+   "owner_id",
+   "client_id",
+   "matter_id",
+   "individual_id",
+   "entity_id",
+   "employee_id",
+   "title",
+   "document_category_lookup_id",
+   "document_type",
+   "document_date",
+   "storage_type",
+   "primary_media_asset_id",
+   "external_url",
+   "external_provider",
+   "external_resource_type",
+   "storage_status",
+   "is_confidential",
+   "source",
+   "received_date",
+   "notes",
+   "created_by_user_id",
+   "created_at",
+   "updated_at"
+  ],
+  "document_template": [
+   "id",
+   "template_key",
+   "title",
+   "description",
+   "category",
+   "storage_type",
+   "external_url",
+   "media_asset_id",
+   "is_active",
+   "created_at",
+   "updated_at"
+  ],
+  "employee": [
+   "id",
+   "user_id",
+   "employee_number",
+   "staff_code",
+   "employment_status",
+   "job_title",
+   "department",
+   "qualification",
+   "login_status",
+   "show_in_staff_list",
+   "hire_date",
+   "termination_date",
+   "review_cycle_anchor_date",
+   "last_review_date",
+   "last_review_notes",
+   "next_review_date",
+   "employee_folder_url",
+   "private_hr_folder_url",
+   "pto_policy_id",
+   "pto_balance_hours",
+   "pay_type",
+   "current_pay_rate",
+   "pay_rate_effective_date",
+   "staff_created_date",
+   "user_created_date",
+   "employee_image_media_id",
+   "ssn_last4",
+   "ssn",
+   "emergency_contact_name",
+   "emergency_contact_phone",
+   "notes",
+   "created_at",
+   "updated_at",
+   "is_1099_vendor"
+  ],
+  "employee_certification": [
+   "id",
+   "employee_id",
+   "certification_type_lookup_id",
+   "certification_type",
+   "description",
+   "issuing_state",
+   "issuing_authority",
+   "registration_number",
+   "issue_date",
+   "expiration_date",
+   "status",
+   "document_record_id",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "employee_pay_rate": [
+   "id",
+   "employee_id",
+   "rate_type",
+   "rate_amount",
+   "effective_date",
+   "end_date",
+   "approved_by_user_id",
+   "notes",
+   "created_at"
+  ],
+  "employee_pto_ledger": [
+   "id",
+   "employee_id",
+   "employee_time_event_id",
+   "policy_id",
+   "ledger_date",
+   "entry_type",
+   "hours_delta",
+   "balance_after_hours",
+   "notes",
+   "created_by_user_id",
+   "created_at"
+  ],
+  "employee_review_event": [
+   "id",
+   "employee_id",
+   "review_type",
+   "review_date",
+   "reviewer_user_id",
+   "outcome",
+   "notes",
+   "document_record_id",
+   "next_review_date",
+   "created_at",
+   "updated_at"
+  ],
+  "employee_time_card": [
+   "id",
+   "employee_id",
+   "pay_period_id",
+   "status",
+   "employee_approved_by_user_id",
+   "employee_approved_at",
+   "locked_at",
+   "reopened_by_user_id",
+   "reopened_at",
+   "payroll_exported_at",
+   "notes",
+   "created_at",
+   "updated_at",
+   "manager_approved_by_user_id",
+   "manager_approved_at"
+  ],
+  "employee_time_event": [
+   "id",
+   "employee_id",
+   "pay_period_id",
+   "work_date",
+   "start_at",
+   "end_at",
+   "break_minutes",
+   "hours",
+   "pay_rate",
+   "time_type",
+   "status",
+   "pay_period_start",
+   "pay_period_end",
+   "is_pto_accrual_eligible",
+   "pto_accrual_rate",
+   "pto_hours_accrued",
+   "submitted_at",
+   "approved_by_user_id",
+   "approved_at",
+   "rejected_by_user_id",
+   "rejected_at",
+   "rejection_reason",
+   "payroll_exported_at",
+   "notes",
+   "created_by_user_id",
+   "created_at",
+   "updated_at",
+   "time_card_id"
+  ],
+  "employee_time_punch": [
+   "id",
+   "employee_id",
+   "time_card_id",
+   "punch_type",
+   "occurred_at",
+   "local_date",
+   "timezone",
+   "source",
+   "correction_reason",
+   "supersedes_punch_id",
+   "voided_at",
+   "created_by_user_id",
+   "created_at",
+   "idempotency_key"
+  ],
+  "entity": [
+   "id",
+   "legal_name",
+   "entity_subtype_legacy",
+   "partnership_type",
+   "management_structure",
+   "ein",
+   "ein_last4",
+   "state_of_formation",
+   "formation_date",
+   "entity_status",
+   "sos_file_number",
+   "state_taxpayer_number",
+   "xt_number",
+   "registered_agent_name",
+   "boi_status",
+   "boi_confirmation_number",
+   "notes",
+   "created_at",
+   "updated_at",
+   "entity_subtype",
+   "ecid"
+  ],
+  "entity_address": [
+   "id",
+   "entity_id",
+   "address_id",
+   "address_type_lookup_id",
+   "use_context",
+   "is_primary",
+   "valid_from",
+   "valid_to",
+   "source",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "entity_contact": [
+   "id",
+   "entity_id",
+   "individual_id",
+   "role_lookup_id",
+   "is_primary",
+   "start_date",
+   "end_date",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "entity_contact_method": [
+   "id",
+   "entity_id",
+   "contact_type",
+   "subtype_lookup_id",
+   "value",
+   "label",
+   "use_context",
+   "is_primary",
+   "can_text",
+   "is_verified",
+   "do_not_contact",
+   "marketing_consent_status",
+   "marketing_consent_at",
+   "source_system",
+   "source_label",
+   "valid_from",
+   "valid_to",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "entity_dba": [
+   "id",
+   "entity_id",
+   "dba_name",
+   "state",
+   "county",
+   "start_date",
+   "end_date",
+   "is_active"
+  ],
+  "entity_event": [
+   "id",
+   "entity_id",
+   "matter_id",
+   "event_type_lookup_id",
+   "subject",
+   "event_date",
+   "due_date",
+   "is_complete",
+   "assigned_to_user_id",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "entity_registration": [
+   "id",
+   "entity_id",
+   "registration_type",
+   "jurisdiction",
+   "registration_number",
+   "status",
+   "registration_date",
+   "expiration_date",
+   "document_record_id",
+   "notes"
+  ],
+  "event": [
+   "id",
+   "matter_id",
+   "related_client_id",
+   "related_individual_id",
+   "related_entity_id",
+   "user_id",
+   "assigned_to_user_id",
+   "organizer_name",
+   "event_type_lookup_id",
+   "subject",
+   "notes",
+   "event_date",
+   "start_at",
+   "end_at",
+   "location",
+   "status",
+   "due_date",
+   "is_complete",
+   "source_system",
+   "import_batch_id",
+   "created_at",
+   "updated_at"
+  ],
+  "event_participant": [
+   "id",
+   "event_id",
+   "user_id",
+   "client_id",
+   "individual_id",
+   "entity_id",
+   "participant_role",
+   "display_name",
+   "email",
+   "status",
+   "created_at",
+   "updated_at"
+  ],
+  "expense_entry": [
+   "id",
+   "matter_id",
+   "user_id",
+   "expense_date",
+   "expense_category",
+   "description",
+   "quantity",
+   "unit_cost",
+   "amount",
+   "billing_status",
+   "invoice_id",
+   "source_system",
+   "source_record_id",
+   "created_at",
+   "updated_at"
+  ],
+  "external_integration_account": [
+   "id",
+   "provider",
+   "account_name",
+   "region",
+   "status",
+   "external_account_id",
+   "sync_enabled",
+   "last_sync_at",
+   "created_at",
+   "updated_at",
+   "notes"
+  ],
+  "external_source_map": [
+   "id",
+   "import_batch_id",
+   "source_system",
+   "source_table",
+   "source_file_name",
+   "source_row_number",
+   "source_record_id",
+   "source_key",
+   "target_table",
+   "target_id",
+   "target_field",
+   "source_json",
+   "mapping_status",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "external_sync_state": [
+   "id",
+   "integration_account_id",
+   "resource_type",
+   "cursor_value",
+   "last_success_at",
+   "last_error_at",
+   "last_error_message",
+   "created_at",
+   "updated_at"
+  ],
+  "external_webhook_event": [
+   "id",
+   "integration_account_id",
+   "provider",
+   "external_event_id",
+   "event_type",
+   "resource_type",
+   "resource_id",
+   "received_at",
+   "processed_at",
+   "processing_status",
+   "payload_json",
+   "error_message",
+   "created_at"
+  ],
+  "firm_bank_account": [
+   "id",
+   "account_name",
+   "account_type",
+   "bank_name",
+   "routing_last4",
+   "routing_number",
+   "account_last4",
+   "account_number",
+   "external_account_name",
+   "is_active",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "firm_holiday": [
+   "id",
+   "policy_id",
+   "holiday_name",
+   "observed_rule",
+   "fixed_month",
+   "fixed_day",
+   "sort_order",
+   "is_paid",
+   "is_active",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "funding_action": [
+   "id",
+   "asset_id",
+   "matter_id",
+   "action_type",
+   "action_description",
+   "priority",
+   "attorney_review_required",
+   "assigned_to_user_id",
+   "status",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "hr_policy": [
+   "id",
+   "policy_code",
+   "policy_type",
+   "title",
+   "effective_date",
+   "end_date",
+   "status",
+   "summary",
+   "policy_text",
+   "settings_json",
+   "created_by_user_id",
+   "created_at",
+   "updated_at"
+  ],
+  "hr_policy_rule": [
+   "id",
+   "policy_id",
+   "rule_type",
+   "rule_label",
+   "service_months_min",
+   "service_months_max",
+   "accrual_rate_per_hour",
+   "max_hours_per_year",
+   "paid_hours",
+   "rule_json",
+   "sort_order",
+   "is_active",
+   "created_at",
+   "updated_at"
+  ],
+  "import_batch": [
+   "id",
+   "source_system",
+   "source_file_name",
+   "source_file_type",
+   "file_sha256",
+   "row_count",
+   "imported_by_user_id",
+   "imported_at",
+   "status",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "individual": [
+   "id",
+   "title_prefix",
+   "first_name",
+   "middle_name",
+   "last_name",
+   "suffix",
+   "preferred_name",
+   "dob",
+   "ssn",
+   "ssn_last4",
+   "is_minor",
+   "notes",
+   "created_at",
+   "updated_at",
+   "is_attorney",
+   "icid"
+  ],
+  "individual_address": [
+   "id",
+   "individual_id",
+   "address_id",
+   "address_type_lookup_id",
+   "use_context",
+   "is_primary",
+   "valid_from",
+   "valid_to",
+   "source",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "individual_contact_method": [
+   "id",
+   "individual_id",
+   "contact_type",
+   "subtype_lookup_id",
+   "value",
+   "label",
+   "use_context",
+   "is_primary",
+   "can_text",
+   "is_verified",
+   "do_not_contact",
+   "marketing_consent_status",
+   "marketing_consent_at",
+   "source_system",
+   "source_label",
+   "valid_from",
+   "valid_to",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "individual_relationship": [
+   "id",
+   "individual_a_id",
+   "individual_b_id",
+   "a_to_b_relationship_lookup_id",
+   "b_to_a_relationship_lookup_id",
+   "relationship_status",
+   "valid_from",
+   "valid_to",
+   "is_primary",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "invoice": [
+   "id",
+   "matter_id",
+   "billing_profile_id",
+   "billed_to_client_id",
+   "invoice_number",
+   "invoice_date",
+   "period_start",
+   "period_end",
+   "due_date",
+   "subtotal_amount",
+   "discount_amount",
+   "tax_amount",
+   "total_amount",
+   "amount_paid",
+   "balance_due",
+   "status",
+   "sent_at",
+   "paid_at",
+   "source_system",
+   "source_invoice_number",
+   "notes",
+   "created_at",
+   "updated_at",
+   "ivid"
+  ],
+  "invoice_line_item": [
+   "id",
+   "invoice_id",
+   "matter_id",
+   "time_entry_id",
+   "fee_component_id",
+   "ledger_entry_id",
+   "line_type",
+   "activity_code",
+   "description",
+   "quantity",
+   "unit_rate",
+   "subtotal_amount",
+   "tax_amount",
+   "total_amount",
+   "display_on_invoice",
+   "sort_order",
+   "created_at",
+   "updated_at"
+  ],
+  "kr_crud_worker_smoke_test": [
+   "id",
+   "test_key",
+   "test_label",
+   "test_note",
+   "test_count",
+   "is_active",
+   "created_at",
+   "updated_at"
+  ],
+  "kr_homebase_initialization": [
+   "id",
+   "status",
+   "bootstrap_user_id",
+   "bootstrap_email",
+   "bootstrap_provider",
+   "bootstrap_provider_subject",
+   "initialized_at",
+   "created_at",
+   "updated_at",
+   "notes"
+  ],
+  "kr_maintenance_gate": [
+   "id",
+   "locked",
+   "reason",
+   "set_by",
+   "set_at",
+   "updated_at"
+  ],
+  "kr_note": [
+   "id",
+   "owner_type",
+   "owner_id",
+   "note_type",
+   "subject",
+   "body",
+   "body_format",
+   "visibility",
+   "is_pinned",
+   "is_confidential",
+   "created_by_user_id",
+   "updated_by_user_id",
+   "created_at",
+   "updated_at",
+   "archived_at"
+  ],
+  "kr_session": [
+   "id",
+   "session_token_hash",
+   "user_id",
+   "created_at",
+   "expires_at",
+   "last_seen_at",
+   "revoked_at",
+   "revoked_reason",
+   "ip_hash",
+   "user_agent_hash",
+   "mfa_verified",
+   "created_by",
+   "updated_at"
+  ],
+  "lead": [
+   "id",
+   "lcid",
+   "individual_id",
+   "public_inquiry_id",
+   "source",
+   "status",
+   "urgency",
+   "summary",
+   "practice_area",
+   "assigned_to_user_id",
+   "received_at",
+   "last_action_at",
+   "converted_client_id",
+   "created_at",
+   "updated_at"
+  ],
+  "lead_pipeline_stage": [
+   "id",
+   "stage_key",
+   "label",
+   "sort_order",
+   "is_terminal",
+   "is_active",
+   "created_at",
+   "updated_at"
+  ],
+  "lead_source": [
+   "id",
+   "source_key",
+   "label",
+   "channel",
+   "description",
+   "is_active",
+   "created_at",
+   "updated_at"
+  ],
+  "ledger_audit_log": [
+   "id",
+   "ledger_entry_id",
+   "invoice_id",
+   "matter_id",
+   "action",
+   "actor_user_id",
+   "action_at",
+   "previous_values_json",
+   "new_values_json",
+   "notes"
+  ],
+  "ledger_entry": [
+   "id",
+   "invoice_id",
+   "matter_id",
+   "client_id",
+   "payment_id",
+   "bank_deposit_id",
+   "ledger_bucket",
+   "entry_type",
+   "entry_direction",
+   "payment_type_lookup_id",
+   "amount",
+   "amount_ex_tax",
+   "tax_amount",
+   "amount_inc_tax",
+   "entry_date",
+   "reference_number",
+   "memo",
+   "notes",
+   "source_system",
+   "source_record_id",
+   "source_report_column",
+   "received_by_user_id",
+   "created_by_user_id",
+   "created_at",
+   "voided_at",
+   "voided_by_user_id",
+   "void_reason"
+  ],
+  "lookup": [
+   "id",
+   "category",
+   "value",
+   "label",
+   "description",
+   "sort_order",
+   "is_active",
+   "created_at",
+   "updated_at"
+  ],
+  "matter": [
+   "id",
+   "matter_number",
+   "source_system",
+   "source_matter_number",
+   "title",
+   "description",
+   "matter_type_label",
+   "jurisdiction_state",
+   "practice_area_lookup_id",
+   "status_lookup_id",
+   "source_status_label",
+   "opened_date",
+   "instruction_date",
+   "closed_date",
+   "completed_date",
+   "billing_category",
+   "reporting_group",
+   "other_side_name",
+   "primary_attorney_user_id",
+   "responsible_staff_user_id",
+   "acting_staff_user_id",
+   "assisting_staff_user_id",
+   "originating_attorney_user_id",
+   "created_by_user_id",
+   "cover_image_media_id",
+   "import_batch_id",
+   "created_at",
+   "updated_at"
+  ],
+  "matter_access": [
+   "id",
+   "matter_id",
+   "user_id",
+   "access_level",
+   "access_source",
+   "is_active",
+   "granted_by_user_id",
+   "granted_at",
+   "revoked_by_user_id",
+   "revoked_at",
+   "notes"
+  ],
+  "matter_activity_log": [
+   "id",
+   "matter_id",
+   "project_identifier",
+   "activity_date",
+   "activity_type",
+   "subject",
+   "description",
+   "task_id",
+   "task_assignment",
+   "assigned_to_user_id",
+   "performed_by_user_id",
+   "created_at",
+   "updated_at"
+  ],
+  "matter_balance_snapshot": [
+   "id",
+   "matter_id",
+   "matter_number",
+   "snapshot_date",
+   "source_system",
+   "import_batch_id",
+   "source_row_number",
+   "matter_type",
+   "client_name",
+   "matter_description",
+   "staff_responsible_code",
+   "staff_acting_code",
+   "staff_assisting_code",
+   "originating_attorney_code",
+   "trust_balance",
+   "wip_inc_tax",
+   "wip_ex_tax",
+   "receivables_inc_tax",
+   "receivables_ex_tax",
+   "retainer_credits",
+   "expense_recoveries_inc_tax",
+   "expense_recoveries_ex_tax",
+   "expense_journal_inc_tax",
+   "expense_journal_ex_tax",
+   "expenses_inc_tax",
+   "expenses_ex_tax",
+   "anticipated_expenses_inc_tax",
+   "anticipated_expenses_ex_tax",
+   "staff_responsible_name",
+   "staff_acting_name",
+   "staff_assisting_name",
+   "originating_attorney_name",
+   "receivable_name",
+   "billing_category",
+   "reporting_group",
+   "created_at"
+  ],
+  "matter_billing_profile": [
+   "id",
+   "matter_id",
+   "billing_client_id",
+   "receivable_client_id",
+   "fee_arrangement",
+   "billing_category",
+   "reporting_group",
+   "default_hourly_rate",
+   "flat_fee_amount",
+   "retainer_required",
+   "trust_balance_required",
+   "default_invoice_visibility",
+   "invoice_delivery_method",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "matter_fee_component": [
+   "id",
+   "matter_id",
+   "billing_profile_id",
+   "component_code",
+   "title",
+   "description",
+   "fee_type",
+   "amount",
+   "tax_amount",
+   "total_amount",
+   "display_on_invoice",
+   "status",
+   "sort_order",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "matter_party": [
+   "id",
+   "matter_id",
+   "client_id",
+   "individual_id",
+   "entity_id",
+   "party_role_lookup_id",
+   "is_primary_client",
+   "is_responsible_party",
+   "receives_bill",
+   "signs_engagement",
+   "added_date",
+   "notes"
+  ],
+  "matter_staff_assignment": [
+   "id",
+   "matter_id",
+   "user_id",
+   "assignment_role",
+   "staff_code",
+   "staff_name_snapshot",
+   "assigned_date",
+   "ended_date",
+   "is_current",
+   "source_system",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "matter_stage_history": [
+   "id",
+   "matter_id",
+   "previous_status_lookup_id",
+   "next_status_lookup_id",
+   "previous_status_label",
+   "next_status_label",
+   "changed_by_user_id",
+   "changed_at",
+   "note"
+  ],
+  "media_asset": [
+   "id",
+   "r2_bucket",
+   "r2_key",
+   "owner_type",
+   "owner_id",
+   "purpose",
+   "content_type",
+   "byte_size",
+   "original_filename",
+   "file_ext",
+   "sha256",
+   "width",
+   "height",
+   "visibility",
+   "status",
+   "uploaded_by_user_id",
+   "created_at",
+   "updated_at",
+   "deleted_at"
+  ],
+  "media_variant": [
+   "id",
+   "media_asset_id",
+   "variant_name",
+   "r2_bucket",
+   "r2_key",
+   "content_type",
+   "byte_size",
+   "width",
+   "height",
+   "created_at"
+  ],
+  "pay_period": [
+   "id",
+   "period_start",
+   "period_end",
+   "pay_date",
+   "status",
+   "payroll_batch_ref",
+   "processed_by_user_id",
+   "processed_at",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "payment": [
+   "id",
+   "payment_number",
+   "source_receipt_number",
+   "matter_id",
+   "client_id",
+   "received_date",
+   "payment_type_lookup_id",
+   "amount",
+   "unapplied_amount",
+   "bank_account_id",
+   "reference_number",
+   "memo",
+   "source_system",
+   "source_record_id",
+   "import_batch_id",
+   "received_by_user_id",
+   "created_by_user_id",
+   "created_at",
+   "updated_at",
+   "voided_at",
+   "voided_by_user_id",
+   "void_reason",
+   "refund_provider_id",
+   "refund_status",
+   "refund_amount",
+   "refund_reference",
+   "refund_reference_type",
+   "refund_reference_status",
+   "refunded_at"
+  ],
+  "payment_application": [
+   "id",
+   "payment_id",
+   "invoice_id",
+   "matter_id",
+   "ledger_entry_id",
+   "amount",
+   "applied_date",
+   "notes",
+   "created_by_user_id",
+   "created_at",
+   "updated_at"
+  ],
+  "payment_provider": [
+   "id",
+   "ppid",
+   "provider",
+   "environment",
+   "display_name",
+   "is_enabled",
+   "account_id",
+   "account_email",
+   "publishable_key",
+   "secret_key_name",
+   "secret_key_prefix",
+   "secret_key_hash",
+   "secret_key_ciphertext",
+   "secret_key_set_at",
+   "secret_key_set_by_user_id",
+   "webhook_secret_name",
+   "webhook_secret_hash",
+   "webhook_secret_ciphertext",
+   "webhook_secret_set_at",
+   "webhook_secret_set_by_user_id",
+   "api_version",
+   "default_currency",
+   "last_verified_at",
+   "last_verified_status",
+   "notes",
+   "created_by_user_id",
+   "updated_by_user_id",
+   "created_at",
+   "updated_at"
+  ],
+  "payment_request": [
+   "id",
+   "prid",
+   "invoice_id",
+   "invoice_ivid",
+   "invoice_number",
+   "client_id",
+   "client_number",
+   "environment",
+   "token_hash",
+   "token_hint",
+   "status",
+   "expires_at",
+   "sent_document_number",
+   "first_viewed_at",
+   "last_viewed_at",
+   "view_count",
+   "intent_created_at",
+   "intent_attempts",
+   "stripe_payment_intent_id",
+   "stripe_event_id",
+   "payer_email",
+   "paid_amount",
+   "paid_at",
+   "payment_id",
+   "payment_number",
+   "posted_at",
+   "post_error",
+   "revoked_at",
+   "revoked_by_user_id",
+   "revoke_reason",
+   "created_by_user_id",
+   "created_at",
+   "updated_at",
+   "link_source"
+  ],
+  "public_content": [
+   "id",
+   "content_type",
+   "title",
+   "slug",
+   "topic_slug",
+   "canonical_path",
+   "status",
+   "summary",
+   "thumbnail_r2_key",
+   "thumbnail_public_url",
+   "thumbnail_alt",
+   "body_format",
+   "sanitized_html",
+   "source_upload_r2_key",
+   "sanitized_snapshot_r2_key",
+   "asset_manifest_json",
+   "seo_title",
+   "seo_description",
+   "author_id",
+   "author_display_name",
+   "category",
+   "category_label",
+   "pillar",
+   "reading_time_minutes",
+   "published_at",
+   "unpublished_at",
+   "created_at",
+   "updated_at",
+   "archived_at",
+   "created_by_user_id",
+   "updated_by_user_id",
+   "last_publication_r2_key",
+   "display_sequence",
+   "display_code"
+  ],
+  "publication_event": [
+   "id",
+   "content_type",
+   "content_id",
+   "event_type",
+   "event_at",
+   "actor_user_id",
+   "actor_role",
+   "status_after",
+   "past_publication_r2_key",
+   "snapshot_json",
+   "created_at"
+  ],
+  "reminder": [
+   "id",
+   "owner_type",
+   "owner_id",
+   "user_id",
+   "remind_at",
+   "method",
+   "status",
+   "snoozed_until",
+   "sent_at",
+   "dismissed_at",
+   "created_at",
+   "updated_at"
+  ],
+  "repository": [
+   "id",
+   "repository_name",
+   "repository_type",
+   "description",
+   "r2_bucket",
+   "base_prefix",
+   "is_active",
+   "created_at",
+   "updated_at"
+  ],
+  "requested_document": [
+   "id",
+   "matter_id",
+   "client_id",
+   "requested_from_client_id",
+   "document_category_lookup_id",
+   "title",
+   "description",
+   "status",
+   "requested_date",
+   "due_date",
+   "received_date",
+   "document_record_id",
+   "received_media_asset_id",
+   "notes",
+   "created_by_user_id",
+   "created_at",
+   "updated_at"
+  ],
+  "risk_flag": [
+   "id",
+   "asset_id",
+   "flag_code",
+   "flagged_by_user_id",
+   "flagged_at",
+   "resolved",
+   "resolved_at",
+   "notes"
+  ],
+  "role_set": [
+   "id",
+   "role_key",
+   "label",
+   "description",
+   "role_family",
+   "is_system",
+   "is_assignable",
+   "sort_order",
+   "is_active",
+   "created_at",
+   "updated_at"
+  ],
+  "role_set_permission": [
+   "id",
+   "role_set_id",
+   "permission_key",
+   "permission_label",
+   "permission_group",
+   "can_create",
+   "can_read",
+   "can_update",
+   "can_delete",
+   "can_approve",
+   "can_send",
+   "is_restricted_delete",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "role_set_permission_scope": [
+   "id",
+   "role_set_id",
+   "permission_key",
+   "scope",
+   "can_create",
+   "can_read",
+   "can_update",
+   "can_delete",
+   "can_approve",
+   "can_send",
+   "notes",
+   "created_at",
+   "updated_at"
+  ],
+  "task": [
+   "id",
+   "matter_id",
+   "client_id",
+   "project_identifier",
+   "title",
+   "description",
+   "type_label",
+   "status",
+   "priority",
+   "assigned_to_user_id",
+   "assigned_by_user_id",
+   "lead_user_id",
+   "workstream_activity_wsid",
+   "billing_value",
+   "billing_status",
+   "billing_description",
+   "due_date",
+   "completed_at",
+   "created_by_user_id",
+   "created_at",
+   "updated_at"
+  ],
+  "task_assignee": [
+   "id",
+   "task_id",
+   "user_id",
+   "assignment_role",
+   "assigned_by_user_id",
+   "assigned_at",
+   "ended_at",
+   "is_current"
+  ],
+  "team": [
+   "id",
+   "name",
+   "description",
+   "is_active",
+   "created_by_user_id",
+   "created_at",
+   "updated_at"
+  ],
+  "team_lead": [
+   "id",
+   "team_id",
+   "user_id",
+   "starts_at",
+   "ends_at",
+   "is_active",
+   "created_by_user_id",
+   "created_at",
+   "updated_at"
+  ],
+  "team_member": [
+   "id",
+   "team_id",
+   "employee_id",
+   "starts_at",
+   "ends_at",
+   "is_active",
+   "created_by_user_id",
+   "created_at",
+   "updated_at"
+  ],
+  "time_entry": [
+   "id",
+   "matter_id",
+   "user_id",
+   "employee_id",
+   "activity_code_id",
+   "activity_code",
+   "activity_description",
+   "entry_date",
+   "hours",
+   "rate",
+   "amount_ex_tax",
+   "tax_amount",
+   "amount_inc_tax",
+   "billing_mode",
+   "billing_status",
+   "fee_arrangement",
+   "display_on_invoice",
+   "included_in_flat_fee",
+   "flat_fee_component_id",
+   "description",
+   "is_billed",
+   "invoice_id",
+   "source_system",
+   "source_record_id",
+   "import_batch_id",
+   "source_row_number",
+   "created_at",
+   "updated_at",
+   "bcid"
+  ],
+  "timer_session": [
+   "id",
+   "matter_id",
+   "user_id",
+   "activity_code_id",
+   "started_at",
+   "stopped_at",
+   "elapsed_seconds",
+   "status",
+   "description",
+   "created_at",
+   "updated_at"
+  ],
+  "trust_request": [
+   "id",
+   "matter_id",
+   "client_id",
+   "request_number",
+   "requested_amount",
+   "request_date",
+   "due_date",
+   "status",
+   "memo",
+   "created_by_user_id",
+   "created_at",
+   "updated_at"
+  ],
+  "user": [
+   "id",
+   "individual_id",
+   "email",
+   "password_hash",
+   "role",
+   "profile_image_media_id",
+   "is_active",
+   "last_login",
+   "created_at",
+   "updated_at",
+   "role_set_id",
+   "account_status"
+  ],
+  "user_invite": [
+   "id",
+   "email",
+   "role",
+   "invited_user_id",
+   "invited_by_user_id",
+   "invite_token_hash",
+   "status",
+   "expires_at",
+   "sent_at",
+   "accepted_at",
+   "accepted_user_id",
+   "email_provider",
+   "email_provider_message_id",
+   "resend_message_id",
+   "created_at",
+   "updated_at",
+   "notes",
+   "worker_classification"
+  ],
+  "user_permission_override": [
+   "id",
+   "user_id",
+   "permission_key",
+   "permission_action",
+   "override_effect",
+   "reason",
+   "expires_at",
+   "created_by_user_id",
+   "created_at",
+   "updated_at",
+   "revoked_at",
+   "revoked_by_user_id",
+   "revoke_reason"
+  ],
+  "user_role_set": [
+   "id",
+   "user_id",
+   "role_set_id",
+   "is_primary",
+   "is_active",
+   "assigned_by_user_id",
+   "assigned_at",
+   "starts_at",
+   "expires_at",
+   "created_at",
+   "updated_at"
+  ],
+  "user_sso_identity": [
+   "id",
+   "user_id",
+   "provider",
+   "provider_subject",
+   "email",
+   "email_verified",
+   "display_name",
+   "given_name",
+   "family_name",
+   "avatar_url",
+   "hosted_domain",
+   "last_login_at",
+   "created_at",
+   "updated_at"
+  ],
+  "workstream_activity": [
+   "id",
+   "wsid",
+   "client_id",
+   "lead_id",
+   "matter_id",
+   "subgroup",
+   "activity_at",
+   "subject",
+   "note_body",
+   "note_format",
+   "next_steps_json",
+   "document_record_id",
+   "document_url",
+   "document_label",
+   "task_id",
+   "assignee_user_id",
+   "assignee_contact_id",
+   "assignee_label",
+   "visibility",
+   "performed_by_user_id",
+   "created_at",
+   "updated_at"
+  ],
+  "workstream_activity_comment": [
+   "id",
+   "workstream_activity_id",
+   "user_id",
+   "note_body",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "foreignKeys": [
+  {
+   "table": "action_review_stamp",
+   "column": "funding_action_id",
+   "references": "funding_action"
+  },
+  {
+   "table": "action_review_stamp",
+   "column": "user_id",
+   "references": "user"
+  },
+  {
+   "table": "asset",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "asset_detail_bank",
+   "column": "asset_id",
+   "references": "asset"
+  },
+  {
+   "table": "asset_detail_digital",
+   "column": "asset_id",
+   "references": "asset"
+  },
+  {
+   "table": "asset_detail_entity",
+   "column": "asset_id",
+   "references": "asset"
+  },
+  {
+   "table": "asset_detail_entity",
+   "column": "assignment_document_id",
+   "references": "document_record"
+  },
+  {
+   "table": "asset_detail_entity",
+   "column": "entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "asset_detail_insurance",
+   "column": "asset_id",
+   "references": "asset"
+  },
+  {
+   "table": "asset_detail_real_estate",
+   "column": "asset_id",
+   "references": "asset"
+  },
+  {
+   "table": "asset_detail_real_estate",
+   "column": "deed_document_id",
+   "references": "document_record"
+  },
+  {
+   "table": "asset_detail_retirement",
+   "column": "asset_id",
+   "references": "asset"
+  },
+  {
+   "table": "asset_detail_tangible",
+   "column": "asset_id",
+   "references": "asset"
+  },
+  {
+   "table": "asset_detail_tangible",
+   "column": "appraisal_document_id",
+   "references": "document_record"
+  },
+  {
+   "table": "asset_detail_vehicle",
+   "column": "asset_id",
+   "references": "asset"
+  },
+  {
+   "table": "asset_detail_vehicle",
+   "column": "title_document_id",
+   "references": "document_record"
+  },
+  {
+   "table": "asset_ownership",
+   "column": "asset_id",
+   "references": "asset"
+  },
+  {
+   "table": "asset_ownership",
+   "column": "co_owner_client_id",
+   "references": "client"
+  },
+  {
+   "table": "asset_ownership",
+   "column": "owner_client_id",
+   "references": "client"
+  },
+  {
+   "table": "asset_ownership",
+   "column": "co_owner_entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "asset_ownership",
+   "column": "owner_entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "asset_ownership",
+   "column": "co_owner_individual_id",
+   "references": "individual"
+  },
+  {
+   "table": "asset_ownership",
+   "column": "owner_individual_id",
+   "references": "individual"
+  },
+  {
+   "table": "asset_valuation",
+   "column": "asset_id",
+   "references": "asset"
+  },
+  {
+   "table": "audit_log",
+   "column": "client_id",
+   "references": "client"
+  },
+  {
+   "table": "audit_log",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "audit_log",
+   "column": "actor_user_id",
+   "references": "user"
+  },
+  {
+   "table": "bank_deposit",
+   "column": "source_document_id",
+   "references": "document_record"
+  },
+  {
+   "table": "bank_deposit",
+   "column": "bank_account_id",
+   "references": "firm_bank_account"
+  },
+  {
+   "table": "bank_deposit",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "bank_deposit",
+   "column": "deposited_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "bank_deposit_item",
+   "column": "bank_deposit_id",
+   "references": "bank_deposit"
+  },
+  {
+   "table": "bank_deposit_item",
+   "column": "ledger_entry_id",
+   "references": "ledger_entry"
+  },
+  {
+   "table": "bank_deposit_item",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "bank_deposit_item",
+   "column": "payment_id",
+   "references": "payment"
+  },
+  {
+   "table": "beneficiary_designation",
+   "column": "asset_id",
+   "references": "asset"
+  },
+  {
+   "table": "beneficiary_designation",
+   "column": "beneficiary_client_id",
+   "references": "client"
+  },
+  {
+   "table": "beneficiary_designation",
+   "column": "beneficiary_entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "beneficiary_designation",
+   "column": "beneficiary_individual_id",
+   "references": "individual"
+  },
+  {
+   "table": "client",
+   "column": "entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "client",
+   "column": "import_batch_id",
+   "references": "import_batch"
+  },
+  {
+   "table": "client",
+   "column": "individual_id",
+   "references": "individual"
+  },
+  {
+   "table": "client",
+   "column": "card_image_media_id",
+   "references": "media_asset"
+  },
+  {
+   "table": "client_lead_profile",
+   "column": "individual_id",
+   "references": "individual"
+  },
+  {
+   "table": "client_lead_profile",
+   "column": "pipeline_stage_id",
+   "references": "lead_pipeline_stage"
+  },
+  {
+   "table": "client_lead_profile",
+   "column": "source_id",
+   "references": "lead_source"
+  },
+  {
+   "table": "client_lead_profile",
+   "column": "assigned_to_user_id",
+   "references": "user"
+  },
+  {
+   "table": "client_member",
+   "column": "client_id",
+   "references": "client"
+  },
+  {
+   "table": "client_member",
+   "column": "entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "client_member",
+   "column": "individual_id",
+   "references": "individual"
+  },
+  {
+   "table": "communication_attachment",
+   "column": "communication_id",
+   "references": "communication_log"
+  },
+  {
+   "table": "communication_attachment",
+   "column": "document_record_id",
+   "references": "document_record"
+  },
+  {
+   "table": "communication_attachment",
+   "column": "media_asset_id",
+   "references": "media_asset"
+  },
+  {
+   "table": "communication_log",
+   "column": "client_id",
+   "references": "client"
+  },
+  {
+   "table": "communication_log",
+   "column": "entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "communication_log",
+   "column": "individual_id",
+   "references": "individual"
+  },
+  {
+   "table": "communication_log",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "communication_log",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "communication_participant",
+   "column": "communication_id",
+   "references": "communication_log"
+  },
+  {
+   "table": "communication_participant",
+   "column": "entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "communication_participant",
+   "column": "individual_id",
+   "references": "individual"
+  },
+  {
+   "table": "communication_participant",
+   "column": "user_id",
+   "references": "user"
+  },
+  {
+   "table": "compliance_filing",
+   "column": "document_record_id",
+   "references": "document_record"
+  },
+  {
+   "table": "compliance_filing",
+   "column": "entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "compliance_filing",
+   "column": "assigned_to_user_id",
+   "references": "user"
+  },
+  {
+   "table": "conflict_check",
+   "column": "checked_against_client_id",
+   "references": "client"
+  },
+  {
+   "table": "conflict_check",
+   "column": "checked_against_entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "conflict_check",
+   "column": "checked_against_individual_id",
+   "references": "individual"
+  },
+  {
+   "table": "conflict_check",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "conflict_check",
+   "column": "checked_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "conflict_check_party",
+   "column": "client_id",
+   "references": "client"
+  },
+  {
+   "table": "conflict_check_party",
+   "column": "conflict_check_id",
+   "references": "conflict_check"
+  },
+  {
+   "table": "conflict_check_party",
+   "column": "entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "conflict_check_party",
+   "column": "individual_id",
+   "references": "individual"
+  },
+  {
+   "table": "conflict_check_party",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "conflict_check_result",
+   "column": "conflict_check_id",
+   "references": "conflict_check"
+  },
+  {
+   "table": "content_asset",
+   "column": "content_id",
+   "references": "public_content"
+  },
+  {
+   "table": "content_revision",
+   "column": "content_id",
+   "references": "public_content"
+  },
+  {
+   "table": "content_revision",
+   "column": "changed_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "custom_field_definition",
+   "column": "set_id",
+   "references": "custom_field_set"
+  },
+  {
+   "table": "custom_field_value",
+   "column": "definition_id",
+   "references": "custom_field_definition"
+  },
+  {
+   "table": "custom_field_value",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "custom_field_value",
+   "column": "updated_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "document_record",
+   "column": "client_id",
+   "references": "client"
+  },
+  {
+   "table": "document_record",
+   "column": "employee_id",
+   "references": "employee"
+  },
+  {
+   "table": "document_record",
+   "column": "entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "document_record",
+   "column": "individual_id",
+   "references": "individual"
+  },
+  {
+   "table": "document_record",
+   "column": "document_category_lookup_id",
+   "references": "lookup"
+  },
+  {
+   "table": "document_record",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "document_record",
+   "column": "primary_media_asset_id",
+   "references": "media_asset"
+  },
+  {
+   "table": "document_record",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "document_template",
+   "column": "media_asset_id",
+   "references": "media_asset"
+  },
+  {
+   "table": "employee",
+   "column": "pto_policy_id",
+   "references": "hr_policy"
+  },
+  {
+   "table": "employee",
+   "column": "employee_image_media_id",
+   "references": "media_asset"
+  },
+  {
+   "table": "employee",
+   "column": "user_id",
+   "references": "user"
+  },
+  {
+   "table": "employee_certification",
+   "column": "document_record_id",
+   "references": "document_record"
+  },
+  {
+   "table": "employee_certification",
+   "column": "employee_id",
+   "references": "employee"
+  },
+  {
+   "table": "employee_certification",
+   "column": "certification_type_lookup_id",
+   "references": "lookup"
+  },
+  {
+   "table": "employee_pay_rate",
+   "column": "employee_id",
+   "references": "employee"
+  },
+  {
+   "table": "employee_pay_rate",
+   "column": "approved_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "employee_pto_ledger",
+   "column": "employee_id",
+   "references": "employee"
+  },
+  {
+   "table": "employee_pto_ledger",
+   "column": "employee_time_event_id",
+   "references": "employee_time_event"
+  },
+  {
+   "table": "employee_pto_ledger",
+   "column": "policy_id",
+   "references": "hr_policy"
+  },
+  {
+   "table": "employee_pto_ledger",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "employee_review_event",
+   "column": "document_record_id",
+   "references": "document_record"
+  },
+  {
+   "table": "employee_review_event",
+   "column": "employee_id",
+   "references": "employee"
+  },
+  {
+   "table": "employee_review_event",
+   "column": "reviewer_user_id",
+   "references": "user"
+  },
+  {
+   "table": "employee_time_card",
+   "column": "employee_id",
+   "references": "employee"
+  },
+  {
+   "table": "employee_time_card",
+   "column": "pay_period_id",
+   "references": "pay_period"
+  },
+  {
+   "table": "employee_time_card",
+   "column": "employee_approved_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "employee_time_card",
+   "column": "reopened_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "employee_time_event",
+   "column": "employee_id",
+   "references": "employee"
+  },
+  {
+   "table": "employee_time_event",
+   "column": "pay_period_id",
+   "references": "pay_period"
+  },
+  {
+   "table": "employee_time_event",
+   "column": "approved_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "employee_time_event",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "employee_time_event",
+   "column": "rejected_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "employee_time_punch",
+   "column": "employee_id",
+   "references": "employee"
+  },
+  {
+   "table": "employee_time_punch",
+   "column": "time_card_id",
+   "references": "employee_time_card"
+  },
+  {
+   "table": "employee_time_punch",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "entity_address",
+   "column": "address_id",
+   "references": "address"
+  },
+  {
+   "table": "entity_address",
+   "column": "entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "entity_address",
+   "column": "address_type_lookup_id",
+   "references": "lookup"
+  },
+  {
+   "table": "entity_contact",
+   "column": "entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "entity_contact",
+   "column": "individual_id",
+   "references": "individual"
+  },
+  {
+   "table": "entity_contact",
+   "column": "role_lookup_id",
+   "references": "lookup"
+  },
+  {
+   "table": "entity_contact_method",
+   "column": "entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "entity_contact_method",
+   "column": "subtype_lookup_id",
+   "references": "lookup"
+  },
+  {
+   "table": "entity_dba",
+   "column": "entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "entity_event",
+   "column": "entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "entity_event",
+   "column": "event_type_lookup_id",
+   "references": "lookup"
+  },
+  {
+   "table": "entity_event",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "entity_event",
+   "column": "assigned_to_user_id",
+   "references": "user"
+  },
+  {
+   "table": "entity_registration",
+   "column": "document_record_id",
+   "references": "document_record"
+  },
+  {
+   "table": "entity_registration",
+   "column": "entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "event",
+   "column": "related_client_id",
+   "references": "client"
+  },
+  {
+   "table": "event",
+   "column": "related_entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "event",
+   "column": "import_batch_id",
+   "references": "import_batch"
+  },
+  {
+   "table": "event",
+   "column": "related_individual_id",
+   "references": "individual"
+  },
+  {
+   "table": "event",
+   "column": "event_type_lookup_id",
+   "references": "lookup"
+  },
+  {
+   "table": "event",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "event",
+   "column": "assigned_to_user_id",
+   "references": "user"
+  },
+  {
+   "table": "event",
+   "column": "user_id",
+   "references": "user"
+  },
+  {
+   "table": "event_participant",
+   "column": "client_id",
+   "references": "client"
+  },
+  {
+   "table": "event_participant",
+   "column": "entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "event_participant",
+   "column": "event_id",
+   "references": "event"
+  },
+  {
+   "table": "event_participant",
+   "column": "individual_id",
+   "references": "individual"
+  },
+  {
+   "table": "event_participant",
+   "column": "user_id",
+   "references": "user"
+  },
+  {
+   "table": "expense_entry",
+   "column": "invoice_id",
+   "references": "invoice"
+  },
+  {
+   "table": "expense_entry",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "expense_entry",
+   "column": "user_id",
+   "references": "user"
+  },
+  {
+   "table": "external_source_map",
+   "column": "import_batch_id",
+   "references": "import_batch"
+  },
+  {
+   "table": "external_sync_state",
+   "column": "integration_account_id",
+   "references": "external_integration_account"
+  },
+  {
+   "table": "external_webhook_event",
+   "column": "integration_account_id",
+   "references": "external_integration_account"
+  },
+  {
+   "table": "firm_holiday",
+   "column": "policy_id",
+   "references": "hr_policy"
+  },
+  {
+   "table": "funding_action",
+   "column": "asset_id",
+   "references": "asset"
+  },
+  {
+   "table": "funding_action",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "funding_action",
+   "column": "assigned_to_user_id",
+   "references": "user"
+  },
+  {
+   "table": "hr_policy",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "hr_policy_rule",
+   "column": "policy_id",
+   "references": "hr_policy"
+  },
+  {
+   "table": "import_batch",
+   "column": "imported_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "individual_address",
+   "column": "address_id",
+   "references": "address"
+  },
+  {
+   "table": "individual_address",
+   "column": "individual_id",
+   "references": "individual"
+  },
+  {
+   "table": "individual_address",
+   "column": "address_type_lookup_id",
+   "references": "lookup"
+  },
+  {
+   "table": "individual_contact_method",
+   "column": "individual_id",
+   "references": "individual"
+  },
+  {
+   "table": "individual_contact_method",
+   "column": "subtype_lookup_id",
+   "references": "lookup"
+  },
+  {
+   "table": "individual_relationship",
+   "column": "individual_a_id",
+   "references": "individual"
+  },
+  {
+   "table": "individual_relationship",
+   "column": "individual_b_id",
+   "references": "individual"
+  },
+  {
+   "table": "individual_relationship",
+   "column": "a_to_b_relationship_lookup_id",
+   "references": "lookup"
+  },
+  {
+   "table": "individual_relationship",
+   "column": "b_to_a_relationship_lookup_id",
+   "references": "lookup"
+  },
+  {
+   "table": "invoice",
+   "column": "billed_to_client_id",
+   "references": "client"
+  },
+  {
+   "table": "invoice",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "invoice",
+   "column": "billing_profile_id",
+   "references": "matter_billing_profile"
+  },
+  {
+   "table": "invoice_line_item",
+   "column": "invoice_id",
+   "references": "invoice"
+  },
+  {
+   "table": "invoice_line_item",
+   "column": "ledger_entry_id",
+   "references": "ledger_entry"
+  },
+  {
+   "table": "invoice_line_item",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "invoice_line_item",
+   "column": "fee_component_id",
+   "references": "matter_fee_component"
+  },
+  {
+   "table": "invoice_line_item",
+   "column": "time_entry_id",
+   "references": "time_entry"
+  },
+  {
+   "table": "kr_homebase_initialization",
+   "column": "bootstrap_user_id",
+   "references": "user"
+  },
+  {
+   "table": "kr_note",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "kr_note",
+   "column": "updated_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "lead",
+   "column": "converted_client_id",
+   "references": "client"
+  },
+  {
+   "table": "lead",
+   "column": "individual_id",
+   "references": "individual"
+  },
+  {
+   "table": "lead",
+   "column": "assigned_to_user_id",
+   "references": "user"
+  },
+  {
+   "table": "ledger_audit_log",
+   "column": "invoice_id",
+   "references": "invoice"
+  },
+  {
+   "table": "ledger_audit_log",
+   "column": "ledger_entry_id",
+   "references": "ledger_entry"
+  },
+  {
+   "table": "ledger_audit_log",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "ledger_audit_log",
+   "column": "actor_user_id",
+   "references": "user"
+  },
+  {
+   "table": "ledger_entry",
+   "column": "bank_deposit_id",
+   "references": "bank_deposit"
+  },
+  {
+   "table": "ledger_entry",
+   "column": "client_id",
+   "references": "client"
+  },
+  {
+   "table": "ledger_entry",
+   "column": "invoice_id",
+   "references": "invoice"
+  },
+  {
+   "table": "ledger_entry",
+   "column": "payment_type_lookup_id",
+   "references": "lookup"
+  },
+  {
+   "table": "ledger_entry",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "ledger_entry",
+   "column": "payment_id",
+   "references": "payment"
+  },
+  {
+   "table": "ledger_entry",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "ledger_entry",
+   "column": "received_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "ledger_entry",
+   "column": "voided_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "matter",
+   "column": "import_batch_id",
+   "references": "import_batch"
+  },
+  {
+   "table": "matter",
+   "column": "practice_area_lookup_id",
+   "references": "lookup"
+  },
+  {
+   "table": "matter",
+   "column": "status_lookup_id",
+   "references": "lookup"
+  },
+  {
+   "table": "matter",
+   "column": "cover_image_media_id",
+   "references": "media_asset"
+  },
+  {
+   "table": "matter",
+   "column": "acting_staff_user_id",
+   "references": "user"
+  },
+  {
+   "table": "matter",
+   "column": "assisting_staff_user_id",
+   "references": "user"
+  },
+  {
+   "table": "matter",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "matter",
+   "column": "originating_attorney_user_id",
+   "references": "user"
+  },
+  {
+   "table": "matter",
+   "column": "primary_attorney_user_id",
+   "references": "user"
+  },
+  {
+   "table": "matter",
+   "column": "responsible_staff_user_id",
+   "references": "user"
+  },
+  {
+   "table": "matter_access",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "matter_access",
+   "column": "granted_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "matter_access",
+   "column": "revoked_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "matter_access",
+   "column": "user_id",
+   "references": "user"
+  },
+  {
+   "table": "matter_activity_log",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "matter_activity_log",
+   "column": "task_id",
+   "references": "task"
+  },
+  {
+   "table": "matter_activity_log",
+   "column": "assigned_to_user_id",
+   "references": "user"
+  },
+  {
+   "table": "matter_activity_log",
+   "column": "performed_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "matter_balance_snapshot",
+   "column": "import_batch_id",
+   "references": "import_batch"
+  },
+  {
+   "table": "matter_balance_snapshot",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "matter_billing_profile",
+   "column": "billing_client_id",
+   "references": "client"
+  },
+  {
+   "table": "matter_billing_profile",
+   "column": "receivable_client_id",
+   "references": "client"
+  },
+  {
+   "table": "matter_billing_profile",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "matter_fee_component",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "matter_fee_component",
+   "column": "billing_profile_id",
+   "references": "matter_billing_profile"
+  },
+  {
+   "table": "matter_party",
+   "column": "client_id",
+   "references": "client"
+  },
+  {
+   "table": "matter_party",
+   "column": "entity_id",
+   "references": "entity"
+  },
+  {
+   "table": "matter_party",
+   "column": "individual_id",
+   "references": "individual"
+  },
+  {
+   "table": "matter_party",
+   "column": "party_role_lookup_id",
+   "references": "lookup"
+  },
+  {
+   "table": "matter_party",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "matter_staff_assignment",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "matter_staff_assignment",
+   "column": "user_id",
+   "references": "user"
+  },
+  {
+   "table": "matter_stage_history",
+   "column": "next_status_lookup_id",
+   "references": "lookup"
+  },
+  {
+   "table": "matter_stage_history",
+   "column": "previous_status_lookup_id",
+   "references": "lookup"
+  },
+  {
+   "table": "matter_stage_history",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "matter_stage_history",
+   "column": "changed_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "media_asset",
+   "column": "uploaded_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "media_variant",
+   "column": "media_asset_id",
+   "references": "media_asset"
+  },
+  {
+   "table": "pay_period",
+   "column": "processed_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "payment",
+   "column": "client_id",
+   "references": "client"
+  },
+  {
+   "table": "payment",
+   "column": "bank_account_id",
+   "references": "firm_bank_account"
+  },
+  {
+   "table": "payment",
+   "column": "import_batch_id",
+   "references": "import_batch"
+  },
+  {
+   "table": "payment",
+   "column": "payment_type_lookup_id",
+   "references": "lookup"
+  },
+  {
+   "table": "payment",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "payment",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "payment",
+   "column": "received_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "payment",
+   "column": "voided_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "payment_application",
+   "column": "invoice_id",
+   "references": "invoice"
+  },
+  {
+   "table": "payment_application",
+   "column": "ledger_entry_id",
+   "references": "ledger_entry"
+  },
+  {
+   "table": "payment_application",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "payment_application",
+   "column": "payment_id",
+   "references": "payment"
+  },
+  {
+   "table": "payment_application",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "payment_provider",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "payment_provider",
+   "column": "secret_key_set_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "payment_provider",
+   "column": "updated_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "payment_provider",
+   "column": "webhook_secret_set_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "payment_request",
+   "column": "client_id",
+   "references": "client"
+  },
+  {
+   "table": "payment_request",
+   "column": "invoice_id",
+   "references": "invoice"
+  },
+  {
+   "table": "payment_request",
+   "column": "payment_id",
+   "references": "payment"
+  },
+  {
+   "table": "payment_request",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "payment_request",
+   "column": "revoked_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "public_content",
+   "column": "author_id",
+   "references": "content_author"
+  },
+  {
+   "table": "public_content",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "public_content",
+   "column": "updated_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "publication_event",
+   "column": "content_id",
+   "references": "public_content"
+  },
+  {
+   "table": "publication_event",
+   "column": "actor_user_id",
+   "references": "user"
+  },
+  {
+   "table": "reminder",
+   "column": "user_id",
+   "references": "user"
+  },
+  {
+   "table": "requested_document",
+   "column": "client_id",
+   "references": "client"
+  },
+  {
+   "table": "requested_document",
+   "column": "requested_from_client_id",
+   "references": "client"
+  },
+  {
+   "table": "requested_document",
+   "column": "document_record_id",
+   "references": "document_record"
+  },
+  {
+   "table": "requested_document",
+   "column": "document_category_lookup_id",
+   "references": "lookup"
+  },
+  {
+   "table": "requested_document",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "requested_document",
+   "column": "received_media_asset_id",
+   "references": "media_asset"
+  },
+  {
+   "table": "requested_document",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "risk_flag",
+   "column": "asset_id",
+   "references": "asset"
+  },
+  {
+   "table": "risk_flag",
+   "column": "flagged_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "role_set_permission",
+   "column": "role_set_id",
+   "references": "role_set"
+  },
+  {
+   "table": "role_set_permission_scope",
+   "column": "role_set_id",
+   "references": "role_set"
+  },
+  {
+   "table": "task",
+   "column": "client_id",
+   "references": "client"
+  },
+  {
+   "table": "task",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "task",
+   "column": "assigned_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "task",
+   "column": "assigned_to_user_id",
+   "references": "user"
+  },
+  {
+   "table": "task",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "task",
+   "column": "lead_user_id",
+   "references": "user"
+  },
+  {
+   "table": "task",
+   "column": "workstream_activity_wsid",
+   "references": "workstream_activity"
+  },
+  {
+   "table": "task_assignee",
+   "column": "task_id",
+   "references": "task"
+  },
+  {
+   "table": "task_assignee",
+   "column": "assigned_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "task_assignee",
+   "column": "user_id",
+   "references": "user"
+  },
+  {
+   "table": "team",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "team_lead",
+   "column": "team_id",
+   "references": "team"
+  },
+  {
+   "table": "team_lead",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "team_lead",
+   "column": "user_id",
+   "references": "user"
+  },
+  {
+   "table": "team_member",
+   "column": "employee_id",
+   "references": "employee"
+  },
+  {
+   "table": "team_member",
+   "column": "team_id",
+   "references": "team"
+  },
+  {
+   "table": "team_member",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "time_entry",
+   "column": "activity_code_id",
+   "references": "billing_activity_code"
+  },
+  {
+   "table": "time_entry",
+   "column": "employee_id",
+   "references": "employee"
+  },
+  {
+   "table": "time_entry",
+   "column": "import_batch_id",
+   "references": "import_batch"
+  },
+  {
+   "table": "time_entry",
+   "column": "invoice_id",
+   "references": "invoice"
+  },
+  {
+   "table": "time_entry",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "time_entry",
+   "column": "flat_fee_component_id",
+   "references": "matter_fee_component"
+  },
+  {
+   "table": "time_entry",
+   "column": "user_id",
+   "references": "user"
+  },
+  {
+   "table": "timer_session",
+   "column": "activity_code_id",
+   "references": "billing_activity_code"
+  },
+  {
+   "table": "timer_session",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "timer_session",
+   "column": "user_id",
+   "references": "user"
+  },
+  {
+   "table": "trust_request",
+   "column": "client_id",
+   "references": "client"
+  },
+  {
+   "table": "trust_request",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "trust_request",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "user",
+   "column": "individual_id",
+   "references": "individual"
+  },
+  {
+   "table": "user",
+   "column": "profile_image_media_id",
+   "references": "media_asset"
+  },
+  {
+   "table": "user_invite",
+   "column": "accepted_user_id",
+   "references": "user"
+  },
+  {
+   "table": "user_invite",
+   "column": "invited_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "user_invite",
+   "column": "invited_user_id",
+   "references": "user"
+  },
+  {
+   "table": "user_permission_override",
+   "column": "created_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "user_permission_override",
+   "column": "revoked_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "user_permission_override",
+   "column": "user_id",
+   "references": "user"
+  },
+  {
+   "table": "user_role_set",
+   "column": "role_set_id",
+   "references": "role_set"
+  },
+  {
+   "table": "user_role_set",
+   "column": "assigned_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "user_role_set",
+   "column": "user_id",
+   "references": "user"
+  },
+  {
+   "table": "user_sso_identity",
+   "column": "user_id",
+   "references": "user"
+  },
+  {
+   "table": "workstream_activity",
+   "column": "client_id",
+   "references": "client"
+  },
+  {
+   "table": "workstream_activity",
+   "column": "document_record_id",
+   "references": "document_record"
+  },
+  {
+   "table": "workstream_activity",
+   "column": "lead_id",
+   "references": "lead"
+  },
+  {
+   "table": "workstream_activity",
+   "column": "matter_id",
+   "references": "matter"
+  },
+  {
+   "table": "workstream_activity",
+   "column": "assignee_user_id",
+   "references": "user"
+  },
+  {
+   "table": "workstream_activity",
+   "column": "performed_by_user_id",
+   "references": "user"
+  },
+  {
+   "table": "workstream_activity_comment",
+   "column": "user_id",
+   "references": "user"
+  },
+  {
+   "table": "workstream_activity_comment",
+   "column": "workstream_activity_id",
+   "references": "workstream_activity"
+  },
+  {
+   "table": "employee_time_punch",
+   "column": "supersedes_punch_id",
+   "references": "employee_time_punch"
+  }
+ ],
+ "deferredColumns": [
+  {
+   "table": "user",
+   "column": "profile_image_media_id",
+   "primaryKey": "id"
+  },
+  {
+   "table": "employee_time_punch",
+   "column": "supersedes_punch_id",
+   "primaryKey": "id"
+  }
+ ]
+}

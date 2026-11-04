@@ -1,0 +1,28 @@
+{
+  "name": "@krhomebase/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "KR Homebase API Worker. All business rules; the only code that talks to D1.",
+  "scripts": {
+    "dev": "wrangler dev --port 8787 --inspector-port 9339",
+    "deploy": "wrangler deploy",
+    "typecheck": "wrangler types && tsc --noEmit",
+    "test": "vitest run",
+    "openapi:write": "tsx scripts/write-openapi.ts",
+    "types:cf": "wrangler types"
+  },
+  "dependencies": {
+    "@hono/zod-openapi": "^1.6.3",
+    "@krhomebase/contracts": "workspace:*",
+    "hono": "^4.13.16",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.0",
+    "wrangler": "^4.156.2"
+  }
+}

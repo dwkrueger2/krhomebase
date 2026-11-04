@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "krhomebase-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-30",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // No public address. Only other Workers can call this one, through a service binding.
+  "workers_dev": false,
+  "preview_urls": false,
+
+  "observability": { "enabled": true },
+
+  "d1_databases": [
+    {
+      "binding": "krhomebase",
+      "database_name": "krhomebase",
+      "database_id": "ef68921f-c7d3-4d0b-9af4-defebc748616"
+    }
+  ]
+}

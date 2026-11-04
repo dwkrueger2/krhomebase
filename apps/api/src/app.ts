@@ -1,0 +1,40 @@
+import { OpenAPIHono } from '@hono/zod-openapi'
+import { failure } from './platform/envelope.ts'
+import { requestId } from './platform/requestId.ts'
+import type { AppEnv } from './platform/types.ts'
+import { registerHealth } from './features/health/routes.ts'
+
+export const openApiInfo = {
+  openapi: '3.1.0',
+  info: {
+    title: 'KR Homebase API',
+    version: '0.1.0',
+    description: 'Generated from the route definitions. Do not edit by hand; run `pnpm openapi`.',
+  },
+} as const
+
+/** Builds the API. Kept separate from index.ts so tests and the OpenAPI writer can import it without Cloudflare. */
+export function createApp() {
+  const app = new OpenAPIHono<AppEnv>({
+    // Runs when a request does not match a route's zod description.
+    defaultHook: (result, c) => {
+      if (!result.success) {
+        return failure(c, 422, 'VALIDATION_FAILED', 'The request did not match the contract.', result.error.issues)
+      }
+    },
+  })
+
+  app.use('*', requestId)
+
+  app.notFound((c) => failure(c, 404, 'NOT_FOUND', 'No such route.'))
+  app.onError((err, c) => {
+    console.error(JSON.stringify({ requestId: c.get('requestId'), message: err.message }))
+    return failure(c, 500, 'INTERNAL_ERROR', 'Unexpected server error.')
+  })
+
+  registerHealth(app)
+
+  app.doc31('/v1/openapi.json', openApiInfo)
+
+  return app
+}
