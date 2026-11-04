@@ -26,6 +26,13 @@ describe('U6ConfirmationDialog', () => {
     expect(html).not.toContain('This cannot be undone.')
   })
 
+  it('colors the message gray normally and red when it is an error', () => {
+    expect(renderToStaticMarkup(<U6ConfirmationDialog {...base} open />)).toContain('text-(color:--kr-theme-text-muted)')
+    const withError = renderToStaticMarkup(<U6ConfirmationDialog {...base} open error="Save failed." />)
+    expect(withError).toContain('text-(color:--kr-theme-danger)')
+    expect(withError).not.toContain('text-(color:--kr-theme-text-muted)')
+  })
+
   it('shows the secondary button only when both its label and handler are given', () => {
     expect(renderToStaticMarkup(<U6ConfirmationDialog {...base} open secondaryLabel="Just reviewing" />)).not.toContain('Just reviewing')
     expect(renderToStaticMarkup(<U6ConfirmationDialog {...base} open secondaryLabel="Just reviewing" onSecondary={vi.fn()} />)).toContain('Just reviewing')

@@ -1,7 +1,7 @@
 # Tailwind CSS and Component Styling Guide
 
-<small>Version 1.2</small><br>
-<small>Updated Nov 3, 2026 11:14pm</small>
+<small>Version 1.4</small><br>
+<small>Updated Nov 4, 2026 12:00pm</small>
 
 ## Purpose and scope
 
@@ -9,7 +9,7 @@ This guide applies repository-wide to new and intentionally changed JSX, TSX, Ta
 
 These rules are prospective. They do not require a repository-wide styling migration or JSX rewrite. The existing-code preservation boundary in `AGENTS_04_coding-style.md` is part of this guide, including its rule for components ported unchanged from the old repository.
 
-**Current state (Nov 3, 2026):** Tailwind CSS 4 is installed in `apps/web` through the Vite plugin. `apps/web/app/globals.css` is the entry file (`@import "tailwindcss"`); there is no `tailwind.config` file. The old app used Tailwind 3.4, so check renamed utilities when porting. Components ported unchanged from the old app (`U6ConfirmationDialog`, `RainbowBusySpinner`) keep their CSS modules, as the existing-code rule allows.
+**Current state (Nov 3, 2026):** Tailwind CSS 4 is installed in `apps/web` through the Vite plugin. `apps/web/app/globals.css` is the entry file (`@import "tailwindcss"`); there is no `tailwind.config` file. The old app used Tailwind 3.4, so check renamed utilities when porting. `U6ConfirmationDialog` was converted to `LAYOUT_STYLES` and `STYLES` and has no CSS file. `RainbowBusySpinner` keeps its CSS module (pseudo-element and animation), as the existing-code rule allows.
 
 ## Tailwind is the default for new local styling
 
@@ -72,7 +72,7 @@ The space between the opening quote and `border` is important.
 
 ## Application-specific styling boundaries
 
-- KR Homebase styling must preserve the `--kr-theme-*` token contract. Do not replace Homebase theme tokens with hard-coded Tailwind colors. The token definitions come from the old app's theme CSS and are copied here when the first screen is ported (open item in `apps/web/AGENTS.md`).
+- KR Homebase styling must preserve the `--kr-theme-*` token contract. Do not replace Homebase theme tokens with hard-coded Tailwind colors. The token definitions are in `apps/web/styles/theme.css`. Screen widths, spacing numbers and the corner rule are in `apps/web/AGENTS.md`.
 - Shared components must not silently introduce styling that changes an unrelated app's build or appearance.
 - The public website is not part of this repository, so its tokens and components do not apply here.
 

@@ -1,7 +1,7 @@
 # AGENTS Files: Review and Compatibility
 
-<small>Version 1.4</small><br>
-<small>Updated Nov 3, 2026 11:44pm</small>
+<small>Version 1.6</small><br>
+<small>Updated Nov 4, 2026 12:00pm</small>
 
 **Date:** 2026-11-03 (first review 2026-11-02)
 **Sources reviewed (read-only):**
@@ -25,7 +25,7 @@
 | Logging: `L`, `LO`, `[AREA:line]`, request lifecycle, safe metadata, log switches | **Kept; web helper built** | Principles and switch names are unchanged. `L`, `LO`, `LC`, `LCB`, `LLine`, `LLF` and `LogIcons` are ported to `apps/web/lib/KRUtilities.ts` (same file name as the old repository; includes the full terminal color table `ANSI_COLORS`) without Node's `util`, with secret-looking fields hidden. Not ported: `LR` (login redirect), `LDOM`, `dbc`/`dbc2` (replaced by the `STYLES` diagnostic comments), `setLogging`. The API has no helper yet (task list). |
 | Dev-log-reader PowerShell helpers | Not ported | Open item. |
 | Mandatory styling preflight | Kept | Tailwind 4 is now installed in `apps/web`. The old app used Tailwind 3.4. |
-| Dialog standard (`U6ConfirmationDialog`, no native prompts) | **Kept; component ported** | `apps/web/components/dialogs/U6ConfirmationDialog.client.tsx` and its busy indicator `apps/web/components/ui/RainbowBusySpinner.client.tsx`, with comments and CSS modules unchanged. |
+| Dialog standard (`U6ConfirmationDialog`, no native prompts) | **Kept; component ported** | `apps/web/components/dialogs/U6ConfirmationDialog.client.tsx` and its busy indicator `apps/web/components/ui/RainbowBusySpinner.client.tsx`, with comments kept. The dialog was later converted to `LAYOUT_STYLES` and `STYLES` and has no CSS file; the spinner keeps its CSS module. |
 | Current project shape (two Next.js apps, `apps/shared`, `data`, `repo-utilities`) | **Replaced** | Now `apps/web`, `apps/api`, `packages/contracts`, `scripts`. `apps/shared` and `data` do not exist here. |
 | Important documentation (Schema_7.0 etc.) | Updated | Schema_8.0, Schema_Public_Inquiry_v2.0, Schema_GPT_Usage_1.1, the architecture proposal, the route table, patch notes. |
 | Build and version metadata (root mirrors apps, `<meta name="build-info">`, Docker build info) | **Replaced** | No mirrors (Dan's decision), no Docker. See `AGENTS_01`. A deployed build-info tag is not built. |
@@ -48,7 +48,7 @@
 | Old rule | Result | Reason |
 |---|---|---|
 | Test-component promotion protocol | Kept in principle (`apps/web`) | `apps/kr-tests` is not in this repository. Recreate, do not import. |
-| `--kr-theme-*` tokens; `data-kr-*` attributes | Kept | Rules now cited from `AGENTS_05`. The token list itself is still to be copied from the old app's theme CSS. |
+| `--kr-theme-*` tokens; `data-kr-*` attributes | Kept | Rules now cited from `AGENTS_05`. The token list is copied into `apps/web/styles/theme.css`. |
 | Search for similar routes and pause for Dan's choice | **Kept unchanged** (`apps/api`) | Protects against duplicate routes. |
 | `api-contract.json` beside every route; `api:contracts` generator | **Replaced** | `defineRoute()` plus `pnpm openapi`. |
 | Shared session and response helpers; `_server` folders | Changed | Envelope helpers and `src/platform`. |
@@ -56,12 +56,14 @@
 | API documentation viewer in the test app | Dropped for now | Replaced by `openapi.json`; viewer is open decision 8. |
 | Old `hb-components` layout (feature folders mixed with role folders; `KR-*` and `modules/*` duplicates) | **Replaced** | `apps/web` now has `components/{ui,dialogs,tables,shell}`, `features/<area>` (same area names as the API and contracts), `lib`, `styles`. Rules are in `apps/web/AGENTS.md`, "Folder layout". |
 | `data-kr-theme-scope="krhomebase"` wrapper for the theme tokens | Kept | Rule added to `apps/web/AGENTS.md`. There is no public site here, but the scope stays by the requester's choice. |
+| Old UI standards: five review widths, tight spacing numbers, 2px to 4px corners (docs 20 to 24) | **Changed** | Three designed widths only (mobile 390, tablet 768, desktop 1280; `md:` and `lg:` prefixes), with `clamp()` for widths in between. The spacing numbers and the corner rule are kept. Written once, in `apps/web/AGENTS.md`, "Styling". |
+| Old rule that non-layout appearance goes in a separate CSS file | **Dropped** | Layout classes go in `LAYOUT_STYLES` and all other visual classes in `STYLES` (`AGENTS_05`). |
 
 ## 4. package.json and ports
 
 | Item | Result |
 |---|---|
-| Stop-port scripts | Copied: `stop:port:3000`, `:3001`, `:3002`, `:3003`, and `stop:ports:all`. Added `:8787` (API) and `:9339` (API inspector). Ports 3000, 3002 and 3003 are not assigned here. |
+| Stop-port scripts | Copied: `stop:port:3000`, `:3001`, `:3002`, `:3003`, and `stop:ports:all`. Added `:8787` (API), `:9339` (API inspector) and `:3011` (web). Ports 3000, 3002 and 3003 are not assigned here. |
 | `stop-dev-port.windows.ps1` | Copied unchanged to `scripts/` (old: `repo-utilities/`). |
 | `myecho`, `listScripts` | `listScripts` kept (existing). `myecho` not copied; its helper script is not in this repository. |
 | Root version fields | `version` 1.0.0, `patchNum` "1", `patchDate` "11-03". Only the repository track; no app mirrors. |
@@ -74,4 +76,4 @@
 2. The old `AGENTS_05` both forbids `data-kr-*` attributes as CSS selectors and uses `[data-kr-id="AttendancePanel"]` as the custom-property selector. The new text allows that one use only. Confirm.
 3. `/v1/health` still returns a fixed version `0.1.0`. Decide whether it should report the API package version and patch.
 4. Decide whether to port the dev-log-reader helpers, and whether the web and API logging helpers should later share one package.
-5. Port 3001 is also used by the old `apps/kr-homebase`; the stop script ends whichever process holds the port.
+5. Resolved: the web app moved to port 3011 because the old `apps/kr-homebase` also used 3001 and both servers started without an error. The stop script still ends whichever process holds a port.

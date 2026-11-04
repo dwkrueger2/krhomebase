@@ -1,7 +1,7 @@
 # KR Homebase Web Agent Guide
 
-<small>Version 1.4</small><br>
-<small>Updated Nov 3, 2026 11:44pm</small>
+<small>Version 1.8</small><br>
+<small>Updated Nov 4, 2026 12:00pm</small>
 
 ## Purpose
 
@@ -44,19 +44,58 @@ Rules:
 
 1. **Start in the feature.** A piece moves to `components/` only when a second feature needs it.
 2. **Dependencies run one way:** `app` uses `features`, `features` use `components`, and all of them use `lib`. A component never imports from a feature. A feature never imports another feature's internal files.
-3. **Area names match the rest of the repository.** A folder in `features/` has the same name as its folder in `apps/api/src/features` and its file in `packages/contracts`. Use plain nouns. No `kr-` or `hb-` prefix, and no folder repeats its parent's name. `U6ConfirmationDialog` and `RainbowBusySpinner` keep their old names because they were ported unchanged.
+3. **Area names match the rest of the repository.** A folder in `features/` has the same name as its folder in `apps/api/src/features` and its file in `packages/contracts`. Use plain nouns. No `kr-` or `hb-` prefix, and no folder repeats its parent's name. `U6ConfirmationDialog` and `RainbowBusySpinner` keep their old names because they were ported from the old app.
 4. **One folder per component only when it has several files** (for example the component, its CSS module and its test). A one-file component sits directly in its parent folder.
-5. **Import a file by its own path.** Do not add an `index.ts` whose only job is to re-export other files from the same folder. The one exception: each feature may have a single `index.ts` that lists the screens other code is allowed to use.
+5. **No `index.ts` files.** Import each file by its own path, so the file name states its purpose and is easy to search. Next.js does not need `index` files: routes in `app/` come from the fixed names `page.tsx`, `layout.tsx` and `route.ts`, which stay thin.
 6. **Keep files short.** Split a file that grows past about 400 lines. Split large CSS by component.
 7. **No prototypes or sample data in these folders.** Put samples in tests, or in a development-only route that is off in production (see boundary rule 6).
 8. **Shapes and calls.** API shapes come from `@krhomebase/contracts`. A feature's browser calls to the API live in its `api.client.ts`. Components do not call `fetch` for API data.
+
+## Styling: where classes go, screen widths, spacing and corners
+
+**Where classes go.** Every new component keeps its Tailwind classes in two named maps in its own file, as `AGENTS_05` describes. `LAYOUT_STYLES` holds layout: margins, container padding, gaps, grid and flex. `STYLES` holds everything else visual: color, border, type, shadow, state. A new component gets no CSS file of its own for appearance. A CSS file is for the cases `AGENTS_05` lists (print, pseudo-elements, animation, custom properties). `U6ConfirmationDialog` has no CSS file. `RainbowBusySpinner` keeps `RainbowBusySpinner.module.css` because it needs a pseudo-element, a gradient ring and a spinning animation.
+
+**Three designed widths.** Design and check each screen at three widths only. Use only the unprefixed class, `md:` and `lg:`. Do not use `sm:`, `xl:`, `2xl:` or a custom breakpoint.
+
+| Name | Width | Class prefix | Review at |
+|---|---|---|---|
+| Mobile | under 768px | none | 390px |
+| Tablet | 768px to 1023px | `md:` | 768px |
+| Desktop | 1024px and wider | `lg:` | 1280px |
+
+Widths between these are not designed. Fluid sizing absorbs them: `clamp()`, `minmax()`, `max-w-*` and `min-w-0`. Example: the application title is `clamp(20px,2.4vw,30px)`. Nothing may scroll sideways at 320px.
+
+**Tight spacing.** The screens are dense on purpose.
+
+- Gaps between elements: 4px to 8px.
+- Input and button vertical padding: 6px to 8px.
+- Card and panel padding: 10px at most.
+- Text: 13px to 14px for body, 10px to 12px for small print.
+
+**Save height before width.** Screens run out of height long before they run out of width, so every extra line in a form costs a row the person must scroll past. The defaults:
+
+- Put a label on the same line as its field: label on the left, field on the right. In a grid, use a narrow label column and a wide field column. The label and the field share one row (`AGENTS_05`).
+- Put short fields side by side on one row, such as date, amount and status, or first name and last name.
+- Put help text in a tooltip, or after the field on the same line. Do not give it a line of its own.
+- Keep headings to one line. Do not stack a heading, a sub-heading and a description above a form.
+
+A label may sit above its field when any of these is true:
+
+1. The field is tall or wide: a text area, an editor, a list or a table.
+2. The block is small and short, like the "Module [TBD]" card, and the screen has room or scrolls anyway.
+3. The screen is at mobile width (under 768px), where there is no room beside the field.
+4. The label is too long for the label column and cannot be shortened.
+
+The test: a form or panel that people use again and again must be visible whole, without scrolling, in a 1280 by 720 window. If it does not fit, move labels inline and put short fields side by side until it does. A screen that scrolls by nature (a long list, a settings page, a report) may use either layout. These are defaults, not a ban; the requester may allow an exception for one screen, and the file says why in a one-line comment.
+
+**Corners: 2px to 4px.** Use `rounded-[2px]`, `rounded-[3px]` or `rounded-[4px]` on sections, cards, buttons, fields and dialogs. Do not use `rounded-lg`, `rounded-xl`, `rounded-2xl` or `rounded-3xl` there. A full circle is allowed only for avatars, status dots, small count badges and the round collapse handle on the left panel.
 
 ## Tooling notes
 
 - Config files: `vite.config.ts`, `cloudflare.config.ts` (generated by `vinext init`) and `vitest.config.ts` (tests only). The old `wrangler-krhomebase-vinext.jsonc` approach is not used here.
 - **Tailwind CSS 4** is installed (`tailwindcss` and `@tailwindcss/vite`). `app/globals.css` holds `@import "tailwindcss"` and is imported by `app/layout.tsx`. There is no `tailwind.config` or PostCSS file. The old app used Tailwind 3.4; when porting a screen, check renamed utilities (for example `shadow-sm` is now `shadow-xs` and `rounded` is now `rounded-sm`) and read the Tailwind 4 upgrade notes before assuming a class behaves the same.
 - **Tests** run with vitest (`pnpm --filter @krhomebase/web test`, also part of `pnpm check`). Test files sit beside the code as `*.test.ts` and `*.test.tsx`, in `lib/`, `components/` and `features/`. The header of `lib/KRUtilities.test.ts` shows the commands to run all tests, one file, or watch mode. Component tests render to text with `react-dom/server`; there is no browser test setup yet.
-- **Shared pieces:** `lib/KRUtilities.ts` (the `L` logging helper and color tables, see root `AGENTS.md`), `lib/api.ts` (`callApi`), `components/dialogs/U6ConfirmationDialog.client.tsx` and `components/ui/RainbowBusySpinner.client.tsx`. The two components were ported from the old app with their comments and CSS modules unchanged; they read the old `--kr-*` custom properties and fall back to the old colors.
+- **Shared pieces:** `lib/KRUtilities.ts` (the `L` logging helper and color tables, see root `AGENTS.md`), `lib/api.ts` (`callApi`), `components/dialogs/U6ConfirmationDialog.client.tsx` and `components/ui/RainbowBusySpinner.client.tsx`. Both were ported from the old app with their comments kept. The dialog styles itself with `LAYOUT_STYLES` and `STYLES` and the `--kr-theme-*` tokens, so render it inside the application frame. The spinner still reads the old `--kr-*` custom properties from its CSS module and falls back to the old colors.
 - Cloudflare binding types are generated into `.cloudflare/types` by `pnpm typecheck` (`cf workers types`). They are git-ignored.
 - vinext cannot load native Node modules (for example `sharp`) in Worker code. Do not import one; use a Workers-compatible library or move the work to `apps/api`.
 - The build tooling includes beta packages (`cf`, Cloudflare Vite plugin 2.0 beta). Do not upgrade them casually; check `pnpm build` and `pnpm check` after any change.
@@ -72,7 +111,7 @@ These conventions came from the old `apps/kr-homebase` guide and are kept for sc
 - Ported components keep their descriptive comments (`AGENTS_04`).
 - Never import a test prototype into production UI. If a prototype is promoted, recreate it in `apps/web` and adapt its data, session, API, authorization, responsive behavior and accessibility; copying JSX alone is not complete.
 
-Open item: the old root guide names the token contract and the `data-kr-*` attributes but does not list the tokens. Their definitions are in the old app's theme CSS. Copy the token list into `styles/theme.css` (imported by `app/globals.css`) before porting the first screen. `U6ConfirmationDialog` is already ported.
+The token list is in `styles/theme.css` (imported by `app/globals.css`), copied from the old app's default theme. Add a token there when a screen needs one; never write a color into a component that a token already names.
 
 ## Completion checklist
 

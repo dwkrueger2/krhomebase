@@ -1,7 +1,7 @@
 # Patch Notes
 
-<small>Version 1.2</small><br>
-<small>Updated Nov 3, 2026 11:46pm</small>
+<small>Version 1.7</small><br>
+<small>Updated Nov 4, 2026 12:00pm</small>
 
 ## Purpose
 
@@ -25,8 +25,8 @@ File name: `Outstanding Task List_PatchXXX_MM_DD.md`, where `XXX` is the track's
 
 | Track | Latest list |
 |---|---|
-| Repository | `repository/Outstanding Task List_Patch003_11_03.md` |
+| Repository | `repository/Outstanding Task List_Patch008_11_04.md` |
 | API | `api/Outstanding Task List_Patch003_11_03.md` |
-| Web | `web/Outstanding Task List_Patch500_11_03.md` |
+| Web | `web/Outstanding Task List_Patch505_11_04.md` |
 
 Earlier lists stay in place as history.

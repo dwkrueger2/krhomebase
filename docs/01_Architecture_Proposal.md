@@ -1,7 +1,7 @@
 # krhomebase Architecture Proposal
 
-<small>Version 0.4</small><br>
-<small>Updated Nov 3, 2026 10:02pm</small>
+<small>Version 0.5</small><br>
+<small>Updated Nov 4, 2026 12:00pm</small>
 
 **Date:** 2026-11-02
 **Status:** Accepted as the build plan. Open decisions are listed in section 14.
@@ -54,7 +54,7 @@
 | `packages/contracts` | Built. zod envelope, error shape, access type, health schema. 2 tests. |
 | `apps/api` | Built. Hono + `@hono/zod-openapi`, `defineRoute()`, request id, error handling, `/v1/health`, `/v1/openapi.json`, committed `openapi/openapi.json`. 9 tests. |
 | `apps/web` | Built. Next.js 16.4.4 on vinext 1.4.1, `/` page, `/status` page (calls the API), `/api/*` forward route. Builds with `vite build`. |
-| Local run | `pnpm dev` starts the API (port 8787) and web (port 3001). The web `/status` page and `/api/v1/health` reach the API. |
+| Local run | `pnpm dev` starts the API (port 8787) and web (port 3011). The web `/status` page and `/api/v1/health` reach the API. |
 | Not tested | Deploying to Cloudflare, and the production service binding between the two Workers. Sign-in. D1 queries from the API. |
 
 ---

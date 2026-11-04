@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 1.4</small><br>
-<small>Updated Nov 3, 2026 11:44pm</small>
+<small>Version 1.5</small><br>
+<small>Updated Nov 4, 2026 12:00pm</small>
 
 ## Agent Guide Index
 
@@ -110,13 +110,14 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 
 | Port | Used by | Started with | Stopped with |
 |---|---|---|---|
-| 3001 | `apps/web` (Next.js on vinext) | `pnpm dev:web` or `pnpm dev` | `pnpm stop:port:3001` |
+| 3011 | `apps/web` (Next.js on vinext) | `pnpm dev:web` or `pnpm dev` | `pnpm stop:port:3011` |
 | 8787 | `apps/api` (wrangler dev) | `pnpm dev:api` or `pnpm dev` | `pnpm stop:port:8787` |
 | 9339 | `apps/api` debugger (inspector) | started with the API | `pnpm stop:port:9339` |
+| 3001 | Not used here. The old `apps/kr-homebase` runs on it. | | `pnpm stop:port:3001` |
 | 3000, 3002, 3003 | Not assigned in this repository. Kept from the old repository's scripts. | | `pnpm stop:port:3000`, `:3002`, `:3003` |
 
 - `pnpm stop:ports:all` stops every port in the table.
-- The stop scripts end whatever process is listening on the port, including a server from the old repository. The old `apps/kr-homebase` also uses port 3001, so stop it before starting `pnpm dev:web`, and expect `stop:port:3001` to end it too.
+- The stop scripts end whatever process is listening on the port, including a server from the old repository. The old `apps/kr-homebase` uses port 3001 and this repository's web app uses 3011, so both can run at the same time without clashing. `stop:port:3001` ends the old app.
 - Record every new development port in this table in the same change that adds it, with its own `stop:port:<number>` script in the root `package.json`.
 - The scripts call `scripts/stop-dev-port.windows.ps1` (Windows PowerShell). They report when nothing is listening and do not fail.
 
@@ -154,7 +155,7 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 
 ```powershell
 pnpm install          # once, installs every package
-pnpm dev              # api (port 8787) and web (port 3001) together
+pnpm dev              # api (port 8787) and web (port 3011) together
 pnpm check            # type check + all tests; must pass before the requester commits
 pnpm openapi          # rewrite apps/api/openapi/openapi.json after changing any route
 pnpm stop:ports:all   # stop every development server started by this repository
