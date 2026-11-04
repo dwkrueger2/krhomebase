@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Full Schema - KR Database Schema 8.0</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">KR<span>_</span>DatabaseSchema</span>
+  <div class="header-sep"></div>
+  <span class="header-title">Database Schema</span>
+  <div class="header-right"><span class="version-badge">v8.0 - 2026-10-24</span><span class="updated-badge">Live schema read from krhomebase_dev</span></div>
+</header>
+<div class="layout">
+  <nav class="sidebar" id="sidebar"><noscript><a class="sidebar-link" href="index.html">Schema 8.0 index</a></noscript></nav>
+  <main class="main">
+    <div class="breadcrumb"><a href="index.html">KR_DatabaseSchema</a><span class="sep">/</span><span class="current">Full schema</span></div>
+    <div class="page-hero"><span class="table-tag">Schema map</span><h1 class="page-title">Full Schema &amp; Relationships</h1>
+    <p class="page-description">All 124 tables grouped by domain, with every declared foreign key. A single drawn ERD of this size is unreadable, so relationships are shown per domain as tables, as Mermaid source you can paste into any Mermaid renderer, and as a relationship map on each table page. No external scripts are used.</p></div>
+    <div class="reference-links"><a href="#g-identity">Identity and Parties</a><a href="#g-contacts">Contacts, Addresses, and Communication Methods</a><a href="#g-clients_matters">Clients and Matters</a><a href="#g-matter_access">Matter Participation and Access</a><a href="#g-leads">Intake and Lead Management</a><a href="#g-work">Notes, Communications, Tasks, and Reminders</a><a href="#g-calendar">Calendar and Events</a><a href="#g-conflicts">Conflict Checking</a><a href="#g-time">Time and Expenses</a><a href="#g-billing">Billing, Ledger, Payments, and Trust</a><a href="#g-documents">Documents, Media, and Templates</a><a href="#g-estate">Estate Planning, Assets, and Funding</a><a href="#g-entities">Business Entities</a><a href="#g-publishing">Public Content Publishing</a><a href="#g-integrations">External Integrations and Import</a><a href="#g-security">Users, Roles, Permissions, Sessions, and Audit</a><a href="#g-hr">Employees, Timekeeping, Payroll, and Teams</a><a href="#g-system">System Metadata and Configuration</a></div>
+    <div class="section-title">Domains</div><section class="group-block" id="g-identity"><h2 class="group-title">Identity and Parties</h2><p class="group-desc">Natural-person identity records and the links between them. Every human in the system (client, user, employee, trustee, beneficiary) starts as an individual.</p><ul class="technical-list"><li><a href="table_individual.html">individual</a> &mdash; The master record for a real human being.</li><li><a href="table_individual_relationship.html">individual_relationship</a> &mdash; A relationship between two individuals (spouse, parent, child, guardian, ward, sibling, emergency contact) with the relationship named in both directions, a current/former status, and validity dates.</li><li><a href="table_contact_resolution.html">contact_resolution</a> &mdash; An audit and idempotency record for contact clean-up operations (merge, copy-and-inactivate, inactivate).</li></ul><table class="data-table"><thead><tr><th>From table</th><th>Column(s)</th><th>References</th><th>Column(s)</th><th>On delete</th></tr></thead><tbody><tr><td><a href="table_individual_relationship.html">individual_relationship</a></td><td><code>individual_a_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_individual_relationship.html">individual_relationship</a></td><td><code>individual_b_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_individual_relationship.html">individual_relationship</a></td><td><code>a_to_b_relationship_lookup_id</code></td><td><a href="table_lookup.html">lookup</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_individual_relationship.html">individual_relationship</a></td><td><code>b_to_a_relationship_lookup_id</code></td><td><a href="table_lookup.html">lookup</a></td><td><code>id</code></td><td></td></tr></tbody></table><details class="sqlbox"><summary>Mermaid ERD source for this domain</summary><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>erDiagram
+  individual {
+    TEXT id PK
+  }
+  individual_relationship {
+    TEXT id PK
+    TEXT individual_a_id FK
+    TEXT individual_b_id FK
+    TEXT a_to_b_relationship_lookup_id FK
+    TEXT b_to_a_relationship_lookup_id FK
+  }
+  contact_resolution {
+    TEXT id PK
+  }
+  individual ||--o{ individual_relationship : &quot;individual_a_id&quot;
+  individual ||--o{ individual_relationship : &quot;individual_b_id&quot;</code></pre></div></details></section><section class="group-block" id="g-contacts"><h2 class="group-title">Contacts, Addresses, and Communication Methods</h2><p class="group-desc">Reusable addresses and contact methods for individuals and entities, kept as dated history rather than overwritten columns.</p><ul class="technical-list"><li><a href="table_address.html">address</a> &mdash; A reusable physical or mailing address.</li><li><a href="table_individual_address.html">individual_address</a> &mdash; Dated address assignment for an individual: which address, what type (home, mailing, work), whether it is the primary one, and when it was valid.</li><li><a href="table_individual_contact_method.html">individual_contact_method</a> &mdash; An email, phone, fax, web address, or other contact method for an individual, with context, primary flag, verification state, texting permission, and do-not-contact controls.</li><li><a href="table_entity_address.html">entity_address</a> &mdash; Dated address assignment for an entity: business, mailing, billing, registered-office, or other address context with validity dates and a primary flag.</li><li><a href="table_entity_contact.html">entity_contact</a> &mdash; Links an entity to an individual who serves in a role for it (trustee, officer, manager, registered agent, authorized representative, related contact).</li><li><a href="table_entity_contact_method.html">entity_contact_method</a> &mdash; An email, phone, fax, web address, or other contact method for an entity, with context, primary flag, verification state, and do-not-contact controls.</li></ul><table class="data-table"><thead><tr><th>From table</th><th>Column(s)</th><th>References</th><th>Column(s)</th><th>On delete</th></tr></thead><tbody><tr><td><a href="table_individual_address.html">individual_address</a></td><td><code>individual_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_individual_address.html">individual_address</a></td><td><code>address_id</code></td><td><a href="table_address.html">address</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_individual_address.html">individual_address</a></td><td><code>address_type_lookup_id</code></td><td><a href="table_lookup.html">lookup</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_individual_contact_method.html">individual_contact_method</a></td><td><code>individual_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_individual_contact_method.html">individual_contact_method</a></td><td><code>subtype_lookup_id</code></td><td><a href="table_lookup.html">lookup</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_entity_address.html">entity_address</a></td><td><code>entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_entity_address.html">entity_address</a></td><td><code>address_id</code></td><td><a href="table_address.html">address</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_entity_address.html">entity_address</a></td><td><code>address_type_lookup_id</code></td><td><a href="table_lookup.html">lookup</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_entity_contact.html">entity_contact</a></td><td><code>entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_entity_contact.html">entity_contact</a></td><td><code>individual_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_entity_contact.html">entity_contact</a></td><td><code>role_lookup_id</code></td><td><a href="table_lookup.html">lookup</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_entity_contact_method.html">entity_contact_method</a></td><td><code>entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_entity_contact_method.html">entity_contact_method</a></td><td><code>subtype_lookup_id</code></td><td><a href="table_lookup.html">lookup</a></td><td><code>id</code></td><td></td></tr></tbody></table><details class="sqlbox"><summary>Mermaid ERD source for this domain</summary><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>erDiagram
+  address {
+    TEXT id PK
+  }
+  individual_address {
+    TEXT id PK
+    TEXT individual_id FK
+    TEXT address_id FK
+    TEXT address_type_lookup_id FK
+  }
+  individual_contact_method {
+    TEXT id PK
+    TEXT individual_id FK
+    TEXT subtype_lookup_id FK
+  }
+  entity_address {
+    TEXT id PK
+    TEXT entity_id FK
+    TEXT address_id FK
+    TEXT address_type_lookup_id FK
+  }
+  entity_contact {
+    TEXT id PK
+    TEXT entity_id FK
+    TEXT individual_id FK
+    TEXT role_lookup_id FK
+  }
+  entity_contact_method {
+    TEXT id PK
+    TEXT entity_id FK
+    TEXT subtype_lookup_id FK
+  }
+  address ||--o{ individual_address : &quot;address_id&quot;
+  address ||--o{ entity_address : &quot;address_id&quot;</code></pre></div></details></section><section class="group-block" id="g-clients_matters"><h2 class="group-title">Clients and Matters</h2><p class="group-desc">The client role, joint-client members, matters (case files), matter parties, and the matter stage history.</p><ul class="technical-list"><li><a href="table_client.html">client</a> &mdash; The client (or prospect) role attached to exactly one individual or one entity.</li><li><a href="table_client_member.html">client_member</a> &mdash; Additional individuals or entities who belong to a client record: joint clients, spouses, co-clients, authorized contacts, and billing contacts.</li><li><a href="table_matter.html">matter</a> &mdash; The firm matter (case file): matter number, title, practice area, status, responsible users, cover image, and lifecycle dates.</li><li><a href="table_matter_party.html">matter_party</a> &mdash; Links a matter to a client, individual, or entity with a party role, billing responsibility, and signature flags.</li><li><a href="table_matter_stage_history.html">matter_stage_history</a> &mdash; Ledger of matter status/stage transitions with timestamps, acting user, reason, and prior/new values.</li></ul><table class="data-table"><thead><tr><th>From table</th><th>Column(s)</th><th>References</th><th>Column(s)</th><th>On delete</th></tr></thead><tbody><tr><td><a href="table_client.html">client</a></td><td><code>individual_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_client.html">client</a></td><td><code>entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_client.html">client</a></td><td><code>card_image_media_id</code></td><td><a href="table_media_asset.html">media_asset</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_client.html">client</a></td><td><code>import_batch_id</code></td><td><a href="table_import_batch.html">import_batch</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_client_member.html">client_member</a></td><td><code>client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_client_member.html">client_member</a></td><td><code>individual_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_client_member.html">client_member</a></td><td><code>entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter.html">matter</a></td><td><code>practice_area_lookup_id</code></td><td><a href="table_lookup.html">lookup</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter.html">matter</a></td><td><code>status_lookup_id</code></td><td><a href="table_lookup.html">lookup</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter.html">matter</a></td><td><code>primary_attorney_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter.html">matter</a></td><td><code>responsible_staff_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter.html">matter</a></td><td><code>acting_staff_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter.html">matter</a></td><td><code>assisting_staff_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter.html">matter</a></td><td><code>originating_attorney_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter.html">matter</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter.html">matter</a></td><td><code>cover_image_media_id</code></td><td><a href="table_media_asset.html">media_asset</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter.html">matter</a></td><td><code>import_batch_id</code></td><td><a href="table_import_batch.html">import_batch</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_party.html">matter_party</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_party.html">matter_party</a></td><td><code>client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_party.html">matter_party</a></td><td><code>individual_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_party.html">matter_party</a></td><td><code>entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_party.html">matter_party</a></td><td><code>party_role_lookup_id</code></td><td><a href="table_lookup.html">lookup</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_stage_history.html">matter_stage_history</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_matter_stage_history.html">matter_stage_history</a></td><td><code>previous_status_lookup_id</code></td><td><a href="table_lookup.html">lookup</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_matter_stage_history.html">matter_stage_history</a></td><td><code>next_status_lookup_id</code></td><td><a href="table_lookup.html">lookup</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_matter_stage_history.html">matter_stage_history</a></td><td><code>changed_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr></tbody></table><details class="sqlbox"><summary>Mermaid ERD source for this domain</summary><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>erDiagram
+  client {
+    TEXT id PK
+    TEXT individual_id FK
+    TEXT entity_id FK
+    TEXT card_image_media_id FK
+    TEXT import_batch_id FK
+  }
+  client_member {
+    TEXT id PK
+    TEXT client_id FK
+    TEXT individual_id FK
+    TEXT entity_id FK
+  }
+  matter {
+    TEXT id PK
+    TEXT practice_area_lookup_id FK
+    TEXT status_lookup_id FK
+    TEXT primary_attorney_user_id FK
+    TEXT responsible_staff_user_id FK
+    TEXT acting_staff_user_id FK
+    TEXT assisting_staff_user_id FK
+    TEXT originating_attorney_user_id FK
+    TEXT created_by_user_id FK
+    TEXT cover_image_media_id FK
+    TEXT import_batch_id FK
+  }
+  matter_party {
+    TEXT id PK
+    TEXT matter_id FK
+    TEXT client_id FK
+    TEXT individual_id FK
+    TEXT entity_id FK
+    TEXT party_role_lookup_id FK
+  }
+  matter_stage_history {
+    TEXT id PK
+    TEXT matter_id FK
+    TEXT previous_status_lookup_id FK
+    TEXT next_status_lookup_id FK
+    TEXT changed_by_user_id FK
+  }
+  client ||--o{ client_member : &quot;client_id&quot;
+  matter ||--o{ matter_party : &quot;matter_id&quot;
+  client ||--o{ matter_party : &quot;client_id&quot;
+  matter ||--o{ matter_stage_history : &quot;matter_id&quot;</code></pre></div></details></section><section class="group-block" id="g-matter_access"><h2 class="group-title">Matter Participation and Access</h2><p class="group-desc">Who works on a matter and who may see it.</p><ul class="technical-list"><li><a href="table_matter_staff_assignment.html">matter_staff_assignment</a> &mdash; History of which staff work a matter and in what role (responsible attorney, acting attorney, assisting staff, originating attorney).</li><li><a href="table_matter_access.html">matter_access</a> &mdash; Matter-level access grant used to sandbox users to authorized matters, and to revoke or block access.</li></ul><table class="data-table"><thead><tr><th>From table</th><th>Column(s)</th><th>References</th><th>Column(s)</th><th>On delete</th></tr></thead><tbody><tr><td><a href="table_matter_staff_assignment.html">matter_staff_assignment</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_staff_assignment.html">matter_staff_assignment</a></td><td><code>user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_access.html">matter_access</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_access.html">matter_access</a></td><td><code>user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_access.html">matter_access</a></td><td><code>granted_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_access.html">matter_access</a></td><td><code>revoked_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr></tbody></table><details class="sqlbox"><summary>Mermaid ERD source for this domain</summary><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>erDiagram
+  matter_staff_assignment {
+    TEXT id PK
+    TEXT matter_id FK
+    TEXT user_id FK
+  }
+  matter_access {
+    TEXT id PK
+    TEXT matter_id FK
+    TEXT user_id FK
+    TEXT granted_by_user_id FK
+    TEXT revoked_by_user_id FK
+  }</code></pre></div></details></section><section class="group-block" id="g-leads"><h2 class="group-title">Intake and Lead Management</h2><p class="group-desc">Lead capture, pipeline stages, sources, and conversion from lead to client.</p><ul class="technical-list"><li><a href="table_lead.html">lead</a> &mdash; A person who has reached out or been entered as a prospect.</li><li><a href="table_lead_source.html">lead_source</a> &mdash; Lookup of lead sources and marketing or referral channels, with a display label and active flag, used to attribute where leads come from.</li><li><a href="table_lead_pipeline_stage.html">lead_pipeline_stage</a> &mdash; Configurable lead pipeline stages with ordering, labels, terminal-state flags, and active/inactive controls.</li><li><a href="table_client_lead_profile.html">client_lead_profile</a> &mdash; The intake profile for an individual: pipeline stage, source, referral details, campaign, contact and qualification timestamps, conversion or loss details, and the assigned user.</li><li><a href="table_client_lead_profile_legacy_orphan.html">client_lead_profile_legacy_orphan</a> &mdash; Archive of old client_lead_profile rows that could not be re-attached to an individual during the 2026-09-24 migration.</li></ul><table class="data-table"><thead><tr><th>From table</th><th>Column(s)</th><th>References</th><th>Column(s)</th><th>On delete</th></tr></thead><tbody><tr><td><a href="table_lead.html">lead</a></td><td><code>individual_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_lead.html">lead</a></td><td><code>assigned_to_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_lead.html">lead</a></td><td><code>converted_client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_client_lead_profile.html">client_lead_profile</a></td><td><code>individual_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_client_lead_profile.html">client_lead_profile</a></td><td><code>source_id</code></td><td><a href="table_lead_source.html">lead_source</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_client_lead_profile.html">client_lead_profile</a></td><td><code>pipeline_stage_id</code></td><td><a href="table_lead_pipeline_stage.html">lead_pipeline_stage</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_client_lead_profile.html">client_lead_profile</a></td><td><code>assigned_to_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr></tbody></table><details class="sqlbox"><summary>Mermaid ERD source for this domain</summary><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>erDiagram
+  lead {
+    TEXT id PK
+    TEXT individual_id FK
+    TEXT assigned_to_user_id FK
+    TEXT converted_client_id FK
+  }
+  lead_source {
+    TEXT id PK
+  }
+  lead_pipeline_stage {
+    TEXT id PK
+  }
+  client_lead_profile {
+    TEXT id PK
+    TEXT individual_id FK
+    TEXT source_id FK
+    TEXT pipeline_stage_id FK
+    TEXT assigned_to_user_id FK
+  }
+  client_lead_profile_legacy_orphan {
+    TEXT id PK
+  }
+  lead_source ||--o{ client_lead_profile : &quot;source_id&quot;
+  lead_pipeline_stage ||--o{ client_lead_profile : &quot;pipeline_stage_id&quot;</code></pre></div></details></section><section class="group-block" id="g-work"><h2 class="group-title">Notes, Communications, Tasks, and Reminders</h2><p class="group-desc">Day-to-day work records: notes, the communication log, the workstream activity feed, tasks, and reminders.</p><ul class="technical-list"><li><a href="table_kr_note.html">kr_note</a> &mdash; Durable internal note attached to a matter, client, individual, entity, task, event, or other owner.</li><li><a href="table_communication_log.html">communication_log</a> &mdash; Normalized record of calls, emails, meetings, text messages, and other communications for a matter, client, lead, or contact.</li><li><a href="table_communication_participant.html">communication_participant</a> &mdash; Participants in a communication-log entry: users, clients, individuals, entities, or free-form external parties.</li><li><a href="table_communication_attachment.html">communication_attachment</a> &mdash; Attachment link for a communication-log entry, pointing to a media asset, document record, external URL, or descriptive reference.</li><li><a href="table_workstream_activity.html">workstream_activity</a> &mdash; The workstream feed: dated, internal-only activity entries (phone calls, emails, notes, tasks, received and sent files, work in progress) recorded against exactly one client or one lead, optionally tied to a matter, document, and task.</li><li><a href="table_workstream_activity_comment.html">workstream_activity_comment</a> &mdash; A user comment on a workstream activity entry.</li><li><a href="table_matter_activity_log.html">matter_activity_log</a> &mdash; Matter activity-history rail: dated work history with project identifier, task-assignment snapshot, user linkage, and narrative details.</li><li><a href="table_task.html">task</a> &mdash; An assignable work item with optional matter or client link, status, priority, assignee, assigner, lead user, due date, completion date, and billing-readiness fields (value, status, description).</li><li><a href="table_task_assignee.html">task_assignee</a> &mdash; Assignment of users to a task as assignee or collaborator, with who assigned them, when, and whether the assignment is current.</li><li><a href="table_reminder.html">reminder</a> &mdash; Operational reminder for a user or owner record, with due date, snooze/dismiss lifecycle, priority, and owner context.</li></ul><table class="data-table"><thead><tr><th>From table</th><th>Column(s)</th><th>References</th><th>Column(s)</th><th>On delete</th></tr></thead><tbody><tr><td><a href="table_kr_note.html">kr_note</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_kr_note.html">kr_note</a></td><td><code>updated_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_communication_log.html">communication_log</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_communication_log.html">communication_log</a></td><td><code>client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_communication_log.html">communication_log</a></td><td><code>individual_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_communication_log.html">communication_log</a></td><td><code>entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_communication_log.html">communication_log</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_communication_participant.html">communication_participant</a></td><td><code>communication_id</code></td><td><a href="table_communication_log.html">communication_log</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_communication_participant.html">communication_participant</a></td><td><code>individual_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_communication_participant.html">communication_participant</a></td><td><code>entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_communication_participant.html">communication_participant</a></td><td><code>user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_communication_attachment.html">communication_attachment</a></td><td><code>communication_id</code></td><td><a href="table_communication_log.html">communication_log</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_communication_attachment.html">communication_attachment</a></td><td><code>document_record_id</code></td><td><a href="table_document_record.html">document_record</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_communication_attachment.html">communication_attachment</a></td><td><code>media_asset_id</code></td><td><a href="table_media_asset.html">media_asset</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_workstream_activity.html">workstream_activity</a></td><td><code>client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_workstream_activity.html">workstream_activity</a></td><td><code>lead_id</code></td><td><a href="table_lead.html">lead</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_workstream_activity.html">workstream_activity</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_workstream_activity.html">workstream_activity</a></td><td><code>document_record_id</code></td><td><a href="table_document_record.html">document_record</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_workstream_activity.html">workstream_activity</a></td><td><code>assignee_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_workstream_activity.html">workstream_activity</a></td><td><code>performed_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_workstream_activity_comment.html">workstream_activity_comment</a></td><td><code>workstream_activity_id</code></td><td><a href="table_workstream_activity.html">workstream_activity</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_workstream_activity_comment.html">workstream_activity_comment</a></td><td><code>user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_activity_log.html">matter_activity_log</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_activity_log.html">matter_activity_log</a></td><td><code>task_id</code></td><td><a href="table_task.html">task</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_activity_log.html">matter_activity_log</a></td><td><code>assigned_to_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_activity_log.html">matter_activity_log</a></td><td><code>performed_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_task.html">task</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_task.html">task</a></td><td><code>client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_task.html">task</a></td><td><code>assigned_to_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_task.html">task</a></td><td><code>assigned_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_task.html">task</a></td><td><code>lead_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_task.html">task</a></td><td><code>workstream_activity_wsid</code></td><td><a href="table_workstream_activity.html">workstream_activity</a></td><td><code>wsid</code></td><td></td></tr><tr><td><a href="table_task.html">task</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_task_assignee.html">task_assignee</a></td><td><code>task_id</code></td><td><a href="table_task.html">task</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_task_assignee.html">task_assignee</a></td><td><code>user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_task_assignee.html">task_assignee</a></td><td><code>assigned_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_reminder.html">reminder</a></td><td><code>user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr></tbody></table><details class="sqlbox"><summary>Mermaid ERD source for this domain</summary><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>erDiagram
+  kr_note {
+    TEXT id PK
+    TEXT created_by_user_id FK
+    TEXT updated_by_user_id FK
+  }
+  communication_log {
+    TEXT id PK
+    TEXT matter_id FK
+    TEXT client_id FK
+    TEXT individual_id FK
+    TEXT entity_id FK
+    TEXT created_by_user_id FK
+  }
+  communication_participant {
+    TEXT id PK
+    TEXT communication_id FK
+    TEXT individual_id FK
+    TEXT entity_id FK
+    TEXT user_id FK
+  }
+  communication_attachment {
+    TEXT id PK
+    TEXT communication_id FK
+    TEXT document_record_id FK
+    TEXT media_asset_id FK
+  }
+  workstream_activity {
+    TEXT id PK
+    TEXT client_id FK
+    TEXT lead_id FK
+    TEXT matter_id FK
+    TEXT document_record_id FK
+    TEXT assignee_user_id FK
+    TEXT performed_by_user_id FK
+  }
+  workstream_activity_comment {
+    TEXT id PK
+    TEXT workstream_activity_id FK
+    TEXT user_id FK
+  }
+  matter_activity_log {
+    TEXT id PK
+    TEXT matter_id FK
+    TEXT task_id FK
+    TEXT assigned_to_user_id FK
+    TEXT performed_by_user_id FK
+  }
+  task {
+    TEXT id PK
+    TEXT matter_id FK
+    TEXT client_id FK
+    TEXT assigned_to_user_id FK
+    TEXT assigned_by_user_id FK
+    TEXT lead_user_id FK
+    TEXT workstream_activity_wsid FK
+    TEXT created_by_user_id FK
+  }
+  task_assignee {
+    TEXT id PK
+    TEXT task_id FK
+    TEXT user_id FK
+    TEXT assigned_by_user_id FK
+  }
+  reminder {
+    TEXT id PK
+    TEXT user_id FK
+  }
+  communication_log ||--o{ communication_participant : &quot;communication_id&quot;
+  communication_log ||--o{ communication_attachment : &quot;communication_id&quot;
+  workstream_activity ||--o{ workstream_activity_comment : &quot;workstream_activity_id&quot;
+  task ||--o{ matter_activity_log : &quot;task_id&quot;
+  workstream_activity ||--o{ task : &quot;workstream_activity_wsid&quot;
+  task ||--o{ task_assignee : &quot;task_id&quot;</code></pre></div></details></section><section class="group-block" id="g-calendar"><h2 class="group-title">Calendar and Events</h2><p class="group-desc">Appointments, deadlines, and their participants.</p><ul class="technical-list"><li><a href="table_event.html">event</a> &mdash; A calendar item (call, meeting, deadline, note, reminder) tied to a matter, client, individual, or entity.</li><li><a href="table_event_participant.html">event_participant</a> &mdash; Attendees of an event with role, response status, and attendance details, so the event table does not carry participant columns.</li></ul><table class="data-table"><thead><tr><th>From table</th><th>Column(s)</th><th>References</th><th>Column(s)</th><th>On delete</th></tr></thead><tbody><tr><td><a href="table_event.html">event</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_event.html">event</a></td><td><code>related_client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_event.html">event</a></td><td><code>related_individual_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_event.html">event</a></td><td><code>related_entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_event.html">event</a></td><td><code>user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_event.html">event</a></td><td><code>assigned_to_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_event.html">event</a></td><td><code>event_type_lookup_id</code></td><td><a href="table_lookup.html">lookup</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_event.html">event</a></td><td><code>import_batch_id</code></td><td><a href="table_import_batch.html">import_batch</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_event_participant.html">event_participant</a></td><td><code>event_id</code></td><td><a href="table_event.html">event</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_event_participant.html">event_participant</a></td><td><code>user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_event_participant.html">event_participant</a></td><td><code>client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_event_participant.html">event_participant</a></td><td><code>individual_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_event_participant.html">event_participant</a></td><td><code>entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr></tbody></table><details class="sqlbox"><summary>Mermaid ERD source for this domain</summary><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>erDiagram
+  event {
+    TEXT id PK
+    TEXT matter_id FK
+    TEXT related_client_id FK
+    TEXT related_individual_id FK
+    TEXT related_entity_id FK
+    TEXT user_id FK
+    TEXT assigned_to_user_id FK
+    TEXT event_type_lookup_id FK
+    TEXT import_batch_id FK
+  }
+  event_participant {
+    TEXT id PK
+    TEXT event_id FK
+    TEXT user_id FK
+    TEXT client_id FK
+    TEXT individual_id FK
+    TEXT entity_id FK
+  }
+  event ||--o{ event_participant : &quot;event_id&quot;</code></pre></div></details></section><section class="group-block" id="g-conflicts"><h2 class="group-title">Conflict Checking</h2><p class="group-desc">Conflict-of-interest screening of parties against firm records.</p><ul class="technical-list"><li><a href="table_conflict_check.html">conflict_check</a> &mdash; A conflict screening run for a matter against a client, individual, or entity, with overall result, checker, date, and notes.</li><li><a href="table_conflict_check_party.html">conflict_check_party</a> &mdash; A party that was searched in a conflict check: name, role, relation to the matter, and links to identity records when known.</li><li><a href="table_conflict_check_result.html">conflict_check_result</a> &mdash; A potential conflict found during a check, with match quality, result type, disposition, and reviewer details.</li></ul><table class="data-table"><thead><tr><th>From table</th><th>Column(s)</th><th>References</th><th>Column(s)</th><th>On delete</th></tr></thead><tbody><tr><td><a href="table_conflict_check.html">conflict_check</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_conflict_check.html">conflict_check</a></td><td><code>checked_against_client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_conflict_check.html">conflict_check</a></td><td><code>checked_against_individual_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_conflict_check.html">conflict_check</a></td><td><code>checked_against_entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_conflict_check.html">conflict_check</a></td><td><code>checked_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_conflict_check_party.html">conflict_check_party</a></td><td><code>conflict_check_id</code></td><td><a href="table_conflict_check.html">conflict_check</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_conflict_check_party.html">conflict_check_party</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_conflict_check_party.html">conflict_check_party</a></td><td><code>client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_conflict_check_party.html">conflict_check_party</a></td><td><code>individual_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_conflict_check_party.html">conflict_check_party</a></td><td><code>entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_conflict_check_result.html">conflict_check_result</a></td><td><code>conflict_check_id</code></td><td><a href="table_conflict_check.html">conflict_check</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr></tbody></table><details class="sqlbox"><summary>Mermaid ERD source for this domain</summary><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>erDiagram
+  conflict_check {
+    TEXT id PK
+    TEXT matter_id FK
+    TEXT checked_against_client_id FK
+    TEXT checked_against_individual_id FK
+    TEXT checked_against_entity_id FK
+    TEXT checked_by_user_id FK
+  }
+  conflict_check_party {
+    TEXT id PK
+    TEXT conflict_check_id FK
+    TEXT matter_id FK
+    TEXT client_id FK
+    TEXT individual_id FK
+    TEXT entity_id FK
+  }
+  conflict_check_result {
+    TEXT id PK
+    TEXT conflict_check_id FK
+  }
+  conflict_check ||--o{ conflict_check_party : &quot;conflict_check_id&quot;
+  conflict_check ||--o{ conflict_check_result : &quot;conflict_check_id&quot;</code></pre></div></details></section><section class="group-block" id="g-time"><h2 class="group-title">Time and Expenses</h2><p class="group-desc">Billable work capture: time entries, timers, expenses, and the activity-code dictionary.</p><ul class="technical-list"><li><a href="table_time_entry.html">time_entry</a> &mdash; A billable or non-billable unit of legal work for a matter and user, with duration, rate, billing status, and invoice linkage.</li><li><a href="table_timer_session.html">timer_session</a> &mdash; A running or finished timer used to build time entries: start and stop timestamps, duration, billing status, rate context, and matter/user ownership.</li><li><a href="table_expense_entry.html">expense_entry</a> &mdash; A matter expense: cost category, amount, billable/reimbursable status, vendor, receipt or document links, and posting status.</li><li><a href="table_billing_activity_code.html">billing_activity_code</a> &mdash; Dictionary of billing and time-entry activity codes, with descriptions, default billing modes, and optional default rates.</li></ul><table class="data-table"><thead><tr><th>From table</th><th>Column(s)</th><th>References</th><th>Column(s)</th><th>On delete</th></tr></thead><tbody><tr><td><a href="table_time_entry.html">time_entry</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_time_entry.html">time_entry</a></td><td><code>user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_time_entry.html">time_entry</a></td><td><code>employee_id</code></td><td><a href="table_employee.html">employee</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_time_entry.html">time_entry</a></td><td><code>activity_code_id</code></td><td><a href="table_billing_activity_code.html">billing_activity_code</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_time_entry.html">time_entry</a></td><td><code>flat_fee_component_id</code></td><td><a href="table_matter_fee_component.html">matter_fee_component</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_time_entry.html">time_entry</a></td><td><code>invoice_id</code></td><td><a href="table_invoice.html">invoice</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_time_entry.html">time_entry</a></td><td><code>import_batch_id</code></td><td><a href="table_import_batch.html">import_batch</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_timer_session.html">timer_session</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_timer_session.html">timer_session</a></td><td><code>user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_timer_session.html">timer_session</a></td><td><code>activity_code_id</code></td><td><a href="table_billing_activity_code.html">billing_activity_code</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_expense_entry.html">expense_entry</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_expense_entry.html">expense_entry</a></td><td><code>user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_expense_entry.html">expense_entry</a></td><td><code>invoice_id</code></td><td><a href="table_invoice.html">invoice</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr></tbody></table><details class="sqlbox"><summary>Mermaid ERD source for this domain</summary><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>erDiagram
+  time_entry {
+    TEXT id PK
+    TEXT matter_id FK
+    TEXT user_id FK
+    TEXT employee_id FK
+    TEXT activity_code_id FK
+    TEXT flat_fee_component_id FK
+    TEXT invoice_id FK
+    TEXT import_batch_id FK
+  }
+  timer_session {
+    TEXT id PK
+    TEXT matter_id FK
+    TEXT user_id FK
+    TEXT activity_code_id FK
+  }
+  expense_entry {
+    TEXT id PK
+    TEXT matter_id FK
+    TEXT user_id FK
+    TEXT invoice_id FK
+  }
+  billing_activity_code {
+    TEXT id PK
+  }
+  billing_activity_code ||--o{ time_entry : &quot;activity_code_id&quot;
+  billing_activity_code ||--o{ timer_session : &quot;activity_code_id&quot;</code></pre></div></details></section><section class="group-block" id="g-billing"><h2 class="group-title">Billing, Ledger, Payments, and Trust</h2><p class="group-desc">Matter billing setup, invoices, the receivable/trust ledger, payments (including online payment requests), bank deposits, and trust requests.</p><ul class="technical-list"><li><a href="table_matter_billing_profile.html">matter_billing_profile</a> &mdash; Matter-level billing setup: fee arrangement, billing client, receivable client, billing category, reporting group, rates, flat-fee amount, and invoice visibility defaults.</li><li><a href="table_matter_fee_component.html">matter_fee_component</a> &mdash; A flat-fee, retainer, hourly-cap, or expense-allowance component attached to a matter billing profile.</li><li><a href="table_matter_balance_snapshot.html">matter_balance_snapshot</a> &mdash; Point-in-time matter financial summary imported from an external practice-management system: work in progress, receivables, trust balance, retainer/credits, expense buckets, staff, billing category, and reporting group.</li><li><a href="table_invoice.html">invoice</a> &mdash; Billing invoice header for a matter and billed client: invoice number, dates, totals, status, and notes.</li><li><a href="table_invoice_line_item.html">invoice_line_item</a> &mdash; Detail lines on an invoice: hourly time, flat fees, expenses, credits, discounts, taxes, adjustments, and note-only rows.</li><li><a href="table_ledger_entry.html">ledger_entry</a> &mdash; The financial ledger: payments, credits, debits, write-offs, refunds, and adjustments applied to an invoice, matter, and client, each in a ledger bucket (for example receivable or trust) with a direction and amount.</li><li><a href="table_ledger_audit_log.html">ledger_audit_log</a> &mdash; Audit trail for ledger-entry changes: actor, time, action, and JSON before/after snapshots.</li><li><a href="table_payment.html">payment</a> &mdash; A payment or receipt header that can be applied to one or more invoices or matters and optionally grouped into a bank deposit.</li><li><a href="table_payment_application.html">payment_application</a> &mdash; Application of part or all of a payment to a specific invoice, matter, and ledger entry.</li><li><a href="table_payment_request.html">payment_request</a> &mdash; A client-facing online payment link for an invoice.</li><li><a href="table_payment_provider.html">payment_provider</a> &mdash; Configuration row per payment provider and environment (live or sandbox).</li><li><a href="table_bank_deposit.html">bank_deposit</a> &mdash; Bank deposit slip header: deposit number and date, memo, destination bank account, totals, teller/depositor fields, and a source-document link.</li><li><a href="table_bank_deposit_item.html">bank_deposit_item</a> &mdash; One line on a deposit slip (online payment, cash, check, ACH, wire, other) with matter, receipt number, drawer, masked account data, and amount.</li><li><a href="table_firm_bank_account.html">firm_bank_account</a> &mdash; Firm bank account metadata (operating, trust, merchant, other).</li><li><a href="table_trust_request.html">trust_request</a> &mdash; A trust or retainer request for a matter and client: requested amount, due date, status, payment context, and the ledger entry that satisfied it.</li></ul><table class="data-table"><thead><tr><th>From table</th><th>Column(s)</th><th>References</th><th>Column(s)</th><th>On delete</th></tr></thead><tbody><tr><td><a href="table_matter_billing_profile.html">matter_billing_profile</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_billing_profile.html">matter_billing_profile</a></td><td><code>billing_client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_billing_profile.html">matter_billing_profile</a></td><td><code>receivable_client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_fee_component.html">matter_fee_component</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_fee_component.html">matter_fee_component</a></td><td><code>billing_profile_id</code></td><td><a href="table_matter_billing_profile.html">matter_billing_profile</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_balance_snapshot.html">matter_balance_snapshot</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_matter_balance_snapshot.html">matter_balance_snapshot</a></td><td><code>import_batch_id</code></td><td><a href="table_import_batch.html">import_batch</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_invoice.html">invoice</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_invoice.html">invoice</a></td><td><code>billing_profile_id</code></td><td><a href="table_matter_billing_profile.html">matter_billing_profile</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_invoice.html">invoice</a></td><td><code>billed_to_client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_invoice_line_item.html">invoice_line_item</a></td><td><code>invoice_id</code></td><td><a href="table_invoice.html">invoice</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_invoice_line_item.html">invoice_line_item</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_invoice_line_item.html">invoice_line_item</a></td><td><code>time_entry_id</code></td><td><a href="table_time_entry.html">time_entry</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_invoice_line_item.html">invoice_line_item</a></td><td><code>fee_component_id</code></td><td><a href="table_matter_fee_component.html">matter_fee_component</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_invoice_line_item.html">invoice_line_item</a></td><td><code>ledger_entry_id</code></td><td><a href="table_ledger_entry.html">ledger_entry</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_ledger_entry.html">ledger_entry</a></td><td><code>invoice_id</code></td><td><a href="table_invoice.html">invoice</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_ledger_entry.html">ledger_entry</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_ledger_entry.html">ledger_entry</a></td><td><code>client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_ledger_entry.html">ledger_entry</a></td><td><code>payment_id</code></td><td><a href="table_payment.html">payment</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_ledger_entry.html">ledger_entry</a></td><td><code>bank_deposit_id</code></td><td><a href="table_bank_deposit.html">bank_deposit</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_ledger_entry.html">ledger_entry</a></td><td><code>payment_type_lookup_id</code></td><td><a href="table_lookup.html">lookup</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_ledger_entry.html">ledger_entry</a></td><td><code>received_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_ledger_entry.html">ledger_entry</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_ledger_entry.html">ledger_entry</a></td><td><code>voided_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_ledger_audit_log.html">ledger_audit_log</a></td><td><code>ledger_entry_id</code></td><td><a href="table_ledger_entry.html">ledger_entry</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_ledger_audit_log.html">ledger_audit_log</a></td><td><code>invoice_id</code></td><td><a href="table_invoice.html">invoice</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_ledger_audit_log.html">ledger_audit_log</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_ledger_audit_log.html">ledger_audit_log</a></td><td><code>actor_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_payment.html">payment</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_payment.html">payment</a></td><td><code>client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_payment.html">payment</a></td><td><code>payment_type_lookup_id</code></td><td><a href="table_lookup.html">lookup</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_payment.html">payment</a></td><td><code>bank_account_id</code></td><td><a href="table_firm_bank_account.html">firm_bank_account</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_payment.html">payment</a></td><td><code>import_batch_id</code></td><td><a href="table_import_batch.html">import_batch</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_payment.html">payment</a></td><td><code>received_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_payment.html">payment</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_payment.html">payment</a></td><td><code>voided_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_payment_application.html">payment_application</a></td><td><code>payment_id</code></td><td><a href="table_payment.html">payment</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_payment_application.html">payment_application</a></td><td><code>invoice_id</code></td><td><a href="table_invoice.html">invoice</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_payment_application.html">payment_application</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_payment_application.html">payment_application</a></td><td><code>ledger_entry_id</code></td><td><a href="table_ledger_entry.html">ledger_entry</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_payment_application.html">payment_application</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_payment_request.html">payment_request</a></td><td><code>invoice_id</code></td><td><a href="table_invoice.html">invoice</a></td><td><code>id</code></td><td>ON DELETE RESTRICT</td></tr><tr><td><a href="table_payment_request.html">payment_request</a></td><td><code>client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td>ON DELETE RESTRICT</td></tr><tr><td><a href="table_payment_request.html">payment_request</a></td><td><code>payment_id</code></td><td><a href="table_payment.html">payment</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_payment_request.html">payment_request</a></td><td><code>revoked_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_payment_request.html">payment_request</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_payment_provider.html">payment_provider</a></td><td><code>secret_key_set_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_payment_provider.html">payment_provider</a></td><td><code>webhook_secret_set_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_payment_provider.html">payment_provider</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_payment_provider.html">payment_provider</a></td><td><code>updated_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_bank_deposit.html">bank_deposit</a></td><td><code>bank_account_id</code></td><td><a href="table_firm_bank_account.html">firm_bank_account</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_bank_deposit.html">bank_deposit</a></td><td><code>deposited_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_bank_deposit.html">bank_deposit</a></td><td><code>source_document_id</code></td><td><a href="table_document_record.html">document_record</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_bank_deposit.html">bank_deposit</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_bank_deposit_item.html">bank_deposit_item</a></td><td><code>bank_deposit_id</code></td><td><a href="table_bank_deposit.html">bank_deposit</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_bank_deposit_item.html">bank_deposit_item</a></td><td><code>payment_id</code></td><td><a href="table_payment.html">payment</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_bank_deposit_item.html">bank_deposit_item</a></td><td><code>ledger_entry_id</code></td><td><a href="table_ledger_entry.html">ledger_entry</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_bank_deposit_item.html">bank_deposit_item</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_trust_request.html">trust_request</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_trust_request.html">trust_request</a></td><td><code>client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_trust_request.html">trust_request</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr></tbody></table><details class="sqlbox"><summary>Mermaid ERD source for this domain</summary><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>erDiagram
+  matter_billing_profile {
+    TEXT id PK
+    TEXT matter_id FK
+    TEXT billing_client_id FK
+    TEXT receivable_client_id FK
+  }
+  matter_fee_component {
+    TEXT id PK
+    TEXT matter_id FK
+    TEXT billing_profile_id FK
+  }
+  matter_balance_snapshot {
+    TEXT id PK
+    TEXT matter_id FK
+    TEXT import_batch_id FK
+  }
+  invoice {
+    TEXT id PK
+    TEXT matter_id FK
+    TEXT billing_profile_id FK
+    TEXT billed_to_client_id FK
+  }
+  invoice_line_item {
+    TEXT id PK
+    TEXT invoice_id FK
+    TEXT matter_id FK
+    TEXT time_entry_id FK
+    TEXT fee_component_id FK
+    TEXT ledger_entry_id FK
+  }
+  ledger_entry {
+    TEXT id PK
+    TEXT invoice_id FK
+    TEXT matter_id FK
+    TEXT client_id FK
+    TEXT payment_id FK
+    TEXT bank_deposit_id FK
+    TEXT payment_type_lookup_id FK
+    TEXT received_by_user_id FK
+    TEXT created_by_user_id FK
+    TEXT voided_by_user_id FK
+  }
+  ledger_audit_log {
+    TEXT id PK
+    TEXT ledger_entry_id FK
+    TEXT invoice_id FK
+    TEXT matter_id FK
+    TEXT actor_user_id FK
+  }
+  payment {
+    TEXT id PK
+    TEXT matter_id FK
+    TEXT client_id FK
+    TEXT payment_type_lookup_id FK
+    TEXT bank_account_id FK
+    TEXT import_batch_id FK
+    TEXT received_by_user_id FK
+    TEXT created_by_user_id FK
+    TEXT voided_by_user_id FK
+  }
+  payment_application {
+    TEXT id PK
+    TEXT payment_id FK
+    TEXT invoice_id FK
+    TEXT matter_id FK
+    TEXT ledger_entry_id FK
+    TEXT created_by_user_id FK
+  }
+  payment_request {
+    TEXT id PK
+    TEXT invoice_id FK
+    TEXT client_id FK
+    TEXT payment_id FK
+    TEXT revoked_by_user_id FK
+    TEXT created_by_user_id FK
+  }
+  payment_provider {
+    TEXT id PK
+    TEXT secret_key_set_by_user_id FK
+    TEXT webhook_secret_set_by_user_id FK
+    TEXT created_by_user_id FK
+    TEXT updated_by_user_id FK
+  }
+  bank_deposit {
+    TEXT id PK
+    TEXT bank_account_id FK
+    TEXT deposited_by_user_id FK
+    TEXT source_document_id FK
+    TEXT created_by_user_id FK
+  }
+  bank_deposit_item {
+    TEXT id PK
+    TEXT bank_deposit_id FK
+    TEXT payment_id FK
+    TEXT ledger_entry_id FK
+    TEXT matter_id FK
+  }
+  firm_bank_account {
+    TEXT id PK
+  }
+  trust_request {
+    TEXT id PK
+    TEXT matter_id FK
+    TEXT client_id FK
+    TEXT created_by_user_id FK
+  }
+  matter_billing_profile ||--o{ matter_fee_component : &quot;billing_profile_id&quot;
+  matter_billing_profile ||--o{ invoice : &quot;billing_profile_id&quot;
+  invoice ||--o{ invoice_line_item : &quot;invoice_id&quot;
+  matter_fee_component ||--o{ invoice_line_item : &quot;fee_component_id&quot;
+  ledger_entry ||--o{ invoice_line_item : &quot;ledger_entry_id&quot;
+  invoice ||--o{ ledger_entry : &quot;invoice_id&quot;
+  payment ||--o{ ledger_entry : &quot;payment_id&quot;
+  bank_deposit ||--o{ ledger_entry : &quot;bank_deposit_id&quot;
+  ledger_entry ||--o{ ledger_audit_log : &quot;ledger_entry_id&quot;
+  invoice ||--o{ ledger_audit_log : &quot;invoice_id&quot;
+  firm_bank_account ||--o{ payment : &quot;bank_account_id&quot;
+  payment ||--o{ payment_application : &quot;payment_id&quot;
+  invoice ||--o{ payment_application : &quot;invoice_id&quot;
+  ledger_entry ||--o{ payment_application : &quot;ledger_entry_id&quot;
+  invoice ||--o{ payment_request : &quot;invoice_id&quot;
+  payment ||--o{ payment_request : &quot;payment_id&quot;
+  firm_bank_account ||--o{ bank_deposit : &quot;bank_account_id&quot;
+  bank_deposit ||--o{ bank_deposit_item : &quot;bank_deposit_id&quot;
+  payment ||--o{ bank_deposit_item : &quot;payment_id&quot;
+  ledger_entry ||--o{ bank_deposit_item : &quot;ledger_entry_id&quot;</code></pre></div></details></section><section class="group-block" id="g-documents"><h2 class="group-title">Documents, Media, and Templates</h2><p class="group-desc">Document metadata, stored-object (R2) metadata, templates, requested documents, and storage repositories.</p><ul class="technical-list"><li><a href="table_document_record.html">document_record</a> &mdash; Unified document metadata for R2 objects, external URLs, paper files, or unknown-custody references across clients, matters, identities, assets, and employees.</li><li><a href="table_document_template.html">document_template</a> &mdash; Metadata for a document template: name, category, file or media reference, target record type, active status, and versioning.</li><li><a href="table_requested_document.html">requested_document</a> &mdash; Tracks documents requested from clients or staff for intake, matter, asset, and employee-file workflows: request, due, received, and fulfilled dates and the fulfilling record.</li><li><a href="table_repository.html">repository</a> &mdash; A named storage or reference location: the private R2 bucket, a physical file room, or an external reference set.</li><li><a href="table_media_asset.html">media_asset</a> &mdash; D1 metadata for an object stored in the private R2 bucket: owner context, key, content metadata, visibility, status, and uploader.</li><li><a href="table_media_variant.html">media_variant</a> &mdash; A derivative of a media asset (thumbnail, preview, resized image, alternate rendering).</li></ul><table class="data-table"><thead><tr><th>From table</th><th>Column(s)</th><th>References</th><th>Column(s)</th><th>On delete</th></tr></thead><tbody><tr><td><a href="table_document_record.html">document_record</a></td><td><code>client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_document_record.html">document_record</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_document_record.html">document_record</a></td><td><code>individual_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_document_record.html">document_record</a></td><td><code>entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_document_record.html">document_record</a></td><td><code>employee_id</code></td><td><a href="table_employee.html">employee</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_document_record.html">document_record</a></td><td><code>document_category_lookup_id</code></td><td><a href="table_lookup.html">lookup</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_document_record.html">document_record</a></td><td><code>primary_media_asset_id</code></td><td><a href="table_media_asset.html">media_asset</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_document_record.html">document_record</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_document_template.html">document_template</a></td><td><code>media_asset_id</code></td><td><a href="table_media_asset.html">media_asset</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_requested_document.html">requested_document</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_requested_document.html">requested_document</a></td><td><code>client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_requested_document.html">requested_document</a></td><td><code>requested_from_client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_requested_document.html">requested_document</a></td><td><code>document_category_lookup_id</code></td><td><a href="table_lookup.html">lookup</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_requested_document.html">requested_document</a></td><td><code>document_record_id</code></td><td><a href="table_document_record.html">document_record</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_requested_document.html">requested_document</a></td><td><code>received_media_asset_id</code></td><td><a href="table_media_asset.html">media_asset</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_requested_document.html">requested_document</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_media_asset.html">media_asset</a></td><td><code>uploaded_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_media_variant.html">media_variant</a></td><td><code>media_asset_id</code></td><td><a href="table_media_asset.html">media_asset</a></td><td><code>id</code></td><td></td></tr></tbody></table><details class="sqlbox"><summary>Mermaid ERD source for this domain</summary><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>erDiagram
+  document_record {
+    TEXT id PK
+    TEXT client_id FK
+    TEXT matter_id FK
+    TEXT individual_id FK
+    TEXT entity_id FK
+    TEXT employee_id FK
+    TEXT document_category_lookup_id FK
+    TEXT primary_media_asset_id FK
+    TEXT created_by_user_id FK
+  }
+  document_template {
+    TEXT id PK
+    TEXT media_asset_id FK
+  }
+  requested_document {
+    TEXT id PK
+    TEXT matter_id FK
+    TEXT client_id FK
+    TEXT requested_from_client_id FK
+    TEXT document_category_lookup_id FK
+    TEXT document_record_id FK
+    TEXT received_media_asset_id FK
+    TEXT created_by_user_id FK
+  }
+  repository {
+    TEXT id PK
+  }
+  media_asset {
+    TEXT id PK
+    TEXT uploaded_by_user_id FK
+  }
+  media_variant {
+    TEXT id PK
+    TEXT media_asset_id FK
+  }
+  media_asset ||--o{ document_record : &quot;primary_media_asset_id&quot;
+  media_asset ||--o{ document_template : &quot;media_asset_id&quot;
+  document_record ||--o{ requested_document : &quot;document_record_id&quot;
+  media_asset ||--o{ requested_document : &quot;received_media_asset_id&quot;
+  media_asset ||--o{ media_variant : &quot;media_asset_id&quot;</code></pre></div></details></section><section class="group-block" id="g-estate"><h2 class="group-title">Estate Planning, Assets, and Funding</h2><p class="group-desc">Client assets, ownership, valuation, beneficiaries, funding actions, review stamps, and planning risk flags.</p><ul class="technical-list"><li><a href="table_asset.html">asset</a> &mdash; A client asset in the estate-planning module, used for asset aggregation, review, planning status, and funding workflows.</li><li><a href="table_asset_detail_bank.html">asset_detail_bank</a> &mdash; Account-specific details for a bank or brokerage asset.</li><li><a href="table_asset_detail_digital.html">asset_detail_digital</a> &mdash; Details for a digital asset or online platform: platform, identifier, location of access notes, 2FA notes, and custodian contact.</li><li><a href="table_asset_detail_entity.html">asset_detail_entity</a> &mdash; Details for a business interest, stock, partnership interest, or beneficial interest held as an asset.</li><li><a href="table_asset_detail_insurance.html">asset_detail_insurance</a> &mdash; Insurance or annuity policy details for an asset.</li><li><a href="table_asset_detail_real_estate.html">asset_detail_real_estate</a> &mdash; Real-property details for an asset: address, legal description, deed, parcel, and mortgage information.</li><li><a href="table_asset_detail_retirement.html">asset_detail_retirement</a> &mdash; Retirement plan or account details for an asset.</li><li><a href="table_asset_detail_tangible.html">asset_detail_tangible</a> &mdash; Tangible personal property details: item description, location, serial number, insurance, and appraisal document.</li><li><a href="table_asset_detail_vehicle.html">asset_detail_vehicle</a> &mdash; Vehicle title and identifying details for an asset.</li><li><a href="table_asset_ownership.html">asset_ownership</a> &mdash; Ownership of an asset: exact owner names plus optional links to client, individual, or entity owners and co-owners.</li><li><a href="table_asset_valuation.html">asset_valuation</a> &mdash; Value history for an asset: value, value date, source, debt, equity, and notes.</li><li><a href="table_beneficiary_designation.html">beneficiary_designation</a> &mdash; Primary, contingent, or other beneficiary designation for an asset, with percentage and an optional link to the beneficiary.</li><li><a href="table_funding_action.html">funding_action</a> &mdash; An action item to fund a trust or plan: re-titling, beneficiary update, attorney review, or similar, tied to an asset and matter.</li><li><a href="table_action_review_stamp.html">action_review_stamp</a> &mdash; Review or approval stamp placed by a user on a funding action.</li><li><a href="table_risk_flag.html">risk_flag</a> &mdash; A planning or funding risk flagged on an asset, with flag code, reporter, timestamp, resolution status, and notes.</li></ul><table class="data-table"><thead><tr><th>From table</th><th>Column(s)</th><th>References</th><th>Column(s)</th><th>On delete</th></tr></thead><tbody><tr><td><a href="table_asset.html">asset</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_detail_bank.html">asset_detail_bank</a></td><td><code>asset_id</code></td><td><a href="table_asset.html">asset</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_detail_digital.html">asset_detail_digital</a></td><td><code>asset_id</code></td><td><a href="table_asset.html">asset</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_detail_entity.html">asset_detail_entity</a></td><td><code>asset_id</code></td><td><a href="table_asset.html">asset</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_detail_entity.html">asset_detail_entity</a></td><td><code>entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_detail_entity.html">asset_detail_entity</a></td><td><code>assignment_document_id</code></td><td><a href="table_document_record.html">document_record</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_detail_insurance.html">asset_detail_insurance</a></td><td><code>asset_id</code></td><td><a href="table_asset.html">asset</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_detail_real_estate.html">asset_detail_real_estate</a></td><td><code>asset_id</code></td><td><a href="table_asset.html">asset</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_detail_real_estate.html">asset_detail_real_estate</a></td><td><code>deed_document_id</code></td><td><a href="table_document_record.html">document_record</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_detail_retirement.html">asset_detail_retirement</a></td><td><code>asset_id</code></td><td><a href="table_asset.html">asset</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_detail_tangible.html">asset_detail_tangible</a></td><td><code>asset_id</code></td><td><a href="table_asset.html">asset</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_detail_tangible.html">asset_detail_tangible</a></td><td><code>appraisal_document_id</code></td><td><a href="table_document_record.html">document_record</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_detail_vehicle.html">asset_detail_vehicle</a></td><td><code>asset_id</code></td><td><a href="table_asset.html">asset</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_detail_vehicle.html">asset_detail_vehicle</a></td><td><code>title_document_id</code></td><td><a href="table_document_record.html">document_record</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_ownership.html">asset_ownership</a></td><td><code>asset_id</code></td><td><a href="table_asset.html">asset</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_ownership.html">asset_ownership</a></td><td><code>owner_client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_ownership.html">asset_ownership</a></td><td><code>owner_individual_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_ownership.html">asset_ownership</a></td><td><code>owner_entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_ownership.html">asset_ownership</a></td><td><code>co_owner_client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_ownership.html">asset_ownership</a></td><td><code>co_owner_individual_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_ownership.html">asset_ownership</a></td><td><code>co_owner_entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_asset_valuation.html">asset_valuation</a></td><td><code>asset_id</code></td><td><a href="table_asset.html">asset</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_beneficiary_designation.html">beneficiary_designation</a></td><td><code>asset_id</code></td><td><a href="table_asset.html">asset</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_beneficiary_designation.html">beneficiary_designation</a></td><td><code>beneficiary_client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_beneficiary_designation.html">beneficiary_designation</a></td><td><code>beneficiary_individual_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_beneficiary_designation.html">beneficiary_designation</a></td><td><code>beneficiary_entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_funding_action.html">funding_action</a></td><td><code>asset_id</code></td><td><a href="table_asset.html">asset</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_funding_action.html">funding_action</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_funding_action.html">funding_action</a></td><td><code>assigned_to_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_action_review_stamp.html">action_review_stamp</a></td><td><code>funding_action_id</code></td><td><a href="table_funding_action.html">funding_action</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_action_review_stamp.html">action_review_stamp</a></td><td><code>user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_risk_flag.html">risk_flag</a></td><td><code>asset_id</code></td><td><a href="table_asset.html">asset</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_risk_flag.html">risk_flag</a></td><td><code>flagged_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr></tbody></table><details class="sqlbox"><summary>Mermaid ERD source for this domain</summary><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>erDiagram
+  asset {
+    TEXT id PK
+    TEXT matter_id FK
+  }
+  asset_detail_bank {
+    TEXT id PK
+    TEXT asset_id FK
+  }
+  asset_detail_digital {
+    TEXT id PK
+    TEXT asset_id FK
+  }
+  asset_detail_entity {
+    TEXT id PK
+    TEXT asset_id FK
+    TEXT entity_id FK
+    TEXT assignment_document_id FK
+  }
+  asset_detail_insurance {
+    TEXT id PK
+    TEXT asset_id FK
+  }
+  asset_detail_real_estate {
+    TEXT id PK
+    TEXT asset_id FK
+    TEXT deed_document_id FK
+  }
+  asset_detail_retirement {
+    TEXT id PK
+    TEXT asset_id FK
+  }
+  asset_detail_tangible {
+    TEXT id PK
+    TEXT asset_id FK
+    TEXT appraisal_document_id FK
+  }
+  asset_detail_vehicle {
+    TEXT id PK
+    TEXT asset_id FK
+    TEXT title_document_id FK
+  }
+  asset_ownership {
+    TEXT id PK
+    TEXT asset_id FK
+    TEXT owner_client_id FK
+    TEXT owner_individual_id FK
+    TEXT owner_entity_id FK
+    TEXT co_owner_client_id FK
+    TEXT co_owner_individual_id FK
+    TEXT co_owner_entity_id FK
+  }
+  asset_valuation {
+    TEXT id PK
+    TEXT asset_id FK
+  }
+  beneficiary_designation {
+    TEXT id PK
+    TEXT asset_id FK
+    TEXT beneficiary_client_id FK
+    TEXT beneficiary_individual_id FK
+    TEXT beneficiary_entity_id FK
+  }
+  funding_action {
+    TEXT id PK
+    TEXT asset_id FK
+    TEXT matter_id FK
+    TEXT assigned_to_user_id FK
+  }
+  action_review_stamp {
+    TEXT id PK
+    TEXT funding_action_id FK
+    TEXT user_id FK
+  }
+  risk_flag {
+    TEXT id PK
+    TEXT asset_id FK
+    TEXT flagged_by_user_id FK
+  }
+  asset ||--o{ asset_detail_bank : &quot;asset_id&quot;
+  asset ||--o{ asset_detail_digital : &quot;asset_id&quot;
+  asset ||--o{ asset_detail_entity : &quot;asset_id&quot;
+  asset ||--o{ asset_detail_insurance : &quot;asset_id&quot;
+  asset ||--o{ asset_detail_real_estate : &quot;asset_id&quot;
+  asset ||--o{ asset_detail_retirement : &quot;asset_id&quot;
+  asset ||--o{ asset_detail_tangible : &quot;asset_id&quot;
+  asset ||--o{ asset_detail_vehicle : &quot;asset_id&quot;
+  asset ||--o{ asset_ownership : &quot;asset_id&quot;
+  asset ||--o{ asset_valuation : &quot;asset_id&quot;
+  asset ||--o{ beneficiary_designation : &quot;asset_id&quot;
+  asset ||--o{ funding_action : &quot;asset_id&quot;
+  funding_action ||--o{ action_review_stamp : &quot;funding_action_id&quot;
+  asset ||--o{ risk_flag : &quot;asset_id&quot;</code></pre></div></details></section><section class="group-block" id="g-entities"><h2 class="group-title">Business Entities</h2><p class="group-desc">Organizations, trusts, and estates as legal entities, with their assumed names, registrations, events, and compliance filings.</p><ul class="technical-list"><li><a href="table_entity.html">entity</a> &mdash; An organization, trust, estate, LLC, corporation, partnership, nonprofit, government body, or sole proprietorship, with formation and compliance identifiers.</li><li><a href="table_entity_dba.html">entity_dba</a> &mdash; A DBA, assumed name, trade name, or fictitious name for an entity.</li><li><a href="table_entity_registration.html">entity_registration</a> &mdash; A registration of an entity with a jurisdiction: formation, foreign registration, tax, license, BOI, or other.</li><li><a href="table_entity_event.html">entity_event</a> &mdash; An entity-specific compliance event, deadline, assignment, or note, optionally tied to a matter.</li><li><a href="table_compliance_filing.html">compliance_filing</a> &mdash; Schedule and status of recurring entity filings: annual reports, BOI, franchise tax, renewals, and tax returns.</li></ul><table class="data-table"><thead><tr><th>From table</th><th>Column(s)</th><th>References</th><th>Column(s)</th><th>On delete</th></tr></thead><tbody><tr><td><a href="table_entity_dba.html">entity_dba</a></td><td><code>entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_entity_registration.html">entity_registration</a></td><td><code>entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_entity_registration.html">entity_registration</a></td><td><code>document_record_id</code></td><td><a href="table_document_record.html">document_record</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_entity_event.html">entity_event</a></td><td><code>entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_entity_event.html">entity_event</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_entity_event.html">entity_event</a></td><td><code>event_type_lookup_id</code></td><td><a href="table_lookup.html">lookup</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_entity_event.html">entity_event</a></td><td><code>assigned_to_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_compliance_filing.html">compliance_filing</a></td><td><code>entity_id</code></td><td><a href="table_entity.html">entity</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_compliance_filing.html">compliance_filing</a></td><td><code>document_record_id</code></td><td><a href="table_document_record.html">document_record</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_compliance_filing.html">compliance_filing</a></td><td><code>assigned_to_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr></tbody></table><details class="sqlbox"><summary>Mermaid ERD source for this domain</summary><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>erDiagram
+  entity {
+    TEXT id PK
+  }
+  entity_dba {
+    TEXT id PK
+    TEXT entity_id FK
+  }
+  entity_registration {
+    TEXT id PK
+    TEXT entity_id FK
+    TEXT document_record_id FK
+  }
+  entity_event {
+    TEXT id PK
+    TEXT entity_id FK
+    TEXT matter_id FK
+    TEXT event_type_lookup_id FK
+    TEXT assigned_to_user_id FK
+  }
+  compliance_filing {
+    TEXT id PK
+    TEXT entity_id FK
+    TEXT document_record_id FK
+    TEXT assigned_to_user_id FK
+  }
+  entity ||--o{ entity_dba : &quot;entity_id&quot;
+  entity ||--o{ entity_registration : &quot;entity_id&quot;
+  entity ||--o{ entity_event : &quot;entity_id&quot;
+  entity ||--o{ compliance_filing : &quot;entity_id&quot;</code></pre></div></details></section><section class="group-block" id="g-publishing"><h2 class="group-title">Public Content Publishing</h2><p class="group-desc">Articles and answers published to the public website, with authors, assets, revisions, and publication history.</p><ul class="technical-list"><li><a href="table_public_content.html">public_content</a> &mdash; Articles and answers published to the public website: title, slug, status (draft, review, published, archived), sanitized HTML body, SEO fields, author, category, and publication timestamps.</li><li><a href="table_content_author.html">content_author</a> &mdash; Public author profile used on articles and answers: display name, title, bio, and headshot.</li><li><a href="table_content_asset.html">content_asset</a> &mdash; Image or file used by a piece of public content, with its R2 key, public URL, MIME type, size, dimensions, usage (body, thumbnail, both), alt text, and hash.</li><li><a href="table_content_revision.html">content_revision</a> &mdash; Saved revision of a piece of public content: revision number, content JSON, sanitized HTML, asset manifest, who changed it, and a change note.</li><li><a href="table_content_sequence.html">content_sequence</a> &mdash; Counter per content type (article, answer) that feeds public_content.display_sequence and display_code.</li><li><a href="table_publication_event.html">publication_event</a> &mdash; History of publish actions on public content: save, publish, unpublish, archive, delete-archived, with actor, role, resulting status, and snapshot.</li></ul><table class="data-table"><thead><tr><th>From table</th><th>Column(s)</th><th>References</th><th>Column(s)</th><th>On delete</th></tr></thead><tbody><tr><td><a href="table_public_content.html">public_content</a></td><td><code>author_id</code></td><td><a href="table_content_author.html">content_author</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_public_content.html">public_content</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_public_content.html">public_content</a></td><td><code>updated_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_content_asset.html">content_asset</a></td><td><code>content_id</code></td><td><a href="table_public_content.html">public_content</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_content_revision.html">content_revision</a></td><td><code>content_id</code></td><td><a href="table_public_content.html">public_content</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_content_revision.html">content_revision</a></td><td><code>changed_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_publication_event.html">publication_event</a></td><td><code>content_id</code></td><td><a href="table_public_content.html">public_content</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_publication_event.html">publication_event</a></td><td><code>actor_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr></tbody></table><details class="sqlbox"><summary>Mermaid ERD source for this domain</summary><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>erDiagram
+  public_content {
+    TEXT id PK
+    TEXT author_id FK
+    TEXT created_by_user_id FK
+    TEXT updated_by_user_id FK
+  }
+  content_author {
+    TEXT id PK
+  }
+  content_asset {
+    TEXT id PK
+    TEXT content_id FK
+  }
+  content_revision {
+    TEXT id PK
+    TEXT content_id FK
+    TEXT changed_by_user_id FK
+  }
+  content_sequence {
+    TEXT content_type PK
+  }
+  publication_event {
+    TEXT id PK
+    TEXT content_id FK
+    TEXT actor_user_id FK
+  }
+  content_author ||--o{ public_content : &quot;author_id&quot;
+  public_content ||--o{ content_asset : &quot;content_id&quot;
+  public_content ||--o{ content_revision : &quot;content_id&quot;
+  public_content ||--o{ publication_event : &quot;content_id&quot;</code></pre></div></details></section><section class="group-block" id="g-integrations"><h2 class="group-title">External Integrations and Import</h2><p class="group-desc">Integration accounts, sync cursors, webhook journals, and import/crosswalk tables for data from external systems.</p><ul class="technical-list"><li><a href="table_external_integration_account.html">external_integration_account</a> &mdash; Configuration and status of an external integration account: provider, external account id, connection lifecycle, and references to encrypted credentials.</li><li><a href="table_external_sync_state.html">external_sync_state</a> &mdash; Per-provider, per-resource synchronization state: cursor, checkpoint, last successful sync, and last error.</li><li><a href="table_external_webhook_event.html">external_webhook_event</a> &mdash; Journal of inbound webhook events for idempotency, replay safety, error tracking, and forensic review.</li><li><a href="table_external_source_map.html">external_source_map</a> &mdash; Crosswalk from external or legacy source records to KR Homebase tables and rows, keeping raw JSON for reconciliation and re-import safety.</li><li><a href="table_import_batch.html">import_batch</a> &mdash; Control row for an import run: source file identity, checksum, status, row count, and importer details.</li></ul><table class="data-table"><thead><tr><th>From table</th><th>Column(s)</th><th>References</th><th>Column(s)</th><th>On delete</th></tr></thead><tbody><tr><td><a href="table_external_sync_state.html">external_sync_state</a></td><td><code>integration_account_id</code></td><td><a href="table_external_integration_account.html">external_integration_account</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_external_webhook_event.html">external_webhook_event</a></td><td><code>integration_account_id</code></td><td><a href="table_external_integration_account.html">external_integration_account</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_external_source_map.html">external_source_map</a></td><td><code>import_batch_id</code></td><td><a href="table_import_batch.html">import_batch</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_import_batch.html">import_batch</a></td><td><code>imported_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr></tbody></table><details class="sqlbox"><summary>Mermaid ERD source for this domain</summary><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>erDiagram
+  external_integration_account {
+    TEXT id PK
+  }
+  external_sync_state {
+    TEXT id PK
+    TEXT integration_account_id FK
+  }
+  external_webhook_event {
+    TEXT id PK
+    TEXT integration_account_id FK
+  }
+  external_source_map {
+    TEXT id PK
+    TEXT import_batch_id FK
+  }
+  import_batch {
+    TEXT id PK
+    TEXT imported_by_user_id FK
+  }
+  external_integration_account ||--o{ external_sync_state : &quot;integration_account_id&quot;
+  external_integration_account ||--o{ external_webhook_event : &quot;integration_account_id&quot;
+  import_batch ||--o{ external_source_map : &quot;import_batch_id&quot;</code></pre></div></details></section><section class="group-block" id="g-security"><h2 class="group-title">Users, Roles, Permissions, Sessions, and Audit</h2><p class="group-desc">Login accounts, invitations, SSO identities, role sets and permission scopes, per-user overrides, web sessions, and the audit trail.</p><ul class="technical-list"><li><a href="table_user.html">user</a> &mdash; A login account attached to an individual: sign-in email, password hash (when used), default role, role set, account status, profile image, and last login.</li><li><a href="table_user_invite.html">user_invite</a> &mdash; Invitation workflow for creating pending users: one-time invite link (stored only as a hash), status, expiry, delivery provider ids, acceptance details, and worker classification (employee, vendor, unspecified).</li><li><a href="table_user_sso_identity.html">user_sso_identity</a> &mdash; Provider-neutral single-sign-on identity linking a KR user to Google (and later Microsoft, Apple, SAML, or others).</li><li><a href="table_user_role_set.html">user_role_set</a> &mdash; Assignment of role sets to users with a primary flag, active flag, and optional start and expiry dates.</li><li><a href="table_role_set.html">role_set</a> &mdash; A named bundle of permissions (role) with key, label, family (system, administration, operations, external), and assignability flags.</li><li><a href="table_role_set_permission.html">role_set_permission</a> &mdash; Permission rows for a role set: which create/read/update/delete/approve/send actions it allows for a permission key, with a restricted-delete flag.</li><li><a href="table_role_set_permission_scope.html">role_set_permission_scope</a> &mdash; Scope-aware permissions for a role set: the same actions as role_set_permission, but limited to own, team, or all records.</li><li><a href="table_user_permission_override.html">user_permission_override</a> &mdash; A per-user allow or deny for one permission action, with a reason, expiry, and revocation details.</li><li><a href="table_kr_session.html">kr_session</a> &mdash; Opaque web-session table.</li><li><a href="table_audit_log.html">audit_log</a> &mdash; Application audit trail for CRUD operations and sensitive actions: actor, target, JSON deltas, request correlation, source, resource, idempotency key, and error metadata.</li></ul><table class="data-table"><thead><tr><th>From table</th><th>Column(s)</th><th>References</th><th>Column(s)</th><th>On delete</th></tr></thead><tbody><tr><td><a href="table_user.html">user</a></td><td><code>individual_id</code></td><td><a href="table_individual.html">individual</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_user.html">user</a></td><td><code>profile_image_media_id</code></td><td><a href="table_media_asset.html">media_asset</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_user_invite.html">user_invite</a></td><td><code>invited_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_user_invite.html">user_invite</a></td><td><code>invited_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_user_invite.html">user_invite</a></td><td><code>accepted_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_user_sso_identity.html">user_sso_identity</a></td><td><code>user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_user_role_set.html">user_role_set</a></td><td><code>user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_user_role_set.html">user_role_set</a></td><td><code>role_set_id</code></td><td><a href="table_role_set.html">role_set</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_user_role_set.html">user_role_set</a></td><td><code>assigned_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_role_set_permission.html">role_set_permission</a></td><td><code>role_set_id</code></td><td><a href="table_role_set.html">role_set</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_role_set_permission_scope.html">role_set_permission_scope</a></td><td><code>role_set_id</code></td><td><a href="table_role_set.html">role_set</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_user_permission_override.html">user_permission_override</a></td><td><code>user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_user_permission_override.html">user_permission_override</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_user_permission_override.html">user_permission_override</a></td><td><code>revoked_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_audit_log.html">audit_log</a></td><td><code>actor_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_audit_log.html">audit_log</a></td><td><code>matter_id</code></td><td><a href="table_matter.html">matter</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_audit_log.html">audit_log</a></td><td><code>client_id</code></td><td><a href="table_client.html">client</a></td><td><code>id</code></td><td></td></tr></tbody></table><details class="sqlbox"><summary>Mermaid ERD source for this domain</summary><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>erDiagram
+  user {
+    TEXT id PK
+    TEXT individual_id FK
+    TEXT profile_image_media_id FK
+  }
+  user_invite {
+    TEXT id PK
+    TEXT invited_user_id FK
+    TEXT invited_by_user_id FK
+    TEXT accepted_user_id FK
+  }
+  user_sso_identity {
+    TEXT id PK
+    TEXT user_id FK
+  }
+  user_role_set {
+    TEXT id PK
+    TEXT user_id FK
+    TEXT role_set_id FK
+    TEXT assigned_by_user_id FK
+  }
+  role_set {
+    TEXT id PK
+  }
+  role_set_permission {
+    TEXT id PK
+    TEXT role_set_id FK
+  }
+  role_set_permission_scope {
+    TEXT id PK
+    TEXT role_set_id FK
+  }
+  user_permission_override {
+    TEXT id PK
+    TEXT user_id FK
+    TEXT created_by_user_id FK
+    TEXT revoked_by_user_id FK
+  }
+  kr_session {
+    TEXT id PK
+  }
+  audit_log {
+    TEXT id PK
+    TEXT actor_user_id FK
+    TEXT matter_id FK
+    TEXT client_id FK
+  }
+  user ||--o{ user_invite : &quot;invited_user_id&quot;
+  user ||--o{ user_invite : &quot;invited_by_user_id&quot;
+  user ||--o{ user_invite : &quot;accepted_user_id&quot;
+  user ||--o{ user_sso_identity : &quot;user_id&quot;
+  user ||--o{ user_role_set : &quot;user_id&quot;
+  role_set ||--o{ user_role_set : &quot;role_set_id&quot;
+  user ||--o{ user_role_set : &quot;assigned_by_user_id&quot;
+  role_set ||--o{ role_set_permission : &quot;role_set_id&quot;
+  role_set ||--o{ role_set_permission_scope : &quot;role_set_id&quot;
+  user ||--o{ user_permission_override : &quot;user_id&quot;
+  user ||--o{ user_permission_override : &quot;created_by_user_id&quot;
+  user ||--o{ user_permission_override : &quot;revoked_by_user_id&quot;
+  user ||--o{ audit_log : &quot;actor_user_id&quot;</code></pre></div></details></section><section class="group-block" id="g-hr"><h2 class="group-title">Employees, Timekeeping, Payroll, and Teams</h2><p class="group-desc">Employee files, certifications, pay rates, PTO, reviews, time cards and punches, pay periods, HR policy, holidays, and teams.</p><ul class="technical-list"><li><a href="table_employee.html">employee</a> &mdash; Employee/HR file attached to a user account.</li><li><a href="table_employee_certification.html">employee_certification</a> &mdash; Certification, commission, license, registration, or other credential for an employee, with dates, status, and a supporting document.</li><li><a href="table_employee_pay_rate.html">employee_pay_rate</a> &mdash; Historical pay rates for an employee: rate type, amount, effective dates, and approval details.</li><li><a href="table_employee_pto_ledger.html">employee_pto_ledger</a> &mdash; PTO ledger per employee: accruals, usage, adjustments, holiday, carryover, and cash-out entries.</li><li><a href="table_employee_review_event.html">employee_review_event</a> &mdash; Employee review, performance, disciplinary, or HR-document event.</li><li><a href="table_employee_time_event.html">employee_time_event</a> &mdash; Employee timekeeping and pay-reporting event: work period, hours, pay period, approval, and creator.</li><li><a href="table_employee_time_card.html">employee_time_card</a> &mdash; One time card per employee per pay period, with status (open, submitted, approved, reopened, exported), employee and manager approvals, lock time, and payroll export time.</li><li><a href="table_employee_time_punch.html">employee_time_punch</a> &mdash; Clock-in and clock-out punches on a time card with local date, timezone, source (button, auto-break resume, corrections, system), and void or supersede support for corrections.</li><li><a href="table_pay_period.html">pay_period</a> &mdash; A payroll period used to group time events and time cards for submission, review, processing, and paid status.</li><li><a href="table_firm_holiday.html">firm_holiday</a> &mdash; Paid-holiday reference list for HR settings and payroll review.</li><li><a href="table_hr_policy.html">hr_policy</a> &mdash; Simple HR policy records (PTO, holiday pay, timekeeping, payroll, start/stop dates) shown in firm settings.</li><li><a href="table_hr_policy_rule.html">hr_policy_rule</a> &mdash; Structured, machine-readable rules for an HR policy, such as PTO accrual tiers and eligibility rules.</li><li><a href="table_team.html">team</a> &mdash; A named team of employees.</li><li><a href="table_team_lead.html">team_lead</a> &mdash; Which users lead a team, with optional start and end dates.</li><li><a href="table_team_member.html">team_member</a> &mdash; Which employees belong to a team, with optional start and end dates.</li></ul><table class="data-table"><thead><tr><th>From table</th><th>Column(s)</th><th>References</th><th>Column(s)</th><th>On delete</th></tr></thead><tbody><tr><td><a href="table_employee.html">employee</a></td><td><code>user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee.html">employee</a></td><td><code>employee_image_media_id</code></td><td><a href="table_media_asset.html">media_asset</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee.html">employee</a></td><td><code>pto_policy_id</code></td><td><a href="table_hr_policy.html">hr_policy</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_certification.html">employee_certification</a></td><td><code>employee_id</code></td><td><a href="table_employee.html">employee</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_certification.html">employee_certification</a></td><td><code>certification_type_lookup_id</code></td><td><a href="table_lookup.html">lookup</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_certification.html">employee_certification</a></td><td><code>document_record_id</code></td><td><a href="table_document_record.html">document_record</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_pay_rate.html">employee_pay_rate</a></td><td><code>employee_id</code></td><td><a href="table_employee.html">employee</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_pay_rate.html">employee_pay_rate</a></td><td><code>approved_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_pto_ledger.html">employee_pto_ledger</a></td><td><code>employee_id</code></td><td><a href="table_employee.html">employee</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_pto_ledger.html">employee_pto_ledger</a></td><td><code>employee_time_event_id</code></td><td><a href="table_employee_time_event.html">employee_time_event</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_pto_ledger.html">employee_pto_ledger</a></td><td><code>policy_id</code></td><td><a href="table_hr_policy.html">hr_policy</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_pto_ledger.html">employee_pto_ledger</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_review_event.html">employee_review_event</a></td><td><code>employee_id</code></td><td><a href="table_employee.html">employee</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_review_event.html">employee_review_event</a></td><td><code>reviewer_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_review_event.html">employee_review_event</a></td><td><code>document_record_id</code></td><td><a href="table_document_record.html">document_record</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_time_event.html">employee_time_event</a></td><td><code>employee_id</code></td><td><a href="table_employee.html">employee</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_time_event.html">employee_time_event</a></td><td><code>pay_period_id</code></td><td><a href="table_pay_period.html">pay_period</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_time_event.html">employee_time_event</a></td><td><code>approved_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_time_event.html">employee_time_event</a></td><td><code>rejected_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_time_event.html">employee_time_event</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_time_card.html">employee_time_card</a></td><td><code>employee_id</code></td><td><a href="table_employee.html">employee</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_time_card.html">employee_time_card</a></td><td><code>pay_period_id</code></td><td><a href="table_pay_period.html">pay_period</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_time_card.html">employee_time_card</a></td><td><code>employee_approved_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_time_card.html">employee_time_card</a></td><td><code>reopened_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_time_punch.html">employee_time_punch</a></td><td><code>employee_id</code></td><td><a href="table_employee.html">employee</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_time_punch.html">employee_time_punch</a></td><td><code>time_card_id</code></td><td><a href="table_employee_time_card.html">employee_time_card</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_time_punch.html">employee_time_punch</a></td><td><code>supersedes_punch_id</code></td><td><a href="table_employee_time_punch.html">employee_time_punch</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_employee_time_punch.html">employee_time_punch</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_pay_period.html">pay_period</a></td><td><code>processed_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_firm_holiday.html">firm_holiday</a></td><td><code>policy_id</code></td><td><a href="table_hr_policy.html">hr_policy</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_hr_policy.html">hr_policy</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_hr_policy_rule.html">hr_policy_rule</a></td><td><code>policy_id</code></td><td><a href="table_hr_policy.html">hr_policy</a></td><td><code>id</code></td><td></td></tr><tr><td><a href="table_team.html">team</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_team_lead.html">team_lead</a></td><td><code>team_id</code></td><td><a href="table_team.html">team</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_team_lead.html">team_lead</a></td><td><code>user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_team_lead.html">team_lead</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_team_member.html">team_member</a></td><td><code>team_id</code></td><td><a href="table_team.html">team</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_team_member.html">team_member</a></td><td><code>employee_id</code></td><td><a href="table_employee.html">employee</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_team_member.html">team_member</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr></tbody></table><details class="sqlbox"><summary>Mermaid ERD source for this domain</summary><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>erDiagram
+  employee {
+    TEXT id PK
+    TEXT user_id FK
+    TEXT pto_policy_id FK
+    TEXT employee_image_media_id FK
+  }
+  employee_certification {
+    TEXT id PK
+    TEXT employee_id FK
+    TEXT certification_type_lookup_id FK
+    TEXT document_record_id FK
+  }
+  employee_pay_rate {
+    TEXT id PK
+    TEXT employee_id FK
+    TEXT approved_by_user_id FK
+  }
+  employee_pto_ledger {
+    TEXT id PK
+    TEXT employee_id FK
+    TEXT employee_time_event_id FK
+    TEXT policy_id FK
+    TEXT created_by_user_id FK
+  }
+  employee_review_event {
+    TEXT id PK
+    TEXT employee_id FK
+    TEXT reviewer_user_id FK
+    TEXT document_record_id FK
+  }
+  employee_time_event {
+    TEXT id PK
+    TEXT employee_id FK
+    TEXT pay_period_id FK
+    TEXT approved_by_user_id FK
+    TEXT rejected_by_user_id FK
+    TEXT created_by_user_id FK
+  }
+  employee_time_card {
+    TEXT id PK
+    TEXT employee_id FK
+    TEXT pay_period_id FK
+    TEXT employee_approved_by_user_id FK
+    TEXT reopened_by_user_id FK
+  }
+  employee_time_punch {
+    TEXT id PK
+    TEXT employee_id FK
+    TEXT time_card_id FK
+    TEXT supersedes_punch_id FK
+    TEXT created_by_user_id FK
+  }
+  pay_period {
+    TEXT id PK
+    TEXT processed_by_user_id FK
+  }
+  firm_holiday {
+    TEXT id PK
+    TEXT policy_id FK
+  }
+  hr_policy {
+    TEXT id PK
+    TEXT created_by_user_id FK
+  }
+  hr_policy_rule {
+    TEXT id PK
+    TEXT policy_id FK
+  }
+  team {
+    TEXT id PK
+    TEXT created_by_user_id FK
+  }
+  team_lead {
+    TEXT id PK
+    TEXT team_id FK
+    TEXT user_id FK
+    TEXT created_by_user_id FK
+  }
+  team_member {
+    TEXT id PK
+    TEXT team_id FK
+    TEXT employee_id FK
+    TEXT created_by_user_id FK
+  }
+  hr_policy ||--o{ employee : &quot;pto_policy_id&quot;
+  employee ||--o{ employee_certification : &quot;employee_id&quot;
+  employee ||--o{ employee_pay_rate : &quot;employee_id&quot;
+  employee ||--o{ employee_pto_ledger : &quot;employee_id&quot;
+  employee_time_event ||--o{ employee_pto_ledger : &quot;employee_time_event_id&quot;
+  hr_policy ||--o{ employee_pto_ledger : &quot;policy_id&quot;
+  employee ||--o{ employee_review_event : &quot;employee_id&quot;
+  employee ||--o{ employee_time_event : &quot;employee_id&quot;
+  pay_period ||--o{ employee_time_event : &quot;pay_period_id&quot;
+  employee ||--o{ employee_time_card : &quot;employee_id&quot;
+  pay_period ||--o{ employee_time_card : &quot;pay_period_id&quot;
+  employee ||--o{ employee_time_punch : &quot;employee_id&quot;
+  employee_time_card ||--o{ employee_time_punch : &quot;time_card_id&quot;
+  employee_time_punch ||--o{ employee_time_punch : &quot;supersedes_punch_id&quot;
+  hr_policy ||--o{ firm_holiday : &quot;policy_id&quot;
+  hr_policy ||--o{ hr_policy_rule : &quot;policy_id&quot;
+  team ||--o{ team_lead : &quot;team_id&quot;
+  team ||--o{ team_member : &quot;team_id&quot;
+  employee ||--o{ team_member : &quot;employee_id&quot;</code></pre></div></details></section><section class="group-block" id="g-system"><h2 class="group-title">System Metadata and Configuration</h2><p class="group-desc">Controlled vocabularies, custom fields, bootstrap state, the maintenance gate, and diagnostics.</p><ul class="technical-list"><li><a href="table_lookup.html">lookup</a> &mdash; Controlled vocabulary values (category, value, label) used by statuses, workflow labels, priorities, categories, relationship types, and other reusable UI lists.</li><li><a href="table_custom_field_set.html">custom_field_set</a> &mdash; A named group of custom field definitions for a target record type, so modules can add metadata without altering core tables.</li><li><a href="table_custom_field_definition.html">custom_field_definition</a> &mdash; Definition of one custom field: label, data type, validation, display behavior, and ordering within its set.</li><li><a href="table_custom_field_value.html">custom_field_value</a> &mdash; Stored value of a custom field for a target row, split into text, number, date, boolean, and JSON columns.</li><li><a href="table_kr_homebase_initialization.html">kr_homebase_initialization</a> &mdash; Single-purpose bootstrap record showing whether KR Homebase has been initialized and by which first administrator.</li><li><a href="table_kr_maintenance_gate.html">kr_maintenance_gate</a> &mdash; Single-row switch (id is always krhomebase) that puts the application into maintenance mode, with the reason and who set it.</li><li><a href="table_kr_crud_worker_smoke_test.html">kr_crud_worker_smoke_test</a> &mdash; Scratch table used to smoke-test the CRUD worker (create, read, update, delete) against a database.</li></ul><table class="data-table"><thead><tr><th>From table</th><th>Column(s)</th><th>References</th><th>Column(s)</th><th>On delete</th></tr></thead><tbody><tr><td><a href="table_custom_field_definition.html">custom_field_definition</a></td><td><code>set_id</code></td><td><a href="table_custom_field_set.html">custom_field_set</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_custom_field_value.html">custom_field_value</a></td><td><code>definition_id</code></td><td><a href="table_custom_field_definition.html">custom_field_definition</a></td><td><code>id</code></td><td>ON DELETE CASCADE</td></tr><tr><td><a href="table_custom_field_value.html">custom_field_value</a></td><td><code>created_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_custom_field_value.html">custom_field_value</a></td><td><code>updated_by_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr><tr><td><a href="table_kr_homebase_initialization.html">kr_homebase_initialization</a></td><td><code>bootstrap_user_id</code></td><td><a href="table_user.html">user</a></td><td><code>id</code></td><td>ON DELETE SET NULL</td></tr></tbody></table><details class="sqlbox"><summary>Mermaid ERD source for this domain</summary><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>erDiagram
+  lookup {
+    TEXT id PK
+  }
+  custom_field_set {
+    TEXT id PK
+  }
+  custom_field_definition {
+    TEXT id PK
+    TEXT set_id FK
+  }
+  custom_field_value {
+    TEXT id PK
+    TEXT definition_id FK
+    TEXT created_by_user_id FK
+    TEXT updated_by_user_id FK
+  }
+  kr_homebase_initialization {
+    TEXT id PK
+    TEXT bootstrap_user_id FK
+  }
+  kr_maintenance_gate {
+    TEXT id PK
+  }
+  kr_crud_worker_smoke_test {
+    TEXT id PK
+  }
+  custom_field_set ||--o{ custom_field_definition : &quot;set_id&quot;
+  custom_field_definition ||--o{ custom_field_value : &quot;definition_id&quot;</code></pre></div></details></section>
+    <div class="section-title">Cross-domain foreign keys</div>
+    <table class="data-table"><thead><tr><th>From domain</th><th>To domain</th><th>FKs</th></tr></thead><tbody><tr><td>Billing, Ledger, Payments, and Trust</td><td>Clients and Matters</td><td>18</td></tr><tr><td>Billing, Ledger, Payments, and Trust</td><td>Users, Roles, Permissions, Sessions, and Audit</td><td>17</td></tr><tr><td>Notes, Communications, Tasks, and Reminders</td><td>Users, Roles, Permissions, Sessions, and Audit</td><td>16</td></tr><tr><td>Employees, Timekeeping, Payroll, and Teams</td><td>Users, Roles, Permissions, Sessions, and Audit</td><td>16</td></tr><tr><td>Notes, Communications, Tasks, and Reminders</td><td>Clients and Matters</td><td>7</td></tr><tr><td>Clients and Matters</td><td>Users, Roles, Permissions, Sessions, and Audit</td><td>7</td></tr><tr><td>Estate Planning, Assets, and Funding</td><td>Clients and Matters</td><td>5</td></tr><tr><td>Documents, Media, and Templates</td><td>Clients and Matters</td><td>5</td></tr><tr><td>Contacts, Addresses, and Communication Methods</td><td>System Metadata and Configuration</td><td>5</td></tr><tr><td>Clients and Matters</td><td>System Metadata and Configuration</td><td>5</td></tr><tr><td>Estate Planning, Assets, and Funding</td><td>Business Entities</td><td>4</td></tr><tr><td>Estate Planning, Assets, and Funding</td><td>Documents, Media, and Templates</td><td>4</td></tr><tr><td>Conflict Checking</td><td>Clients and Matters</td><td>4</td></tr><tr><td>Public Content Publishing</td><td>Users, Roles, Permissions, Sessions, and Audit</td><td>4</td></tr><tr><td>Matter Participation and Access</td><td>Users, Roles, Permissions, Sessions, and Audit</td><td>4</td></tr><tr><td>Estate Planning, Assets, and Funding</td><td>Users, Roles, Permissions, Sessions, and Audit</td><td>3</td></tr><tr><td>Estate Planning, Assets, and Funding</td><td>Identity and Parties</td><td>3</td></tr><tr><td>Clients and Matters</td><td>Identity and Parties</td><td>3</td></tr><tr><td>Clients and Matters</td><td>Business Entities</td><td>3</td></tr><tr><td>Notes, Communications, Tasks, and Reminders</td><td>Documents, Media, and Templates</td><td>3</td></tr><tr><td>System Metadata and Configuration</td><td>Users, Roles, Permissions, Sessions, and Audit</td><td>3</td></tr><tr><td>Documents, Media, and Templates</td><td>Users, Roles, Permissions, Sessions, and Audit</td><td>3</td></tr><tr><td>Employees, Timekeeping, Payroll, and Teams</td><td>Documents, Media, and Templates</td><td>3</td></tr><tr><td>Contacts, Addresses, and Communication Methods</td><td>Business Entities</td><td>3</td></tr><tr><td>Contacts, Addresses, and Communication Methods</td><td>Identity and Parties</td><td>3</td></tr><tr><td>Calendar and Events</td><td>Clients and Matters</td><td>3</td></tr><tr><td>Calendar and Events</td><td>Users, Roles, Permissions, Sessions, and Audit</td><td>3</td></tr><tr><td>Time and Expenses</td><td>Clients and Matters</td><td>3</td></tr><tr><td>Time and Expenses</td><td>Users, Roles, Permissions, Sessions, and Audit</td><td>3</td></tr><tr><td>Time and Expenses</td><td>Billing, Ledger, Payments, and Trust</td><td>3</td></tr><tr><td>Users, Roles, Permissions, Sessions, and Audit</td><td>Clients and Matters</td><td>2</td></tr><tr><td>Clients and Matters</td><td>Documents, Media, and Templates</td><td>2</td></tr><tr><td>Clients and Matters</td><td>External Integrations and Import</td><td>2</td></tr><tr><td>Intake and Lead Management</td><td>Identity and Parties</td><td>2</td></tr><tr><td>Intake and Lead Management</td><td>Users, Roles, Permissions, Sessions, and Audit</td><td>2</td></tr><tr><td>Notes, Communications, Tasks, and Reminders</td><td>Identity and Parties</td><td>2</td></tr><tr><td>Notes, Communications, Tasks, and Reminders</td><td>Business Entities</td><td>2</td></tr><tr><td>Business Entities</td><td>Documents, Media, and Templates</td><td>2</td></tr><tr><td>Business Entities</td><td>Users, Roles, Permissions, Sessions, and Audit</td><td>2</td></tr><tr><td>Conflict Checking</td><td>Identity and Parties</td><td>2</td></tr><tr><td>Conflict Checking</td><td>Business Entities</td><td>2</td></tr><tr><td>Documents, Media, and Templates</td><td>System Metadata and Configuration</td><td>2</td></tr><tr><td>Calendar and Events</td><td>Identity and Parties</td><td>2</td></tr><tr><td>Calendar and Events</td><td>Business Entities</td><td>2</td></tr><tr><td>Identity and Parties</td><td>System Metadata and Configuration</td><td>2</td></tr><tr><td>Billing, Ledger, Payments, and Trust</td><td>System Metadata and Configuration</td><td>2</td></tr><tr><td>Matter Participation and Access</td><td>Clients and Matters</td><td>2</td></tr><tr><td>Billing, Ledger, Payments, and Trust</td><td>External Integrations and Import</td><td>2</td></tr><tr><td>Billing, Ledger, Payments, and Trust</td><td>Documents, Media, and Templates</td><td>1</td></tr><tr><td>Conflict Checking</td><td>Users, Roles, Permissions, Sessions, and Audit</td><td>1</td></tr><tr><td>Documents, Media, and Templates</td><td>Identity and Parties</td><td>1</td></tr><tr><td>Documents, Media, and Templates</td><td>Business Entities</td><td>1</td></tr><tr><td>Documents, Media, and Templates</td><td>Employees, Timekeeping, Payroll, and Teams</td><td>1</td></tr><tr><td>Employees, Timekeeping, Payroll, and Teams</td><td>System Metadata and Configuration</td><td>1</td></tr><tr><td>Business Entities</td><td>Clients and Matters</td><td>1</td></tr><tr><td>Business Entities</td><td>System Metadata and Configuration</td><td>1</td></tr><tr><td>Calendar and Events</td><td>System Metadata and Configuration</td><td>1</td></tr><tr><td>Calendar and Events</td><td>External Integrations and Import</td><td>1</td></tr><tr><td>External Integrations and Import</td><td>Users, Roles, Permissions, Sessions, and Audit</td><td>1</td></tr><tr><td>Billing, Ledger, Payments, and Trust</td><td>Time and Expenses</td><td>1</td></tr><tr><td>Intake and Lead Management</td><td>Clients and Matters</td><td>1</td></tr><tr><td>Time and Expenses</td><td>Employees, Timekeeping, Payroll, and Teams</td><td>1</td></tr><tr><td>Time and Expenses</td><td>External Integrations and Import</td><td>1</td></tr><tr><td>Users, Roles, Permissions, Sessions, and Audit</td><td>Identity and Parties</td><td>1</td></tr><tr><td>Users, Roles, Permissions, Sessions, and Audit</td><td>Documents, Media, and Templates</td><td>1</td></tr><tr><td>Notes, Communications, Tasks, and Reminders</td><td>Intake and Lead Management</td><td>1</td></tr></tbody></table>
+    <div class="section-title" id="views">Views</div><h3 style="margin-top:16px">View <code>invoice_ledger_summary</code></h3><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>CREATE VIEW invoice_ledger_summary AS
+SELECT
+    i.id AS invoice_id,
+    i.matter_id,
+    i.billed_to_client_id,
+    i.invoice_number,
+    i.total_amount,
+    COALESCE(SUM(CASE WHEN le.voided_at IS NULL AND le.ledger_bucket = &#x27;receivable&#x27; AND le.entry_direction = &#x27;credit&#x27; THEN le.amount ELSE 0 END), 0) AS total_credits,
+    COALESCE(SUM(CASE WHEN le.voided_at IS NULL AND le.ledger_bucket = &#x27;receivable&#x27; AND le.entry_direction = &#x27;debit&#x27; THEN le.amount ELSE 0 END), 0) AS total_debits,
+    i.total_amount
+      - COALESCE(SUM(CASE WHEN le.voided_at IS NULL AND le.ledger_bucket = &#x27;receivable&#x27; AND le.entry_direction = &#x27;credit&#x27; THEN le.amount ELSE 0 END), 0)
+      + COALESCE(SUM(CASE WHEN le.voided_at IS NULL AND le.ledger_bucket = &#x27;receivable&#x27; AND le.entry_direction = &#x27;debit&#x27; THEN le.amount ELSE 0 END), 0) AS balance_due
+FROM invoice i
+LEFT JOIN ledger_entry le ON le.invoice_id = i.id
+GROUP BY i.id</code></pre></div><h3 style="margin-top:16px">View <code>matter_ledger_bucket_summary</code></h3><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>CREATE VIEW matter_ledger_bucket_summary AS
+SELECT
+    matter_id,
+    client_id,
+    ledger_bucket,
+    COALESCE(SUM(CASE WHEN voided_at IS NULL AND entry_direction = &#x27;debit&#x27; THEN amount ELSE 0 END), 0) AS total_debits,
+    COALESCE(SUM(CASE WHEN voided_at IS NULL AND entry_direction = &#x27;credit&#x27; THEN amount ELSE 0 END), 0) AS total_credits,
+    COALESCE(SUM(CASE WHEN voided_at IS NULL AND entry_direction = &#x27;debit&#x27; THEN amount ELSE 0 END), 0)
+      - COALESCE(SUM(CASE WHEN voided_at IS NULL AND entry_direction = &#x27;credit&#x27; THEN amount ELSE 0 END), 0) AS net_debit_balance
+FROM ledger_entry
+GROUP BY matter_id, client_id, ledger_bucket</code></pre></div><h3 style="margin-top:16px">View <code>public_published_content</code></h3><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>CREATE VIEW public_published_content AS
+SELECT
+    id,
+    content_type,
+    title,
+    slug,
+    topic_slug,
+    canonical_path,
+    summary,
+    thumbnail_r2_key,
+    thumbnail_public_url,
+    thumbnail_alt,
+    body_format,
+    sanitized_html,
+    seo_title,
+    seo_description,
+    author_id,
+    author_display_name,
+    category,
+    category_label,
+    pillar,
+    reading_time_minutes,
+    published_at,
+    updated_at
+FROM public_content
+WHERE status = &#x27;published&#x27;
+  AND content_type IN (&#x27;article&#x27;, &#x27;answer&#x27;)</code></pre></div>
+    <div class="section-title">Triggers</div><h3 style="margin-top:16px">Trigger <code>public_content_sequence_after_insert</code> on <a href="table_public_content.html">public_content</a></h3><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>CREATE TRIGGER public_content_sequence_after_insert
+AFTER INSERT ON public_content
+WHEN NEW.content_type IN (&#x27;article&#x27;, &#x27;answer&#x27;)
+  AND (NEW.display_sequence IS NULL OR NEW.display_code IS NULL)
+BEGIN
+  INSERT OR IGNORE INTO content_sequence (content_type, next_sequence, updated_at)
+  VALUES (NEW.content_type, 1, datetime(&#x27;now&#x27;));
+
+  UPDATE public_content
+  SET
+    display_sequence = COALESCE(
+      NEW.display_sequence,
+      (SELECT next_sequence FROM content_sequence WHERE content_type = NEW.content_type)
+    ),
+    display_code = COALESCE(
+      NEW.display_code,
+      CASE NEW.content_type
+        WHEN &#x27;answer&#x27; THEN &#x27;Answer &#x27; || printf(&#x27;%03d&#x27;, COALESCE(
+          NEW.display_sequence,
+          (SELECT next_sequence FROM content_sequence WHERE content_type = NEW.content_type)
+        ))
+        ELSE &#x27;Article &#x27; || printf(&#x27;%03d&#x27;, COALESCE(
+          NEW.display_sequence,
+          (SELECT next_sequence FROM content_sequence WHERE content_type = NEW.content_type)
+        ))
+      END
+    )
+  WHERE id = NEW.id;
+
+  UPDATE content_sequence
+  SET
+    next_sequence = CASE
+      WHEN next_sequence &lt;= (SELECT display_sequence FROM public_content WHERE id = NEW.id)
+        THEN (SELECT display_sequence FROM public_content WHERE id = NEW.id) + 1
+      ELSE next_sequence
+    END,
+    updated_at = datetime(&#x27;now&#x27;)
+  WHERE content_type = NEW.content_type;
+END</code></pre></div>
+    <footer class="page-footer"><span>KR_DatabaseSchema v8.0 - rebuilt from the live D1 schema (krhomebase_dev) on 2026-10-24</span><span>&#169; Daniel W. Krueger. All rights reserved.</span></footer>
+  </main>
+</div>
+<script src="sidebar.js"></script>
+<script src="docs.js"></script>
+</body>
+</html>

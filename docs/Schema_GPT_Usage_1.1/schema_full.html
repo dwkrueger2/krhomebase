@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Full Schema - KR GPT Usage Database Schema 1.1</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">KR<span>_</span>DatabaseSchema</span>
+  <div class="header-sep"></div>
+  <span class="header-title">GPT Usage Database Schema</span>
+  <div class="header-right"><span class="version-badge">v1.1 - 2026-10-24</span><span class="updated-badge">Built from SQL files (live DB not read)</span></div>
+</header>
+<div class="layout">
+  <nav class="sidebar" id="sidebar"><noscript><a class="sidebar-link" href="index.html">Index</a></noscript></nav>
+  <main class="main">
+    <div class="breadcrumb"><a href="index.html">GPT Usage</a><span class="sep">/</span><span class="current">Full schema</span></div>
+    <div class="page-hero"><span class="table-tag">Full schema</span><h1 class="page-title">GPT Usage &mdash; full schema</h1><p class="page-description">All tables, the relationship map, and every relationship in one place.</p></div>
+    <div class="section-title">Relationship map</div><div class="relmap-wrap"><svg class="relmap" viewBox="0 0 1000 430" role="img" aria-label="Relationship map">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+<line x1="458" y1="198" x2="212" y2="97" stroke="currentColor" stroke-width="1.4" stroke-dasharray="6 4" marker-end="url(#ar)" opacity="0.7"/>
+<text x="335" y="144" class="edgelabel" font-size="10" text-anchor="middle" fill="currentColor"><tspan>application_id</tspan></text>
+<line x1="481" y1="363" x2="189" y2="97" stroke="currentColor" stroke-width="1.4" stroke-dasharray="6 4" marker-end="url(#ar)" opacity="0.7"/>
+<text x="335" y="226" class="edgelabel" font-size="10" text-anchor="middle" fill="currentColor"><tspan>application_id</tspan></text>
+<line x1="500" y1="363" x2="500" y2="232" stroke="currentColor" stroke-width="1.4" stroke-dasharray="6 4" marker-end="url(#ar)" opacity="0.7"/>
+<text x="500" y="294" class="edgelabel" font-size="10" text-anchor="middle" fill="currentColor"><tspan>kr_gpt_connection_id</tspan></text>
+<line x1="542" y1="198" x2="788" y2="97" stroke="currentColor" stroke-width="1.4" stroke-dasharray="6 4" marker-end="url(#ar)" opacity="0.7"/>
+<text x="665" y="144" class="edgelabel" font-size="10" text-anchor="middle" fill="currentColor"><tspan>credential_name</tspan></text>
+<a href="table_gpt_approved_application.html"><rect x="45" y="63" width="250" height="34" rx="6" class="relbox"/><text x="170" y="84" font-size="11" text-anchor="middle" class="reltext">gpt_approved_application</text></a>
+<a href="table_gpt_model_connection.html"><rect x="375" y="198" width="250" height="34" rx="6" class="relbox"/><text x="500" y="219" font-size="11" text-anchor="middle" class="reltext">gpt_model_connection</text></a>
+<a href="table_gpt_llm_credential.html"><rect x="705" y="63" width="250" height="34" rx="6" class="relbox"/><text x="830" y="84" font-size="11" text-anchor="middle" class="reltext">gpt_llm_credential</text></a>
+<a href="table_gpt_usage.html"><rect x="375" y="363" width="250" height="34" rx="6" class="relbox"/><text x="500" y="384" font-size="11" text-anchor="middle" class="reltext">gpt_usage</text></a>
+</svg></div><p class="group-desc">Solid arrow = declared foreign key (enforced). Dashed arrow = inferred from matching values (not enforced).</p>
+    <div class="section-title">Tables</div>
+    <div class="filter-panel"><input type="search" placeholder="Filter tables" data-filter="tr[data-search]" data-count="#tc2" aria-label="Filter tables"><span class="filter-count" id="tc2"></span></div>
+    <table class="field-table compact-table"><thead><tr><th>Table</th><th>Group</th><th>Columns</th><th>Purpose</th></tr></thead><tbody><tr data-search="gpt_approved_application application-level setting for the gpt gateway: which application is approved to use it, its provider-neutral model settings, and whether it has received a successful model response yet. the prototype has one row, for krhomebase."><td><a href="table_gpt_approved_application.html">gpt_approved_application</a></td><td>Gateway configuration</td><td>8</td><td>Application-level setting for the GPT Gateway: which application is approved to use it, its provider-neutral model settings, and whether it has received a successful model response yet.</td></tr><tr data-search="gpt_model_connection one configured way of reaching a model: the connection type (cloudflare ai gateway, gemini, openai, anthropic claude, or other), the provider, the exact model identifier, and whether a readiness test has passed. each row also has a short business-facing connection id."><td><a href="table_gpt_model_connection.html">gpt_model_connection</a></td><td>Gateway configuration</td><td>17</td><td>One configured way of reaching a model: the connection type (Cloudflare AI Gateway, Gemini, OpenAI, Anthropic Claude, or other), the provider, the exact model identifier, and whether a readiness test has passed.</td></tr><tr data-search="gpt_llm_credential credentials the worker needs to call a provider model. one row per credential kind (api-key, account-id, project-id, gateway-auth-token) for each provider and model pair. values are stored as an encrypted envelope."><td><a href="table_gpt_llm_credential.html">gpt_llm_credential</a></td><td>Credentials</td><td>10</td><td>Credentials the Worker needs to call a provider model.</td></tr><tr data-search="gpt_usage one normalized record per model request: token counts, per-million rates, calculated costs, who asked, and which module asked. it drives usage and cost reports."><td><a href="table_gpt_usage.html">gpt_usage</a></td><td>Usage and cost reporting</td><td>24</td><td>One normalized record per model request: token counts, per-million rates, calculated costs, who asked, and which module asked.</td></tr></tbody></table>
+    <div class="section-title">Relationships</div>
+    <table class="field-table compact-table"><thead><tr><th>From table</th><th>Column</th><th>To</th><th>On delete</th><th>Kind</th></tr></thead><tbody><tr><td><a href="table_gpt_model_connection.html">gpt_model_connection</a></td><td><code>application_id</code></td><td>gpt_approved_application.application_id</td><td>&mdash;</td><td>Inferred</td></tr><tr><td><a href="table_gpt_model_connection.html">gpt_model_connection</a></td><td><code>provider + llm_model + credential_name</code></td><td>gpt_llm_credential (provider, llm_model, credential)</td><td>&mdash;</td><td>Inferred</td></tr><tr><td><a href="table_gpt_usage.html">gpt_usage</a></td><td><code>application_id</code></td><td>gpt_approved_application.application_id</td><td>&mdash;</td><td>Inferred</td></tr><tr><td><a href="table_gpt_usage.html">gpt_usage</a></td><td><code>kr_gpt_connection_id</code></td><td>gpt_model_connection.kr_gpt_connection_id</td><td>&mdash;</td><td>Inferred</td></tr><tr><td><a href="table_gpt_usage.html">gpt_usage</a></td><td><code>requested_by_user_id</code></td><td>Homebase database: user.id</td><td>&mdash;</td><td>Inferred</td></tr><tr><td><a href="table_gpt_approved_application.html">gpt_approved_application</a></td><td><code>updated_by_user_id</code></td><td>Homebase database: user.id</td><td>&mdash;</td><td>Inferred</td></tr></tbody></table>
+    <footer class="page-footer"><span>GPT Usage v1.1 - documented 2026-10-24 from the schema SQL in the previous repository</span><span>&#169; Daniel W. Krueger. All rights reserved.</span></footer>
+  </main>
+</div>
+<script src="sidebar.js"></script>
+<script src="docs.js"></script>
+</body>
+</html>

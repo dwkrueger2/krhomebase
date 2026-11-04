@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASSET_DETAIL_REAL_ESTATE Table Reference - KR Database Schema 8.0</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">KR<span>_</span>DatabaseSchema</span>
+  <div class="header-sep"></div>
+  <span class="header-title">Database Schema</span>
+  <div class="header-right"><span class="version-badge">v8.0 - 2026-10-24</span><span class="updated-badge">Live schema read from krhomebase_dev</span></div>
+</header>
+<div class="layout">
+  <nav class="sidebar" id="sidebar"><noscript><a class="sidebar-link" href="index.html">Schema 8.0 index</a></noscript></nav>
+  <main class="main">
+    <div class="breadcrumb"><a href="index.html">KR_DatabaseSchema</a><span class="sep">/</span><a href="index.html#g-estate">Estate Planning, Assets, and Funding</a><span class="sep">/</span><span class="current">asset_detail_real_estate</span></div>
+    <div class="page-hero"><span class="table-tag">Table definition &middot; Estate Planning, Assets, and Funding</span><h1 class="page-title">asset_detail_real_estate</h1><p class="page-description">Real-property details for an asset: address, legal description, deed, parcel, and mortgage information.</p></div>
+    <div class="meta-grid"><div class="meta-card"><strong>Domain:</strong> Estate Planning, Assets, and Funding<br><strong>Columns:</strong> 11 &middot; <strong>Indexes:</strong> 0<br><strong>Outgoing FKs:</strong> 2 &middot; <strong>Referenced by:</strong> 0 tables</div><div class="meta-card"><strong>Source:</strong> live D1 (krhomebase_dev), read 2026-10-24<br><strong>Canonical SQL:</strong> <a href="schema_d1_v8_0.sql">schema_d1_v8_0.sql</a><br><strong>Storage:</strong> Cloudflare D1 / SQLite</div></div>
+    
+    <div class="section-title">Fields</div>
+    <div class="filter-panel"><input type="search" placeholder="Filter fields (name or description)" data-filter="tr[data-search]" data-count="#fcount" aria-label="Filter fields"><span class="filter-count" id="fcount"></span></div>
+    <table class="field-table fields-table"><colgroup><col class="c-name"><col class="c-type"><col class="c-cons"><col class="c-desc"></colgroup><thead><tr><th>Field</th><th>Type</th><th>Constraints</th><th>Human purpose / technical specification</th></tr></thead><tbody><tr data-search="id primary key. application-generated text identifier for this row."><td><span class="field-name">id</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge badge-pk">PK</span><span class="badge badge-req">Required</span></td><td><span class="field-desc">Primary key. Application-generated text identifier for this row.</span><span class="field-tech">TEXT PRIMARY KEY</span></td></tr><tr data-search="asset_id asset this row describes. references asset.id."><td><span class="field-name">asset_id</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge badge-fk">FK</span><span class="badge badge-req">Required</span><span class="badge badge-uq">Unique</span></td><td><span class="field-desc">Asset this row describes. References asset.id.</span><span class="field-tech">TEXT NOT NULL UNIQUE REFERENCES asset(id)</span></td></tr><tr data-search="property_address property address for the real-estate asset."><td><span class="field-name">property_address</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge badge-req">Required</span></td><td><span class="field-desc">Property address for the real-estate asset.</span><span class="field-tech">TEXT NOT NULL</span></td></tr><tr data-search="county county associated with the address or property."><td><span class="field-name">county</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge">Optional</span></td><td><span class="field-desc">County associated with the address or property.</span><span class="field-tech">TEXT</span></td></tr><tr data-search="state state, province, or jurisdiction code for the address."><td><span class="field-name">state</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge badge-req">Required</span></td><td><span class="field-desc">State, province, or jurisdiction code for the address.</span><span class="field-tech">TEXT NOT NULL</span></td></tr><tr data-search="legal_description legal description of the real property."><td><span class="field-name">legal_description</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge">Optional</span></td><td><span class="field-desc">Legal description of the real property.</span><span class="field-tech">TEXT</span></td></tr><tr data-search="parcel_id parcel, apn, or appraisal district identifier for the property."><td><span class="field-name">parcel_id</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge">Optional</span></td><td><span class="field-desc">Parcel, APN, or appraisal district identifier for the property.</span><span class="field-tech">TEXT</span></td></tr><tr data-search="deed_type type of deed or title document associated with the property."><td><span class="field-name">deed_type</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge">Optional</span></td><td><span class="field-desc">Type of deed or title document associated with the property.</span><span class="field-tech">TEXT</span></td></tr><tr data-search="homestead whether the real property is treated as homestead; stored as integer 0/1."><td><span class="field-name">homestead</span></td><td><span class="field-type">INTEGER</span></td><td><span class="badge badge-req">Required</span><span class="badge">Check</span><span class="badge">Default</span></td><td><span class="field-desc">Whether the real property is treated as homestead; stored as INTEGER 0/1.</span><span class="field-tech">INTEGER NOT NULL DEFAULT 0</span></td></tr><tr data-search="mortgage_lender mortgage lender or lienholder for the property."><td><span class="field-name">mortgage_lender</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge">Optional</span></td><td><span class="field-desc">Mortgage lender or lienholder for the property.</span><span class="field-tech">TEXT</span></td></tr><tr data-search="deed_document_id deed document: links to the related document record (document_record.id)."><td><span class="field-name">deed_document_id</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge badge-fk">FK</span><span class="badge">Optional</span></td><td><span class="field-desc">Deed document: links to the related document record (document_record.id).</span><span class="field-tech">TEXT REFERENCES document_record(id)</span></td></tr></tbody></table>
+    <div class="section-title">Relationship map</div>
+    <div class="relmap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 138" width="900" role="img" aria-label="Relationship map for asset_detail_real_estate"><defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrow" d="M0,0 L10,5 L0,10 z"/></marker></defs><a href="table_asset.html"><rect class="box" x="635" y="21.0" width="250" height="42" rx="5"/><text x="760" y="38.0" text-anchor="middle">asset</text><text class="lbl" x="760" y="54.0" text-anchor="middle">asset_id</text></a><line x1="525.0" y1="69.0" x2="635" y2="42.0" marker-end="url(#ar)"/><a href="table_document_record.html"><rect class="box" x="635" y="75.0" width="250" height="42" rx="5"/><text x="760" y="92.0" text-anchor="middle">document_record</text><text class="lbl" x="760" y="108.0" text-anchor="middle">deed_document_id</text></a><line x1="525.0" y1="69.0" x2="635" y2="96.0" marker-end="url(#ar)"/><rect class="box center" x="375.0" y="52.0" width="150" height="34" rx="5"/><text x="450.0" y="73.0" text-anchor="middle" style="font-weight:600">asset_detail_real_..</text></svg></div><p class="diagram-note" style="margin-top:6px;font-size:12px;color:var(--text-muted)">Arrows point from the table holding the foreign key to the table it references. Left: tables that reference this table. Right: tables this table references. Declared foreign keys only.</p>
+    <div class="section-title">Relationships</div><div class="rel-list"><div class="rel-item"><span class="rel-direction">&rarr;</span><span class="rel-text"><span class="field-name">asset_id</span> references <a href="table_asset.html">asset</a>.<span class="field-name">id</span></span></div><div class="rel-item"><span class="rel-direction">&rarr;</span><span class="rel-text"><span class="field-name">deed_document_id</span> references <a href="table_document_record.html">document_record</a>.<span class="field-name">id</span></span></div><div class="rel-item"><span class="rel-text">No other table declares a foreign key to this table.</span></div></div>
+    
+    <div class="section-title">Constraints</div><ul class="technical-list"><li><strong>Primary key:</strong> <code>id</code></li><li><strong>Unique:</strong> <code>asset_id</code> must be unique.</li><li><strong>Foreign key:</strong> <code>asset_id</code> &rarr; <code>asset(id)</code> &mdash; no ON DELETE action declared (default NO ACTION)</li><li><strong>Foreign key:</strong> <code>deed_document_id</code> &rarr; <code>document_record(id)</code> &mdash; no ON DELETE action declared (default NO ACTION)</li><li><strong>Boolean flags</strong> (CHECK IN (0,1)): <code>homestead</code>.</li></ul>
+    <div class="section-title">Indexes</div><ul class="technical-list"><li>No secondary indexes. Lookups use the primary key and any unique constraints.</li></ul>
+    
+    <div class="section-title">Raw SQL</div><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>CREATE TABLE asset_detail_real_estate (
+    id                       TEXT PRIMARY KEY,
+    asset_id                 TEXT NOT NULL UNIQUE,
+    property_address         TEXT NOT NULL,
+    county                   TEXT,
+    state                    TEXT NOT NULL,
+    legal_description        TEXT,
+    parcel_id                TEXT,
+    deed_type                TEXT,
+    homestead                INTEGER NOT NULL DEFAULT 0 CHECK (homestead IN (0,1)),
+    mortgage_lender          TEXT,
+    deed_document_id         TEXT,
+    FOREIGN KEY (asset_id)         REFERENCES asset(id),
+    FOREIGN KEY (deed_document_id) REFERENCES document_record(id)
+);</code></pre></div>
+    <div class="pager"><span>&larr; <a href="table_asset_detail_insurance.html">asset_detail_insurance</a></span><span><a href="schema_full.html">Full schema</a></span><span><a href="table_asset_detail_retirement.html">asset_detail_retirement</a> &rarr;</span></div>
+    <footer class="page-footer"><span>KR_DatabaseSchema v8.0 - rebuilt from the live D1 schema (krhomebase_dev) on 2026-10-24</span><span>&#169; Daniel W. Krueger. All rights reserved.</span></footer>
+  </main>
+</div>
+<script src="sidebar.js"></script>
+<script src="docs.js"></script>
+</body>
+</html>

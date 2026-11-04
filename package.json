@@ -1,20 +1,32 @@
 {
   "name": "krhomebase",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "description": "KR Homebase: web (Next.js on vinext) and api (Hono on Cloudflare Workers).",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "pnpm -r --parallel --filter @krhomebase/api --filter @krhomebase/web run dev",
+    "dev:web": "pnpm --filter @krhomebase/web run dev",
+    "dev:api": "pnpm --filter @krhomebase/api run dev",
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
+    "check": "pnpm run typecheck && pnpm run test",
+    "openapi": "pnpm --filter @krhomebase/api run openapi:write",
+    "types:cf": "pnpm -r run types:cf",
+    "snapshot:order": "node scripts/snapshot/order-data.mjs",
+    "listScripts": "pnpm pkg get scripts",
+    "repo-root": "git rev-parse --show-toplevel"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
-      "version": "^11.16.0",
+      "version": "11.16.0",
       "onFail": "download"
     }
   },
-  "type": "module"
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "wrangler": "^4.156.2"
+  }
 }

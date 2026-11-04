@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# secrets and local config
+.env*
+!.env.example
+.dev.vars*
+private/
+
+# database dumps (real client data)
+snapshots/
+
+# build output and caches
+dist/
+.next/
+.wrangler/
+.vite/
+.vinext/
+.cloudflare/
+next-env.d.ts
+coverage/
+*.tsbuildinfo
+
+# generated Cloudflare binding types (recreate with `pnpm types:cf`)
+worker-configuration.d.ts
+
+# logs
+*.log
+
+# IDE
+.idea/

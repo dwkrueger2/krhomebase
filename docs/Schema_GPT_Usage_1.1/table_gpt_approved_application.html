@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GPT_APPROVED_APPLICATION Table Reference - KR GPT Usage Database Schema 1.1</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">KR<span>_</span>DatabaseSchema</span>
+  <div class="header-sep"></div>
+  <span class="header-title">GPT Usage Database Schema</span>
+  <div class="header-right"><span class="version-badge">v1.1 - 2026-10-24</span><span class="updated-badge">Built from SQL files (live DB not read)</span></div>
+</header>
+<div class="layout">
+  <nav class="sidebar" id="sidebar"><noscript><a class="sidebar-link" href="index.html">Index</a></noscript></nav>
+  <main class="main">
+    <div class="breadcrumb"><a href="index.html">GPT Usage</a><span class="sep">/</span><a href="index.html#g-config">Gateway configuration</a><span class="sep">/</span><span class="current">gpt_approved_application</span></div>
+    <div class="page-hero"><span class="table-tag">Table definition &middot; Gateway configuration</span><h1 class="page-title">gpt_approved_application</h1><p class="page-description">Application-level setting for the GPT Gateway: which application is approved to use it, its provider-neutral model settings, and whether it has received a successful model response yet. The prototype has one row, for krhomebase.</p></div>
+    <div class="meta-grid"><div class="meta-card"><strong>Group:</strong> Gateway configuration<br><strong>Columns:</strong> 8 &middot; <strong>Indexes:</strong> 0<br><strong>Outgoing FKs:</strong> 0 &middot; <strong>Referenced by:</strong> 0 tables</div><div class="meta-card"><strong>Database:</strong> krhomebase_gpt_usage_dev (binding GPT_USAGE_DB)<br><strong>Canonical SQL:</strong> <a href="Schema_GPT_Usage_1.1.sql">Schema_GPT_Usage_1.1.sql</a><br><strong>Storage:</strong> Cloudflare D1 / SQLite</div></div>
+    <div class="callout callout-warn"><strong>Developer notes.</strong> approved_api_key is named like a secret but is documented as a display-safe alias, never a credential value. Keep it that way; real keys belong only in gpt_llm_credential as an encrypted envelope. settings_json must stay free of provider secrets.</div>
+    <div class="section-title">Fields</div>
+    <div class="filter-panel"><input type="search" placeholder="Filter fields (name or description)" data-filter="tr[data-search]" data-count="#fcount" aria-label="Filter fields"><span class="filter-count" id="fcount"></span></div>
+    <table class="field-table fields-table"><colgroup><col class="c-name"><col class="c-type"><col class="c-cons"><col class="c-desc"></colgroup><thead><tr><th>Field</th><th>Type</th><th>Constraints</th><th>Human purpose / technical specification</th></tr></thead><tbody><tr data-search="application_id primary key. stable identifier of the approved application. the prototype uses krhomebase."><td><span class="field-name">application_id</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge badge-pk">PK</span><span class="badge badge-req">Required</span></td><td><span class="field-desc">Primary key. Stable identifier of the approved application. The prototype uses krhomebase.</span><span class="field-tech">TEXT PRIMARY KEY</span></td></tr><tr data-search="approved_api_key display-safe alias or reference for the application&#x27;s approved key. documented as never being the credential value itself."><td><span class="field-name">approved_api_key</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge badge-req">Required</span></td><td><span class="field-desc">Display-safe alias or reference for the application&#x27;s approved key. Documented as never being the credential value itself.</span><span class="field-tech">TEXT NOT NULL</span></td></tr><tr data-search="settings_json json with the selected model and normalized provider-neutral generation and rate settings. must not contain secrets."><td><span class="field-name">settings_json</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge badge-req">Required</span></td><td><span class="field-desc">JSON with the selected model and normalized provider-neutral generation and rate settings. Must not contain secrets.</span><span class="field-tech">TEXT NOT NULL</span></td></tr><tr data-search="state connection state of the application. new rows are unconfigured; a successful readiness response sets configured."><td><span class="field-name">state</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge badge-req">Required</span><span class="badge">Check</span><span class="badge">Default</span></td><td><span class="field-desc">Connection state of the application. New rows are unconfigured; a successful readiness response sets configured.</span><div class="enum-list"><span class="enum-val">unconfigured</span><span class="enum-val">configured</span></div><span class="field-tech">TEXT NOT NULL DEFAULT &#x27;unconfigured&#x27;</span></td></tr><tr data-search="updated_by_user_id homebase user who last changed this row. not a foreign key (the user table is in another database)."><td><span class="field-name">updated_by_user_id</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge">Optional</span></td><td><span class="field-desc">Homebase user who last changed this row. Not a foreign key (the user table is in another database).</span><span class="field-tech">TEXT</span></td></tr><tr data-search="updated_by_email email of the user who last changed this row, kept for audit."><td><span class="field-name">updated_by_email</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge">Optional</span></td><td><span class="field-desc">Email of the user who last changed this row, kept for audit.</span><span class="field-tech">TEXT</span></td></tr><tr data-search="updated_at when this row was last changed (iso-8601 utc text)."><td><span class="field-name">updated_at</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge badge-req">Required</span><span class="badge">Default</span></td><td><span class="field-desc">When this row was last changed (ISO-8601 UTC text).</span><span class="field-tech">TEXT NOT NULL DEFAULT (strftime(&#x27;%Y-%m-%dT%H:%M:%fZ&#x27;,&#x27;now&#x27;))</span></td></tr><tr data-search="created_at when this row was created (iso-8601 utc text)."><td><span class="field-name">created_at</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge badge-req">Required</span><span class="badge">Default</span></td><td><span class="field-desc">When this row was created (ISO-8601 UTC text).</span><span class="field-tech">TEXT NOT NULL DEFAULT (strftime(&#x27;%Y-%m-%dT%H:%M:%fZ&#x27;,&#x27;now&#x27;))</span></td></tr></tbody></table>
+    <div class="section-title">Relationships</div><div class="rel-list"><div class="rel-item"><span class="rel-text">No outgoing foreign keys are declared for this table.</span></div><div class="rel-item"><span class="rel-text">No other table declares a foreign key to this table.</span></div></div>
+    <div class="section-title">Likely application-level relationships (inferred, not enforced)</div><ul class="technical-list"><li><code>updated_by_user_id</code> &rarr; Homebase database: user.id</li></ul>
+    <div class="section-title">Constraints</div><ul class="technical-list"><li><strong>Primary key:</strong> <code>application_id</code></li><li><strong>Check:</strong> <code>state</code> must be one of <code>unconfigured</code>, <code>configured</code>.</li></ul>
+    <div class="section-title">Indexes</div><ul class="technical-list"><li>No secondary indexes. Lookups use the primary key and unique constraints.</li></ul>
+    <div class="section-title">Raw SQL (as stored in the database)</div><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>CREATE TABLE gpt_approved_application (
+  application_id TEXT PRIMARY KEY,
+  approved_api_key TEXT NOT NULL,
+  settings_json TEXT NOT NULL,
+  state TEXT NOT NULL DEFAULT &#x27;unconfigured&#x27; CHECK (state IN (&#x27;unconfigured&#x27;,&#x27;configured&#x27;)),
+  updated_by_user_id TEXT,
+  updated_by_email TEXT,
+  updated_at TEXT NOT NULL DEFAULT (strftime(&#x27;%Y-%m-%dT%H:%M:%fZ&#x27;,&#x27;now&#x27;)),
+  created_at TEXT NOT NULL DEFAULT (strftime(&#x27;%Y-%m-%dT%H:%M:%fZ&#x27;,&#x27;now&#x27;))
+);</code></pre></div>
+    <div class="pager"><span></span><span><a href="schema_full.html">Full schema</a></span><span><a href="table_gpt_model_connection.html">gpt_model_connection</a> &rarr;</span></div>
+    <footer class="page-footer"><span>GPT Usage v1.1 - documented 2026-10-24 from the schema SQL in the previous repository</span><span>&#169; Daniel W. Krueger. All rights reserved.</span></footer>
+  </main>
+</div>
+<script src="sidebar.js"></script>
+<script src="docs.js"></script>
+</body>
+</html>

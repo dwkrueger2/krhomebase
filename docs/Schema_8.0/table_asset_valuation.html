@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASSET_VALUATION Table Reference - KR Database Schema 8.0</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">KR<span>_</span>DatabaseSchema</span>
+  <div class="header-sep"></div>
+  <span class="header-title">Database Schema</span>
+  <div class="header-right"><span class="version-badge">v8.0 - 2026-10-24</span><span class="updated-badge">Live schema read from krhomebase_dev</span></div>
+</header>
+<div class="layout">
+  <nav class="sidebar" id="sidebar"><noscript><a class="sidebar-link" href="index.html">Schema 8.0 index</a></noscript></nav>
+  <main class="main">
+    <div class="breadcrumb"><a href="index.html">KR_DatabaseSchema</a><span class="sep">/</span><a href="index.html#g-estate">Estate Planning, Assets, and Funding</a><span class="sep">/</span><span class="current">asset_valuation</span></div>
+    <div class="page-hero"><span class="table-tag">Table definition &middot; Estate Planning, Assets, and Funding</span><h1 class="page-title">asset_valuation</h1><p class="page-description">Value history for an asset: value, value date, source, debt, equity, and notes.</p></div>
+    <div class="meta-grid"><div class="meta-card"><strong>Domain:</strong> Estate Planning, Assets, and Funding<br><strong>Columns:</strong> 8 &middot; <strong>Indexes:</strong> 0<br><strong>Outgoing FKs:</strong> 1 &middot; <strong>Referenced by:</strong> 0 tables</div><div class="meta-card"><strong>Source:</strong> live D1 (krhomebase_dev), read 2026-10-24<br><strong>Canonical SQL:</strong> <a href="schema_d1_v8_0.sql">schema_d1_v8_0.sql</a><br><strong>Storage:</strong> Cloudflare D1 / SQLite</div></div>
+    
+    <div class="section-title">Fields</div>
+    <div class="filter-panel"><input type="search" placeholder="Filter fields (name or description)" data-filter="tr[data-search]" data-count="#fcount" aria-label="Filter fields"><span class="filter-count" id="fcount"></span></div>
+    <table class="field-table fields-table"><colgroup><col class="c-name"><col class="c-type"><col class="c-cons"><col class="c-desc"></colgroup><thead><tr><th>Field</th><th>Type</th><th>Constraints</th><th>Human purpose / technical specification</th></tr></thead><tbody><tr data-search="id primary key. application-generated text identifier for this row."><td><span class="field-name">id</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge badge-pk">PK</span><span class="badge badge-req">Required</span></td><td><span class="field-desc">Primary key. Application-generated text identifier for this row.</span><span class="field-tech">TEXT PRIMARY KEY</span></td></tr><tr data-search="asset_id asset this row describes. references asset.id."><td><span class="field-name">asset_id</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge badge-fk">FK</span><span class="badge badge-req">Required</span><span class="badge badge-uq">Unique</span></td><td><span class="field-desc">Asset this row describes. References asset.id.</span><span class="field-tech">TEXT NOT NULL UNIQUE REFERENCES asset(id)</span></td></tr><tr data-search="estimated_value estimated asset value."><td><span class="field-name">estimated_value</span></td><td><span class="field-type">REAL</span></td><td><span class="badge">Optional</span></td><td><span class="field-desc">Estimated asset value.</span><span class="field-tech">REAL</span></td></tr><tr data-search="value_date date of the valuation. format yyyy-mm-dd."><td><span class="field-name">value_date</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge">Optional</span></td><td><span class="field-desc">Date of the valuation. Format YYYY-MM-DD.</span><span class="field-tech">TEXT</span></td></tr><tr data-search="value_source source of the valuation, such as statement, appraisal, estimate, or staff-entered value. allowed values: statement, cad, appraisal, client_estimate, kbb_nada, tax_return, unknown."><td><span class="field-name">value_source</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge">Optional</span><span class="badge">Check</span></td><td><span class="field-desc">Source of the valuation, such as statement, appraisal, estimate, or staff-entered value. Allowed values: statement, cad, appraisal, client_estimate, kbb_nada, tax_return, unknown.</span><span class="field-tech">TEXT</span></td></tr><tr data-search="debt_amount debt, lien, or loan balance associated with the asset."><td><span class="field-name">debt_amount</span></td><td><span class="field-type">REAL</span></td><td><span class="badge">Optional</span><span class="badge">Default</span></td><td><span class="field-desc">Debt, lien, or loan balance associated with the asset.</span><span class="field-tech">REAL DEFAULT 0</span></td></tr><tr data-search="equity_value calculated or entered net equity value."><td><span class="field-name">equity_value</span></td><td><span class="field-type">REAL</span></td><td><span class="badge">Optional</span></td><td><span class="field-desc">Calculated or entered net equity value.</span><span class="field-tech">REAL</span></td></tr><tr data-search="notes free-form internal notes with context, caveats, or supplemental detail."><td><span class="field-name">notes</span></td><td><span class="field-type">TEXT</span></td><td><span class="badge">Optional</span></td><td><span class="field-desc">Free-form internal notes with context, caveats, or supplemental detail.</span><span class="field-tech">TEXT</span></td></tr></tbody></table>
+    <div class="section-title">Relationship map</div>
+    <div class="relmap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 84" width="900" role="img" aria-label="Relationship map for asset_valuation"><defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrow" d="M0,0 L10,5 L0,10 z"/></marker></defs><a href="table_asset.html"><rect class="box" x="635" y="21.0" width="250" height="42" rx="5"/><text x="760" y="38.0" text-anchor="middle">asset</text><text class="lbl" x="760" y="54.0" text-anchor="middle">asset_id</text></a><line x1="525.0" y1="42.0" x2="635" y2="42.0" marker-end="url(#ar)"/><rect class="box center" x="375.0" y="25.0" width="150" height="34" rx="5"/><text x="450.0" y="46.0" text-anchor="middle" style="font-weight:600">asset_valuation</text></svg></div><p class="diagram-note" style="margin-top:6px;font-size:12px;color:var(--text-muted)">Arrows point from the table holding the foreign key to the table it references. Left: tables that reference this table. Right: tables this table references. Declared foreign keys only.</p>
+    <div class="section-title">Relationships</div><div class="rel-list"><div class="rel-item"><span class="rel-direction">&rarr;</span><span class="rel-text"><span class="field-name">asset_id</span> references <a href="table_asset.html">asset</a>.<span class="field-name">id</span></span></div><div class="rel-item"><span class="rel-text">No other table declares a foreign key to this table.</span></div></div>
+    
+    <div class="section-title">Constraints</div><ul class="technical-list"><li><strong>Primary key:</strong> <code>id</code></li><li><strong>Unique:</strong> <code>asset_id</code> must be unique.</li><li><strong>Foreign key:</strong> <code>asset_id</code> &rarr; <code>asset(id)</code> &mdash; no ON DELETE action declared (default NO ACTION)</li><li><strong>Check:</strong> <code>value_source IS NULL OR value_source IN ( &#x27;statement&#x27;,&#x27;cad&#x27;,&#x27;appraisal&#x27;,&#x27;client_estimate&#x27;, &#x27;kbb_nada&#x27;,&#x27;tax_return&#x27;,&#x27;unknown&#x27;)</code></li></ul>
+    <div class="section-title">Indexes</div><ul class="technical-list"><li>No secondary indexes. Lookups use the primary key and any unique constraints.</li></ul>
+    <div class="section-title">Common usage notes</div><ul class="technical-list"><li>Money columns (<code>estimated_value</code>, <code>debt_amount</code>, <code>equity_value</code>) are stored as <code>REAL</code> (floating point). Round at the application layer; consider integer cents for new money columns.</li></ul>
+    <div class="section-title">Raw SQL</div><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>CREATE TABLE asset_valuation (
+    id               TEXT PRIMARY KEY,
+    asset_id         TEXT NOT NULL UNIQUE,
+    estimated_value  REAL,
+    value_date       TEXT,
+    value_source     TEXT
+                         CHECK (value_source IS NULL OR value_source IN (
+                             &#x27;statement&#x27;,&#x27;cad&#x27;,&#x27;appraisal&#x27;,&#x27;client_estimate&#x27;,
+                             &#x27;kbb_nada&#x27;,&#x27;tax_return&#x27;,&#x27;unknown&#x27;)),
+    debt_amount      REAL DEFAULT 0,
+    equity_value     REAL,
+    notes            TEXT,
+    FOREIGN KEY (asset_id) REFERENCES asset(id)
+);</code></pre></div>
+    <div class="pager"><span>&larr; <a href="table_asset_ownership.html">asset_ownership</a></span><span><a href="schema_full.html">Full schema</a></span><span><a href="table_beneficiary_designation.html">beneficiary_designation</a> &rarr;</span></div>
+    <footer class="page-footer"><span>KR_DatabaseSchema v8.0 - rebuilt from the live D1 schema (krhomebase_dev) on 2026-10-24</span><span>&#169; Daniel W. Krueger. All rights reserved.</span></footer>
+  </main>
+</div>
+<script src="sidebar.js"></script>
+<script src="docs.js"></script>
+</body>
+</html>
