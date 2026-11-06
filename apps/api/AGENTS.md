@@ -1,7 +1,7 @@
 # KR Homebase API Agent Guide
 
-<small>Version 1.4</small><br>
-<small>Updated Nov 3, 2026 11:44pm</small>
+<small>Version 1.5</small><br>
+<small>Updated Nov 4, 2026 8:35pm</small>
 
 ## Purpose
 
@@ -59,7 +59,7 @@ Register the area in `src/app.ts` with a `register<Area>(app)` call, as `registe
 
 A route is not finished until all of these pass (`pnpm check`):
 
-1. **Automatic contract tests** (`test/contract.test.ts`). They loop over every declared route: summary and side effects present, path rules, listed in OpenAPI, committed `openapi.json` matches, replies use the envelope, protected routes refuse an unsigned caller (401), invalid bodies return `VALIDATION_FAILED` (422). Do not weaken or skip these. If one fails, fix the route. Until the sign-in middleware is built (step 3 in the order of work), any route that is not `public` will fail the 401 test; build the middleware first.
+1. **Automatic contract tests** (`test/contract.test.ts`). They loop over every declared route: summary and side effects present, path rules, listed in OpenAPI, committed `openapi.json` matches, replies use the envelope, protected routes refuse an unsigned caller (401), invalid bodies return `VALIDATION_FAILED` (422). Do not weaken or skip these. If one fails, fix the route. The sign-in middleware (`src/platform/authGuard.ts`) enforces each route's declared `access`, so a route that is not `public` refuses an unsigned caller on its own.
 2. **Business-rule tests** (`src/features/<area>/<area>.test.ts`) for every rule in `rules.ts`: each allowed case, each refused case, each error code listed on the route.
 3. **Data tests.** Use small made-up fixtures. Never use rows from `snapshots\` or the live databases in tests.
 
@@ -67,9 +67,17 @@ A route is not finished until all of these pass (`pnpm check`):
 
 - Reply with the envelope helpers; include `requestId` on success and failure.
 - Keep error codes stable. Add new codes to the route's `errors` list.
-- Log with `console.error`/`console.log` using the `[AREA:line]` prefix and the `requestId` (see "General Logging Procedures" in the root `AGENTS.md`). `apps/web` has the `L` helper (`apps/web/lib/KRUtilities.ts`); the API does not have one yet, and `apps/api` must not import from `apps/web`. Never log secrets, tokens, cookies, or complete sensitive request bodies.
+- Log with `console.error`/`console.log` using the `[AREA:line]` prefix and the `requestId` (see "General Logging Procedures" in the root `AGENTS.md`). `apps/web` has the `L` helper (`apps/web/lib/KRUtilities.ts`); `apps/api` must not import from `apps/web`. The API's own helper is `logLine(tag, requestId, meta)` in `src/platform/log.ts`; use it for new logging. Never log secrets, tokens, cookies, or complete sensitive request bodies.
 - Keep server-only helpers in `src/platform/`.
 - Calls to Stripe, email, PDF, storage and other outside services go through a module in `src/platform/` so they can be replaced in tests.
+
+## Sign-in
+
+- **Who is signed in.** `signInGuard` (`src/platform/authGuard.ts`) runs on every request after `requestId`. It finds the route in `routeRegistry`, reads its `access`, and for `signed-in` or `{ roles }` routes asks the session Worker about the `kr_session` cookie. No cookie gives 401 `UNAUTHENTICATED`; an unreachable session Worker gives 503 `SESSION_VALIDATION_UNAVAILABLE`; a role not on the list gives 403. There is no implicit super admin.
+- **Auth routes** are in `src/features/auth/` (`routes.ts`, `rules.ts`, `queries.ts`, `signIn.ts`). `queries.ts` is the only file that reaches the database, and it does so through the crud Worker.
+- **Outside calls** go through `src/platform/`: `crudClient.ts` (signs and seals each command for the crud Worker), `sessionClient.ts`, `google.ts`, `turnstile.ts`. They use WebCrypto, never `node:crypto`.
+- **Bindings.** `CRUD_WORKER` and `SESSION_WORKER` are service bindings in `wrangler.jsonc`. They are `remote: true`, so `pnpm dev:api` calls the deployed Workers.
+- **Settings and secrets** are listed in `apps/api/Readme-auth.md`. The names only are in `apps/api/.dev.vars.example`.
 
 ## Documentation and review location
 

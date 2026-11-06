@@ -1,0 +1,36 @@
+// Changes from the copy: Cloudflare names, schema path, bucket names (old buckets: kr-homebase-articles, kr-homebase-articles-dev).
+{
+  "$schema": "../../../node_modules/wrangler/config-schema.json",
+  "name": "krhomebase-r2-crud-articles-worker",
+  "main": "./kr-r2-crud-articles-worker.ts",
+  "compatibility_date": "2026-06-11",
+  "workers_dev": true,
+  "secrets": {
+    "required": [
+      "KR_R2_ARTICLES_WORKER_TOKEN"
+    ]
+  },
+  "r2_buckets": [
+    {
+      "binding": "ARTICLE_BUCKET",
+      "bucket_name": "NOT_SET_REVIEW_BEFORE_USE"
+    }
+  ],
+  "env": {
+    "dev": {
+      "name": "krhomebase-r2-crud-articles-worker-dev",
+      "workers_dev": true,
+      "secrets": {
+        "required": [
+          "KR_R2_ARTICLES_WORKER_TOKEN"
+        ]
+      },
+      "r2_buckets": [
+        {
+          "binding": "ARTICLE_BUCKET",
+          "bucket_name": "NOT_SET_REVIEW_BEFORE_USE"
+        }
+      ]
+    }
+  }
+}

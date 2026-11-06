@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { buildBreadcrumbs, findNavItem, isShellSectionId, SHELL_NAV_ITEMS } from '@/components/shell/navigation'
 import { createInitialShellState, shellReducer } from '@/components/shell/shellState'
 
-/** Tests for the frame's state and menu helpers. Run: `pnpm --filter @krhomebase/web test`. */
+/** Tests for the frame's state and menu helpers. Run: `pnpm --dir apps/web run test`. */
 describe('createInitialShellState', () => {
   it('starts expanded on the Dashboard with no pop-out', () => {
     expect(createInitialShellState()).toEqual({

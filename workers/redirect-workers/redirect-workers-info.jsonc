@@ -1,0 +1,60 @@
+{
+  // REPOSITORY COPY NOTE (Nov 4, 2026):
+  //   Copied from the old repository and kept as a record of the OLD live workers.
+  //   Paths were changed to workers/. Each worker has a new field "repositoryName", the Cloudflare name used by this repository.
+  //   All other names, database ids, bucket names and commands describe the old system. Do not run them.
+  //   Current values are in each worker .jsonc file and in workers/Readme-workers.md.
+  // redirect-workers-info.jsonc
+  // Current as of: 2026-08-11
+  //
+  // Purpose:
+  //   Human-maintained inventory for KR Cloudflare redirect-only workers.
+  //   Update this file when adding, retiring, renaming, rebinding, or materially changing
+  //   a redirect worker. Do not store secret values in this file.
+  "currentAsOf": "2026-08-11",
+  "owner": "KRWebsitePublic",
+  "redirectTargets": [
+    {
+      "canonicalHost": "krueger-richard.com",
+      "canonicalOrigin": "https://krueger-richard.com",
+      "status": "active",
+      "description": "Canonical Krueger & Richard public website host."
+    }
+  ],
+  "workers": [
+    {
+      "workerName": "kr-dklegal-domain-redirect-worker",
+      "repositoryName": "krhomebase-dklegal-domain-redirect-worker",
+      "status": "active-ready",
+      "targetType": "10-second HTML interstitial redirect",
+      "sourceHosts": [
+        "dklegal-tx.com",
+        "www.dklegal-tx.com",
+        "dklegal-ks.com",
+        "www.dklegal-ks.com"
+      ],
+      "targetOrigin": "https://krueger-richard.com",
+      "localPath": "workers/redirect-workers/kr-dklegal-domain-redirect-worker",
+      "configPath": "workers/redirect-workers/kr-dklegal-domain-redirect-worker/kr-dklegal-domain-redirect-worker.jsonc",
+      "main": "workers/redirect-workers/kr-dklegal-domain-redirect-worker/kr-dklegal-domain-redirect-worker.ts",
+      "description": "Branded handoff worker for DK Legal legacy Texas and Kansas domains. It serves a 10-second DK Legal Group to Krueger & Richard page, then preserves path and query strings while changing the origin to krueger-richard.com.",
+      "expectedEnvironment": [
+        "Optional Cloudflare zones for dklegal-tx.com and dklegal-ks.com if Dan chooses to enable route bindings",
+        "Proxied DNS records for apex and www hosts only after Dan approves the domain-wide routing decision"
+      ],
+      "securityNotes": [
+        "No secrets or bindings are required.",
+        "The redirect target is a fixed canonical origin, not user-controlled input.",
+        "Runtime host matching accepts dklegal-XX.com style hosts only.",
+        "kr-dklegal-domain-redirect-worker.jsonc keeps dklegal route bindings commented out so deploys do not automatically attach legacy domains."
+      ],
+      "bindings": [],
+      "deployCommand": "pnpm exec wrangler deploy --config .\\workers\\redirect-workers\\kr-dklegal-domain-redirect-worker\\kr-dklegal-domain-redirect-worker.jsonc",
+      "verifyCommand": "pnpm exec wrangler deployments list --name kr-dklegal-domain-redirect-worker",
+      "notes": [
+        "Uncomment route entries in kr-dklegal-domain-redirect-worker.jsonc only when Dan decides to attach legacy dklegal-* domains.",
+        "sample-redirect-preview.html is a browser preview of the 10-second branded handoff page."
+      ]
+    }
+  ]
+}

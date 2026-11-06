@@ -1,0 +1,3 @@
+# Names of the settings this Worker reads when it runs locally. No values here, ever.
+# Real values are written to a git-ignored .dev.vars file by scripts/Write-DevVars.ps1.
+CRUD_WORKER_PRIVATE_KEY=

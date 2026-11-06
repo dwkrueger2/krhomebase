@@ -1,0 +1,124 @@
+{
+  // REPOSITORY COPY NOTE (Nov 4, 2026):
+  //   Copied from the old repository and kept as a record of the OLD live workers.
+  //   Paths were changed to workers/. Each worker has a new field "repositoryName", the Cloudflare name used by this repository.
+  //   All other names, database ids, bucket names and commands describe the old system. Do not run them.
+  //   Current values are in each worker .jsonc file and in workers/Readme-workers.md.
+  // r2-workers-info.jsonc
+  // Current as of: 2026-06-29
+  //
+  // Purpose:
+  //   Human-maintained inventory for KR Cloudflare R2-oriented workers and R2 buckets.
+  //   The deployment dashboard uses this file for worker purpose, local path, target,
+  //   expected secrets, and security notes. Wrangler remains the live source for last
+  //   deployment timestamps.
+  //
+  // Maintenance rule:
+  //   Update this file when adding, retiring, renaming, rebinding, or materially changing
+  //   an R2 worker or R2 bucket. Do not store secret values in this file.
+  "currentAsOf": "2026-06-29",
+  "owner": "KRHomebase",
+  "r2Resources": [
+    {
+      "name": "kr-public-site-assets",
+      "schemaVersion": "R2 object model: front-end asset image allow-list",
+      "status": "active",
+      "description": "Public-site image asset bucket. The worker maps public asset ids/categories to fixed allow-listed R2 keys.",
+      "usedBy": ["kr-public-site-front-end-assets"]
+    },
+    {
+      "name": "kr-homebase-articles",
+      "schemaVersion": "R2 object model: article packages, images, snapshots, and publications",
+      "status": "active",
+      "description": "Article/Answer package bucket used for source uploads, sanitized snapshots, past publication snapshots, and published image assets.",
+      "usedBy": ["kr-r2-crud-articles-worker", "kr-r2-public-article-worker", "kr-article-read-worker", "kr-article-publish-worker"]
+    }
+  ],
+  "workers": [
+    {
+      "workerName": "kr-public-site-front-end-assets",
+      "repositoryName": "krhomebase-public-site-front-end-assets",
+      "status": "active",
+      "targetType": "R2",
+      "targetNames": ["kr-public-site-assets"],
+      "localPath": "workers/r2-workers/front-end-assets",
+      "configPath": "workers/r2-workers/front-end-assets/kr-public-site-front-end-assets.jsonc",
+      "main": "workers/r2-workers/front-end-assets/front-end-assets-worker.ts",
+      "description": "Read-only public-site image asset worker. It serves only modeled, allow-listed front-end image assets from the public-site R2 bucket.",
+      "expectedEnvironment": [
+        "R2 binding KR_PUBLIC_SITE_ASSETS",
+        "Allow-list data in front-end-asset-images.ts"
+      ],
+      "securityNotes": [
+        "Does not accept arbitrary browser-supplied R2 keys.",
+        "Uses public asset ids/categories mapped to fixed R2 keys."
+      ],
+      "bindings": [
+        { "type": "R2", "binding": "KR_PUBLIC_SITE_ASSETS", "resource": "kr-public-site-assets" }
+      ],
+      "deployCommand": "pnpm wrangler deploy --config .\\workers\\r2-workers\\front-end-assets\\kr-public-site-front-end-assets.jsonc",
+      "verifyCommand": "pnpm wrangler deployments list --name kr-public-site-front-end-assets",
+      "notes": [
+        "Public routes include /assets/manifest.json and /assets/:assetId style paths."
+      ]
+    },
+    {
+      "workerName": "kr-r2-crud-articles-worker",
+      "repositoryName": "krhomebase-r2-crud-articles-worker",
+      "status": "active",
+      "targetType": "R2",
+      "targetNames": ["kr-homebase-articles"],
+      "localPath": "workers/r2-workers/kr-r2-crud-articles-worker",
+      "configPath": "workers/r2-workers/kr-r2-crud-articles-worker/kr-r2-crud-articles-worker.jsonc",
+      "main": "workers/r2-workers/kr-r2-crud-articles-worker/kr-r2-crud-articles-worker.ts",
+      "description": "Protected server-to-server R2 CRUD worker for Article/Answer package objects. It reads, writes, and deletes known object prefixes after bearer-token validation.",
+      "expectedEnvironment": [
+        "Cloudflare secret KR_R2_ARTICLES_WORKER_TOKEN",
+        "Optional var KR_R2_CRUD_ARTICLES_ALLOWED_ORIGINS",
+        "R2 binding ARTICLE_BUCKET"
+      ],
+      "securityNotes": [
+        "Server-to-server KR Homebase maintenance worker only.",
+        "Browser users should not call this worker directly.",
+        "Allowed object prefixes are limited in the worker code."
+      ],
+      "bindings": [
+        { "type": "R2", "binding": "ARTICLE_BUCKET", "resource": "kr-homebase-articles" }
+      ],
+      "deployCommand": "pnpm wrangler deploy --config .\\workers\\r2-workers\\kr-r2-crud-articles-worker\\kr-r2-crud-articles-worker.jsonc",
+      "verifyCommand": "pnpm wrangler deployments list --name kr-r2-crud-articles-worker",
+      "notes": [
+        "Known prefixes include images, source-uploads, sanitized-snapshots, and past-publications."
+      ]
+    },
+    {
+      "workerName": "kr-r2-public-article-worker",
+      "repositoryName": "krhomebase-r2-public-article-worker",
+      "status": "active",
+      "targetType": "D1/R2",
+      "targetNames": ["kr-homebase-articles", "krhomebase_05_2026_v5"],
+      "localPath": "workers/r2-workers/kr-r2-public-article-worker",
+      "configPath": "workers/r2-workers/kr-r2-public-article-worker/kr-r2-public-article-worker.jsonc",
+      "main": "workers/r2-workers/kr-r2-public-article-worker/kr-r2-public-article-worker.ts",
+      "description": "Public Article/Answer image worker. It exposes only objects that are present in approved content asset rows and joined to published content.",
+      "expectedEnvironment": [
+        "R2 binding ARTICLE_BUCKET",
+        "D1 binding KRHOMEBASE_DB",
+        "Optional var KR_ARTICLE_PUBLIC_ALLOWED_ORIGINS"
+      ],
+      "securityNotes": [
+        "Does not serve source ZIP uploads, draft snapshots, or arbitrary bucket keys.",
+        "Checks D1 content metadata before serving R2 objects."
+      ],
+      "bindings": [
+        { "type": "R2", "binding": "ARTICLE_BUCKET", "resource": "kr-homebase-articles" },
+        { "type": "D1", "binding": "KRHOMEBASE_DB", "resource": "krhomebase_05_2026_v5" }
+      ],
+      "deployCommand": "pnpm wrangler deploy --config .\\workers\\r2-workers\\kr-r2-public-article-worker\\kr-r2-public-article-worker.jsonc",
+      "verifyCommand": "pnpm wrangler deployments list --name kr-r2-public-article-worker",
+      "notes": [
+        "Public worker for published article/answer image assets only."
+      ]
+    }
+  ]
+}

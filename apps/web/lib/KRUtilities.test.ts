@@ -6,7 +6,7 @@
  * How to run (Windows PowerShell):
  *
  *   Set-Location D:\Repos\krhomebase
- *   pnpm --filter @krhomebase/web test                  # every web test, once
+ *   pnpm --dir apps/web run test                  # every web test, once
  *   pnpm check                                          # type check and every test in the repository
  *
  * Run only this file:

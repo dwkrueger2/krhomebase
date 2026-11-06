@@ -1,0 +1,106 @@
+//file: workers/d1-workers/session-worker/session-worker.jsonc
+// Changes from the copy: Cloudflare name and database. The code (session-worker.ts) is unchanged.
+// Live setup and commands: workers/Readme-workers.md. Local run (optional): pnpm dev:session (port 8792).
+{
+  "$schema": "../../../node_modules/wrangler/config-schema.json",
+  "name": "krhomebase-session-worker",
+  "main": "./session-worker.ts",
+  "compatibility_date": "2026-05-26",
+  // No public web address (decision of Nov 4, 2026). Only another Worker (apps/api) calls it, through a service binding.
+  "workers_dev": false,
+  "preview_urls": false,
+  "d1_databases": [
+    {
+//      "binding": "SESSION_WORKER_ASSIGNED_D1",
+//      "database_name": "krhomebase_05_2026_v5",
+//      "database_id": "5ba14953-6772-404c-8a3c-1c988489e311"
+      "binding"      : "SESSION_WORKER_ASSIGNED_D1",
+      "database_name": "krhomebase",
+      "database_id"  : "ef68921f-c7d3-4d0b-9af4-defebc748616"
+      //pnpm wrangler d1 list  to see the database_id
+    }
+  ],
+  "vars": {
+    "NOTE": "Set KR_SESSION_WORKER_SECRET with wrangler secret put. Do not commit real secrets.",
+    "KR_SESSION_TABLE_NAME": "kr_session"
+  },
+  "secrets": {
+    "required": [
+      "KR_SESSION_WORKER_SECRET"
+    ]
+  },
+  "env": {
+    "dev": {
+      "name": "krhomebase-session-worker-dev",
+      "workers_dev": false,
+      "preview_urls": false,
+      "d1_databases": [
+        {
+          "binding": "SESSION_WORKER_ASSIGNED_D1",
+          "database_name": "krhomebase",
+          "database_id": "ef68921f-c7d3-4d0b-9af4-defebc748616"
+        }
+      ],
+      "vars": {
+        "NOTE": "Set KR_SESSION_WORKER_SECRET with wrangler secret put --env dev. Do not commit real secrets.",
+        "KR_SESSION_TABLE_NAME": "kr_session"
+      },
+      "secrets": {
+        "required": [
+          "KR_SESSION_WORKER_SECRET"
+        ]
+      }
+    }
+  }
+}
+
+
+// Session-worker authentication uses one shared symmetric bearer secret.
+// It does not use the asymmetric PEM key pair used by CRUD/JWT workers.
+// Never put the secret value in this file or in source control.
+/**
+Set the live Worker secret interactively:
+  pnpm exec wrangler secret put KR_SESSION_WORKER_SECRET --config .\session-worker.jsonc
+
+Set the separate development Worker secret interactively:
+  pnpm exec wrangler secret put KR_SESSION_WORKER_SECRET --env dev --config .\session-worker.jsonc
+
+The value entered into the development command must be copied separately into
+the server-only KR_SESSION_WORKER_SECRET environment variable used by the
+Next.js Homebase development process. Do not use either
+private-session-worker-1.pem or private-session-worker-1.pub for this secret.
+
+--- Expected output ---
+>>   pnpm exec wrangler secret put KR_SESSION_WORKER_SECRET --env dev --config .\session-worker.jsonc
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.onlyBuiltDependencies". See https://pnpm.io/settings for the new home of each setting.
+
+ ⛅️ wrangler 4.92.0 (update available 4.95.0)
+─────────────────────────────────────────────
+ 🌀 Creating the secret for the Worker "session-worker-dev"
+✨ Success! Uploaded secret KR_SESSION_WORKER_SECRET
+*/
+
+// Development deployment (the secret must already exist for session validation).
+//pnpm exec wrangler deploy --env dev --config .\session-worker.jsonc
+//
+//⛅️ wrangler 4.92.0 (update available 4.95.0)
+//─────────────────────────────────────────────
+//Total Upload: 5.68 KiB / gzip: 2.08 KiB
+//Your Worker has access to the following bindings:
+//Binding                                                                     Resource
+//env.SESSION_WORKER_ASSIGNED_D1 (krhomebase_dev)                                      D1 Database
+//env.NOTE ("Set KR_SESSION_WORKER_SECRET with wra...")                       Environment Variable
+//env.KR_SESSION_TABLE_NAME ("kr_session")                                    Environment Variable
+//
+//Uploaded session-worker-dev (1.67 sec)
+//▲ [WARNING] Because your 'workers.dev' route is enabled and your 'preview_urls' setting is not in your Wrangler file, Preview URLs will be enabled for this deployment by default.
+//
+//To override this setting, you can disable Preview URLs by explicitly setting 'preview_urls =
+//false' in your Wrangler file.
+//
+//
+//Deployed session-worker-dev triggers (0.83 sec)
+//https://session-worker-dev.dankrueger.workers.dev
+//Current Version ID: 4c2e709c-fd81-46a0-a073-b46e7807b73c
+
+

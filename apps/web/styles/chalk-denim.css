@@ -1,0 +1,119 @@
+/**
+ * Chalk Denim design tokens (the `--kr-*` names the old login and user-edit cards read).
+ *
+ * Ported from the old app's `hb-components/KR-EditUser/tokens.css`. The values are unchanged. Two things differ:
+ *  - The tokens are defined on the theme scope (`data-kr-theme-scope="krhomebase"`), not on `:root`
+ *    (apps/web/AGENTS.md, "Theme scope"). A component that reads them must sit inside that wrapper.
+ *  - `--kr-font-sans` names `Geist`, which the old app loaded through `--font-inter: var(--font-geist-sans)`.
+ *    The font file is in `styles/fonts` and is declared in `app/globals.css`.
+ *
+ * These sit beside the `--kr-theme-*` tokens in `theme.css`; the two sets do not share a name.
+ * Used today by the login card (`features/auth/components/LoginCard.client.tsx`).
+ */
+[data-kr-theme-scope="krhomebase"] {
+  /* -- Brand palette (Chalk Denim, from the K&R logo pack) ------ */
+  --kr-deep-navy:   #384757;   /* PRIMARY brand color */
+  --kr-denim-blue:  #4C6576;
+  --kr-light-denim: #95B8D0;
+  --kr-warm-cream:  #F1EADF;
+  --kr-warm-camel:  #8A715C;
+  --kr-dark-camel:  #685645;
+  --kr-camel-grey:  #AFA8A1;
+  --kr-white:       #FFFFFF;
+  --kr-black:       #000000;
+
+  /* -- Derived neutrals (slate-leaning) ------------------------- */
+  --kr-ink:         #1B2330;
+  --kr-ink-2:       #2E3B4B;
+  --kr-mute-1:      #5A6775;
+  --kr-mute-2:      #8A94A0;
+  --kr-line:        #D9D2C5;
+  --kr-line-cool:   #D7DEE5;
+  --kr-surface:     #FBF8F2;
+  --kr-surface-2:   #F1EADF;
+  --kr-elev-0:      #FFFFFF;
+
+  /* -- Semantic foreground / background ------------------------ */
+  --kr-fg-1:        var(--kr-ink);
+  --kr-fg-2:        var(--kr-mute-1);
+  --kr-fg-3:        var(--kr-mute-2);
+  --kr-fg-on-navy:  var(--kr-white);
+  --kr-fg-on-cream: var(--kr-deep-navy);
+
+  --kr-bg:          var(--kr-white);
+  --kr-bg-paper:    var(--kr-surface);
+  --kr-bg-cream:    var(--kr-surface-2);
+  --kr-bg-navy:     var(--kr-deep-navy);
+  --kr-bg-denim:    var(--kr-denim-blue);
+
+  --kr-accent:      var(--kr-warm-camel);
+  --kr-accent-dark: var(--kr-dark-camel);
+  --kr-link:        var(--kr-denim-blue);
+  --kr-link-hover:  var(--kr-deep-navy);
+
+  --kr-success:     #4E7A52;
+  --kr-warning:     #B47A2A;
+  --kr-error:       #8E3A2B;
+
+  /* -- Type ----------------------------------------------------- */
+  --kr-font-display: 'Black Mango', 'Helvetica Neue', Arial, sans-serif;
+  --kr-font-sans: 'Geist', 'Helvetica Neue', Arial, sans-serif;
+  --kr-font-serif:   'DM Serif Display', Georgia, 'Times New Roman', serif;
+  --kr-font-mono:    ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --kr-size-eyebrow: 0.78rem;
+  --kr-size-caption: 0.8125rem;
+  --kr-size-body:    1rem;
+  --kr-size-lead:    1.125rem;
+  --kr-size-h4:      1.25rem;
+  --kr-size-h3:      1.625rem;
+  --kr-size-h2:      2.25rem;
+  --kr-size-h1:      3rem;
+  --kr-size-display: 4.25rem;
+
+  --kr-lh-tight:   1.1;
+  --kr-lh-snug:    1.25;
+  --kr-lh-body:    1.6;
+  --kr-lh-loose:   1.75;
+
+  --kr-tk-display:  0.01em;
+  --kr-tk-wordmark: 0.14em;
+  --kr-tk-eyebrow:  0.22em;
+  --kr-tk-body:     0.005em;
+
+  /* -- Spacing (4px base) -------------------------------------- */
+  --kr-s-0:  0;
+  --kr-s-1:  4px;
+  --kr-s-2:  8px;
+  --kr-s-3:  12px;
+  --kr-s-4:  16px;
+  --kr-s-5:  20px;
+  --kr-s-6:  24px;
+  --kr-s-8:  32px;
+  --kr-s-10: 40px;
+  --kr-s-12: 48px;
+  --kr-s-16: 64px;
+  --kr-s-20: 80px;
+  --kr-s-24: 96px;
+
+  /* -- Radius -------------------------------------------------- */
+  --kr-r-0:    0px;
+  --kr-r-1:    2px;
+  --kr-r-2:    4px;
+  --kr-r-3:    6px;
+  --kr-r-pill: 999px;
+
+  /* -- Elevation ---------------------------------------------- */
+  --kr-shadow-1: 0 1px 2px rgba(27, 35, 48, 0.06), 0 1px 1px rgba(27, 35, 48, 0.04);
+  --kr-shadow-2: 0 4px 12px rgba(27, 35, 48, 0.08), 0 1px 2px rgba(27, 35, 48, 0.04);
+  --kr-shadow-3: 0 12px 28px rgba(27, 35, 48, 0.12), 0 2px 4px rgba(27, 35, 48, 0.05);
+  --kr-shadow-inset: inset 0 0 0 1px rgba(27, 35, 48, 0.06);
+
+  /* -- Motion -------------------------------------------------- */
+  --kr-ease-std: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --kr-ease-in:  cubic-bezier(0.4, 0, 1, 1);
+  --kr-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --kr-dur-1: 120ms;
+  --kr-dur-2: 200ms;
+  --kr-dur-3: 320ms;
+}

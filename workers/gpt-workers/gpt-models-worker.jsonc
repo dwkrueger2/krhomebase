@@ -1,0 +1,62 @@
+// Changes from the copy: Cloudflare names and schema path. Database ids are NOT_SET_REVIEW_BEFORE_USE on purpose.
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "krhomebase-gpt-models-worker",
+  "main": "./gpt-models-worker.ts",
+  "compatibility_date": "2026-05-18",
+  "workers_dev": true,
+  "preview_urls": false,
+  "secrets": {
+    "required": [
+      "GPT_WORKER_PRIVATE_KEY",
+      "GPT_SERVER_PUBLIC_KEY"
+    ]
+  },
+  "d1_databases": [
+    {
+      "binding": "GPT_USAGE_DB",
+      "database_name": "krhomebase_gpt_usage_dev",
+      "database_id": "NOT_SET_REVIEW_BEFORE_USE"
+    }
+  ],
+  "vars": {
+    "GPT_APPLICATION_ID": "krhomebase",
+    "GPT_SERVER_KEY_ID": "kr-gpt-server-key1.pub",
+    "GPT_WORKER_KEY_ID": "gpt-worker-key1.pub",
+    "GPT_GEMINI_PROJECT_ID": "",
+    "GPT_GEMINI_ENDPOINT": "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+    "GPT_OPENAI_ENDPOINT": "https://api.openai.com/v1/chat/completions",
+    "GPT_CLOUDFLARE_GATEWAY_URL": "",
+    "GPT_CLOUDFLARE_GATEWAY_AUTH_TOKEN": ""
+  },
+  "env": {
+    "dev": {
+      "name": "krhomebase-gpt-models-worker-dev",
+      "workers_dev": true,
+      "preview_urls": false,
+      "secrets": {
+        "required": [
+          "GPT_WORKER_PRIVATE_KEY",
+          "GPT_SERVER_PUBLIC_KEY"
+        ]
+      },
+      "vars": {
+        "GPT_APPLICATION_ID": "krhomebase",
+        "GPT_SERVER_KEY_ID": "kr-gpt-server-key1.pub",
+        "GPT_WORKER_KEY_ID": "gpt-worker-key1.pub",
+        "GPT_GEMINI_PROJECT_ID": "",
+        "GPT_GEMINI_ENDPOINT": "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+        "GPT_OPENAI_ENDPOINT": "https://api.openai.com/v1/chat/completions",
+        "GPT_CLOUDFLARE_GATEWAY_URL": "",
+        "GPT_CLOUDFLARE_GATEWAY_AUTH_TOKEN": ""
+      },
+      "d1_databases": [
+        {
+          "binding": "GPT_USAGE_DB",
+          "database_name": "krhomebase_gpt_usage_dev",
+          "database_id": "NOT_SET_REVIEW_BEFORE_USE"
+        }
+      ]
+    }
+  }
+}

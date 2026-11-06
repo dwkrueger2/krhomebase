@@ -1,7 +1,9 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { failure } from './platform/envelope.ts'
+import { signInGuard } from './platform/authGuard.ts'
 import { requestId } from './platform/requestId.ts'
 import type { AppEnv } from './platform/types.ts'
+import { registerAuth } from './features/auth/routes.ts'
 import { registerHealth } from './features/health/routes.ts'
 
 export const openApiInfo = {
@@ -25,6 +27,8 @@ export function createApp() {
   })
 
   app.use('*', requestId)
+  // Enforces each route's declared `access` (public, signed-in or roles) before the route runs.
+  app.use('*', signInGuard)
 
   app.notFound((c) => failure(c, 404, 'NOT_FOUND', 'No such route.'))
   app.onError((err, c) => {
@@ -33,6 +37,7 @@ export function createApp() {
   })
 
   registerHealth(app)
+  registerAuth(app)
 
   app.doc31('/v1/openapi.json', openApiInfo)
 

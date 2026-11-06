@@ -3,14 +3,50 @@
   "name": "krhomebase-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-30",
-  "compatibility_flags": ["nodejs_compat"],
-
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   // No public address. Only other Workers can call this one, through a service binding.
   "workers_dev": false,
   "preview_urls": false,
-
-  "observability": { "enabled": true },
-
+  "observability": {
+    "enabled": true
+  },
+  // Service bindings: the only way this Worker reaches the two sign-in Workers (they have no public address).
+  // "remote": true makes `wrangler dev` (pnpm dev:api) call the deployed Workers instead of local copies; it has no effect on a deployed API.
+  "services": [
+    {
+      "binding": "CRUD_WORKER",
+      "service": "krhomebase-crud-worker",
+      "remote": true
+    },
+    {
+      "binding": "SESSION_WORKER",
+      "service": "krhomebase-session-worker",
+      "remote": true
+    }
+  ],
+  // Plain (non-secret) settings for the live site. On this computer, apps/api/.dev.vars overrides them
+  // (KR_APP_BASE_URL becomes http://localhost:3011). The secrets are not here: they are set with
+  // `wrangler secret put` (see apps/api/Readme-auth.md).
+  "vars": {
+    // Google OAuth client "krhomebase-team". The client ID is public (it appears in the Google sign-in address).
+    "KR_GOOGLE_CLIENT_ID": "853554586739-66ut709ojhm6647kb789a9n1vmu1sc9p.apps.googleusercontent.com",
+    // The address the browser uses for the app. Google sends the person back to <this>/api/v1/auth/google/callback.
+    "KR_APP_BASE_URL": "https://krhomebase.com",
+    "KR_FIRM_NAME": "Krueger & Richard",
+    "KR_SESSION_COOKIE_NAME": "kr_session",
+    // Name of the app's public key in the crud-worker's KV store (krhomebase-public-keys).
+    "KR_WORKER_JWT_KEY_ID": "public-dev-dan-2.pem",
+    // Cloudflare Turnstile. The site key below is the public key of the widget "krhomebase-ts-widget"; its matching
+    // secret is the KR_TURNSTILE_SECRET_KEY secret (set with `wrangler secret put`). The commented line is Cloudflare's
+    // published "always passes" test site key, kept for reference (it only works with the matching test secret).
+    "KR_TURNSTILE_REQUIRED": "true",
+    //    "KR_TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
+    "KR_TURNSTILE_SITE_KEY": "0x4AAAAAADcWsYVlFL36jozU",
+    // Only used while the database has no users: lets the email in KR_SUPER_ADMIN_EMAILS (a secret) create the first super admin.
+    "KR_BOOTSTRAP_FIRST_SSO_USER_AS_SUPER_ADMIN": "true"
+  },
   "d1_databases": [
     {
       "binding": "krhomebase",

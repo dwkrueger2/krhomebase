@@ -1,0 +1,23 @@
+// HISTORICAL EXAMPLE from the old repository. Not used. Do not deploy it.
+// Its worker name and database id point at resources of the old live system.
+{
+  "name"              : "crud-worker",
+  "main"              : "apps/shared/d1-workers/crud-worker/crud-worker.ts",
+  "compatibility_date": "2026-05-18",
+  "secrets"           : {
+    "required": [
+      "CRUD_WORKER_PRIVATE_KEY"
+      // Command for injecting the private key to Clouflare's Secrets Manager:
+      // Get-Content ..\dev-private-keys\private-worker-crud-operations.pem -Raw -ErrorAction Stop | pnpm wrangler secret put CRUD_WORKER_PRIVATE_KEY --config .\crud-worker.jsonc
+    ]
+  },
+  "d1_databases"      : [
+    {
+      // Cloudflare’s D1 config uses d1_databases, with binding, database_name, and database_id; the binding becomes available on env.<BINDING_NAME>.
+      "binding"      : "CRUD_WORKER_ASSIGNED_D1",
+      "database_name": "krhomebase_05_2026_v5",
+      "database_id"  : "5ba14953-6772-404c-8a3c-1c988489e311"
+      //      "database_id": "PUT_DATABASE_ID_HERE" // get from pnpm wrangler d1 list
+    }
+  ]
+}

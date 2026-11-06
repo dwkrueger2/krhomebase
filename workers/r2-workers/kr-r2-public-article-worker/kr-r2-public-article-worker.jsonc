@@ -1,0 +1,40 @@
+// Changes from the copy: Cloudflare names, schema path, bucket names and database. Ids are NOT_SET_REVIEW_BEFORE_USE on purpose.
+{
+  "$schema": "../../../node_modules/wrangler/config-schema.json",
+  "name": "krhomebase-r2-public-article-worker",
+  "main": "./kr-r2-public-article-worker.ts",
+  "compatibility_date": "2026-06-11",
+  "workers_dev": true,
+  "r2_buckets": [
+    {
+      "binding": "ARTICLE_BUCKET",
+      "bucket_name": "NOT_SET_REVIEW_BEFORE_USE"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "KRHOMEBASE_DB",
+      "database_name": "krhomebase",
+      "database_id": "NOT_SET_REVIEW_BEFORE_USE"
+    }
+  ],
+  "env": {
+    "dev": {
+      "name": "krhomebase-r2-public-article-worker-dev",
+      "workers_dev": true,
+      "r2_buckets": [
+        {
+          "binding": "ARTICLE_BUCKET",
+          "bucket_name": "NOT_SET_REVIEW_BEFORE_USE"
+        }
+      ],
+      "d1_databases": [
+        {
+          "binding": "KRHOMEBASE_DB",
+          "database_name": "krhomebase",
+          "database_id": "NOT_SET_REVIEW_BEFORE_USE"
+        }
+      ]
+    }
+  }
+}

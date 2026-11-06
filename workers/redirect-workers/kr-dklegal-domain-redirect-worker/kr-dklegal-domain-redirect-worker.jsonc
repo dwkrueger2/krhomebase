@@ -1,0 +1,54 @@
+{
+  "$schema": "../../../node_modules/wrangler/config-schema.json",
+
+  // Worker naming in this repository: krhomebase-<role>.
+  // The previous (deployed) name was kr-dklegal-domain-redirect-worker. Its deployment history is recorded
+  // in Readme-redirect-workers.md. Deploying under the new name creates a new Worker; it does not replace the old one.
+  "name": "krhomebase-dklegal-domain-redirect-worker",
+  "main": "./kr-dklegal-domain-redirect-worker.ts",
+  "compatibility_date": "2026-08-11",
+  "workers_dev": true,
+  "preview_urls": false,
+
+  // Deployment commands from repository root.
+  //
+  // Worker-only deploy / update:
+  //   This deploys the Worker code and leaves dklegal-* domain routing under Dan's control.
+  //   pnpm exec wrangler deploy --config .\workers\redirect-workers\kr-dklegal-domain-redirect-worker\kr-dklegal-domain-redirect-worker.jsonc
+  //   pnpm exec wrangler deployments list --name krhomebase-dklegal-domain-redirect-worker
+  //
+  // Domain-wide routing is intentionally not active in this config.
+  // When Dan decides to bind the legacy dklegal-* domains, uncomment the route objects below,
+  // review them, and run the deploy command again.
+  //
+  // Post-route checks should show HTTP 200 plus a Refresh header for the 10-second handoff page:
+  //   curl.exe -I https://dklegal-tx.com/
+  //   curl.exe -I https://www.dklegal-tx.com/contact?source=legacy
+  //   curl.exe -I https://dklegal-ks.com/articles?source=legacy
+  //   curl.exe -I https://www.dklegal-ks.com/
+  //
+  // Future dklegal-XX.com zones:
+  //   Add apex and www route objects below with zone_name set to the new zone.
+  "routes": [
+    // {
+    //   "pattern": "dklegal-tx.com/*",
+    //   "zone_name": "dklegal-tx.com"
+    // },
+    // {
+    //   "pattern": "www.dklegal-tx.com/*",
+    //   "zone_name": "dklegal-tx.com"
+    // },
+    // {
+    //   "pattern": "dklegal-ks.com/*",
+    //   "zone_name": "dklegal-ks.com"
+    // },
+    // {
+    //   "pattern": "www.dklegal-ks.com/*",
+    //   "zone_name": "dklegal-ks.com"
+    // }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}

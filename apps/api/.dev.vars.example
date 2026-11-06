@@ -1,0 +1,11 @@
+# Names of the settings this Worker reads when it runs locally. No values here, ever.
+# Real values are written to a git-ignored .dev.vars file by scripts/Write-DevVars.ps1.
+# The plain settings (client id, firm name, Turnstile site key) are in wrangler.jsonc.
+KR_APP_BASE_URL=
+KR_GOOGLE_CLIENT_SECRET=
+KR_TURNSTILE_SECRET_KEY=
+KR_WORKER_JWT_PRIVATE_KEY=
+KR_CRUD_WORKER_PUBLIC_KEY=
+KR_SESSION_WORKER_SECRET=
+# Optional: only while the database has no users.
+KR_SUPER_ADMIN_EMAILS=

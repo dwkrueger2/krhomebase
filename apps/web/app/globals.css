@@ -8,3 +8,39 @@
  */
 @import "tailwindcss";
 @import "../styles/theme.css";
+@import "../styles/chalk-denim.css";
+
+/*
+ * Brand fonts, ported from the old app's globals.css. The old app served them from /public/fonts; here Vite
+ * bundles them from styles/fonts. Black Mango is the login title, DM Serif Display the italic firm name, and
+ * Geist the body text of the login card (the old app's `--font-geist-sans`). Geist is under the SIL Open Font
+ * License (styles/fonts/Geist-LICENSE.txt).
+ */
+@font-face {
+  font-family: 'Black Mango';
+  src: url('../styles/fonts/black-mango-regular.ttf') format('truetype');
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DM Serif Display';
+  src: url('../styles/fonts/DMSerifDisplay-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DM Serif Display';
+  src: url('../styles/fonts/DMSerifDisplay-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Geist';
+  src: url('../styles/fonts/Geist-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}

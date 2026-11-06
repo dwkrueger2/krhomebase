@@ -1,7 +1,7 @@
 # krhomebase Architecture Proposal
 
-<small>Version 0.5</small><br>
-<small>Updated Nov 4, 2026 12:00pm</small>
+<small>Version 0.8</small><br>
+<small>Updated Nov 6, 2026 9:20am</small>
 
 **Date:** 2026-11-02
 **Status:** Accepted as the build plan. Open decisions are listed in section 14.
@@ -97,7 +97,7 @@ Rules:
 - `krhomebase-api` has **no public address** (`workers_dev` and `preview_urls` are off in its `wrangler.jsonc`).
 - `krhomebase-web` has **no D1 binding**.
 - Only `krhomebase-api` holds the `krhomebase` D1 binding.
-- The old generic CRUD Worker and its encrypted messages are not carried forward.
+- The old generic CRUD Worker and its encrypted messages are not carried forward. One exception, for the first working sign-in only: `krhomebase-crud-worker` and `krhomebase-session-worker` (copied into `workers/`) are deployed with **no public address**, and `krhomebase-api` calls them through the service bindings `CRUD_WORKER` and `SESSION_WORKER` (added in patch 13 with the ported sign-in). They are replaced by direct database access in `apps/api` later. See `docs/03_Workers_And_Login_Plan.md`.
 
 ### Is the service binding a size or speed problem?
 
@@ -244,7 +244,7 @@ Several `package.json` files plus a root one for your shortcuts:
 | `apps/api/package.json` | API: Hono, zod, `dev`, `deploy`, `test`, `openapi:write`, `typecheck`. |
 | `packages/contracts/package.json` | zod; `test`, `typecheck`. |
 
-`pnpm install` runs once, at the root. Root scripts: `dev`, `dev:web`, `dev:api`, `build`, `typecheck`, `test`, `check`, `openapi`, `types:cf`, `snapshot:order`, `listScripts`, `repo-root`. `pnpm -r` runs a script in every package that has it; `pnpm --filter <name>` runs it in one.
+`pnpm install` runs once, at the root. Root scripts: `dev`, `dev:web`, `dev:api`, `build`, `build:web`, `deploy:api`, `deploy:web`, `typecheck`, `test`, `check`, `openapi`, `types:cf`, `snapshot:order`, `listScripts`, `repo-root`. `pnpm -r` runs a script in every package that has it. A root script that targets one package names its folder (`pnpm --dir apps/api run <script>`); the table is in the root `AGENTS.md`.
 
 ---
 

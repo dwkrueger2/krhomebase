@@ -1,0 +1,66 @@
+{
+  "$schema": "../../../node_modules/wrangler/config-schema.json",
+  "name": "krhomebase-crud-worker-pub-inquiry",
+  "main": "./crud-worker-pub-inquiry.ts",
+  "compatibility_date": "2026-06-05",
+  "secrets": {
+    "required": [
+      "CRUD_WORKER_PUB_INQUIRY_PRIVATE_KEY"
+    ]
+  },
+  "d1_databases": [
+    {
+      // Public inquiry quarantine database only. Do not bind the KR Homebase operational D1 database here.
+      "binding": "PUBLIC_INQUIRY_DB",
+      "database_name": "kr_public_inquiry_06_2026",
+      "database_id": "NOT_SET_REVIEW_BEFORE_USE"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      // Reuses the same PUBLIC_KEYS namespace and JWT kid used by crud-worker.
+      // This verifies the trusted server JWT without creating a new server key pair.
+      "binding": "PUBLIC_KEYS",
+      "id": "f70c0ff65aa148a59bd1d598236ce1de"
+    }
+  ],
+  "workers_dev": true,
+  "preview_urls": false,
+  "env": {
+    "dev": {
+      "name": "krhomebase-crud-worker-pub-inquiry-dev",
+      "secrets": {
+        "required": [
+          "CRUD_WORKER_PUB_INQUIRY_PRIVATE_KEY"
+        ]
+      },
+      "d1_databases": [
+        {
+          "binding": "PUBLIC_INQUIRY_DB",
+          "database_name": "kr_public_inquiry_dev",
+          "database_id": "NOT_SET_REVIEW_BEFORE_USE"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "PUBLIC_KEYS",
+          "id": "f70c0ff65aa148a59bd1d598236ce1de"
+        }
+      ],
+      "workers_dev": true,
+      "preview_urls": false
+    }
+  }
+}
+
+// Not part of the login. Database ids are NOT_SET_REVIEW_BEFORE_USE on purpose (see workers/Readme-workers.md).
+// Old commands, kept as a record. Do not run them here.
+// Deploy from workers/d1-workers/crud-worker-pub-inquiry:
+// pnpm wrangler deploy --config .\crud-worker-pub-inquiry.jsonc
+//
+// Set the worker-only private decrypt key. This may use the same private key file
+// as the existing CRUD worker if you intentionally want to reuse the current
+// server/worker key material for this patch:
+//
+// Get-Content ..\..\..\private\dev-private-keys\private-worker-crud-operations-2.pem -Raw |
+//   pnpm wrangler secret put CRUD_WORKER_PUB_INQUIRY_PRIVATE_KEY --config .\crud-worker-pub-inquiry.jsonc

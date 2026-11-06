@@ -1,0 +1,11 @@
+{
+  "$schema": "../../../node_modules/wrangler/config-schema.json",
+  "name": "krhomebase-mcp-worker",
+  "main": "./kr-homebase-mcp-worker.ts",
+  "compatibility_date": "2026-08-12",
+  "workers_dev": true,
+  "preview_urls": false,
+  "vars": {
+    "NOTE": "Initial read-only MCP hello-world scaffold. No KR Homebase data, token-store, file-store, or audit-store bindings are configured."
+  }
+}

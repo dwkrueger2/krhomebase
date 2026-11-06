@@ -61,6 +61,13 @@ describe('every route', () => {
     async (_name, r) => {
       if (r.meta.access !== 'public') return // covered by the sign-in test below
       const res = await app.request(toTestPath(r.config.path), { method: methodOf(r.config) })
+      if (res.status >= 300 && res.status < 400) {
+        // A redirect route (Google sign-in) has no JSON body: it must name where it goes and carry the request id.
+        expect(res.headers.get('location'), 'a redirect must have a Location').toBeTruthy()
+        expect(res.headers.get('x-request-id')).toBeTruthy()
+        expect((r.config.responses as Json)[res.status], `no response description for status ${res.status}`).toBeDefined()
+        return
+      }
       const body: Json = await res.json()
       expect(typeof body.requestId).toBe('string')
       expect(res.headers.get('x-request-id')).toBe(body.requestId)

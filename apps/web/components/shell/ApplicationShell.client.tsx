@@ -50,6 +50,8 @@ export interface ApplicationShellProps {
   panels: Record<ShellSectionId, ReactNode>
   /** Version text under the product name, for example `v1.1.5 p501`. */
   versionLabel: string
+  /** Called when the log-out button in the footer is pressed. When absent, the button is not drawn. */
+  onLogout?: () => void
 }
 
 const LAYOUT_STYLES = {
@@ -76,10 +78,10 @@ const STYLES = {
 /**
  * Renders the whole application frame.
  *
- * @param props - The user to show, one panel per section, and the version label.
+ * @param props - The user to show, one panel per section, the version label and an optional log-out callback.
  * @returns The themed frame (`data-kr-id="krhomebase-application-shell"`).
  */
-export default function ApplicationShell({ user, panels, versionLabel }: ApplicationShellProps) {
+export default function ApplicationShell({ user, panels, versionLabel, onLogout }: ApplicationShellProps) {
   const [state, dispatch] = useReducer(shellReducer, undefined, () => createInitialShellState())
   const addressReadRef = useRef(false)
   // Browser windows used by the pop-outs, by section. A popped-out section with no window here is
@@ -152,7 +154,7 @@ export default function ApplicationShell({ user, panels, versionLabel }: Applica
             onSelectSection={(sectionId) => dispatch({ type: 'selectSection', sectionId })}
           />
         }
-        footer={<LeftPanelFooter user={user} collapsed={collapsed} />}
+        footer={<LeftPanelFooter user={user} collapsed={collapsed} onLogout={onLogout} />}
         collapseButton={
           <LeftPanelCollapseButton
             collapsed={collapsed}

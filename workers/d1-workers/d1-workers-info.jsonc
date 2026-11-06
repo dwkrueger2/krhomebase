@@ -1,0 +1,259 @@
+{
+  // REPOSITORY COPY NOTE (Nov 4, 2026):
+  //   Copied from the old repository and kept as a record of the OLD live workers.
+  //   Paths were changed to workers/. Each worker has a new field "repositoryName", the Cloudflare name used by this repository.
+  //   All other names, database ids, bucket names and commands describe the old system. Do not run them.
+  //   Current values are in each worker .jsonc file and in workers/Readme-workers.md.
+  // d1-workers-info.jsonc
+  // Current as of: 2026-08-12
+  //
+  // Purpose:
+  //   Human-maintained inventory for KR Cloudflare D1-oriented workers and D1 databases.
+  //   The deployment dashboard uses this file for worker purpose, local path, target,
+  //   expected secrets, and security notes. Wrangler remains the live source for last
+  //   deployment timestamps.
+  //
+  // The retired kr-sso-auth-worker entry was removed from this copy. The Worker was deleted from Cloudflare on Nov 4, 2026.
+  //
+  // Maintenance rule:
+  //   Update this file when adding, retiring, renaming, rebinding, or materially changing
+  //   a D1 worker or D1 database. Do not store secret values in this file.
+  "currentAsOf": "2026-08-12",
+  "owner": "KRHomebase",
+  "d1Resources": [
+    {
+      "name": "krhomebase_05_2026_v5",
+      "schemaVersion": "Schema 7.0 operational shape on existing D1 name",
+      "status": "active",
+      "description": "Primary KR Homebase operational database. The Cloudflare D1 database name still contains the earlier v5 label, but the documentation and migrations now target Schema 7.0.",
+      "usedBy": ["crud-worker", "session-worker", "kr-r2-public-article-worker", "kr-pay-worker"]
+    },
+    {
+      "name": "kr_public_inquiry_06_2026",
+      "schemaVersion": "Public Inquiry v2.0",
+      "status": "active",
+      "description": "Quarantined public inquiry database for unauthenticated public form intake and inquiry metadata.",
+      "usedBy": ["crud-worker-pub-inquiry"]
+    },
+    {
+      "name": "krhomebase_articles_06_2026_v6",
+      "schemaVersion": "Public content / articles Schema 6.x",
+      "status": "active-review",
+      "description": "Dedicated article/answer content database used by article read and publish workers. Current worker configs should be checked because the uploaded snapshot still shows placeholder database IDs in the article worker wrangler files.",
+      "usedBy": ["kr-article-read-worker", "kr-article-publish-worker"]
+    }
+  ],
+  "workers": [
+    {
+      "workerName": "crud-worker",
+      "repositoryName": "krhomebase-crud-worker",
+      "status": "active",
+      "targetType": "D1",
+      "targetNames": ["krhomebase_05_2026_v5"],
+      "localPath": "workers/d1-workers/crud-worker",
+      "configPath": "workers/d1-workers/crud-worker/crud-worker.jsonc",
+      "main": "workers/d1-workers/crud-worker/crud-worker.ts",
+      "description": "Generic encrypted CRUD bridge for KR Homebase operational D1 tables. It validates trusted server JWTs, decrypts payloads, checks table/action/column policies, and writes audit records.",
+      "expectedEnvironment": [
+        "Cloudflare secret CRUD_WORKER_PRIVATE_KEY",
+        "PUBLIC_KEYS KV namespace with trusted server public key",
+        "D1 binding CRUD_WORKER_ASSIGNED_D1"
+      ],
+      "securityNotes": [
+        "Uses asymmetric server JWT verification plus encrypted command payloads.",
+        "Allowed tables, actions, and columns are gated by workers/d1-workers/shared/table-registry.ts.",
+        "Schema 7.0 operational-support API depends on this worker registry being current."
+      ],
+      "bindings": [
+        { "type": "D1", "binding": "CRUD_WORKER_ASSIGNED_D1", "resource": "krhomebase_05_2026_v5" },
+        { "type": "KV", "binding": "PUBLIC_KEYS", "resource": "public key namespace" }
+      ],
+      "deployCommand": "pnpm wrangler deploy --config .\\workers\\d1-workers\\crud-worker\\crud-worker.jsonc",
+      "verifyCommand": "pnpm wrangler deployments list --name crud-worker",
+      "notes": [
+        "This is the most important worker for Schema 7.0 operational table access.",
+        "Do not expose direct browser access. Calls should originate from trusted Next.js API routes."
+      ]
+    },
+    {
+      "workerName": "crud-worker-pub-inquiry",
+      "repositoryName": "krhomebase-crud-worker-pub-inquiry",
+      "status": "active",
+      "targetType": "D1",
+      "targetNames": ["kr_public_inquiry_06_2026"],
+      "localPath": "workers/d1-workers/crud-worker-pub-inquiry",
+      "configPath": "workers/d1-workers/crud-worker-pub-inquiry/crud-worker-pub-inquiry.jsonc",
+      "main": "workers/d1-workers/crud-worker-pub-inquiry/crud-worker-pub-inquiry.ts",
+      "description": "Dedicated encrypted CRUD bridge for the quarantined public inquiry database. It intentionally uses the public inquiry table registry instead of the operational KR Homebase registry.",
+      "expectedEnvironment": [
+        "Cloudflare secret CRUD_WORKER_PUB_INQUIRY_PRIVATE_KEY",
+        "PUBLIC_KEYS KV namespace with trusted server public key",
+        "D1 binding PUBLIC_INQUIRY_DB"
+      ],
+      "securityNotes": [
+        "Handles unauthenticated public intake only after validation by the public Next.js API route.",
+        "Allowed tables/actions/columns are gated by workers/d1-workers/shared/pub-inquiry-table-registry.ts.",
+        "Should not be bound to the operational KR Homebase D1 database."
+      ],
+      "bindings": [
+        { "type": "D1", "binding": "PUBLIC_INQUIRY_DB", "resource": "kr_public_inquiry_06_2026" },
+        { "type": "KV", "binding": "PUBLIC_KEYS", "resource": "public key namespace" }
+      ],
+      "deployCommand": "pnpm wrangler deploy --config .\\workers\\d1-workers\\crud-worker-pub-inquiry\\crud-worker-pub-inquiry.jsonc",
+      "verifyCommand": "pnpm wrangler deployments list --name crud-worker-pub-inquiry",
+      "notes": [
+        "Public Inquiry v2.0 changes require this worker to be redeployed after registry changes."
+      ]
+    },
+    {
+      "workerName": "session-worker",
+      "repositoryName": "krhomebase-session-worker",
+      "status": "active",
+      "targetType": "D1",
+      "targetNames": ["krhomebase_05_2026_v5"],
+      "localPath": "workers/d1-workers/session-worker",
+      "configPath": "workers/d1-workers/session-worker/session-worker.jsonc",
+      "main": "workers/d1-workers/session-worker/session-worker.ts",
+      "description": "Narrow session validation worker. It checks hashed KR Homebase session tokens against the kr_session table and returns display-safe session metadata.",
+      "expectedEnvironment": [
+        "Cloudflare secret KR_SESSION_WORKER_SECRET",
+        "D1 binding SESSION_WORKER_ASSIGNED_D1",
+        "Optional var KR_SESSION_TABLE_NAME, usually kr_session"
+      ],
+      "securityNotes": [
+        "Receives session token hashes only, not raw browser session tokens.",
+        "Requires a server-side shared bearer secret.",
+        "Should remain narrow and not become a general user-management API."
+      ],
+      "bindings": [
+        { "type": "D1", "binding": "SESSION_WORKER_ASSIGNED_D1", "resource": "krhomebase_05_2026_v5" }
+      ],
+      "deployCommand": "pnpm wrangler deploy --config .\\workers\\d1-workers\\session-worker\\session-worker.jsonc",
+      "verifyCommand": "pnpm wrangler deployments list --name session-worker",
+      "notes": [
+        "Used by KR Homebase authentication/session checks."
+      ]
+    },
+    {
+      "workerName": "kr-pay-worker",
+      "repositoryName": "krhomebase-pay-worker",
+      "status": "active-dev",
+      "targetType": "D1",
+      "targetNames": ["krhomebase_05_2026_v5", "krhomebase_dev"],
+      "localPath": "workers/d1-workers/kr-pay-worker",
+      "configPath": "workers/d1-workers/kr-pay-worker/kr-pay-worker.jsonc",
+      "main": "workers/d1-workers/kr-pay-worker/kr-pay-worker.ts",
+      "description": "Public pay-link pages (pay.krhomebase.com/p/<token>) linked from every emailed invoice. Shows the invoice with a Stripe card Element, creates the PaymentIntent, confirms it with Stripe.js, shows the approval with the Stripe payment ID, verifies payment_intent.succeeded webhooks, and marks payment_request rows paid. KR Homebase posts paid requests to the ledger.",
+      "expectedEnvironment": [
+        "Cloudflare secret KR_PAYMENT_PROVIDER_KEK (same KEK KR Homebase uses for that database)",
+        "Stripe secret key, publishable key, webhook secret: read from D1 payment_provider (Settings → Stripe Payment Configuration), row = KR_PAY_ENVIRONMENT",
+        "Var KR_PAY_ENVIRONMENT (sandbox | live)",
+        "D1 binding KR_PAY_D1"
+      ],
+      "securityNotes": [
+        "Public, unauthenticated. The link token is stored only as SHA-256; the amount always comes from D1, never the browser. Card data goes only to Stripe Elements.",
+        "Fixed prepared statements only: reads payment_provider (own environment)/payment_request/invoice/invoice_line_item/time_entry/client/matter, updates payment_request (views, PaymentIntent, paid) and logs external_webhook_event. Never writes the ledger.",
+        "Status moves forward only (WHERE clauses); UNIQUE token_hash, stripe_payment_intent_id; one non-voided payment per PaymentIntent.",
+        "Holds the payment-provider KEK to decrypt its environment's Stripe keys from payment_provider; key prefixes must match the environment (test vs live) or it refuses to charge."
+      ],
+      "bindings": [
+        { "type": "D1", "binding": "KR_PAY_D1", "resource": "krhomebase_05_2026_v5 (production) / krhomebase_dev (dev)" }
+      ],
+      "deployCommand": "pnpm.cmd exec wrangler deploy --env dev --config .\\workers\\d1-workers\\kr-pay-worker\\kr-pay-worker.jsonc",
+      "verifyCommand": "https://pay.krhomebase.com/health",
+      "notes": [
+        "Sandbox phase: kr-pay-worker-dev owns pay.krhomebase.com (workers.dev off). At go-live the domain moves to kr-pay-worker (production, live) — see README."
+      ]
+    },
+    {
+      "workerName": "kr-article-read-worker",
+      "repositoryName": "krhomebase-article-read-worker",
+      "status": "active-review",
+      "targetType": "D1/R2",
+      "targetNames": ["krhomebase_articles_06_2026_v6", "kr-homebase-articles"],
+      "localPath": "workers/d1-workers/article-read-worker",
+      "configPath": "workers/d1-workers/article-read-worker/article-read-worker.jsonc",
+      "main": "workers/d1-workers/article-read-worker/article-read-worker.ts",
+      "description": "Read-only worker for public Article and Answer content. Next.js server-side code calls it with a shared token and renders public content pages.",
+      "expectedEnvironment": [
+        "Cloudflare secret KR_ARTICLE_READ_WORKER_TOKEN",
+        "D1 binding ARTICLES_DB",
+        "Optional R2 binding ARTICLE_BUCKET"
+      ],
+      "securityNotes": [
+        "Browser clients should not receive direct D1 or unrestricted R2 access.",
+        "Check wrangler database_id before deployment because the snapshot still has a placeholder article database id."
+      ],
+      "bindings": [
+        { "type": "D1", "binding": "ARTICLES_DB", "resource": "krhomebase_articles_06_2026_v6" },
+        { "type": "R2", "binding": "ARTICLE_BUCKET", "resource": "kr-homebase-articles" }
+      ],
+      "deployCommand": "pnpm wrangler deploy --config .\\workers\\d1-workers\\article-read-worker\\article-read-worker.jsonc",
+      "verifyCommand": "pnpm wrangler deployments list --name kr-article-read-worker",
+      "notes": [
+        "Used by public article/answer rendering path.",
+        "Confirm article D1 database id before redeploying."
+      ]
+    },
+    {
+      "workerName": "kr-article-publish-worker",
+      "repositoryName": "krhomebase-article-publish-worker",
+      "status": "active-review",
+      "targetType": "D1/R2",
+      "targetNames": ["krhomebase_articles_06_2026_v6", "kr-homebase-articles"],
+      "localPath": "workers/d1-workers/article-publish-worker",
+      "configPath": "workers/d1-workers/article-publish-worker/article-publish-worker.jsonc",
+      "main": "workers/d1-workers/article-publish-worker/article-publish-worker.ts",
+      "description": "Write-capable worker for KR Homebase front-end publishing. It updates public content records and writes publication snapshots to R2.",
+      "expectedEnvironment": [
+        "Cloudflare secret KR_ARTICLE_PUBLISH_WORKER_TOKEN",
+        "D1 binding ARTICLES_DB",
+        "R2 binding ARTICLE_BUCKET"
+      ],
+      "securityNotes": [
+        "Only server-side KR Homebase API routes should call this worker.",
+        "Supports publish/unpublish/archive/deleteArchived style actions and writes R2 snapshots.",
+        "Check wrangler database_id before deployment because the snapshot still has a placeholder article database id."
+      ],
+      "bindings": [
+        { "type": "D1", "binding": "ARTICLES_DB", "resource": "krhomebase_articles_06_2026_v6" },
+        { "type": "R2", "binding": "ARTICLE_BUCKET", "resource": "kr-homebase-articles" }
+      ],
+      "deployCommand": "pnpm wrangler deploy --config .\\workers\\d1-workers\\article-publish-worker\\article-publish-worker.jsonc",
+      "verifyCommand": "pnpm wrangler deployments list --name kr-article-publish-worker",
+      "notes": [
+        "Used by KR Homebase publishing/admin workflow.",
+        "Confirm article D1 database id before redeploying."
+      ]
+    },
+    {
+      "workerName": "kr-homebase-mcp-worker",
+      "repositoryName": "krhomebase-mcp-worker",
+      "status": "scaffolded-not-deployed",
+      "targetType": "MCP; planned D1/R2 access",
+      "targetNames": [],
+      "localPath": "workers/d1-workers/kr-homebase-mcp-worker",
+      "configPath": "workers/d1-workers/kr-homebase-mcp-worker/kr-homebase-mcp-worker.jsonc",
+      "main": "workers/d1-workers/kr-homebase-mcp-worker/kr-homebase-mcp-worker.ts",
+      "description": "Initial read-only MCP Streamable HTTP scaffold. It exposes only a hello-world tool and directs developers to the adjacent initial MCP architecture notes.",
+      "expectedEnvironment": [
+        "None for the hello-world scaffold",
+        "Future separate token/grant validation store",
+        "Future separate MCP audit destination",
+        "Future narrowly scoped operational D1 and approved R2 bindings"
+      ],
+      "securityNotes": [
+        "The current scaffold has no data, file, token-store, or audit-store bindings.",
+        "Do not add client-data access until OAuth token validation and record-level authorization are enforced in this Worker.",
+        "Initial production tools must be read-only and fixed-purpose; never expose arbitrary SQL, tables, columns, buckets, or object keys."
+      ],
+      "bindings": [],
+      "deployCommand": "pnpm exec wrangler deploy --config .\\workers\\d1-workers\\kr-homebase-mcp-worker\\kr-homebase-mcp-worker.jsonc",
+      "verifyCommand": "pnpm exec wrangler deployments list --name kr-homebase-mcp-worker",
+      "notes": [
+        "Review 00 ReadMe - Initial MCP Thoughts.md before extending or deploying this Worker.",
+        "This is a low-priority architecture scaffold and not a production client-data endpoint."
+      ]
+    }
+  ]
+}

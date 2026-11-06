@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 1.5</small><br>
-<small>Updated Nov 4, 2026 12:00pm</small>
+<small>Version 2.0</small><br>
+<small>Updated Nov 6, 2026 9:20am</small>
 
 ## Agent Guide Index
 
@@ -22,8 +22,8 @@
 
 ## Hard Rules (these override any request to do otherwise)
 
-1. **Old repository is read-only.** `D:\Repos\krueger-richard-website` is source material. Read only from `apps\kr-homebase`. Never write there. Never read file contents under any folder named `private`, at any depth.
-2. **No secrets.** Never read `.env*`, `.dev.vars*`, key files, or the contents of any folder whose path contains `private`. File names may be listed. Secrets belong in Cloudflare Worker secrets (set by the requester with `wrangler secret put`) or in a git-ignored `private/` folder, never in a tracked file. If a tracked file appears to contain a secret, stop and tell the requester; do not copy or summarize the value.
+1. **Old repository is read-only.** `D:\Repos\krueger-richard-website` is source material. Read only from `apps\kr-homebase` and `apps\shared` (the workers). Never write there. Never read file contents under any folder named `private`, at any depth.
+2. **No secrets.** Never read `.env*`, `.dev.vars*` (except `.dev.vars.example`, which holds names only), key files, or the contents of any folder whose path contains `private`. File names may be listed. Secrets belong in Cloudflare Worker secrets (set by the requester with `wrangler secret put`) or in a git-ignored `private/` folder, never in a tracked file. If a tracked file appears to contain a secret, stop and tell the requester; do not copy or summarize the value.
 3. **No client data.** `snapshots\` holds database dumps with real client data. It is git-ignored. Never read, print, copy or commit a dump.
 4. **Database writes are given to the requester, not run.** Read-only wrangler commands (`SELECT`, `d1 list`, `d1 info`, `d1 export`) are allowed. Any `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `--file` import or migration is written out as a command for the requester to run (see `AGENTS_06`).
 5. **No commits or pushes.** Allowed git: `status`, `log`, `diff`, `show`, `branch`. Not allowed: `commit`, `push`, `merge`, `rebase`, `reset`, `checkout` of files, `stash`. The requester commits and pushes (see `AGENTS_02`).
@@ -91,6 +91,7 @@ apps/web/            Screens. Next.js on vinext, deployed as the krhomebase-web 
                      Folder layout and its rules: apps/web/AGENTS.md.
 apps/api/            API. Hono on a Cloudflare Worker (krhomebase-api). All business rules. The only code that touches D1.
 packages/contracts/  zod descriptions of every request, response and error. Shared by api and web.
+workers/             Cloudflare Workers copied from the old repository. Not part of the apps. Rules: "Workers" below and workers/Readme-workers.md.
 docs/                Documentation: schema spaces, architecture, API notes, patch notes, help documents.
 scripts/             Helper scripts: snapshot tools and the stop-port script. Replaces the old repo-utilities folder.
 snapshots/           Git-ignored database dumps. Never read.
@@ -105,6 +106,7 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 - `contracts` imports nothing from the apps and nothing but `zod`.
 - Only `apps/api` has the D1 `krhomebase` binding. `web` never queries the database.
 - `api` has no public address (`workers_dev` and `preview_urls` are off). Only another Worker can call it through a service binding.
+- `krhomebase-crud-worker` and `krhomebase-session-worker` (in `workers/`) also have no public address. Only `api` calls them, through service bindings declared in `apps/api/wrangler.jsonc`. `web` never calls them.
 
 ### Development servers and ports
 
@@ -113,6 +115,10 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 | 3011 | `apps/web` (Next.js on vinext) | `pnpm dev:web` or `pnpm dev` | `pnpm stop:port:3011` |
 | 8787 | `apps/api` (wrangler dev) | `pnpm dev:api` or `pnpm dev` | `pnpm stop:port:8787` |
 | 9339 | `apps/api` debugger (inspector) | started with the API | `pnpm stop:port:9339` |
+| 8791 | `workers/d1-workers/crud-worker` (wrangler dev) | `pnpm dev:crud` | `pnpm stop:port:8791` |
+| 9340 | `crud-worker` debugger | started with it | `pnpm stop:port:9340` |
+| 8792 | `workers/d1-workers/session-worker` (wrangler dev) | `pnpm dev:session` | `pnpm stop:port:8792` |
+| 9341 | `session-worker` debugger | started with it | `pnpm stop:port:9341` |
 | 3001 | Not used here. The old `apps/kr-homebase` runs on it. | | `pnpm stop:port:3001` |
 | 3000, 3002, 3003 | Not assigned in this repository. Kept from the old repository's scripts. | | `pnpm stop:port:3000`, `:3002`, `:3003` |
 
@@ -121,6 +127,15 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 - Record every new development port in this table in the same change that adds it, with its own `stop:port:<number>` script in the root `package.json`.
 - The scripts call `scripts/stop-dev-port.windows.ps1` (Windows PowerShell). They report when nothing is listening and do not fail.
 
+## Workers (`workers/`)
+
+- The folder holds Workers copied from the old repository. Their `.ts`, `.mjs` and `.sql` files are unchanged copies. Do not edit one unless the requester asks for that Worker to change.
+- Cloudflare names are `krhomebase-<role>`. Configuration files are named after the Worker (`crud-worker.jsonc`), never `wrangler.jsonc`.
+- The text `NOT_SET_REVIEW_BEFORE_USE` in a database id or bucket name means the Worker has no real target yet. Do not guess one. The requester chooses it before any deploy.
+- `crud-worker` and `session-worker` go live first, with no public address (see `workers/Readme-workers.md`). Their key store is `krhomebase-public-keys` (id `f70c0ff65aa148a59bd1d598236ce1de`), owned by this repository. They are live, and `krhomebase-api` calls them through the service bindings `CRUD_WORKER` and `SESSION_WORKER` (`remote: true`, so `pnpm dev:api` uses the deployed copies). Running them locally (ports 8791 and 8792) is optional; their `.dev.vars` files are written by `scripts/Write-DevVars.ps1`. Read and write nothing in those files.
+- Do not run `wrangler deploy` or `wrangler secret put`. Give the command to the requester (hard rule 4).
+- `workers/` is not type checked by `pnpm check` yet. Say so when reporting a check result that touched it.
+
 ## Important Documentation
 
 - `docs/Schema_8.0` is the canonical current KR Homebase database schema documentation (open `index.html`). Source of truth is the database; the raw export is `docs/Schema_8.0/_source/live_schema.json`.
@@ -128,6 +143,8 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 - `docs/Schema_GPT_Usage_1.1` is the canonical GPT gateway schema documentation (database `krhomebase_gpt_usage_dev`).
 - `docs/01_Architecture_Proposal.md` is the build plan and the list of open decisions.
 - `docs/02_AGENTS_Review.md` records how each old AGENTS rule was kept, changed or dropped.
+- `docs/03_Workers_And_Login_Plan.md` is the plan for copying the old workers and keys and porting the login (done in patch 13).
+- `apps/api/Readme-auth.md` lists the sign-in settings and secrets, the auth routes and the cookies.
 - `docs/API/` holds the table of the 64 old API routes. The generated reference for the new API is `apps/api/openapi/openapi.json`.
 - `docs/patch-notes/` holds the outstanding task lists required by `AGENTS_01`.
 - `docs/help-docs/` holds user-facing help documents (created with the first help document). See `AGENTS_03`.
@@ -156,11 +173,32 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 ```powershell
 pnpm install          # once, installs every package
 pnpm dev              # api (port 8787) and web (port 3011) together
+pnpm dev:crud         # crud-worker on port 8791 (optional local run; see workers/Readme-workers.md)
+pnpm dev:session      # session-worker on port 8792
 pnpm check            # type check + all tests; must pass before the requester commits
 pnpm openapi          # rewrite apps/api/openapi/openapi.json after changing any route
+pnpm build:web        # build the web app (apps/web)
+pnpm deploy:api       # deploy the API Worker (apps/api); the requester runs it
+pnpm deploy:web       # deploy the web Worker (apps/web); needs the cf sign-in
 pnpm stop:ports:all   # stop every development server started by this repository
 pnpm listScripts      # show the root scripts
 ```
+
+### Root scripts and the folder each one runs
+
+- **No `--filter`.** A root script that targets one package names its folder: `pnpm --dir apps/api run <script>`. Do not add `pnpm --filter <package-name>`; it finds the package by name and hides which folder runs. Do not write `pnpm deploy` for a package script, because `deploy` is a built-in pnpm command; use `run deploy`, or the root `deploy:api` and `deploy:web`.
+- `pnpm -r run <script>` (used by `build`, `typecheck`, `test`, `types:cf`, and `dev` with `--parallel`) runs the script in every package that has it.
+
+| Root script | Folder | Runs |
+|---|---|---|
+| `dev` | `apps/api` and `apps/web` | `dev` in each, together |
+| `dev:api` | `apps/api` | `wrangler dev --port 8787 --inspector-port 9339` |
+| `dev:web` | `apps/web` | `vite dev --port 3011` |
+| `build:web` | `apps/web` | `vite build` |
+| `deploy:api` | `apps/api` | `wrangler deploy` |
+| `deploy:web` | `apps/web` | `vinext-cloudflare deploy` |
+| `openapi` | `apps/api` | `tsx scripts/write-openapi.ts` |
+| `dev:crud`, `dev:session` | `workers/d1-workers/...` | `wrangler dev` with that Worker's config |
 
 ## Collaboration Notes
 

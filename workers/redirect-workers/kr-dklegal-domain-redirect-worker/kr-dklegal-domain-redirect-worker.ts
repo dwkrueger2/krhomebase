@@ -1,0 +1,507 @@
+const CANONICAL_ORIGIN = 'https://krueger-richard.com'
+const REDIRECT_DELAY_SECONDS = 10
+const INTERSTITIAL_CACHE_CONTROL = 'no-store'
+const LEGACY_DKLEGAL_HOST_PATTERN = /^(?:www\.)?dklegal-[a-z]{2}\.com$/i
+
+export default {
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url)
+    const sourceHost = url.hostname.toLowerCase()
+
+    if (!LEGACY_DKLEGAL_HOST_PATTERN.test(sourceHost)) {
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: 'UNSUPPORTED_HOST',
+          host: sourceHost,
+          expected: 'dklegal-XX.com or www.dklegal-XX.com',
+        }),
+        {
+          status: 404,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Cache-Control': 'no-store',
+          },
+        },
+      )
+    }
+
+    const redirectUrl = buildCanonicalUrl(url)
+
+    return new Response(buildRedirectHtml(sourceHost, redirectUrl), {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': INTERSTITIAL_CACHE_CONTROL,
+        'Refresh': `${REDIRECT_DELAY_SECONDS}; url=${redirectUrl}`,
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'X-Robots-Tag': 'noindex, follow',
+        'X-KR-Redirect-From': sourceHost,
+        'X-KR-Redirect-To': new URL(CANONICAL_ORIGIN).hostname,
+      },
+    })
+  },
+} satisfies ExportedHandler
+
+function buildCanonicalUrl(sourceUrl: URL): string {
+  const targetUrl = new URL(CANONICAL_ORIGIN)
+  targetUrl.pathname = sourceUrl.pathname
+  targetUrl.search = sourceUrl.search
+  return targetUrl.toString()
+}
+
+function buildRedirectHtml(sourceHost: string, redirectUrl: string): string {
+  const escapedSourceHost = escapeHtml(sourceHost)
+  const escapedRedirectUrl = escapeHtml(redirectUrl)
+  const redirectUrlScriptLiteral = JSON.stringify(redirectUrl)
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,follow">
+  <meta http-equiv="refresh" content="${REDIRECT_DELAY_SECONDS};url=${escapedRedirectUrl}">
+  <title>DK Legal Group is now Krueger &amp; Richard</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --dk-blue: #00305b;
+      --dk-aqua: #41b7c4;
+      --dk-green: #7ca858;
+      --dk-orange: #e45e25;
+      --dklg-aqua: #41b7c4;
+      --dklg-green: #7ca858;
+      --dklg-orange: #e45e25;
+      --dklg-teal: #178f8d;
+      --logo-dk-color: #00305b;
+      --kr-navy: #384757;
+      --kr-cream: #f1eadf;
+      --kr-camel: #776251;
+      --kr-denim: #95b8d0;
+      --ink: #1c2630;
+      --muted: #65727d;
+      --line: rgba(56, 71, 87, 0.18);
+      --paper: #f7f5f0;
+      --white: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, rgba(0, 48, 91, 0.04), transparent 34%),
+        var(--paper);
+      font-family: Raleway, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    a {
+      color: inherit;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 4px;
+    }
+
+    .site-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      min-height: 78px;
+      padding: 13px clamp(18px, 4vw, 52px);
+      background: var(--white);
+      border-bottom: 1px solid rgba(0, 48, 91, 0.12);
+      box-shadow: 0 8px 26px rgba(0, 48, 91, 0.07);
+    }
+
+    .dk-header-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      color: var(--dk-blue);
+      text-decoration: none;
+    }
+
+    .dk-header-logo {
+      width: 48px;
+      height: 48px;
+      flex: 0 0 auto;
+    }
+
+    .dk-header-text {
+      display: grid;
+      gap: 1px;
+      min-width: 0;
+    }
+
+    .dk-header-name {
+      font-size: clamp(18px, 2.4vw, 28px);
+      font-weight: 800;
+      line-height: 1.05;
+    }
+
+    .dk-header-domain {
+      color: var(--dk-aqua);
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
+
+    .header-note {
+      color: var(--dk-blue);
+      font-size: 13px;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    main {
+      min-height: calc(100vh - 78px);
+      display: grid;
+      align-items: center;
+      padding: clamp(24px, 5vw, 58px) clamp(16px, 4vw, 52px);
+    }
+
+    .handoff {
+      width: min(1180px, 100%);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      align-items: stretch;
+      border: 1px solid var(--line);
+      background: var(--white);
+      box-shadow: 0 24px 70px rgba(28, 38, 48, 0.12);
+    }
+
+    .brand-panel {
+      min-height: 430px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: clamp(28px, 4.5vw, 56px);
+    }
+
+    .brand-panel.dk {
+      color: var(--white);
+      background:
+        linear-gradient(rgba(0, 48, 91, 0.88), rgba(0, 48, 91, 0.94)),
+        repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0, rgba(255, 255, 255, 0.09) 1px, transparent 1px, transparent 18px),
+        var(--dk-blue);
+    }
+
+    .brand-panel.kr {
+      color: var(--kr-navy);
+      background:
+        linear-gradient(180deg, rgba(149, 184, 208, 0.15), transparent 48%),
+        var(--kr-cream);
+    }
+
+    .panel-label {
+      margin: 0 0 22px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      opacity: 0.82;
+    }
+
+    .brand-logo {
+      display: block;
+      width: min(100%, 350px);
+      height: auto;
+    }
+
+    .dk-logo-large {
+      width: min(100%, 260px);
+      aspect-ratio: 1;
+      --logo-dk-color: #ffffff;
+      filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.22));
+    }
+
+    .kr-logo-large {
+      width: min(100%, 390px);
+      aspect-ratio: 350 / 93;
+      box-shadow: 0 16px 34px rgba(56, 71, 87, 0.18);
+    }
+
+    .brand-title {
+      margin: 24px 0 0;
+      font-size: clamp(30px, 5vw, 50px);
+      font-weight: 800;
+      line-height: 1.04;
+    }
+
+    .brand-detail {
+      max-width: 31rem;
+      margin: 14px 0 0;
+      color: currentColor;
+      font-size: clamp(15px, 1.9vw, 18px);
+      opacity: 0.78;
+    }
+
+    .handoff-arrow {
+      position: relative;
+      width: clamp(86px, 9vw, 116px);
+      display: grid;
+      place-items: center;
+      background: linear-gradient(90deg, var(--dk-blue) 0 50%, var(--kr-cream) 50% 100%);
+    }
+
+    .handoff-arrow::before {
+      content: "";
+      position: absolute;
+      top: 10%;
+      bottom: 10%;
+      left: 50%;
+      width: 1px;
+      background: rgba(255, 255, 255, 0.24);
+    }
+
+    .arrow-mark {
+      position: relative;
+      z-index: 1;
+      width: 72px;
+      height: 72px;
+      display: grid;
+      place-items: center;
+      border: 3px solid var(--white);
+      border-radius: 50%;
+      color: var(--white);
+      background: var(--dk-aqua);
+      box-shadow: 0 14px 30px rgba(0, 48, 91, 0.25);
+      font-size: 42px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .arrow-mark svg {
+      width: 42px;
+      height: 42px;
+      display: block;
+    }
+
+    .message-band {
+      width: min(1180px, 100%);
+      margin: 18px auto 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: center;
+      padding: 20px clamp(20px, 4vw, 34px);
+      border: 1px solid var(--line);
+      background: var(--white);
+    }
+
+    .message-title {
+      margin: 0;
+      color: var(--kr-navy);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(24px, 3.4vw, 40px);
+      font-weight: 500;
+      line-height: 1.1;
+    }
+
+    .message-copy {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .countdown-box {
+      min-width: 220px;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
+      padding: 12px 15px;
+      border: 1px solid rgba(0, 48, 91, 0.16);
+      background: rgba(149, 184, 208, 0.13);
+    }
+
+    .countdown-number {
+      width: 62px;
+      height: 62px;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--dk-aqua);
+      border-radius: 50%;
+      color: var(--dk-blue);
+      background: var(--white);
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .countdown-label {
+      margin: 0;
+      color: var(--dk-blue);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.25;
+      text-transform: uppercase;
+    }
+
+    .countdown-link {
+      display: inline-block;
+      margin-top: 4px;
+      color: var(--kr-camel);
+      font-size: 13px;
+      font-weight: 700;
+      word-break: break-word;
+    }
+
+    @media (max-width: 820px) {
+      .site-header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .header-note {
+        text-align: left;
+      }
+
+      .handoff {
+        grid-template-columns: 1fr;
+      }
+
+      .brand-panel {
+        min-height: 300px;
+      }
+
+      .handoff-arrow {
+        width: 100%;
+        min-height: 86px;
+        background: linear-gradient(180deg, var(--dk-blue) 0 50%, var(--kr-cream) 50% 100%);
+      }
+
+      .handoff-arrow::before {
+        top: 50%;
+        bottom: auto;
+        left: 9%;
+        right: 9%;
+        width: auto;
+        height: 1px;
+      }
+
+      .message-band {
+        grid-template-columns: 1fr;
+      }
+
+      .countdown-box {
+        min-width: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a class="dk-header-brand" href="${escapedRedirectUrl}" aria-label="Continue to Krueger and Richard">
+      ${buildDkLogoSvg('dk-header-logo')}
+      <span class="dk-header-text">
+        <span class="dk-header-name">DK Legal Group</span>
+        <span class="dk-header-domain">${escapedSourceHost}</span>
+      </span>
+    </a>
+    <div class="header-note">Now Krueger &amp; Richard, Attorneys At Law</div>
+  </header>
+
+  <main>
+    <section class="handoff" aria-label="DK Legal Group is now Krueger and Richard">
+      <div class="brand-panel dk">
+        <p class="panel-label">Legacy firm site</p>
+        ${buildDkLogoSvg('brand-logo dk-logo-large')}
+        <h1 class="brand-title">DK Legal Group</h1>
+        <p class="brand-detail">This legacy web address now sends visitors to the Krueger &amp; Richard website.</p>
+      </div>
+
+      <div class="handoff-arrow" aria-hidden="true">
+        <span class="arrow-mark">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" focusable="false">
+            <path d="M8 24h28" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+            <path d="M26 13l11 11-11 11" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+        </span>
+      </div>
+
+      <div class="brand-panel kr">
+        <p class="panel-label">Current firm site</p>
+        ${buildKrLogoSvg('brand-logo kr-logo-large')}
+        <h2 class="brand-title">Krueger &amp; Richard</h2>
+        <p class="brand-detail">You are being forwarded to the same path on the current firm website.</p>
+      </div>
+    </section>
+
+    <section class="message-band" aria-live="polite">
+      <div>
+        <p class="message-title">DK Legal Group is now Krueger &amp; Richard.</p>
+        <p class="message-copy">Redirecting from ${escapedSourceHost} to <a href="${escapedRedirectUrl}">${escapedRedirectUrl}</a>.</p>
+      </div>
+      <div class="countdown-box">
+        <span class="countdown-number" data-countdown>${REDIRECT_DELAY_SECONDS}</span>
+        <div>
+          <p class="countdown-label">Redirecting in seconds</p>
+          <a class="countdown-link" href="${escapedRedirectUrl}">Continue now</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      var redirectUrl = ${redirectUrlScriptLiteral};
+      var remaining = ${REDIRECT_DELAY_SECONDS};
+      var countdown = document.querySelector('[data-countdown]');
+
+      function render() {
+        if (countdown) {
+          countdown.textContent = String(Math.max(remaining, 0));
+        }
+      }
+
+      render();
+
+      var intervalId = window.setInterval(function () {
+        remaining -= 1;
+        render();
+
+        if (remaining <= 0) {
+          window.clearInterval(intervalId);
+          window.location.assign(redirectUrl);
+        }
+      }, 1000);
+    })();
+  </script>
+</body>
+</html>`
+}
+
+function buildDkLogoSvg(className: string): string {
+  return `<svg class="${escapeHtml(className)}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 445.7 445.7" role="img" aria-label="DK Legal Group logo">
+    <path d="M416.7,198.8h26.6C432.3,95.1,350,12.8,246.4,1.8v26.6c89,10.7,159.6,81.3,170.3,170.3Z" fill="var(--dklg-green)"></path>
+    <path d="M2.2,198.8h26.6C39.5,109.8,110.1,39.2,199.1,28.5V1.8C95.5,12.8,13.1,95.1,2.2,198.8Z" fill="var(--dklg-orange)"></path>
+    <path d="M246.4,416.3v26.6c103.6-11,186-93.3,197-197h-26.6c-10.7,89-81.3,159.6-170.3,170.3Z" fill="var(--dklg-aqua)"></path>
+    <path d="M28.8,246H2.2c11,103.6,93.3,186,197,197v-26.6c-89-10.7-159.6-81.3-170.3-170.3Z" fill="var(--dklg-teal)"></path>
+    <path d="M135,251V113.7h48.7c15.4,0,29.1,2.4,41,7.3,11.9,4.9,21.2,12.4,28,22.5,6.8,10.2,10.2,23.2,10.2,39.1s-3.4,28.1-10.2,38.3c-6.8,10.2-16.1,17.7-28.1,22.6-11.9,4.9-25.6,7.4-41.1,7.4h-48.5ZM156,233.3h27.1c18.2,0,32.4-4.2,42.5-12.7,10.1-8.4,15.2-21,15.2-37.6s-4.9-29.5-14.8-38.4c-9.8-8.8-24.4-13.3-43.6-13.3h-26.4v101.9Z" fill="var(--logo-dk-color)"></path>
+    <path d="M211.9,327.2v-137.3h20.8v62.4l61-62.4h24l-54.2,56,60.8,81.3h-25.1l-49.8-67.3-16.6,16.9v50.4h-20.8Z" fill="var(--logo-dk-color)"></path>
+  </svg>`
+}
+
+function buildKrLogoSvg(className: string): string {
+  return `<img class="${escapeHtml(className)}" src="${CANONICAL_ORIGIN}/brand/logos/logo-landscape-navy.svg" alt="Krueger &amp; Richard, Attorneys At Law">`
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}

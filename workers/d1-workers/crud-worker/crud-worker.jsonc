@@ -1,0 +1,109 @@
+// KR Homebase crud worker (copied from the old repository, then changed for this repository).
+// Changes from the copy: Cloudflare name, database, key store id, no public address. The code (crud-worker.ts) is unchanged.
+// Live setup and commands: workers/Readme-workers.md. Local run (optional): pnpm dev:crud (port 8791).
+{
+  "$schema": "../../../node_modules/wrangler/config-schema.json", // schema is for the IDE, not for wrangler.
+  "name"              : "krhomebase-crud-worker",
+  "main"              : "./crud-worker.ts",
+  "compatibility_date": "2026-05-18",
+  "secrets"           : {
+    "required": [
+      "CRUD_WORKER_PRIVATE_KEY"
+    ]
+  },
+  "d1_databases"      : [
+    {
+      // Cloudflare’s D1 config uses d1_databases, with binding, database_name, and database_id; the binding becomes available on env.<BINDING_NAME>.
+      "binding"      : "CRUD_WORKER_ASSIGNED_D1",
+      // The database of this repository. It holds a copy of development data that includes client data.
+      "database_name": "krhomebase",
+      "database_id"  : "ef68921f-c7d3-4d0b-9af4-defebc748616"
+      //pnpm wrangler d1 list  to see the database_id
+    }
+  ],
+  "kv_namespaces"     : [
+    {
+      // Binding: PUBLIC_KEYS
+      // Used by: crud-worker.ts (and T1/T2-worker.js for JWT verification)
+      // Purpose: public PEM key lookup for JWT verification tests
+      // Command to see the KV Keys - pnpm wrangler kv namespace list.  Note title of namespace is just for us humans. The id is what we really bind.
+      // This repository's own key store, named krhomebase-public-keys. Not shared with the old workers.
+      // It holds the application's public key under the name public-dev-dan-2.pem.
+      "binding": "PUBLIC_KEYS",
+      "id"     : "f70c0ff65aa148a59bd1d598236ce1de"
+    }
+  ],
+  // No public web address (decision of Nov 4, 2026). This Worker can write to most tables, so only
+  // another Worker (apps/api) may call it, through a service binding.
+  "workers_dev"       : false,
+  "preview_urls"      : false,
+  "env": {
+    "dev": {
+      "name": "krhomebase-crud-worker-dev",
+      "secrets": {
+        "required": [
+          "CRUD_WORKER_PRIVATE_KEY"
+        ]
+      },
+      "d1_databases": [
+        {
+          "binding": "CRUD_WORKER_ASSIGNED_D1",
+          "database_name": "krhomebase",
+          "database_id": "ef68921f-c7d3-4d0b-9af4-defebc748616"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "PUBLIC_KEYS",
+          "id": "f70c0ff65aa148a59bd1d598236ce1de"
+        }
+      ],
+      "workers_dev": false,
+      "preview_urls": false
+    }
+  }
+}
+// Example Installation of the Worker
+//pnpm wrangler deploy --config .\crud-worker.jsonc
+// (Recorded from the old repository. Do not run it here. Deploying is not part of the migration.)
+//
+//⛅️ wrangler 4.92.0
+//───────────────────
+//Total Upload: 11.52 KiB / gzip: 3.38 KiB
+//Your Worker has access to the following bindings:
+//Binding                                                         Resource
+//env.PUBLIC_KEYS (8b5f711025ce40e2ae5b4276cebb8fca)              KV Namespace
+//env.CRUD_WORKER_ASSIGNED_D1 (krhomebase_05_2026_v5)                   D1 Database
+//
+//Uploaded crud-worker (2.94 sec)
+//▲ [WARNING] Because 'workers_dev' is not in your Wrangler file, it will be enabled for this deployment by default.
+// (note --- this means --> https://crud-worker.<your-subdomain>.workers.dev is active)
+//To override this setting, you can disable workers.dev by explicitly setting 'workers_dev = false'
+//in your Wrangler file.
+//
+//
+//▲ [WARNING] Because your 'workers.dev' route is enabled and your 'preview_urls' setting is not in your Wrangler file, Preview URLs will be enabled for this deployment by default.
+//
+//To override this setting, you can disable Preview URLs by explicitly setting 'preview_urls =
+//false' in your Wrangler file.
+//
+//
+//Deployed crud-worker triggers (1.07 sec)
+//https://crud-worker.dankrueger.workers.dev
+//Current Version ID: 64f3e32b-8b08-4f2d-9792-0533ff71ade5
+
+
+// Replacing the private key secret
+/**
+Get-Content ..\..\..\private\dev-private-keys\private-worker-crud-operations-2.pem -Raw |
+  pnpm wrangler secret put CRUD_WORKER_PRIVATE_KEY --config .\crud-worker.jsonc
+
+--- Expected output ---
+>>   pnpm wrangler secret put CRUD_WORKER_PRIVATE_KEY --config .\crud-worker.jsonc
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.onlyBuiltDependencies". See https://pnpm.io/settings for the new home of each setting.
+
+ ⛅️ wrangler 4.92.0 (update available 4.95.0)
+─────────────────────────────────────────────
+🌀 Creating the secret for the Worker "crud-worker"
+✨ Success! Uploaded secret CRUD_WORKER_PRIVATE_KEY
+*/

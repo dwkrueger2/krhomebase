@@ -1,0 +1,14 @@
+// Changes from the copy: Cloudflare name, schema path, bucket name (old bucket: kr-public-site-assets).
+{
+  "$schema": "../../../node_modules/wrangler/config-schema.json",
+  "name": "krhomebase-public-site-front-end-assets",
+  "main": "./front-end-assets-worker.ts",
+  "compatibility_date": "2026-06-08",
+  "workers_dev": true,
+  "r2_buckets": [
+    {
+      "binding": "KR_PUBLIC_SITE_ASSETS",
+      "bucket_name": "NOT_SET_REVIEW_BEFORE_USE"
+    }
+  ]
+}

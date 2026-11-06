@@ -1,0 +1,27 @@
+// Changes from the copy: Cloudflare name, main path, database and bucket names. The code is unchanged.
+// Database id and bucket name are NOT_SET_REVIEW_BEFORE_USE on purpose (see workers/Readme-workers.md).
+// Old bucket name: kr-homebase-articles
+{
+  "$schema": "../../../node_modules/wrangler/config-schema.json",
+  "name": "krhomebase-article-publish-worker",
+  "main": "./article-publish-worker.ts",
+  "compatibility_date": "2026-06-10",
+  "secrets": {
+    "required": [
+      "KR_ARTICLE_PUBLISH_WORKER_TOKEN"
+    ]
+  },
+  "d1_databases": [
+    {
+      "binding": "ARTICLES_DB",
+      "database_name": "krhomebase_articles_06_2026_v6",
+      "database_id": "NOT_SET_REVIEW_BEFORE_USE"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ARTICLE_BUCKET",
+      "bucket_name": "NOT_SET_REVIEW_BEFORE_USE"
+    }
+  ]
+}
