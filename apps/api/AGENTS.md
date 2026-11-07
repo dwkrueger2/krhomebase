@@ -1,7 +1,7 @@
 # KR Homebase API Agent Guide
 
-<small>Version 1.5</small><br>
-<small>Updated Nov 4, 2026 8:35pm</small>
+<small>Version 1.6</small><br>
+<small>Updated Nov 7, 2026 10:40am</small>
 
 ## Purpose
 
@@ -76,7 +76,7 @@ A route is not finished until all of these pass (`pnpm check`):
 - **Who is signed in.** `signInGuard` (`src/platform/authGuard.ts`) runs on every request after `requestId`. It finds the route in `routeRegistry`, reads its `access`, and for `signed-in` or `{ roles }` routes asks the session Worker about the `kr_session` cookie. No cookie gives 401 `UNAUTHENTICATED`; an unreachable session Worker gives 503 `SESSION_VALIDATION_UNAVAILABLE`; a role not on the list gives 403. There is no implicit super admin.
 - **Auth routes** are in `src/features/auth/` (`routes.ts`, `rules.ts`, `queries.ts`, `signIn.ts`). `queries.ts` is the only file that reaches the database, and it does so through the crud Worker.
 - **Outside calls** go through `src/platform/`: `crudClient.ts` (signs and seals each command for the crud Worker), `sessionClient.ts`, `google.ts`, `turnstile.ts`. They use WebCrypto, never `node:crypto`.
-- **Bindings.** `CRUD_WORKER` and `SESSION_WORKER` are service bindings in `wrangler.jsonc`. They are `remote: true`, so `pnpm dev:api` calls the deployed Workers.
+- **Bindings.** `CRUD_WORKER` and `SESSION_WORKER` are service bindings in `kr-api-wrangler.jsonc`. They are `remote: true`, so `pnpm dev:api` calls the deployed Workers.
 - **Settings and secrets** are listed in `apps/api/Readme-auth.md`. The names only are in `apps/api/.dev.vars.example`.
 
 ## Documentation and review location

@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.0</small><br>
-<small>Updated Nov 6, 2026 9:20am</small>
+<small>Version 2.2</small><br>
+<small>Updated Nov 7, 2026 11:10am</small>
 
 ## Agent Guide Index
 
@@ -16,7 +16,7 @@
   - `apps/api/AGENTS.md` for routes, tests and API documentation.
   - `apps/web/AGENTS.md` for screens.
   - `packages/contracts/AGENTS.md` for the zod descriptions shared by both.
-- Read `docs/00_PromptMemoryStart.md` (response header, command format, strict rules) and `docs/01_Architecture_Proposal.md` (why the repository is built this way).
+- Read `docs/00_PromptMemoryStart.md` (response header, command format, strict rules), `docs/04_Deployed_Architecture.md` (what is deployed now) and `docs/01_Architecture_Proposal.md` (why the repository is built this way).
 - Read a guide before starting work of the kind it covers. When two guides disagree, the stricter rule wins and the disagreement is reported to the requester.
 - **The requester.** Throughout these guides, "the requester" means the coder or prompt writer who is giving the instructions in the current session. Every decision, approval, override or hand-off that a guide reserves for a person belongs to the requester, whoever that is. A guide never means one named person.
 
@@ -106,7 +106,7 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 - `contracts` imports nothing from the apps and nothing but `zod`.
 - Only `apps/api` has the D1 `krhomebase` binding. `web` never queries the database.
 - `api` has no public address (`workers_dev` and `preview_urls` are off). Only another Worker can call it through a service binding.
-- `krhomebase-crud-worker` and `krhomebase-session-worker` (in `workers/`) also have no public address. Only `api` calls them, through service bindings declared in `apps/api/wrangler.jsonc`. `web` never calls them.
+- `krhomebase-crud-worker` and `krhomebase-session-worker` (in `workers/`) also have no public address. Only `api` calls them, through service bindings declared in `apps/api/kr-api-wrangler.jsonc`. `web` never calls them.
 
 ### Development servers and ports
 
@@ -130,7 +130,7 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 ## Workers (`workers/`)
 
 - The folder holds Workers copied from the old repository. Their `.ts`, `.mjs` and `.sql` files are unchanged copies. Do not edit one unless the requester asks for that Worker to change.
-- Cloudflare names are `krhomebase-<role>`. Configuration files are named after the Worker (`crud-worker.jsonc`), never `wrangler.jsonc`.
+- Cloudflare names are `krhomebase-<role>`. Configuration files are named for their Worker (`crud-worker.jsonc`; the API's is `apps/api/kr-api-wrangler.jsonc`), never plain `wrangler.jsonc`. Every wrangler command and package script names its file with `--config`.
 - The text `NOT_SET_REVIEW_BEFORE_USE` in a database id or bucket name means the Worker has no real target yet. Do not guess one. The requester chooses it before any deploy.
 - `crud-worker` and `session-worker` go live first, with no public address (see `workers/Readme-workers.md`). Their key store is `krhomebase-public-keys` (id `f70c0ff65aa148a59bd1d598236ce1de`), owned by this repository. They are live, and `krhomebase-api` calls them through the service bindings `CRUD_WORKER` and `SESSION_WORKER` (`remote: true`, so `pnpm dev:api` uses the deployed copies). Running them locally (ports 8791 and 8792) is optional; their `.dev.vars` files are written by `scripts/Write-DevVars.ps1`. Read and write nothing in those files.
 - Do not run `wrangler deploy` or `wrangler secret put`. Give the command to the requester (hard rule 4).
@@ -141,6 +141,7 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 - `docs/Schema_8.0` is the canonical current KR Homebase database schema documentation (open `index.html`). Source of truth is the database; the raw export is `docs/Schema_8.0/_source/live_schema.json`.
 - `docs/Schema_Public_Inquiry_v2.0` is the canonical public inquiry schema documentation (database `kr_public_inquiry_06_2026`).
 - `docs/Schema_GPT_Usage_1.1` is the canonical GPT gateway schema documentation (database `krhomebase_gpt_usage_dev`).
+- `docs/04_Deployed_Architecture.md` states what is deployed now: the four Workers, addresses, bindings, settings and deploy commands. Update it whenever one of those changes.
 - `docs/01_Architecture_Proposal.md` is the build plan and the list of open decisions.
 - `docs/02_AGENTS_Review.md` records how each old AGENTS rule was kept, changed or dropped.
 - `docs/03_Workers_And_Login_Plan.md` is the plan for copying the old workers and keys and porting the login (done in patch 13).

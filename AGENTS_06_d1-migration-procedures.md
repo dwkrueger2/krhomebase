@@ -1,7 +1,7 @@
 # AGENTS 06: Cloudflare D1 Migration Procedures
 
-<small>Version 1.1</small><br>
-<small>Updated Nov 3, 2026 10:58pm</small>
+<small>Version 1.2</small><br>
+<small>Updated Nov 7, 2026 10:40am</small>
 
 This guide defines the SQL compatibility rules for Cloudflare D1 migrations, data imports and read-only schema verification in this repository.
 
@@ -21,7 +21,7 @@ This guide defines the SQL compatibility rules for Cloudflare D1 migrations, dat
 
 | Database | Role | Rule |
 |---|---|---|
-| `krhomebase` | This repository's database (binding `krhomebase`, id in `apps/api/wrangler.jsonc`). | Read-only for agents. The requester applies every change. |
+| `krhomebase` | This repository's database (binding `krhomebase`, id in `apps/api/kr-api-wrangler.jsonc`). | Read-only for agents. The requester applies every change. |
 | `krhomebase_dev` | Source of the baseline copy. | Read-only. |
 | `krhomebase_05_2026_v5` | Old live database. | Do not touch unless the requester names it in the prompt. |
 

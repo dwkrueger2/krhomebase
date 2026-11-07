@@ -1,7 +1,7 @@
 # 00_PromptMemoryStart
 
-<small>Version 1.3</small><br>
-<small>Updated Nov 3, 2026 10:02pm</small>
+<small>Version 1.4</small><br>
+<small>Updated Nov 7, 2026 11:10am</small>
 
 **Purpose:** Read and follow this file at the start of every new prompt in the `krhomebase` repository.
 
@@ -85,6 +85,7 @@ In any directory whose path contains the text `private`, file names may be liste
 
 - Current schema: `docs\Schema_8.0` (open `index.html`). Source of truth is the live D1 database `krhomebase_dev`, read via wrangler (raw export: `docs\Schema_8.0\_source\live_schema.json`).
 - Other databases, each in its own space: `docs\Schema_Public_Inquiry_v2.0` (database `kr_public_inquiry_06_2026`, quarantined public intake) and `docs\Schema_GPT_Usage_1.1` (database `krhomebase_gpt_usage_dev`, GPT gateway). They are separate D1 databases with no foreign keys into Homebase.
+- Deployed architecture (what is live now: the four Workers, their addresses, bindings, settings and deploy commands): `docs\04_Deployed_Architecture.md`. Read it before any work on a Worker, binding, web address, secret or deploy command, and update it in the same change.
 - Architecture and build plan: `docs\01_Architecture_Proposal.md`. AGENTS review: `docs\02_AGENTS_Review.md`. Old API route table: `docs\API\`.
 - Code rules for agents: `AGENTS.md` at the repository root (the index), the companion guides `AGENTS_01` to `AGENTS_06` beside it (versions, commits, documentation headers, coding style, Tailwind, D1 migrations), plus the nearest `AGENTS.md` in `apps\api`, `apps\web` and `packages\contracts`.
 - Version tracks (repository, API, web) are kept in three `package.json` files; the procedure is `AGENTS_01_version-procedures.md`. Outstanding task lists: `docs\patch-notes`.
@@ -105,6 +106,7 @@ In any directory whose path contains the text `private`, file names may be liste
 
 1. Read this file.
 2. Read `AGENTS.md` (repository root) before changing any code, and the `AGENTS_0x` guide for the kind of work (`AGENTS_01` and `AGENTS_03` apply to nearly every change).
-3. Print the Response Header (section 1).
-4. Confirm the task stays inside the Strict Rules (section 3).
-5. Proceed.
+3. Read `docs\04_Deployed_Architecture.md` (what is deployed and where).
+4. Print the Response Header (section 1).
+5. Confirm the task stays inside the Strict Rules (section 3).
+6. Proceed.

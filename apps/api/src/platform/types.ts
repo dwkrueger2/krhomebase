@@ -2,7 +2,7 @@ import type { SessionUser } from '@krhomebase/contracts'
 
 /**
  * Settings and bindings the sign-in code reads. The two service bindings are declared in
- * `wrangler.jsonc`. The plain settings are `vars` there (or `.dev.vars` on this computer). The keys and
+ * `kr-api-wrangler.jsonc`. The plain settings are `vars` there (or `.dev.vars` on this computer). The keys and
  * secrets are Worker secrets set with `wrangler secret put` (or `.dev.vars` on this computer).
  *
  * Every setting is optional here on purpose: a missing one is reported by `readAuthSettings`

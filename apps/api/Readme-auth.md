@@ -1,7 +1,7 @@
 # API sign-in: settings, routes and cookies
 
-<small>Version 1.3</small><br>
-<small>Updated Nov 6, 2026 10:55am</small>
+<small>Version 1.4</small><br>
+<small>Updated Nov 7, 2026 10:40am</small>
 
 How `krhomebase-api` signs people in. Code: `src/features/auth/` and `src/platform/`. Plan and history: `docs/03_Workers_And_Login_Plan.md`.
 
@@ -9,7 +9,7 @@ How `krhomebase-api` signs people in. Code: `src/features/auth/` and `src/platfo
 
 ## Settings
 
-Plain settings are `vars` in `wrangler.jsonc`. Secrets are set with `wrangler secret put` (live) or written to the git-ignored `.dev.vars` by `scripts/Write-DevVars.ps1` (local). Nothing here is read or printed by Claude.
+Plain settings are `vars` in `kr-api-wrangler.jsonc`. Secrets are set with `wrangler secret put` (live) or written to the git-ignored `.dev.vars` by `scripts/Write-DevVars.ps1` (local). Nothing here is read or printed by Claude.
 
 | Name | Kind | Meaning |
 |---|---|---|
@@ -23,7 +23,7 @@ Plain settings are `vars` in `wrangler.jsonc`. Secrets are set with `wrangler se
 | `KR_BOOTSTRAP_FIRST_SSO_USER_AS_SUPER_ADMIN` | var | Allows the first user to be created when the database has none. |
 | `KR_GOOGLE_ALLOWED_HOSTED_DOMAINS` | var, optional | Comma list of Google Workspace domains to allow. Empty means any. |
 | `KR_GOOGLE_CLIENT_SECRET` | secret | Google client secret. |
-| `KR_TURNSTILE_SECRET_KEY` | secret | Matching secret of that widget (live). Local runs use the always-pass test secret from `.dev.vars`. |
+| `KR_TURNSTILE_SECRET_KEY` | secret | Matching secret of that widget (live). Local runs use the always-pass test pair: `scripts\Write-DevVars.ps1` writes both the test site key and the test secret to `.dev.vars`, which overrides `kr-api-wrangler.jsonc` on this computer. |
 | `KR_WORKER_JWT_PRIVATE_KEY` | secret | The app's private signing key (PKCS#8, `BEGIN PRIVATE KEY`). |
 | `KR_CRUD_WORKER_PUBLIC_KEY` | secret | The crud Worker's public key (SPKI, `BEGIN PUBLIC KEY`). Seals each command. |
 | `KR_SESSION_WORKER_SECRET` | secret | Shared secret for the session Worker. |
@@ -67,7 +67,7 @@ pnpm deploy:web     # apps/web: vinext-cloudflare deploy (uses the cf login, see
 
 The web deploy uses Cloudflare's `cf` tool, which has its own sign-in, separate from `wrangler login`. Sign in once with `pnpm --dir apps/web exec cf auth login`, or set `CLOUDFLARE_API_TOKEN`. Without one, the deploy stops with "No authentication token found".
 
-Secrets are set once with `pnpm exec wrangler secret put <NAME> --config apps/api/wrangler.jsonc` (a deploy keeps them). Names are in the settings table above.
+Secrets are set once with `pnpm exec wrangler secret put <NAME> --config apps/api/kr-api-wrangler.jsonc` (a deploy keeps them). Names are in the settings table above.
 
 ## Admission rules
 

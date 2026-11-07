@@ -1,9 +1,9 @@
 # Plan: Bringing Over the Workers, the Keys and the Login
 
-<small>Version 1.3</small><br>
-<small>Updated Nov 4, 2026 8:35pm</small>
+<small>Version 1.5</small><br>
+<small>Updated Nov 7, 2026 11:10am</small>
 
-**Status (Nov 4, 2026):** Approved. Steps B to D are done (patches 10 to 12). The Workers are live with no public address (crud `08b3ee64-86c0-47c0-9dbc-3c14d4095d84`, session `8832360b-5412-4d1a-ba2f-d58cd1677eb2`). Step E, the login port, is written and tested in patch 13: the API sign-in routes, the service bindings, and the web login page. It still waits for the first run on `http://localhost:3011`, then the production deploy. See `apps/api/Readme-auth.md`.
+**Status (Nov 7, 2026):** Complete. Steps B to E are done (patches 10 to 14). The crud and session Workers are live with no public address (crud `08b3ee64-86c0-47c0-9dbc-3c14d4095d84`, session `8832360b-5412-4d1a-ba2f-d58cd1677eb2`). The login (patch 13) is live on `https://krhomebase.com` with the real Turnstile widget. What is deployed and where: `docs/04_Deployed_Architecture.md`. Sign-in settings: `apps/api/Readme-auth.md`. The sections below record the plan and the decisions as they were made.
 
 **Sources read (read-only):** `apps\shared` (worker folders, configuration files, inventory files and readmes), `repo-utilities\dev-env\load-homebase-dev-env.mjs`, and the login and sign-in code in `apps\kr-homebase\src`. **Not read:** anything inside the old `private` folder. Its file names and sizes were listed; its contents were not opened. The key descriptions below come from the file names and from the code that loads them.
 
@@ -130,7 +130,7 @@ The fourth is the redirect worker's `wrangler.jsonc`, which is not copied now.
 
 **Cost of the rule.** Wrangler finds a file named `wrangler.jsonc` by itself. A file with any other name must be given on every command with `--config <path>`. The old repository already works this way, and each inventory file holds the full command for every worker.
 
-`apps/api/wrangler.jsonc` follows the old, generic habit. Renaming it to `krhomebase-api.jsonc` means adding `--config` to the three scripts in `apps/api/package.json`. See decision 3.
+`apps/api/wrangler.jsonc` followed the old, generic habit. It was renamed in patch 14 to `apps/api/kr-api-wrangler.jsonc` (the requester's name, instead of the planned `krhomebase-api.jsonc`), and the `dev`, `deploy`, `typecheck` and `types:cf` scripts in `apps/api/package.json` now pass `--config kr-api-wrangler.jsonc`. See decision 3.
 
 ---
 
@@ -317,7 +317,7 @@ These are wrong in the first copy, because the first copy changes no code or set
 |---|---|---|
 | 1 | Folder | `workers/` at the top level, as recommended. |
 | 2 | Left behind | `sso-auth-worker` was deleted from Cloudflare by the requester and is not copied. `test-workers`, the stray `wrangler.jsonc` and `.env*` files are not copied. **The redirect worker is copied**, at the requester's request, to `workers/redirect-workers`. |
-| 3 | Rename `apps/api/wrangler.jsonc` | Still to do, as its own small patch. |
+| 3 | Rename `apps/api/wrangler.jsonc` | Done in patch 14, as `apps/api/kr-api-wrangler.jsonc`. |
 | 4 | Worker names | `krhomebase-<role>`, as recommended. The redirect worker became `krhomebase-dklegal-domain-redirect-worker`. |
 | 5 | Local sign-in database | Superseded on Nov 4, 2026: the requester builds live and does not test locally. The sign-in Workers use the real `krhomebase` database on Cloudflare. See "Going live" below. |
 | 6 | Sign-in server code | `apps/api`, as recommended. |
@@ -339,6 +339,6 @@ The requester chose to build live and not test locally. What follows from that:
 1. **No public address.** `krhomebase-crud-worker` and `krhomebase-session-worker` have `workers_dev` off. The crud worker can write to most tables in `krhomebase`, which holds a copy of client data, so only `krhomebase-api` may call it, through a service binding. This matches the rule already in the architecture proposal for `krhomebase-api` and `krhomebase-web`.
 2. **Own key store.** KV namespace `krhomebase-public-keys`, id `f70c0ff65aa148a59bd1d598236ce1de`, created by the requester. The old namespace `8b5f7110…` is not used. A listing of it on Nov 4, 2026 returned no keys.
 3. **Secrets** stay ordinary Worker secrets for the two copied Workers, because their code reads them as plain settings. The account's one Secrets Store (`b71343d3cc7e4735a8baaf9f8a1e8a67`) holds four secrets for other uses and is not used here yet. Whether `apps/api` reads from it is a decision for step E.
-4. **First call.** Nothing can reach the Workers directly, so the first real call is the sign-in from `apps/api`. Step E therefore adds the two service bindings to `apps/api/wrangler.jsonc`, and the Workers must be deployed before the API is.
+4. **First call.** Nothing can reach the Workers directly, so the first real call is the sign-in from `apps/api`. Step E therefore adds the two service bindings to `apps/api/kr-api-wrangler.jsonc` (then named `wrangler.jsonc`), and the Workers must be deployed before the API is.
 5. **Commands** are in `workers/Readme-workers.md`, section "Put the sign-in Workers live".
 

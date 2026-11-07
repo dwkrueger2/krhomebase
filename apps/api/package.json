@@ -1,18 +1,18 @@
 {
   "name": "@krhomebase/api",
   "version": "1.1.1",
-  "patchNum": "4",
-  "patchDate": "11-04",
+  "patchNum": "5",
+  "patchDate": "11-07",
   "private": true,
   "type": "module",
   "description": "KR Homebase API Worker. All business rules; the only code that talks to D1.",
   "scripts": {
-    "dev": "wrangler dev --port 8787 --inspector-port 9339",
-    "deploy": "wrangler deploy",
-    "typecheck": "wrangler types && tsc --noEmit",
+    "dev": "wrangler dev --config kr-api-wrangler.jsonc --port 8787 --inspector-port 9339",
+    "deploy": "wrangler deploy --config kr-api-wrangler.jsonc",
+    "typecheck": "wrangler types --config kr-api-wrangler.jsonc && tsc --noEmit",
     "test": "vitest run",
     "openapi:write": "tsx scripts/write-openapi.ts",
-    "types:cf": "wrangler types"
+    "types:cf": "wrangler types --config kr-api-wrangler.jsonc"
   },
   "dependencies": {
     "@hono/zod-openapi": "^1.6.3",

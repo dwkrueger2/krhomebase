@@ -1,7 +1,7 @@
 # Workers
 
-<small>Version 1.2</small><br>
-<small>Updated Nov 4, 2026 8:35pm</small>
+<small>Version 1.3</small><br>
+<small>Updated Nov 7, 2026 10:40am</small>
 
 The Cloudflare Workers copied from the old repository (`apps\shared`). Plan and reasons: `docs/03_Workers_And_Login_Plan.md`.
 
@@ -83,7 +83,7 @@ Not changed: every `.ts`, `.mjs` and `.sql` file is byte for byte the same as it
 
 - `krhomebase-crud-worker` can read and write most tables in `krhomebase`, which holds a copy of client data. It therefore has **no public web address** (`workers_dev` and `preview_urls` are off).
 - `krhomebase-session-worker` is the same: no public address.
-- The only caller is `krhomebase-api`, through a Cloudflare **service binding** (a direct call between two Workers inside Cloudflare). The bindings `CRUD_WORKER` and `SESSION_WORKER` are in `apps/api/wrangler.jsonc` (patch 13).
+- The only caller is `krhomebase-api`, through a Cloudflare **service binding** (a direct call between two Workers inside Cloudflare). The bindings `CRUD_WORKER` and `SESSION_WORKER` are in `apps/api/kr-api-wrangler.jsonc` (patch 13; the file was named `wrangler.jsonc` until patch 14).
 - The crud worker keeps its own protection as well: every call must carry a signed pass and a sealed command. The missing public address is an extra layer, not a replacement.
 - Because there is no address, nothing can call these Workers from a browser or from `curl`. The first real call happens from `apps/api`. Until then, check a deploy with `pnpm exec wrangler deployments list --name krhomebase-crud-worker`.
 - The generic crud worker is kept for the first working login only (plan decision 7). It is replaced by direct database access in `apps/api` later, as its own decision.

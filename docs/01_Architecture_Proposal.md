@@ -1,12 +1,13 @@
 # krhomebase Architecture Proposal
 
-<small>Version 0.8</small><br>
-<small>Updated Nov 6, 2026 9:20am</small>
+<small>Version 1.0</small><br>
+<small>Updated Nov 7, 2026 11:10am</small>
 
 **Date:** 2026-11-02
 **Status:** Accepted as the build plan. Open decisions are listed in section 14.
 **Basis:** Read-only review of `D:\Repos\krueger-richard-website\apps\kr-homebase`, plus the working skeleton built on 2026-11-02 (sections 3 and 13).
 **Changes from v0.2:** zod is adopted. A testing plan is added (section 9). The workspace skeleton (contracts, API, web) exists and passes its checks. The AGENTS files are ported (section 10). The outside-programs bridge is added (section 8). The unclear "vertical slice" wording is gone from the document.
+**Current state:** what is deployed and at which address is in `docs/04_Deployed_Architecture.md` (live since Nov 6, 2026). Section 3 below is the Nov 2 snapshot and is kept as history.
 **Changes from v0.3:** The AGENTS system is ported in full: root index plus `AGENTS_01` to `AGENTS_06`, three version tracks, stop-port scripts, and `docs/patch-notes` (section 10).
 
 ---
@@ -46,7 +47,7 @@
 
 ---
 
-## 3. What exists today (2026-11-02)
+## 3. What existed on 2026-11-02 (history; see `docs/04_Deployed_Architecture.md` for today)
 
 | Item | State |
 |---|---|
@@ -55,7 +56,7 @@
 | `apps/api` | Built. Hono + `@hono/zod-openapi`, `defineRoute()`, request id, error handling, `/v1/health`, `/v1/openapi.json`, committed `openapi/openapi.json`. 9 tests. |
 | `apps/web` | Built. Next.js 16.4.4 on vinext 1.4.1, `/` page, `/status` page (calls the API), `/api/*` forward route. Builds with `vite build`. |
 | Local run | `pnpm dev` starts the API (port 8787) and web (port 3011). The web `/status` page and `/api/v1/health` reach the API. |
-| Not tested | Deploying to Cloudflare, and the production service binding between the two Workers. Sign-in. D1 queries from the API. |
+| Not tested then | Deploying to Cloudflare, and the production service binding between the two Workers. Sign-in. D1 queries from the API. All since done except D1 queries for business features: the sign-in Workers and the login are live (patches 10 to 14). |
 
 ---
 
@@ -94,7 +95,7 @@ Public website ─▶ public-inquiry Worker ─▶ its own D1. `api` reads it (s
 ```
 
 Rules:
-- `krhomebase-api` has **no public address** (`workers_dev` and `preview_urls` are off in its `wrangler.jsonc`).
+- `krhomebase-api` has **no public address** (`workers_dev` and `preview_urls` are off in its `kr-api-wrangler.jsonc`).
 - `krhomebase-web` has **no D1 binding**.
 - Only `krhomebase-api` holds the `krhomebase` D1 binding.
 - The old generic CRUD Worker and its encrypted messages are not carried forward. One exception, for the first working sign-in only: `krhomebase-crud-worker` and `krhomebase-session-worker` (copied into `workers/`) are deployed with **no public address**, and `krhomebase-api` calls them through the service bindings `CRUD_WORKER` and `SESSION_WORKER` (added in patch 13 with the ported sign-in). They are replaced by direct database access in `apps/api` later. See `docs/03_Workers_And_Login_Plan.md`.
@@ -211,7 +212,7 @@ krhomebase/
 │  │  ├─ test/                      # contract tests
 │  │  ├─ openapi/openapi.json       # generated, committed
 │  │  ├─ scripts/write-openapi.ts
-│  │  └─ wrangler.jsonc             # D1 binding, no public address
+│  │  └─ kr-api-wrangler.jsonc      # D1 binding, no public address
 │  ├─ external-api/                 # key-checked bridge for outside programs   (planned)
 │  ├─ public-inquiry/               # intake Worker and its own D1             (planned)
 │  └─ gpt-gateway/                  # AI provider Worker and its own D1        (planned)
@@ -252,7 +253,7 @@ Several `package.json` files plus a root one for your shortcuts:
 
 1. **Baseline database.** Done: `krhomebase` loaded from `krhomebase_dev`. Remaining: review the verify output; delete the dump files in `snapshots\`.
 2. **Workspace skeleton.** Done: pnpm workspace, shared tsconfig, root scripts, contracts, API, web, AGENTS files.
-3. **API skeleton, remaining parts.** Sign-in (session) middleware, D1 access helper, `scripts/smoke.mjs`, first deploy of both Workers to a dev environment (this tests the production service binding).
+3. **API skeleton, remaining parts.** Done: sign-in (session) middleware, first live deploy of all four Workers (this proved the production service bindings). Remaining: D1 access helper and `scripts/smoke.mjs`.
 4. **Contracts and client, remaining parts.** Generated `packages/api-client`; documentation viewer; database baseline test.
 5. **First complete feature: Clients.** Build Clients from the database up to the screen: queries, rules, routes, contract, client call, list and detail screens. Reasons: Clients is small and many other features refer to it; every later feature copies its file layout, naming, error handling and test style, and it is cheaper to settle those once; it shows whether the binding, the generated client and the tests work together before real effort goes into billing. Done means: list, view, create and edit work on screen; bad input gets the standard error reply; the tests pass; `pnpm check` passes.
 6. **Port the remaining features one business area at a time,** not file by file: people and contacts, matters, tasks and workstream, time, billing and payments, documents and media, publishing, admin. For each area, first write an as-is reference of the old routes (methods, who may call, inputs, writes), then merge the old top-level and `kr-api-v1` versions into one route set.
@@ -263,7 +264,7 @@ Several `package.json` files plus a root one for your shortcuts:
 ## 14. Open decisions for Dan
 
 1. **API routing library.** Hono is used in the skeleton. Switching later means rewriting `defineRoute` and `app.ts` only.
-2. **Host names.** One host name with `/api/*` forwarded to the API (current), or a second public host name for the API.
+2. **Host names.** One host name with `/api/*` forwarded to the API (current; `krhomebase.com` is bound to `krhomebase-web`), or a second public host name for the API. Also open: `www` (see `docs/04_Deployed_Architecture.md`).
 3. **Protecting calls between the Workers.** Service binding alone (current), or also a signed internal header.
 4. **Sessions.** The API owns the `kr_session` cookie and sets it through the web forward (simpler), or the web app handles sessions.
 5. **PDF, image and HTML-cleaning libraries** that run on Workers, chosen before billing is ported.
@@ -279,7 +280,7 @@ Several `package.json` files plus a root one for your shortcuts:
 ## 15. Risks
 
 - **Beta build tooling in `apps/web`.** vinext 1.4.1 now uses the `cf` command-line tool (1.0.0-beta.26) and the Cloudflare Vite plugin 2.0 beta, set up through `cloudflare.config.ts`. The old app also ran on a beta vinext (1.0.0-beta.9) but with a `wrangler.jsonc` file, so its setup does not carry over. Keep `web` thin so plain Next.js on another host stays possible.
-- **Deploy is untested.** Nothing has been deployed to Cloudflare yet. The production service binding is the first thing step 3 must prove.
+- **Deploy.** Deployed and working since Nov 6, 2026: the production service bindings carry the sign-in. The state is in `docs/04_Deployed_Architecture.md`. Still untested: D1 queries from the API for business features.
 - **Compatibility date is 2026-10-30,** the newest date the bundled local runtime accepts. Raise it when the tooling does.
 - **Large old route files contain undocumented behavior** and must be re-read when ported. Budget time for billing and timekeeping.
 - **Cutover.** The old and new apps use different databases during the build. Decide how data is refreshed before any go-live.

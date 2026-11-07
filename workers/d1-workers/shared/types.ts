@@ -7,7 +7,7 @@
 // Cloudflare Worker environment bindings
 // ---------------------------------------------------------------------------
 
-/** Cloudflare Worker environment — bound in wrangler.json / wrangler.jsonc */
+/** Cloudflare Worker environment — bound in wrangler.json / kr-api-wrangler.jsonc */
 export interface WorkerEnv {
   /** D1 database binding */
   CRUD_WORKER_ASSIGNED_D1: D1Database
