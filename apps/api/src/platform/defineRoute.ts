@@ -1,5 +1,5 @@
 import { createRoute, type RouteConfig } from '@hono/zod-openapi'
-import { CommonErrorCodes, ErrorEnvelope, type Access, type ToolScope } from '@krhomebase/contracts'
+import { CommonErrorCodes, ErrorEnvelope, type Access, type RoutePermission, type ToolScope } from '@krhomebase/contracts'
 
 /**
  * The facts every route must state. Leaving one out is a type error, and the contract tests
@@ -23,6 +23,12 @@ export type RouteMeta = {
    * server call (no person) is allowed on `signed-in` routes only through this field. See docs/05_Outside_Tools.md.
    */
   toolAccess?: 'any' | ToolScope
+  /**
+   * Optional. The fine-grained permission a signed-in person needs, for example `{ resource: 'contacts',
+   * action: 'read' }`, granted by their role sets (old `isAuthorized`). Checked after `access`. A route whose
+   * rule has an exception (for example "or your own contact") leaves this out and checks in the handler.
+   */
+  permission?: RoutePermission
 }
 
 export type RegisteredRoute = {
@@ -39,19 +45,20 @@ const errorResponse = (description: string) => ({
 })
 
 export function defineRoute<R extends RouteConfig & RouteMeta>(spec: R) {
-  const { feature, summary, access, errors, sideEffects, toolAccess, ...rest } = spec
-  const meta: RouteMeta = { feature, summary, access, errors, sideEffects, ...(toolAccess ? { toolAccess } : {}) }
+  const { feature, summary, access, errors, sideEffects, toolAccess, permission, ...rest } = spec
+  const meta: RouteMeta = { feature, summary, access, errors, sideEffects, ...(toolAccess ? { toolAccess } : {}), ...(permission ? { permission } : {}) }
 
   const hasInput = Boolean(rest.request)
   const roleText =
     access === 'public' ? 'Public (no sign-in).' : access === 'signed-in' ? 'Any signed-in user.' : `Roles: ${access.roles.join(', ')}.`
   const description = [
     roleText,
+    ...(permission ? [`Permission: ${permission.resource}.${permission.action}.`] : []),
     `Side effects: ${sideEffects.join('; ')}.`,
     toolAccess
       ? `Outside tools: ${toolAccess === 'any' ? 'any registered tool' : `tools granted ${toolAccess}`}.`
       : 'Outside tools: not allowed.',
-    `Error codes: ${[...(hasInput ? ['VALIDATION_FAILED'] : []), ...(access === 'public' ? [] : ['UNAUTHENTICATED', 'FORBIDDEN']), ...errors, 'INTERNAL_ERROR'].join(', ')}.`,
+    `Error codes: ${[...(hasInput ? ['VALIDATION_FAILED'] : []), ...(access === 'public' ? [] : ['UNAUTHENTICATED', 'FORBIDDEN']), ...(permission ? ['PERMISSION_REQUIRED', 'PERMISSIONS_UNAVAILABLE'] : []), ...errors, 'INTERNAL_ERROR'].join(', ')}.`,
   ].join('\n\n')
 
   const autoErrors = {

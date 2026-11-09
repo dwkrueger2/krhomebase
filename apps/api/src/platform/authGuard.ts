@@ -6,6 +6,8 @@
  *  - `'public'`: nothing to check; `session` is set to null.
  *  - `'signed-in'`: the request must carry a live session cookie, else 401 `UNAUTHENTICATED`.
  *  - `{ roles }`: as above, and the session's role must be listed, else 403 `FORBIDDEN`.
+ *  - `permission` (optional, any non-public route): after the role check, the person's role sets must grant
+ *    `<resource>.<action>`, else 403 `PERMISSION_REQUIRED` (see `permissionDenied`).
  *
  * A route is found by matching the request's method and matched path against `routeRegistry`. A route that
  * is not in the registry cannot exist (every route is declared with `defineRoute()`), and an unknown
@@ -33,8 +35,10 @@
 
 import type { Context, MiddlewareHandler, Next } from 'hono'
 import { getCookie } from 'hono/cookie'
-import { TOOL_GATEWAY_HEADER, TOOL_GATEWAY_VALUE, TOOL_ID_HEADER, type SessionUser } from '@krhomebase/contracts'
+import { TOOL_GATEWAY_HEADER, TOOL_GATEWAY_VALUE, TOOL_ID_HEADER, type RoutePermission, type SessionUser } from '@krhomebase/contracts'
 import { accessAllows } from '../features/auth/rules.ts'
+import { permissionQueriesFor } from '../features/permissions/queries.ts'
+import { isAuthorized } from '../features/permissions/rules.ts'
 import { toolQueriesFor, type ToolQueries } from '../features/tools/queries.ts'
 import { bearerToken, hashToolSecret, ipAllowed, scopeAllows, toolUsableBy, type ToolCaller } from '../features/tools/rules.ts'
 import { routeRegistry, type RouteMeta } from './defineRoute.ts'
@@ -49,8 +53,13 @@ export function clientIp(headers: Headers): string | null {
   return headers.get('cf-connecting-ip') ?? headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null
 }
 
-/** Finds the declared facts (`access`, `toolAccess`) for the route that matched this request, or null when none matched. */
-function declaredRoute(method: string, matchedPaths: string[]): RouteMeta | null {
+/** The paths Hono matched for this request (the route patterns, not the URL). */
+export function matchedPathsOf(c: Context<AppEnv>): string[] {
+  return c.req.matchedRoutes.filter((r) => r.method !== 'ALL').map((r) => r.path)
+}
+
+/** Finds the declared facts (`access`, `toolAccess`, `permission`) for the route that matched this request, or null when none matched. */
+export function declaredRoute(method: string, matchedPaths: string[]): RouteMeta | null {
   const wanted = method.toLowerCase() === 'head' ? 'get' : method.toLowerCase()
   for (const path of matchedPaths) {
     const normalized = path.replace(/:([A-Za-z]+)/g, '{$1}')
@@ -140,13 +149,30 @@ async function frameToolGate(c: Context<AppEnv>, next: Next, route: RouteMeta, s
   await auditToolCall(c, queries, caller, session.userId)
 }
 
+/**
+ * The fine-grained check (`permission` in `defineRoute()`), after the role check. Uses the person's role sets
+ * and overrides (features/permissions). 403 `PERMISSION_REQUIRED` names the missing key; 503
+ * `PERMISSIONS_UNAVAILABLE` when the database cannot be read. A server call from an outside tool has no
+ * person, so this check does not apply to it: the tool's own permissions (`toolAccess`) decide.
+ */
+async function permissionDenied(c: Context<AppEnv>, permission: RoutePermission, userId: string): Promise<Response | null> {
+  const queries = permissionQueriesFor(c.env)
+  if (!queries) return failure(c, 503, 'PERMISSIONS_UNAVAILABLE', 'Permission checks are not available right now.')
+  try {
+    if (await isAuthorized(queries, userId, permission.resource, permission.action)) return null
+  } catch (error) {
+    logLine('AUTH_GUARD:permission_check_failed', c.get('requestId'), { reason: error instanceof Error ? error.message.slice(0, 80) : 'unknown' })
+    return failure(c, 503, 'PERMISSIONS_UNAVAILABLE', 'Permission checks are not available right now.')
+  }
+  const key = `${permission.resource}.${permission.action}`
+  logLine('AUTH_GUARD:permission_denied', c.get('requestId'), { permission: key })
+  return failure(c, 403, 'PERMISSION_REQUIRED', `You need the ${key} permission.`, { permission: key })
+}
+
 export const signInGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
   c.set('session', null)
   c.set('tool', null)
-  const route = declaredRoute(
-    c.req.method,
-    c.req.matchedRoutes.filter((r) => r.method !== 'ALL').map((r) => r.path),
-  )
+  const route = declaredRoute(c.req.method, matchedPathsOf(c))
   // Path B: forwarded by external-api for a tool server. Never falls back to the cookie.
   if (c.req.header(TOOL_GATEWAY_HEADER) === TOOL_GATEWAY_VALUE) return serverToolGate(c, next, route)
 
@@ -186,6 +212,10 @@ export const signInGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
     return failure(c, 401, 'UNAUTHENTICATED', 'Sign in to continue.', { reason: check.reason })
   }
   if (!accessAllows(access, check.session)) return failure(c, 403, 'FORBIDDEN', 'Your role may not use this route.')
+  if (route.permission) {
+    const denied = await permissionDenied(c, route.permission, check.session.userId)
+    if (denied) return denied
+  }
 
   c.set('session', check.session)
   // Path A: the host page is calling for a tool in a frame.

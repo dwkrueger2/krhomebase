@@ -1,4 +1,8 @@
-//file: apps/shared/d1-workers/kr-pay-worker/kr-pay-worker.ts
+//file: workers/d1-workers/kr-pay-worker/kr-pay-worker.ts
+// Deployed as kr-pay-worker-live (Nov 9, 2026). Changes from the old copy, all marked "Version metadata":
+// the import below, CF_VERSION_METADATA on the environment, `meta` in JSON bodies, meta tags on pages,
+// and version headers on every response (payWorkerVersion.ts). Payment behavior is unchanged.
+import { rememberDeployment, payWorkerMeta, versionMetaTags, withVersionHeaders, type CloudflareVersionMetadata } from './payWorkerVersion'
 /**
  * KR Pay Worker — public pay-link pages for KR Homebase invoices
  * (pay.krhomebase.com/p/<token>).
@@ -72,6 +76,8 @@ interface PayWorkerEnv {
    * paid links post when staff open Billing.
    */
   KR_HOMEBASE_PAY_WEBHOOK_URL?: string
+  /** Version metadata: Cloudflare's version_metadata binding (kr-pay-worker.jsonc). */
+  CF_VERSION_METADATA?: CloudflareVersionMetadata
 }
 
 /** Stripe settings for one payment environment, decrypted from payment_provider. Server memory only. */
@@ -282,7 +288,9 @@ function pageHeaders(status = 200): ResponseInit {
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
-  const rVal = new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } })
+  // Version metadata: every JSON object body also carries `meta` (worker, repository track, deployment id).
+  const withMeta = body && typeof body === 'object' && !Array.isArray(body) ? { ...(body as Record<string, unknown>), meta: payWorkerMeta() } : body
+  const rVal = new Response(JSON.stringify(withMeta), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } })
   return rVal
 }
 
@@ -748,6 +756,7 @@ function renderPage(env: PayWorkerEnv, input: { title: string; body: string; sta
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
+${versionMetaTags(escapeHtml)}
 <title>${escapeHtml(input.title)} · ${escapeHtml(FIRM.name)}</title>
 <style>${PAGE_CSS}</style>
 ${scripts}
@@ -1255,36 +1264,44 @@ async function handleWebhook(env: PayWorkerEnv, ctx: ExecutionContext, request: 
 // ───────────────────────────── router ─────────────────────────────
 
 export default {
+  // Version metadata: every response, from any route, leaves with the version headers.
   async fetch(request: Request, env: PayWorkerEnv, ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url)
-    const path = url.pathname
-    try {
-      if (request.method === 'GET' && path === '/health') {
-        // Reports both provider profiles (error codes only, never keys).
-        const stripe: Record<PayEnvironment, string> = { sandbox: 'ready', live: 'ready' }
-        for (const environment of ['sandbox', 'live'] as const) {
-          try {
-            await loadStripeConfig(env, environment)
-          } catch (caught) {
-            stripe[environment] = caught instanceof Error ? caught.message : 'unavailable'
-          }
-        }
-        return jsonResponse({ ok: stripe.sandbox === 'ready' && stripe.live === 'ready', environment: 'dual', stripe })
-      }
-      if (request.method === 'GET' && path === '/robots.txt') return new Response('User-agent: *\nDisallow: /\n', { headers: { 'Content-Type': 'text/plain' } })
-      if (request.method === 'GET' && path === '/assets/pay.js') return new Response(PAY_SCRIPT, { headers: { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=300', 'X-Content-Type-Options': 'nosniff' } })
-      const webhookEnvironment = path === '/stripe/webhook/sandbox' ? 'sandbox' : path === '/stripe/webhook/live' ? 'live' : null
-      if (request.method === 'POST' && webhookEnvironment) return await handleWebhook(env, ctx, request, webhookEnvironment)
-      const pay = path.match(/^\/p\/([^/]+)(?:\/(intent|confirm))?$/)
-      if (pay && request.method === 'GET' && !pay[2]) return await handlePayPage(env, pay[1])
-      if (pay && request.method === 'POST' && pay[2] === 'intent') return await handleIntent(env, ctx, pay[1], request)
-      if (pay && request.method === 'POST' && pay[2] === 'confirm') return await handleConfirm(env, ctx, pay[1], request)
-      return messagePage(env, 'Page not found', ['There is nothing at this address. Please use the payment link from your invoice email.'], 404)
-    } catch (caught) {
-      // Never log the token: /p/<token> is masked.
-      log('error', `${request.method} ${path.replace(/^\/p\/[^/]+/, '/p/<token>')} ${caught instanceof Error ? caught.message : String(caught)}`)
-      if (path.startsWith('/stripe/webhook/') || request.method === 'POST') return jsonResponse({ status: 'error', message: 'Something went wrong. Please try again in a few minutes.' }, 500)
-      return messagePage(env, 'Something went wrong', ['We could not load this page. Please try again in a few minutes.'], 500)
-    }
+    rememberDeployment(env.CF_VERSION_METADATA)
+    const rVal = withVersionHeaders(await route(request, env, ctx))
+    return rVal
   },
 } satisfies ExportedHandler<PayWorkerEnv>
+
+/** The router. Unchanged from the old Worker except that `fetch` above now wraps it. */
+async function route(request: Request, env: PayWorkerEnv, ctx: ExecutionContext): Promise<Response> {
+  const url = new URL(request.url)
+  const path = url.pathname
+  try {
+    if (request.method === 'GET' && path === '/health') {
+      // Reports both provider profiles (error codes only, never keys).
+      const stripe: Record<PayEnvironment, string> = { sandbox: 'ready', live: 'ready' }
+      for (const environment of ['sandbox', 'live'] as const) {
+        try {
+          await loadStripeConfig(env, environment)
+        } catch (caught) {
+          stripe[environment] = caught instanceof Error ? caught.message : 'unavailable'
+        }
+      }
+      return jsonResponse({ ok: stripe.sandbox === 'ready' && stripe.live === 'ready', environment: 'dual', stripe })
+    }
+    if (request.method === 'GET' && path === '/robots.txt') return new Response('User-agent: *\nDisallow: /\n', { headers: { 'Content-Type': 'text/plain' } })
+    if (request.method === 'GET' && path === '/assets/pay.js') return new Response(PAY_SCRIPT, { headers: { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=300', 'X-Content-Type-Options': 'nosniff' } })
+    const webhookEnvironment = path === '/stripe/webhook/sandbox' ? 'sandbox' : path === '/stripe/webhook/live' ? 'live' : null
+    if (request.method === 'POST' && webhookEnvironment) return await handleWebhook(env, ctx, request, webhookEnvironment)
+    const pay = path.match(/^\/p\/([^/]+)(?:\/(intent|confirm))?$/)
+    if (pay && request.method === 'GET' && !pay[2]) return await handlePayPage(env, pay[1])
+    if (pay && request.method === 'POST' && pay[2] === 'intent') return await handleIntent(env, ctx, pay[1], request)
+    if (pay && request.method === 'POST' && pay[2] === 'confirm') return await handleConfirm(env, ctx, pay[1], request)
+    return messagePage(env, 'Page not found', ['There is nothing at this address. Please use the payment link from your invoice email.'], 404)
+  } catch (caught) {
+    // Never log the token: /p/<token> is masked.
+    log('error', `${request.method} ${path.replace(/^\/p\/[^/]+/, '/p/<token>')} ${caught instanceof Error ? caught.message : String(caught)}`)
+    if (path.startsWith('/stripe/webhook/') || request.method === 'POST') return jsonResponse({ status: 'error', message: 'Something went wrong. Please try again in a few minutes.' }, 500)
+    return messagePage(env, 'Something went wrong', ['We could not load this page. Please try again in a few minutes.'], 500)
+  }
+}

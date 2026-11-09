@@ -5,7 +5,9 @@
  *  - `fakeSessionWorker(role)`: a Session Worker that accepts any cookie and returns a made-up person with
  *    the given role. Use it with `signedInEnv` and the `cookie` header from `SIGNED_IN_HEADERS`.
  *  - `createTestD1()`: a D1 database kept in memory, built on Node's own SQLite (`node:sqlite`, Node 22.13 or
- *    later). It runs the real migration file, so the tests check the SQL the requester will apply.
+ *    later). It runs the real migration file, so the tests check the SQL the requester will apply. With
+ *    `{ fullSchema: true }` it also builds the whole Schema 8.0, so contact and permission queries run
+ *    against the real tables.
  *
  * Only made-up people and values are used. No rows from `snapshots\` or the live databases.
  */
@@ -16,6 +18,9 @@ import { fileURLToPath } from 'node:url'
 import { DatabaseSync } from 'node:sqlite'
 
 const here = dirname(fileURLToPath(import.meta.url))
+
+/** The whole KR Homebase schema (124 tables), as D1 reports it. Read from the repository's schema folder. */
+export const SCHEMA_8_0 = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'schema_d1_v8_0.sql')
 
 /** The migration that creates the outside-tool tables. */
 export const WORKSPACE_TOOLS_MIGRATION = join(here, '..', '..', '..', 'docs', 'patch-notes', 'repository', 'Migration_Patch016_11_09_workspace_tools.sql')
@@ -50,8 +55,8 @@ export function fakeSessionWorker(role: string, userId = 'user-test-1'): Fetcher
 }
 
 /** Bindings for a signed-in call as `role`. Add `krhomebase` for routes that need the database. */
-export function signedInEnv(role: string, extra: Record<string, unknown> = {}) {
-  return { SESSION_WORKER: fakeSessionWorker(role), KR_SESSION_WORKER_SECRET: 'session-secret', ...extra } as unknown as Env
+export function signedInEnv(role: string, extra: Record<string, unknown> = {}, userId = 'user-test-1') {
+  return { SESSION_WORKER: fakeSessionWorker(role, userId), KR_SESSION_WORKER_SECRET: 'session-secret', ...extra } as unknown as Env
 }
 
 type Value = string | number | null
@@ -80,16 +85,24 @@ class TestStatement {
     const info = this.db.prepare(this.sql).run(...this.values)
     return { success: true, meta: { changes: Number(info.changes) }, results: [] }
   }
+
+  /** What D1's batch returns for this statement: rows for a read, a change count for a write. */
+  async forBatch() {
+    return /^\s*(SELECT|WITH)\b/i.test(this.sql) ? this.all() : this.run()
+  }
 }
 
 /**
- * Makes an in-memory D1 database with the outside-tool tables, from the real migration file.
+ * Makes an in-memory D1 database with the outside-tool tables, from the real migration file. With
+ * `{ fullSchema: true }` it first builds every table of `docs/Schema_8.0/schema_d1_v8_0.sql`.
  *
  * @returns `db` (pass it as the `krhomebase` binding) and `sqlite` (to look at rows directly in a test).
  */
-export function createTestD1() {
+export function createTestD1(options: { fullSchema?: boolean } = {}) {
   const sqlite = new DatabaseSync(':memory:')
   sqlite.exec('PRAGMA foreign_keys = ON;')
+  // fullSchema: every table of Schema 8.0, for areas that read the firm's records (contacts, permissions).
+  if (options.fullSchema) sqlite.exec(readFileSync(SCHEMA_8_0, 'utf8'))
   sqlite.exec(readFileSync(WORKSPACE_TOOLS_MIGRATION, 'utf8'))
   const db = {
     prepare: (sql: string) => new TestStatement(sqlite, sql),
@@ -97,7 +110,7 @@ export function createTestD1() {
       sqlite.exec('BEGIN')
       try {
         const results = []
-        for (const statement of statements) results.push(await statement.run())
+        for (const statement of statements) results.push(await statement.forBatch())
         sqlite.exec('COMMIT')
         return results
       } catch (error) {

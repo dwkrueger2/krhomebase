@@ -1,7 +1,7 @@
 {
   "name": "krhomebase",
   "version": "1.0.0",
-  "patchNum": "16",
+  "patchNum": "18",
   "patchDate": "11-09",
   "private": true,
   "description": "KR Homebase: web (Next.js on vinext) and api (Hono on Cloudflare Workers).",
@@ -18,6 +18,7 @@
     "deploy:api": "pnpm --dir apps/api run deploy",
     "deploy:web": "pnpm --dir apps/web run deploy",
     "deploy:external": "pnpm --dir apps/external-api run deploy",
+    "deploy:pay": "wrangler deploy --config workers/d1-workers/kr-pay-worker/kr-pay-worker.jsonc",
     "typecheck": "pnpm --dir packages/contracts run typecheck && pnpm --dir packages/tool-sdk run typecheck && pnpm --dir apps/api run typecheck && pnpm --dir apps/external-api run typecheck && pnpm --dir apps/web run typecheck",
     "test": "pnpm --dir packages/contracts run test && pnpm --dir packages/tool-sdk run test && pnpm --dir apps/api run test && pnpm --dir apps/external-api run test && pnpm --dir apps/web run test",
     "check": "pnpm run typecheck && pnpm run test",

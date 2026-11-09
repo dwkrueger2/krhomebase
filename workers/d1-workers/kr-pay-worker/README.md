@@ -1,12 +1,11 @@
 # kr-pay-worker
 
-<small>Version 1.7</small><br>
-<small>Updated Nov 4, 2026 2:06pm</small>
+<small>Version 1.8</small><br>
+<small>Updated Nov 9, 2026 11:45am</small>
 
-> **Copied from the old repository on Nov 4, 2026.** File paths were changed from `apps/shared/...` to `workers/...`. Worker names, database names and ids, bucket names and deploy commands in this document describe the OLD live system. Do not run them. The names this repository uses are in each worker's `.jsonc` file and in `workers/Readme-workers.md`.
+> **Nov 9, 2026: this folder is now the live pay Worker, `kr-pay-worker-live`.** It replaces the old `kr-pay-worker-dev` on `pay.krhomebase.com` and uses the one database, `krhomebase`. The payment code is unchanged; the only code change is version metadata on every response (section "Version metadata"). The old Worker stays deployed, without the address, until the switch is checked; then the requester deletes it.
 
-
-Public pay-link pages for KR Homebase invoices at `pay.krhomebase.com/p/<token>`. One Worker, **kr-pay-worker-dev**, serves both Stripe environments from the shared `krhomebase_dev` database. The payment request's stored environment selects the API key, while the explicit webhook path selects the webhook secret. workers.dev is off.
+Public pay-link pages for KR Homebase invoices at `pay.krhomebase.com/p/<token>`. One Worker, **kr-pay-worker-live**, serves both Stripe environments from the `krhomebase` database. The payment request's stored environment selects the API key, while the explicit webhook path selects the webhook secret. workers.dev is off.
 
 ## How a payment flows
 
@@ -26,7 +25,7 @@ Public pay-link pages for KR Homebase invoices at `pay.krhomebase.com/p/<token>`
 | `GET /assets/pay.js` | Page script |
 | `POST /stripe/webhook/sandbox` | Sandbox `payment_intent.succeeded` (signature-verified with the Sandbox webhook secret) |
 | `POST /stripe/webhook/live` | Live `payment_intent.succeeded` (signature-verified with the Live webhook secret) |
-| `GET /health` | `{ ok, environment: 'dual', stripe: { sandbox, live } }` — never a key |
+| `GET /health` | `{ ok, environment: 'dual', stripe: { sandbox, live }, meta }` — never a key |
 
 ## Configuration
 
@@ -41,36 +40,62 @@ Stripe keys are **not** Worker settings. The Worker reads the `payment_provider`
 | `KR_PAY_ENVIRONMENT` | wrangler deployment label (fallback only) | `sandbox` | `live` |
 | Domain | wrangler routes | `pay.krhomebase.com` | `pay.krhomebase.com` |
 | `KR_PAYMENT_PROVIDER_KEK` | Worker secret (once) | same shared KEK | same shared KEK |
-| `KR_HOMEBASE_PAY_WEBHOOK_URL` | Worker secret (optional) | a public URL that reaches dev KR Homebase (tunnel), or unset | `https://<homebase>/krhomebase/api/kr-api-v1/billing/pay-link-paid` |
-| `KR_PAY_D1` | D1 binding | `krhomebase_dev` | `krhomebase_dev` |
+| `KR_HOMEBASE_PAY_WEBHOOK_URL` | Worker secret (optional) | unset | unset until the new app has its pay-link-paid route (plan stage 6) |
+| `KR_PAY_D1` | D1 binding | `krhomebase` | `krhomebase` |
+| `CF_VERSION_METADATA` | version_metadata binding | filled in by Cloudflare | same |
 
 **Environment stays explicit:** the `/p/<token>` request loads the environment stored on its `payment_request` row. The key prefixes must match that environment or the Worker refuses to charge; `/health` reports either `STRIPE_SANDBOX_KEY_MODE_MISMATCH` or `STRIPE_LIVE_KEY_MODE_MISMATCH`. Stripe webhook events must use the matching `/sandbox` or `/live` path, matching signing secret, and matching `livemode` value. Settings → Save already rejects a live key on the Sandbox card.
 
 The KEK is the only required Worker secret (the webhook URL is optional and not sensitive). It is infrastructure, not a Stripe key: it decrypts what Settings stores and does not change when Stripe keys change. It must be the same value KR Homebase uses for that database, or `/health` shows `PAYMENT_PROVIDER_KEK_MISMATCH`.
 
-KR Homebase builds links from `KR_PAY_SANDBOX_BASE_URL` (dev) and `KR_PAY_LIVE_BASE_URL` (production).
+KR Homebase builds links from `KR_PAY_SANDBOX_BASE_URL` (dev) and `KR_PAY_LIVE_BASE_URL` (production). Both are `https://pay.krhomebase.com`, so links already sent keep working after the switch.
 
-## Setup (owner-run, PowerShell from the repo root)
+## Setup (owner-run, PowerShell from the repository root)
 
-Prerequisite: migrations `20260928_payment_request.sql` (1.1) and `20260929_payment_request_link_source.sql` applied to `krhomebase_dev` and the CRUD Worker redeployed.
+The requester runs these. Claude does not run `wrangler deploy` or `wrangler secret put`.
 
-1. KEK (once; the same value KR Homebase uses for `krhomebase_dev`):
+1. **Before the switch, check that nothing was paid or opened in the old database since the copy.** Read-only:
 
    ```powershell
-   Get-Content -Raw '.\private\dev-private-keys\payment-provider-kek.key' | pnpm.cmd exec wrangler secret put KR_PAYMENT_PROVIDER_KEK --env dev --config '.\workers\d1-workers\kr-pay-worker\kr-pay-worker.jsonc'
+   Set-Location D:\Repos\krhomebase
+   $query = "SELECT status, COUNT(*) AS rows_, MAX(updated_at) AS last_change FROM payment_request GROUP BY status"
+   pnpm exec wrangler d1 execute krhomebase_dev --remote --command $query
+   pnpm exec wrangler d1 execute krhomebase --remote --command $query
    ```
 
-   Wrangler asks to create the Worker the first time — answer yes.
-2. Deploy the Worker with the repository script: `pnpm.cmd run workers:dev:deploy:pay`.
-3. Stripe Sandbox → Workbench → Webhooks → **Create an event destination** → event `payment_intent.succeeded` → URL `https://pay.krhomebase.com/stripe/webhook/sandbox`. Copy the signing secret.
-4. KR Homebase → Settings → Stripe Payment Configuration → **Sandbox** card → Webhook name: `https://pay.krhomebase.com/stripe/webhook/sandbox`; Webhook secret: paste `whsec_…` → Save.
-5. Stripe Live → Workbench → Webhooks → **Create an event destination** → event `payment_intent.succeeded` → URL `https://pay.krhomebase.com/stripe/webhook/live`. Copy the signing secret.
-6. KR Homebase → Settings → Stripe Payment Configuration → **Live** card → Webhook name: `https://pay.krhomebase.com/stripe/webhook/live`; Webhook secret: paste `whsec_…` → Save.
-7. Check `https://pay.krhomebase.com/health` → `{"ok":true,"environment":"dual","stripe":{"sandbox":"ready","live":"ready"}}`.
-8. KR Homebase `.env.local`: `KR_PAY_SANDBOX_BASE_URL=https://pay.krhomebase.com` and `KR_PAY_LIVE_BASE_URL=https://pay.krhomebase.com`; restart dev.
-9. Logs while testing: `pnpm.cmd exec wrangler tail kr-pay-worker-dev`.
-10. Optional — instant receipts in dev: dev KR Homebase runs on `localhost:3001`, which the deployed Worker cannot reach. Expose it with a tunnel (for example `cloudflared tunnel --url http://localhost:3001`) and set `KR_HOMEBASE_PAY_WEBHOOK_URL` to `<tunnel URL>/krhomebase/api/kr-api-v1/billing/pay-link-paid` with the repository's Worker secret procedure. Without it, open Billing to post and send the receipt. `wrangler tail` shows `[KR_PAY:homebase-notice]` for each attempt.
+   The two results should match. If `krhomebase_dev` shows newer changes, stop and tell Claude: those rows must be copied first.
+2. **Set the KEK** (the same value that encrypted the `payment_provider` rows). The key file is only in the old repository's `private` folder, so copy it into this repository's `private` folder first (both are ignored by Git). Wrangler asks to create the Worker the first time; answer yes:
 
-## Deployment labels
+   ```powershell
+   Set-Location D:\Repos\krhomebase
+   $oldKek = 'D:\Repos\krueger-richard-website\private\dev-private-keys\payment-provider-kek.key'
+   $kek = '.\private\dev-private-keys\payment-provider-kek.key'
+   $config = '.\workers\d1-workers\kr-pay-worker\kr-pay-worker.jsonc'
+   Copy-Item $oldKek $kek
+   Get-Content -Raw $kek | pnpm exec wrangler secret put KR_PAYMENT_PROVIDER_KEK --config $config
+   ```
+3. **Deploy:** `pnpm deploy:pay`. Wrangler reports that `pay.krhomebase.com` belongs to `kr-pay-worker-dev` and asks whether to point it at this Worker. Answer yes. The address moves in one step, so pay links do not stop working.
+4. **Check:**
 
-`--env dev` and the default deployment both target **kr-pay-worker-dev** and the same D1 database. The deployment variable only identifies which profile was used during that deploy; runtime payment and webhook selection comes from the payment request and explicit webhook route. Use the same `KR_PAYMENT_PROVIDER_KEK` for both deployment commands because both decrypt the same D1 rows. Optional: a Cloudflare rate-limiting rule on `/p/*`.
+   ```powershell
+   $health = Invoke-WebRequest -Uri 'https://pay.krhomebase.com/health'
+   $health.Headers['X-KR-Worker']; $health.Headers['X-KR-Version']; $health.Content
+   ```
+
+   Expect `kr-pay-worker-live`, the repository version (for example `1.0.0 p18 (11-09)`), and `"stripe":{"sandbox":"ready","live":"ready"}`. `PAYMENT_PROVIDER_KEK_MISMATCH` means the KEK in step 2 is not the one that encrypted the rows.
+5. **Stripe webhooks need no change.** They point at `https://pay.krhomebase.com/stripe/webhook/sandbox` and `/live`, which now reach this Worker, and their signing secrets are in the copied `payment_provider` rows.
+6. **Record the deployment id** that `pnpm deploy:pay` prints in `docs/04_Deployed_Architecture.md`.
+7. **After a day with no problems,** delete `kr-pay-worker-dev` in the Cloudflare dashboard (Workers & Pages, `kr-pay-worker-dev`, Settings, Delete). It still has a binding to `krhomebase_dev`.
+8. Logs while testing: `pnpm exec wrangler tail kr-pay-worker-live`.
+
+## Version metadata
+
+Every response says which code and which deployment answered. The code version is the repository track, read from the root `package.json` when Wrangler bundles the Worker (`payWorkerVersion.ts`), so it cannot drift. The deployment id comes from Cloudflare's `version_metadata` binding.
+
+| Where | What |
+|---|---|
+| Every response | Headers `X-KR-Worker: kr-pay-worker-live`, `X-KR-Version: 1.0.0 p18 (11-09)`, `X-KR-Deployment: <Cloudflare version id>` |
+| JSON bodies (`/health`, `/intent`, `/confirm`, webhooks, errors) | `meta: { worker, track: "repository", version, patchNum, patchDate, deploymentId, deployedAt }` |
+| HTML pages | `<meta name="kr-worker">`, `<meta name="kr-version">`, `<meta name="kr-deployment">` in the head |
+
+A change to this Worker is a repository-track patch (`AGENTS_01`, section 5). Redeploy after the patch so the reported version matches.

@@ -1,7 +1,7 @@
 # 00_PromptMemoryStart
 
-<small>Version 1.5</small><br>
-<small>Updated Nov 9, 2026 9:20am</small>
+<small>Version 1.6</small><br>
+<small>Updated Nov 9, 2026 10:40am</small>
 
 **Purpose:** Read and follow this file at the start of every new prompt in the `krhomebase` repository.
 
@@ -87,6 +87,7 @@ In any directory whose path contains the text `private`, file names may be liste
 - Other databases, each in its own space: `docs\Schema_Public_Inquiry_v2.0` (database `kr_public_inquiry_06_2026`, quarantined public intake) and `docs\Schema_GPT_Usage_1.1` (database `krhomebase_gpt_usage_dev`, GPT gateway). They are separate D1 databases with no foreign keys into Homebase.
 - Deployed architecture (what is live now: the four Workers, their addresses, bindings, settings and deploy commands): `docs\04_Deployed_Architecture.md`. Read it before any work on a Worker, binding, web address, secret or deploy command, and update it in the same change.
 - Outside tools (design, security model, go-live steps): `docs\05_Outside_Tools.md`. The guide for outside developers: `packages\tool-sdk\README.md`.
+- Contacts and Billing port (decisions, stages, the open single-database question): `docs\06_Contacts_Billing_Port_Plan.md`.
 - Architecture and build plan: `docs\01_Architecture_Proposal.md`. AGENTS review: `docs\02_AGENTS_Review.md`. Old API route table: `docs\API\`.
 - Code rules for agents: `AGENTS.md` at the repository root (the index), the companion guides `AGENTS_01` to `AGENTS_06` beside it (versions, commits, documentation headers, coding style, Tailwind, D1 migrations), plus the nearest `AGENTS.md` in `apps\api`, `apps\web` and `packages\contracts`.
 - Version tracks (repository, API, web) are kept in three `package.json` files; the procedure is `AGENTS_01_version-procedures.md`. Outstanding task lists: `docs\patch-notes`.

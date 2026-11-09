@@ -1,7 +1,7 @@
 # KR Homebase API Agent Guide
 
-<small>Version 1.7</small><br>
-<small>Updated Nov 9, 2026 9:20am</small>
+<small>Version 1.8</small><br>
+<small>Updated Nov 9, 2026 11:45am</small>
 
 ## Purpose
 
@@ -76,9 +76,27 @@ A route is not finished until all of these pass (`pnpm check`):
 
 - **Who is signed in.** `signInGuard` (`src/platform/authGuard.ts`) runs on every request after `requestId`. It finds the route in `routeRegistry`, reads its `access`, and for `signed-in` or `{ roles }` routes asks the session Worker about the `kr_session` cookie. No cookie gives 401 `UNAUTHENTICATED`; an unreachable session Worker gives 503 `SESSION_VALIDATION_UNAVAILABLE`; a role not on the list gives 403. There is no implicit super admin.
 - **Auth routes** are in `src/features/auth/` (`routes.ts`, `rules.ts`, `queries.ts`, `signIn.ts`). `queries.ts` is the only file that reaches the database, and it does so through the crud Worker.
+- **Permissions** (`permission` in `defineRoute()`) are checked after the role; see "Database access, permissions and writes".
 - **Outside calls** go through `src/platform/`: `crudClient.ts` (signs and seals each command for the crud Worker), `sessionClient.ts`, `google.ts`, `turnstile.ts`. They use WebCrypto, never `node:crypto`.
 - **Bindings.** `CRUD_WORKER` and `SESSION_WORKER` are service bindings in `kr-api-wrangler.jsonc`. They are `remote: true`, so `pnpm dev:api` calls the deployed Workers.
 - **Settings and secrets** are listed in `apps/api/Readme-auth.md`. The names only are in `apps/api/.dev.vars.example`.
+
+## Database access, permissions and writes
+
+Business areas read and write D1 directly through the `krhomebase` binding, not through the crud Worker (decision of Nov 9, 2026; the reasons and what replaced each crud Worker protection are in `docs/06_Contacts_Billing_Port_Plan.md`, section 7). Sign-in still uses the crud Worker until it is moved.
+
+- **Only `queries.ts` talks to D1.** `test/databaseAccess.test.ts` fails if any other source file calls `.prepare(`, `.batch(` or `.dump(`. Every statement is fixed SQL with bound values; never build SQL from request text. Pass id lists as one JSON value with `json_each` (D1 allows at most 100 bound values per statement).
+- **Shape.** Every request and reply is a zod contract in `packages/contracts`; select named columns, not `*`, so a new sensitive column is never sent by accident.
+- **Permissions.** A route that needs a fine-grained permission declares `permission: { resource, action }` in `defineRoute()`; `authGuard.ts` checks it after the role with `src/features/permissions/` (the old `krAuthorization.ts`, unchanged rules, 60-second cache). 403 `PERMISSION_REQUIRED`, 503 `PERMISSIONS_UNAVAILABLE`. A rule with an exception (for example "or your own contact") checks in the handler and says so in the summary.
+- **Every write** is audited and gated:
+  - Put `auditStatement(db, entry)` (`src/platform/queries.ts`) in the same `db.batch([...])` as the change, so both are saved or neither. The person comes from the checked session, never from the request body.
+  - `src/platform/writeGate.ts` refuses non-GET routes with side effects while `kr_maintenance_gate` is locked (423 `MAINTENANCE_LOCKED`). Exempt: `auth`, `health`, `tools`.
+- **Tests** that need the firm's tables use `createTestD1({ fullSchema: true })`, which builds every table of `docs/Schema_8.0/schema_d1_v8_0.sql`.
+- **Full SSN and date of birth** are never selected for lists. See the header of `packages/contracts/src/contacts.ts`.
+
+## Contacts
+
+`src/features/contacts/` serves `GET /v1/contacts` (whole list, or `mode=delta&since=`) and `GET /v1/contacts/{contactId}` (one contact with the full SSN and date of birth). `rules.ts` holds the old serializer unchanged; `queries.ts` the thirteen-table loads. Writes come with the Contacts Manager panel.
 
 ## Outside tools
 

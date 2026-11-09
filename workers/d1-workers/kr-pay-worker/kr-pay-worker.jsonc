@@ -1,21 +1,18 @@
 //file: workers/d1-workers/kr-pay-worker/kr-pay-worker.jsonc
-// Changes from the copy: Cloudflare name; database ids are NOT_SET_REVIEW_BEFORE_USE; the claim on pay.krhomebase.com
-// is removed so that deploying this copy cannot take over the live payment address. The code is unchanged.
-// KR Pay Worker — one public pay-link Worker for both Stripe environments (see README.md in this folder).
-//   default deployment (no --env) → kr-pay-worker-dev, krhomebase_dev, live payment_provider row
-//   --env dev                  → kr-pay-worker-dev, krhomebase_dev, sandbox payment_provider row
-//   Both webhook destinations use the same Worker and select their profile by path:
-//     /stripe/webhook/sandbox and /stripe/webhook/live.
-//   Both deployment profiles use the same D1 database and the same KR_PAYMENT_PROVIDER_KEK.
-//   workers.dev is off, so no account name appears in any client-facing URL.
+// KR Pay Worker, live: kr-pay-worker-live serves pay.krhomebase.com from the one database, krhomebase (README.md in this folder).
+// It replaces the old kr-pay-worker-dev, which wrote to the frozen krhomebase_dev (docs/06_Contacts_Billing_Port_Plan.md, section 6).
+//   One deployment, no --env. Both Stripe environments are served by the same Worker:
+//     the payment_request row's stored environment picks the API key, and the webhook path
+//     (/stripe/webhook/sandbox or /stripe/webhook/live) picks the webhook secret.
+//   KR_PAY_ENVIRONMENT is only the fallback label for pages that have no payment request (for example "Page not found").
 // Stripe keys come from D1 payment_provider (Settings → Stripe Payment Configuration), never from this file.
-// One Worker secret: KR_PAYMENT_PROVIDER_KEK — the same KEK KR Homebase uses for the shared database.
-// Optional Worker secret: KR_HOMEBASE_PAY_WEBHOOK_URL — KR Homebase's .../kr-api-v1/billing/pay-link-paid URL. When set,
-//   the Worker notifies KR Homebase right after a payment so it posts and emails the receipt (signed with a key
-//   derived from the KEK; no extra shared secret). Unset → paid links post when staff open Billing.
+// One Worker secret: KR_PAYMENT_PROVIDER_KEK, the same KEK that encrypted the payment_provider rows (copied with the database).
+// Optional Worker secret: KR_HOMEBASE_PAY_WEBHOOK_URL. Leave it unset until the new app has its pay-link-paid route (plan stage 6);
+//   until then a paid link stays "paid" in krhomebase and is posted when billing reads it.
+// Version: every response carries the repository track (root package.json) and the Cloudflare deployment id (CF_VERSION_METADATA).
 {
   "$schema": "../../../node_modules/wrangler/config-schema.json",
-  "name": "krhomebase-pay-worker",
+  "name": "kr-pay-worker-live",
   "main": "./kr-pay-worker.ts",
   "compatibility_date": "2026-09-05",
   "secrets": {
@@ -23,42 +20,22 @@
   },
   "d1_databases": [
     {
-      // Operational database. The Worker runs only the fixed statements in kr-pay-worker.ts.
+      // The one database. The Worker runs only the fixed statements in kr-pay-worker.ts.
       "binding": "KR_PAY_D1",
-      "database_name": "krhomebase_dev",
-      "database_id": "NOT_SET_REVIEW_BEFORE_USE"
+      "database_name": "krhomebase",
+      "database_id": "ef68921f-c7d3-4d0b-9af4-defebc748616"
     }
   ],
+  // Cloudflare fills this in at run time with the id, tag and time of the deployment that answered.
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA"
+  },
   "vars": {
     "KR_PAY_ENVIRONMENT": "live"
   },
-  // REMOVED in this repository: "routes": [{ "pattern": "pay.krhomebase.com", "custom_domain": true }]
-  // The old worker serves that address. Add a route back only when the requester decides to switch over.
+  // Moving this address from kr-pay-worker-dev: Wrangler asks during the first deploy whether to point it at this Worker. Answer yes.
+  "routes": [{ "pattern": "pay.krhomebase.com", "custom_domain": true }],
   "workers_dev": false,
   "preview_urls": false,
-  "observability": { "enabled": true },
-  "env": {
-    "dev": {
-      // Explicitly reuse the single Worker name; otherwise Wrangler appends the environment suffix.
-      "name": "krhomebase-pay-worker",
-      "secrets": {
-        "required": ["KR_PAYMENT_PROVIDER_KEK"]
-      },
-      "d1_databases": [
-        {
-          "binding": "KR_PAY_D1",
-          "database_name": "krhomebase_dev",
-          "database_id": "NOT_SET_REVIEW_BEFORE_USE"
-        }
-      ],
-      "vars": {
-        "KR_PAY_ENVIRONMENT": "sandbox"
-      },
-      // The dev deployment label selects Sandbox provider rows; the Worker itself serves both paths.
-      // Route removed here as well (see above).
-      "workers_dev": false,
-      "preview_urls": false,
-      "observability": { "enabled": true }
-    }
-  }
+  "observability": { "enabled": true }
 }

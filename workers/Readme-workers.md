@@ -1,7 +1,7 @@
 # Workers
 
-<small>Version 1.3</small><br>
-<small>Updated Nov 7, 2026 10:40am</small>
+<small>Version 1.5</small><br>
+<small>Updated Nov 9, 2026 1:25pm</small>
 
 The Cloudflare Workers copied from the old repository (`apps\shared`). Plan and reasons: `docs/03_Workers_And_Login_Plan.md`.
 
@@ -49,7 +49,7 @@ Cloudflare names now start with `krhomebase-`, like `krhomebase-api` and `krhome
 | `d1-workers/crud-worker` | `krhomebase-crud-worker` | `krhomebase` (id `ef68921f-c7d3-4d0b-9af4-defebc748616`) | Yes |
 | `d1-workers/session-worker` | `krhomebase-session-worker` | `krhomebase` | Yes |
 | `d1-workers/crud-worker-pub-inquiry` | `krhomebase-crud-worker-pub-inquiry` | not set | No |
-| `d1-workers/kr-pay-worker` | `krhomebase-pay-worker` | not set | No |
+| `d1-workers/kr-pay-worker` | `kr-pay-worker-live` (serves `pay.krhomebase.com`) | `krhomebase` | Yes, deployed Nov 9, 2026 |
 | `d1-workers/article-read-worker` | `krhomebase-article-read-worker` | not set | No |
 | `d1-workers/article-publish-worker` | `krhomebase-article-publish-worker` | not set | No |
 | `d1-workers/kr-homebase-mcp-worker` | `krhomebase-mcp-worker` | none needed | No |
@@ -65,12 +65,12 @@ What the configuration changes were:
 2. **Databases.** The two sign-in Workers point at `krhomebase`. Every other database id is the text `NOT_SET_REVIEW_BEFORE_USE`.
 3. **Storage buckets.** Every bucket name is `NOT_SET_REVIEW_BEFORE_USE`. The old names are in a comment in each file.
 4. **Key store (KV).** This repository has its own, named `krhomebase-public-keys` (id `f70c0ff65aa148a59bd1d598236ce1de`). The old namespace was shared with live Workers and is not used. The binding name `PUBLIC_KEYS` is unchanged, so the code is unchanged. `crud-worker` and `crud-worker-pub-inquiry` point at it.
-5. **Web addresses.** The claim on `pay.krhomebase.com` was removed from `kr-pay-worker.jsonc`. `crud-worker` and `session-worker` have `workers_dev` set to `false`: no public address (see the next section).
+5. **Web addresses.** `kr-pay-worker.jsonc` claims `pay.krhomebase.com` again (Nov 9, 2026), as `kr-pay-worker-live`; see that folder's `README.md`. `crud-worker` and `session-worker` have `workers_dev` set to `false`: no public address (see the next section).
 6. **Paths.** The `main` lines of the two article Workers and the `$schema` lines of all files now fit the new folders.
 7. **Inventory files and readmes.** Paths changed to `workers/`. A notice at the top of each says that names, ids and commands inside describe the OLD live system and must not be run.
 8. **Removed.** `sso-auth-worker` (retired and deleted from Cloudflare), the stray `wrangler.jsonc` at the top of `d1-workers`, `test-workers`, and all `.env*` files.
 
-Not changed: every `.ts`, `.mjs` and `.sql` file is byte for byte the same as its original.
+Not changed: every `.ts`, `.mjs` and `.sql` file is byte for byte the same as its original, except `kr-pay-worker.ts`, which adds version metadata to its responses (Nov 9, 2026; new file `payWorkerVersion.ts`).
 
 ## Rules for working in this folder
 
@@ -94,6 +94,7 @@ Not changed: every `.ts`, `.mjs` and `.sql` file is byte for byte the same as it
 |---|---|---|
 | `krhomebase-crud-worker` | `08b3ee64-86c0-47c0-9dbc-3c14d4095d84` | Nov 4, 2026 |
 | `krhomebase-session-worker` | `8832360b-5412-4d1a-ba2f-d58cd1677eb2` | Nov 4, 2026 |
+| `kr-pay-worker-live` | `e86c85ac-8295-4286-98c8-145060fde00d` (repository 1.0.0 p18) | Nov 9, 2026 |
 
 ## Secrets
 

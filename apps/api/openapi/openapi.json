@@ -4997,6 +4997,1590 @@
           }
         }
       }
+    },
+    "/v1/contacts": {
+      "get": {
+        "summary": "List every contact, or with mode=delta only those changed since a time. No full SSN or date of birth.",
+        "description": "Any signed-in user.\n\nPermission: contacts.read.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, CONTACTS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "contacts"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "delta"
+              ],
+              "description": "Leave out for the whole list. `delta` returns only contacts changed since `since`."
+            },
+            "required": false,
+            "description": "Leave out for the whole list. `delta` returns only contacts changed since `since`.",
+            "name": "mode",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 10,
+              "maxLength": 40,
+              "description": "With mode=delta: the `generatedAt` of the last load (ISO time)."
+            },
+            "required": false,
+            "description": "With mode=delta: the `generatedAt` of the last load (ISO time).",
+            "name": "since",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The contacts, with every current id and load timing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "collectionId": {
+                          "type": "string",
+                          "enum": [
+                            "contacts"
+                          ]
+                        },
+                        "schemaVersion": {
+                          "type": "number"
+                        },
+                        "generatedAt": {
+                          "type": "string",
+                          "description": "Server time when the load began. Send it back as `since` for the next delta."
+                        },
+                        "allContactIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Every current contact id (delta), or the ids returned (full and one). The browser drops ids not listed."
+                        },
+                        "timing": {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "full",
+                                "delta",
+                                "one"
+                              ]
+                            },
+                            "totalMs": {
+                              "type": "number"
+                            },
+                            "queryMs": {
+                              "type": "number"
+                            },
+                            "statements": {
+                              "type": "number",
+                              "description": "SQL statements run (the old API counted CRUD Worker calls here)."
+                            },
+                            "rowsLoaded": {
+                              "type": "number"
+                            },
+                            "tables": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "table": {
+                                    "type": "string"
+                                  },
+                                  "rows": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "table",
+                                  "rows"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "mode",
+                            "totalMs",
+                            "queryMs",
+                            "statements",
+                            "rowsLoaded",
+                            "tables"
+                          ]
+                        },
+                        "contacts": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "individual",
+                                  "entity"
+                                ]
+                              },
+                              "icid": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "ecid": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "typeLabel": {
+                                "type": "string"
+                              },
+                              "displayName": {
+                                "type": "string"
+                              },
+                              "entitySubtype": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "partnershipType": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "managementStructure": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "ein": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "einLast4": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "stateOfFormation": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "formationDate": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "entityStatus": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "sosFileNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "stateTaxpayerNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "xtNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "registeredAgentName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "boiStatus": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "boiConfirmationNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "pointOfContactName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "pointOfContact": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "displayName": {
+                                    "type": "string"
+                                  },
+                                  "icid": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "relationship": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "displayName",
+                                  "icid"
+                                ]
+                              },
+                              "registeredAgent": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "displayName": {
+                                    "type": "string"
+                                  },
+                                  "icid": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "relationship": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "displayName",
+                                  "icid"
+                                ]
+                              },
+                              "relatedContacts": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "displayName": {
+                                      "type": "string"
+                                    },
+                                    "icid": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "relationship": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "displayName",
+                                    "icid"
+                                  ]
+                                }
+                              },
+                              "titlePrefix": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "firstName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "middleName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "lastName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "suffix": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "preferredName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "ssnLast4": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "isMinor": {
+                                "type": "boolean"
+                              },
+                              "isAttorney": {
+                                "type": "boolean"
+                              },
+                              "email": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "phone": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "phoneSecondary": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "fax": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "addressLine1": {
+                                "type": "string"
+                              },
+                              "addressLine2": {
+                                "type": "string"
+                              },
+                              "city": {
+                                "type": "string"
+                              },
+                              "state": {
+                                "type": "string"
+                              },
+                              "postalCode": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string"
+                              },
+                              "notes": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "isClient": {
+                                "type": "boolean",
+                                "description": "True when the contact has an active client account, directly or as a group member."
+                              },
+                              "clientId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "clientNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "clientType": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "clientStatus": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "linkedUserId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The login account linked to this person, when exactly one exists."
+                              },
+                              "isCurrentUser": {
+                                "type": "boolean"
+                              },
+                              "canEditLoginEmail": {
+                                "type": "boolean"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "updatedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "kind",
+                              "typeLabel",
+                              "displayName",
+                              "relatedContacts",
+                              "titlePrefix",
+                              "firstName",
+                              "middleName",
+                              "lastName",
+                              "suffix",
+                              "preferredName",
+                              "ssnLast4",
+                              "isMinor",
+                              "isAttorney",
+                              "email",
+                              "phone",
+                              "phoneSecondary",
+                              "fax",
+                              "addressLine1",
+                              "addressLine2",
+                              "city",
+                              "state",
+                              "postalCode",
+                              "status",
+                              "notes",
+                              "isClient",
+                              "clientId",
+                              "clientNumber",
+                              "clientType",
+                              "clientStatus",
+                              "linkedUserId",
+                              "isCurrentUser",
+                              "canEditLoginEmail",
+                              "createdAt",
+                              "updatedAt"
+                            ]
+                          }
+                        },
+                        "collectionVersion": {
+                          "type": "string",
+                          "description": "Hash of every id and change time. Full loads only."
+                        }
+                      },
+                      "required": [
+                        "collectionId",
+                        "schemaVersion",
+                        "generatedAt",
+                        "allContactIds",
+                        "timing",
+                        "contacts"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached (CONTACTS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/contacts/{contactId}": {
+      "get": {
+        "summary": "Return one contact with the full SSN and date of birth, for Edit Details. Needs contacts.read, or the contact must be your own.",
+        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, CONTACT_NOT_FOUND, PERMISSION_REQUIRED, CONTACTS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "contacts"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "description": "Id of an individual or an entity."
+            },
+            "required": true,
+            "description": "Id of an individual or an entity.",
+            "name": "contactId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1"
+              ],
+              "description": "`0` skips related people (faster). Default `1`."
+            },
+            "required": false,
+            "description": "`0` skips related people (faster). Default `1`.",
+            "name": "includeRelatedContacts",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The contact (a one-item list, as the old API returned it).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "collectionId": {
+                          "type": "string",
+                          "enum": [
+                            "contacts"
+                          ]
+                        },
+                        "schemaVersion": {
+                          "type": "number"
+                        },
+                        "generatedAt": {
+                          "type": "string",
+                          "description": "Server time when the load began. Send it back as `since` for the next delta."
+                        },
+                        "allContactIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Every current contact id (delta), or the ids returned (full and one). The browser drops ids not listed."
+                        },
+                        "timing": {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "full",
+                                "delta",
+                                "one"
+                              ]
+                            },
+                            "totalMs": {
+                              "type": "number"
+                            },
+                            "queryMs": {
+                              "type": "number"
+                            },
+                            "statements": {
+                              "type": "number",
+                              "description": "SQL statements run (the old API counted CRUD Worker calls here)."
+                            },
+                            "rowsLoaded": {
+                              "type": "number"
+                            },
+                            "tables": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "table": {
+                                    "type": "string"
+                                  },
+                                  "rows": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "table",
+                                  "rows"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "mode",
+                            "totalMs",
+                            "queryMs",
+                            "statements",
+                            "rowsLoaded",
+                            "tables"
+                          ]
+                        },
+                        "contacts": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "individual",
+                                  "entity"
+                                ]
+                              },
+                              "icid": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "ecid": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "typeLabel": {
+                                "type": "string"
+                              },
+                              "displayName": {
+                                "type": "string"
+                              },
+                              "entitySubtype": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "partnershipType": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "managementStructure": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "ein": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "einLast4": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "stateOfFormation": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "formationDate": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "entityStatus": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "sosFileNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "stateTaxpayerNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "xtNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "registeredAgentName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "boiStatus": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "boiConfirmationNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "pointOfContactName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "pointOfContact": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "displayName": {
+                                    "type": "string"
+                                  },
+                                  "icid": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "relationship": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "displayName",
+                                  "icid"
+                                ]
+                              },
+                              "registeredAgent": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "displayName": {
+                                    "type": "string"
+                                  },
+                                  "icid": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "relationship": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "displayName",
+                                  "icid"
+                                ]
+                              },
+                              "relatedContacts": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "displayName": {
+                                      "type": "string"
+                                    },
+                                    "icid": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "relationship": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "displayName",
+                                    "icid"
+                                  ]
+                                }
+                              },
+                              "titlePrefix": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "firstName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "middleName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "lastName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "suffix": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "preferredName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "ssnLast4": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "isMinor": {
+                                "type": "boolean"
+                              },
+                              "isAttorney": {
+                                "type": "boolean"
+                              },
+                              "email": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "phone": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "phoneSecondary": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "fax": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "addressLine1": {
+                                "type": "string"
+                              },
+                              "addressLine2": {
+                                "type": "string"
+                              },
+                              "city": {
+                                "type": "string"
+                              },
+                              "state": {
+                                "type": "string"
+                              },
+                              "postalCode": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string"
+                              },
+                              "notes": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "isClient": {
+                                "type": "boolean",
+                                "description": "True when the contact has an active client account, directly or as a group member."
+                              },
+                              "clientId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "clientNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "clientType": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "clientStatus": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "linkedUserId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The login account linked to this person, when exactly one exists."
+                              },
+                              "isCurrentUser": {
+                                "type": "boolean"
+                              },
+                              "canEditLoginEmail": {
+                                "type": "boolean"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "updatedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "dob": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "ssn": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "kind",
+                              "typeLabel",
+                              "displayName",
+                              "relatedContacts",
+                              "titlePrefix",
+                              "firstName",
+                              "middleName",
+                              "lastName",
+                              "suffix",
+                              "preferredName",
+                              "ssnLast4",
+                              "isMinor",
+                              "isAttorney",
+                              "email",
+                              "phone",
+                              "phoneSecondary",
+                              "fax",
+                              "addressLine1",
+                              "addressLine2",
+                              "city",
+                              "state",
+                              "postalCode",
+                              "status",
+                              "notes",
+                              "isClient",
+                              "clientId",
+                              "clientNumber",
+                              "clientType",
+                              "clientStatus",
+                              "linkedUserId",
+                              "isCurrentUser",
+                              "canEditLoginEmail",
+                              "createdAt",
+                              "updatedAt",
+                              "dob",
+                              "ssn"
+                            ]
+                          },
+                          "description": "The one contact asked for (an empty list is never returned; that is 404)."
+                        }
+                      },
+                      "required": [
+                        "collectionId",
+                        "schemaVersion",
+                        "generatedAt",
+                        "allContactIds",
+                        "timing",
+                        "contacts"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No contacts.read permission and not your own contact (PERMISSION_REQUIRED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contact (CONTACT_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached (CONTACTS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "webhooks": {}

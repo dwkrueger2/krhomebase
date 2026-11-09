@@ -1,12 +1,14 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { failure } from './platform/envelope.ts'
 import { signInGuard } from './platform/authGuard.ts'
+import { writeGate } from './platform/writeGate.ts'
 import { requestId } from './platform/requestId.ts'
 import type { AppEnv } from './platform/types.ts'
 import { registerAuth } from './features/auth/routes.ts'
 import { registerHealth } from './features/health/routes.ts'
 import { ToolsUnavailableError } from './features/tools/queries.ts'
 import { registerTools } from './features/tools/routes.ts'
+import { registerContacts } from './features/contacts/routes.ts'
 
 export const openApiInfo = {
   openapi: '3.1.0',
@@ -31,6 +33,8 @@ export function createApp() {
   app.use('*', requestId)
   // Enforces each route's declared `access` (public, signed-in or roles) before the route runs.
   app.use('*', signInGuard)
+  // Refuses writes while kr_maintenance_gate is locked (moved here from the old crud Worker).
+  app.use('*', writeGate)
 
   app.notFound((c) => failure(c, 404, 'NOT_FOUND', 'No such route.'))
   app.onError((err, c) => {
@@ -43,6 +47,7 @@ export function createApp() {
   registerHealth(app)
   registerAuth(app)
   registerTools(app)
+  registerContacts(app)
 
   app.doc31('/v1/openapi.json', openApiInfo)
 

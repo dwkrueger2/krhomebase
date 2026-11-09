@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.4</small><br>
-<small>Updated Nov 9, 2026 9:20am</small>
+<small>Version 2.7</small><br>
+<small>Updated Nov 9, 2026 11:45am</small>
 
 ## Agent Guide Index
 
@@ -25,7 +25,7 @@
 ## Hard Rules (these override any request to do otherwise)
 
 1. **Old repository is read-only.** `D:\Repos\krueger-richard-website` is source material. Read only from `apps\kr-homebase` and `apps\shared` (the workers). Never write there. Never read file contents under any folder named `private`, at any depth.
-2. **No secrets.** Never read `.env*`, `.dev.vars*` (except `.dev.vars.example`, which holds names only), key files, or the contents of any folder whose path contains `private`. File names may be listed. Secrets belong in Cloudflare Worker secrets (set by the requester with `wrangler secret put`) or in a git-ignored `private/` folder, never in a tracked file. If a tracked file appears to contain a secret, stop and tell the requester; do not copy or summarize the value.
+2. **No secrets.** `.env*` files may be read: the requester writes them with paths to key files, not the keys themselves. If a `.env*` value looks like a real secret, stop, do not repeat it, and tell the requester. Never read `.dev.vars*` (except `.dev.vars.example`, which holds names only), key files, or the contents of any folder whose path contains `private`. Folder and file names inside `private` may be listed. Secrets belong in Cloudflare Worker secrets (set by the requester with `wrangler secret put`) or in a git-ignored `private/` folder, never in a tracked file. If a tracked file appears to contain a secret, stop and tell the requester; do not copy or summarize the value.
 3. **No client data.** `snapshots\` holds database dumps with real client data. It is git-ignored. Never read, print, copy or commit a dump.
 4. **Database writes are given to the requester, not run.** Read-only wrangler commands (`SELECT`, `d1 list`, `d1 info`, `d1 export`) are allowed. Any `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `--file` import or migration is written out as a command for the requester to run (see `AGENTS_06`).
 5. **No commits or pushes.** Allowed git: `status`, `log`, `diff`, `show`, `branch`. Not allowed: `commit`, `push`, `merge`, `rebase`, `reset`, `checkout` of files, `stash`. The requester commits and pushes (see `AGENTS_02`).
@@ -44,7 +44,7 @@ This replaces the old `Location:` and `Branch:` wording. `docs/00_PromptMemorySt
 
 ## Project Boundaries
 
-- Do not read, search, summarize, copy, or modify `./private`, `.env*`, `.dev.vars*`, or any key or secret file.
+- Do not read, search, summarize, copy, or modify the files in `./private`, `.dev.vars*`, or any key or secret file. `.env*` files may be read (rule 2) but not modified.
 - Prefer project metadata, docs, source files, and package files for orientation.
 - Files under `snapshots/` are never read. Their names may be listed.
 
@@ -150,6 +150,7 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 - `docs/Schema_8.0` is the canonical current KR Homebase database schema documentation (open `index.html`). Source of truth is the database; the raw export is `docs/Schema_8.0/_source/live_schema.json`.
 - `docs/Schema_Public_Inquiry_v2.0` is the canonical public inquiry schema documentation (database `kr_public_inquiry_06_2026`).
 - `docs/Schema_GPT_Usage_1.1` is the canonical GPT gateway schema documentation (database `krhomebase_gpt_usage_dev`).
+- `docs/06_Contacts_Billing_Port_Plan.md` is the plan and the requester's decisions for porting Contacts Manager and Billing, including the open single-database question.
 - `docs/05_Outside_Tools.md` is the design, security model and go-live steps for outside tools. The guide for outside developers is `packages/tool-sdk/README.md`; do not repeat it elsewhere.
 - `docs/04_Deployed_Architecture.md` states what is deployed now: the four Workers, addresses, bindings, settings and deploy commands. Update it whenever one of those changes.
 - `docs/01_Architecture_Proposal.md` is the build plan and the list of open decisions.
@@ -193,6 +194,7 @@ pnpm build:web        # build the web app (apps/web)
 pnpm deploy:api       # deploy the API Worker (apps/api); the requester runs it
 pnpm deploy:web       # deploy the web Worker (apps/web); needs the cf sign-in
 pnpm deploy:external  # deploy the external-api Worker; the requester runs it, after deploy:api
+pnpm deploy:pay       # deploy kr-pay-worker-live (pay.krhomebase.com); the requester runs it (workers/d1-workers/kr-pay-worker/README.md)
 pnpm pack:tool-sdk    # build dist\tool-sdk\krhomebase-tool-sdk-1.0.0.tgz for outside developers
 pnpm stop:ports:all   # stop every development server started by this repository
 pnpm listScripts      # show the root scripts
@@ -219,6 +221,7 @@ pnpm listScripts      # show the root scripts
 | `deploy:web` | `apps/web` | `vinext-cloudflare deploy` |
 | `dev:external` | `apps/external-api` | `wrangler dev --port 8793 --inspector-port 9342` |
 | `deploy:external` | `apps/external-api` | `wrangler deploy` |
+| `deploy:pay` | `workers/d1-workers/kr-pay-worker` | `wrangler deploy --config kr-pay-worker.jsonc` |
 | `pack:tool-sdk` | `packages/tool-sdk` | build, then `pnpm pack` into `dist/tool-sdk` |
 | `openapi` | `apps/api` | `tsx scripts/write-openapi.ts` |
 | `dev:crud`, `dev:session` | `workers/d1-workers/...` | `wrangler dev` with that Worker's config |

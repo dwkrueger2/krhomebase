@@ -2,7 +2,7 @@ import type { Context } from 'hono'
 import type { AppEnv } from './types.ts'
 
 /** Builds a failure reply in the standard envelope. */
-export function failure<S extends 400 | 401 | 403 | 404 | 409 | 422 | 500 | 502 | 503>(
+export function failure<S extends 400 | 401 | 403 | 404 | 409 | 422 | 423 | 500 | 502 | 503>(
   c: Context<AppEnv>,
   status: S,
   code: string,
