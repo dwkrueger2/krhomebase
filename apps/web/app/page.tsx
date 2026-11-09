@@ -6,7 +6,10 @@
  * visitor to `/login`. It then builds one panel for each menu section and hands them to `SignedInShell`
  * (the application frame with log-out wired), which shows the open one in the KRH-Workspace and in the
  * pop-out window.
- * Each panel is its own file under `features/<area>/components/`; every one is a placeholder today.
+ * Each panel is its own file under `features/<area>/components/`; most are placeholders today.
+ * It also reads the outside tools this person may use (`features/tools/tools.server.ts`) for the menu, and,
+ * for a super admin only, places the "Outside tools" screen under Application Settings. The API refuses that
+ * screen's calls from anyone else, so hiding it here is a convenience, not the protection.
  * Keeping the list here, and not inside `components/shell`, is what lets the shell stay free of any
  * feature import (dependency rule in apps/web/AGENTS.md).
  */
@@ -14,7 +17,7 @@
 import { redirect } from 'next/navigation'
 import type { ReactNode } from 'react'
 import packageJson from '../package.json'
-import type { ShellSectionId } from '@/components/shell/navigation'
+import type { BuiltInSectionId } from '@/components/shell/navigation'
 import SignedInShell from '@/features/auth/components/SignedInShell.client'
 import { fetchSession } from '@/features/auth/session.server'
 import BillingPanel from '@/features/billing/components/BillingPanel.client'
@@ -30,9 +33,11 @@ import SettingsPanel from '@/features/settings/components/SettingsPanel.client'
 import UserSettingsPanel from '@/features/settings/components/UserSettingsPanel.client'
 import TasksPanel from '@/features/tasks/components/TasksPanel.client'
 import AttendancePanel from '@/features/timekeeping/components/AttendancePanel.client'
+import OutsideToolsAdmin from '@/features/tools/components/OutsideToolsAdmin.client'
+import { fetchToolMenu } from '@/features/tools/tools.server'
 
-/** One panel for each menu section, keyed by the menu id. A missing key fails the typecheck. */
-const PANELS: Record<ShellSectionId, ReactNode> = {
+/** One panel for each built-in menu section, keyed by the menu id. A missing key fails the typecheck. */
+const PANELS: Record<BuiltInSectionId, ReactNode> = {
   dashboard: <DashboardPanel />,
   contacts: <ContactsPanel />,
   leads: <LeadsPanel />,
@@ -56,12 +61,17 @@ export const dynamic = 'force-dynamic'
 /**
  * Renders the application frame for the signed-in person.
  *
- * @returns The frame with placeholder panels and the person from the session, or a redirect to `/login`.
+ * @returns The frame with the panels, the outside tools and the person from the session, or a redirect to `/login`.
  */
 export default async function HomePage() {
   const state = await fetchSession()
   if (!state.signedIn) redirect(`/login?auth_error=${encodeURIComponent(state.reason)}`)
   const { session } = state
   const user = { displayName: session.displayName, firmName: session.firmName, avatarInitials: session.avatarInitials }
-  return <SignedInShell user={user} panels={PANELS} versionLabel={VERSION_LABEL} />
+  const outsideTools = await fetchToolMenu()
+  const panels: Record<BuiltInSectionId, ReactNode> =
+    session.role === 'super_admin'
+      ? { ...PANELS, 'application-settings': <ApplicationSettingsPanel><OutsideToolsAdmin /></ApplicationSettingsPanel> }
+      : PANELS
+  return <SignedInShell user={user} panels={panels} outsideTools={outsideTools} versionLabel={VERSION_LABEL} />
 }

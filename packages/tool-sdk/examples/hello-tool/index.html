@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hello Tool</title>
+    <style>
+      /* The KR Homebase theme values arrive from the host as --kr-theme-* properties on this page's root. */
+      body {
+        margin: 0;
+        padding: 10px;
+        font-family: var(--kr-theme-font-body, system-ui, sans-serif);
+        font-size: var(--kr-theme-font-size-base, 13px);
+        color: var(--kr-theme-text, #1b2330);
+        background: var(--kr-theme-shell-surface, #f7f9fb);
+      }
+      .card {
+        max-width: 640px;
+        padding: 10px;
+        border: 1px solid var(--kr-theme-line, #d6dde6);
+        border-radius: 3px;
+        background: var(--kr-theme-card-surface, #fff);
+      }
+      pre { white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <!-- Tool card: who is using the tool, and the last API reply -->
+    <section class="card">
+      <h1 id="title">Hello Tool</h1>
+      <p id="status">Connecting to KR Homebase...</p>
+      <button id="again" type="button" disabled>Ask again</button>
+      <pre id="reply"></pre>
+    </section>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

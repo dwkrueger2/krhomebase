@@ -1,7 +1,7 @@
 # AGENTS 01: Version and Patch Procedures
 
-<small>Version 1.2</small><br>
-<small>Updated Nov 7, 2026 10:40am</small>
+<small>Version 1.3</small><br>
+<small>Updated Nov 9, 2026 9:20am</small>
 
 ## Purpose
 
@@ -170,6 +170,7 @@ Increment when the patch changes:
 Increment when the patch changes:
 
 - Files under `apps/api`, including its `AGENTS.md`, `kr-api-wrangler.jsonc`, tests and `openapi/openapi.json`.
+- Files under `apps/external-api` (the public door for outside tool servers). It has no version fields of its own; its changes advance this track.
 - API runtime behavior, routes, or data access.
 - Shared contract code whose changed behavior is consumed by the API.
 

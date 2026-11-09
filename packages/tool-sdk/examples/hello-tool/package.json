@@ -1,0 +1,18 @@
+{
+  "name": "hello-tool",
+  "private": true,
+  "type": "module",
+  "description": "A minimal KR Homebase outside tool. See ../../README.md, section 'Try the example'.",
+  "scripts": {
+    "dev": "vite --port 5173 --strictPort",
+    "build": "vite build",
+    "sync": "node server-sync.mjs"
+  },
+  "dependencies": {
+    "@krhomebase/tool-sdk": "file:./krhomebase-tool-sdk-1.0.0.tgz"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "vite": "^8.3.0"
+  }
+}

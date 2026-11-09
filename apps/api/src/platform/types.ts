@@ -1,4 +1,5 @@
 import type { SessionUser } from '@krhomebase/contracts'
+import type { ToolCaller } from '../features/tools/rules.ts'
 
 /**
  * Settings and bindings the sign-in code reads. The two service bindings are declared in
@@ -39,5 +40,10 @@ export type AppEnv = {
     requestId: string
     /** The signed-in person. Set by the sign-in middleware for every route that is not public; otherwise null. */
     session: SessionUser | null
+    /**
+     * The outside tool making this call, set by the sign-in middleware: a frame call (header `x-kr-tool-id`,
+     * with a session) or a server call (bearer token through external-api, with no session). Otherwise null.
+     */
+    tool: ToolCaller | null
   }
 }

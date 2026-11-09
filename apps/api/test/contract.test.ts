@@ -5,6 +5,8 @@ import { ErrorEnvelope } from '@krhomebase/contracts'
 import { describe, expect, it } from 'vitest'
 import { createApp, openApiInfo } from '../src/app.ts'
 import { routeRegistry } from '../src/platform/defineRoute.ts'
+import { clearSessionCache } from '../src/platform/sessionClient.ts'
+import { SIGNED_IN_HEADERS, signedInEnv } from './fakes.ts'
 
 /**
  * Layer 1: automatic contract tests. They loop over every route declared with defineRoute(),
@@ -99,11 +101,20 @@ describe('every route', () => {
     const schema = (r.config.request as Json).body.content['application/json'].schema
     const bad = { __notAField: true }
     if (schema.safeParse(bad).success) return // schema accepts anything; nothing to reject
-    const res = await app.request(toTestPath(r.config.path), {
-      method: methodOf(r.config),
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(bad),
-    })
+    // A protected route checks sign-in before the body, so the caller signs in with a role the route allows.
+    const access = r.meta.access
+    const signedIn = access !== 'public'
+    const role = typeof access === 'object' ? (access.roles[0] ?? 'staff') : 'staff'
+    clearSessionCache()
+    const res = await app.request(
+      toTestPath(r.config.path),
+      {
+        method: methodOf(r.config),
+        headers: { 'content-type': 'application/json', ...(signedIn ? SIGNED_IN_HEADERS : {}) },
+        body: JSON.stringify(bad),
+      },
+      signedIn ? signedInEnv(role) : undefined,
+    )
     expect(res.status).toBe(422)
     const body = ErrorEnvelope.parse(await res.json())
     expect(body.error.code).toBe('VALIDATION_FAILED')

@@ -1,0 +1,39 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The public door for outside tool servers (path B in docs/05_Outside_Tools.md). It checks nothing about
+  // the caller itself: it limits the call rate, keeps only safe headers, marks the request as coming through
+  // this Worker and forwards it to krhomebase-api, which checks the access token and the permissions.
+  "name": "krhomebase-external-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-30",
+  // Off until the requester chooses the public address and adds it as a Custom Domain in the Cloudflare
+  // dashboard (Workers & Pages, krhomebase-external-api, Settings, Domains & Routes). Record it in
+  // docs/04_Deployed_Architecture.md, section 2.
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true
+  },
+  // The only way to reach the API, which has no public address. "remote": true makes `pnpm dev:external`
+  // call the deployed API; it has no effect on a deployed Worker.
+  "services": [
+    {
+      "binding": "API",
+      "service": "krhomebase-api",
+      "remote": true
+    }
+  ],
+  // Cloudflare's rate-limiting binding. Counted per Cloudflare location, per key (the access token, or the
+  // caller's address when there is none). namespace_id is any number unique in the account; "2001" is not
+  // used by another Worker here. period must be 10 or 60 seconds.
+  "ratelimits": [
+    {
+      "name": "TOOL_RATE_LIMITER",
+      "namespace_id": "2001",
+      "simple": {
+        "limit": 120,
+        "period": 60
+      }
+    }
+  ]
+}

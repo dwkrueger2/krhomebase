@@ -1,7 +1,7 @@
 # Deployed Architecture
 
-<small>Version 1.0</small><br>
-<small>Updated Nov 7, 2026 11:10am</small>
+<small>Version 1.1</small><br>
+<small>Updated Nov 9, 2026 9:20am</small>
 
 **Status:** live since Nov 6, 2026. Read this file before any work that touches a Worker, a binding, a web address, a secret or a deploy command. Update it in the same change as any of those.
 
@@ -90,3 +90,14 @@ pnpm deploy:web
 - A secret can be set only after the Worker has been deployed at least once.
 - Domains added in the dashboard are not in any repository file. Record each one in section 2.
 - Local servers and ports: the table in the root `AGENTS.md`. Deployed version ids of the crud and session Workers: `workers/Readme-workers.md`.
+
+## 7. Built, not yet deployed
+
+Outside tools (`docs/05_Outside_Tools.md`). When they go live, move these lines into sections 1 to 4.
+
+| Item | State | To go live |
+|---|---|---|
+| D1 tables `workspace_tool`, `workspace_tool_token`, `workspace_tool_audit` | Not created | The requester applies `docs/patch-notes/repository/Migration_Patch016_11_09_workspace_tools.sql`. |
+| Worker `krhomebase-external-api` (`apps/external-api`, config `kr-external-api-wrangler.jsonc`) | Not deployed. Binding `API` (Worker `krhomebase-api`); rate limit `TOOL_RATE_LIMITER` (namespace `2001`, 120 per 60 s). `workers_dev` and `preview_urls` off. | `pnpm deploy:external` after `pnpm deploy:api`, then add a Custom Domain chosen by the requester and record it in section 2. |
+| API tool routes and checks (`/v1/tools/...`) | In the code, not deployed | `pnpm deploy:api`. Until the tables exist, the menu shows no tools and the other tool routes answer `TOOLS_UNAVAILABLE` (503). |
+| Web: tools in the menu, Outside tools screen | In the code, not deployed | `pnpm build:web` and `pnpm deploy:web`. |

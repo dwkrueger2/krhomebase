@@ -1,5 +1,5 @@
 import { createRoute, type RouteConfig } from '@hono/zod-openapi'
-import { CommonErrorCodes, ErrorEnvelope, type Access } from '@krhomebase/contracts'
+import { CommonErrorCodes, ErrorEnvelope, type Access, type ToolScope } from '@krhomebase/contracts'
 
 /**
  * The facts every route must state. Leaving one out is a type error, and the contract tests
@@ -16,6 +16,13 @@ export type RouteMeta = {
   errors: readonly string[]
   /** What it changes or triggers: tables written, emails sent, outside services called. Use ['None'] for read-only. */
   sideEffects: readonly string[]
+  /**
+   * Optional. Opens the route to outside tools: `'any'` for every registered tool, or one permission
+   * (for example `'contacts:read'`) that the tool must have been granted. Left out, the route is closed to
+   * every tool. A tool call must still pass `access`: a frame call carries the person's session, and a
+   * server call (no person) is allowed on `signed-in` routes only through this field. See docs/05_Outside_Tools.md.
+   */
+  toolAccess?: 'any' | ToolScope
 }
 
 export type RegisteredRoute = {
@@ -32,8 +39,8 @@ const errorResponse = (description: string) => ({
 })
 
 export function defineRoute<R extends RouteConfig & RouteMeta>(spec: R) {
-  const { feature, summary, access, errors, sideEffects, ...rest } = spec
-  const meta: RouteMeta = { feature, summary, access, errors, sideEffects }
+  const { feature, summary, access, errors, sideEffects, toolAccess, ...rest } = spec
+  const meta: RouteMeta = { feature, summary, access, errors, sideEffects, ...(toolAccess ? { toolAccess } : {}) }
 
   const hasInput = Boolean(rest.request)
   const roleText =
@@ -41,6 +48,9 @@ export function defineRoute<R extends RouteConfig & RouteMeta>(spec: R) {
   const description = [
     roleText,
     `Side effects: ${sideEffects.join('; ')}.`,
+    toolAccess
+      ? `Outside tools: ${toolAccess === 'any' ? 'any registered tool' : `tools granted ${toolAccess}`}.`
+      : 'Outside tools: not allowed.',
     `Error codes: ${[...(hasInput ? ['VALIDATION_FAILED'] : []), ...(access === 'public' ? [] : ['UNAUTHENTICATED', 'FORBIDDEN']), ...errors, 'INTERNAL_ERROR'].join(', ')}.`,
   ].join('\n\n')
 

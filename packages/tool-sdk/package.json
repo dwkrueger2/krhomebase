@@ -1,0 +1,36 @@
+{
+  "name": "@krhomebase/tool-sdk",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Kit for outside tools in KR Homebase: the frame bridge, the server client and defineTool. Developer guide: README.md.",
+  "license": "UNLICENSED",
+  "exports": {
+    "./frame": "./src/frame.ts",
+    "./server": "./src/server.ts",
+    "./manifest": "./src/defineTool.ts",
+    "./protocol": "./src/protocol.ts",
+    "./types": "./src/types.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      "./frame": { "types": "./dist/frame.d.ts", "default": "./dist/frame.js" },
+      "./server": { "types": "./dist/server.d.ts", "default": "./dist/server.js" },
+      "./manifest": { "types": "./dist/defineTool.d.ts", "default": "./dist/defineTool.js" },
+      "./protocol": { "types": "./dist/protocol.d.ts", "default": "./dist/protocol.js" },
+      "./types": { "types": "./dist/types.d.ts", "default": "./dist/types.js" }
+    }
+  },
+  "files": ["dist/*.js", "dist/*.d.ts", "README.md", "examples"],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "tsc -p tsconfig.build.json",
+    "pack": "tsc -p tsconfig.build.json && pnpm pack --pack-destination ../../dist/tool-sdk"
+  },
+  "devDependencies": {
+    "@krhomebase/contracts": "workspace:*",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.0"
+  }
+}

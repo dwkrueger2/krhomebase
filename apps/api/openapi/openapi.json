@@ -13,7 +13,7 @@
     "/v1/health": {
       "get": {
         "summary": "Report that the API Worker is running and which version answered.",
-        "description": "Public (no sign-in).\n\nSide effects: None.\n\nError codes: INTERNAL_ERROR.",
+        "description": "Public (no sign-in).\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: INTERNAL_ERROR.",
         "tags": [
           "platform"
         ],
@@ -122,7 +122,7 @@
     "/v1/auth/config": {
       "get": {
         "summary": "Return the public settings the login card needs.",
-        "description": "Public (no sign-in).\n\nSide effects: None.\n\nError codes: INTERNAL_ERROR.",
+        "description": "Public (no sign-in).\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: INTERNAL_ERROR.",
         "tags": [
           "auth"
         ],
@@ -226,7 +226,7 @@
     "/v1/auth/turnstile/verify": {
       "post": {
         "summary": "Check the Cloudflare human-check token and remember a pass for five minutes.",
-        "description": "Public (no sign-in).\n\nSide effects: Calls Cloudflare Turnstile siteverify; Sets the kr_turnstile_verified cookie.\n\nError codes: VALIDATION_FAILED, TURNSTILE_VALIDATION_FAILED, TURNSTILE_UNAVAILABLE, AUTH_NOT_CONFIGURED, INTERNAL_ERROR.",
+        "description": "Public (no sign-in).\n\nSide effects: Calls Cloudflare Turnstile siteverify; Sets the kr_turnstile_verified cookie.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, TURNSTILE_VALIDATION_FAILED, TURNSTILE_UNAVAILABLE, AUTH_NOT_CONFIGURED, INTERNAL_ERROR.",
         "tags": [
           "auth"
         ],
@@ -524,7 +524,7 @@
     "/v1/auth/google/start": {
       "get": {
         "summary": "Send the browser to Google to sign in.",
-        "description": "Public (no sign-in).\n\nSide effects: Sets the OAuth state and nonce cookies; Clears the Turnstile pass cookie.\n\nError codes: INTERNAL_ERROR.",
+        "description": "Public (no sign-in).\n\nSide effects: Sets the OAuth state and nonce cookies; Clears the Turnstile pass cookie.\n\nOutside tools: not allowed.\n\nError codes: INTERNAL_ERROR.",
         "tags": [
           "auth"
         ],
@@ -580,7 +580,7 @@
     "/v1/auth/google/callback": {
       "get": {
         "summary": "Finish Google sign-in: check the answer, admit the person and open a session.",
-        "description": "Public (no sign-in).\n\nSide effects: Calls Google (token exchange and signing keys); Calls the CRUD Worker: reads user, user_sso_identity, user_invite; writes individual, individual_contact_method, user, user_sso_identity, user_invite, employee, kr_session, kr_homebase_initialization; Sets the session cookie.\n\nError codes: VALIDATION_FAILED, INTERNAL_ERROR.",
+        "description": "Public (no sign-in).\n\nSide effects: Calls Google (token exchange and signing keys); Calls the CRUD Worker: reads user, user_sso_identity, user_invite; writes individual, individual_contact_method, user, user_sso_identity, user_invite, employee, kr_session, kr_homebase_initialization; Sets the session cookie.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, INTERNAL_ERROR.",
         "tags": [
           "auth"
         ],
@@ -710,7 +710,7 @@
     "/v1/auth/session": {
       "get": {
         "summary": "Return the signed-in person for the current session cookie.",
-        "description": "Any signed-in user.\n\nSide effects: Updates last_seen_at on the session through the Session Worker.\n\nError codes: UNAUTHENTICATED, FORBIDDEN, SESSION_VALIDATION_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nSide effects: Updates last_seen_at on the session through the Session Worker.\n\nOutside tools: not allowed.\n\nError codes: UNAUTHENTICATED, FORBIDDEN, SESSION_VALIDATION_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "auth"
         ],
@@ -974,7 +974,7 @@
       },
       "delete": {
         "summary": "Log out: clear the session cookie and close the session.",
-        "description": "Public (no sign-in).\n\nSide effects: Clears the session cookie; Marks the kr_session row revoked through the CRUD Worker (best effort).\n\nError codes: INTERNAL_ERROR.",
+        "description": "Public (no sign-in).\n\nSide effects: Clears the session cookie; Marks the kr_session row revoked through the CRUD Worker (best effort).\n\nOutside tools: not allowed.\n\nError codes: INTERNAL_ERROR.",
         "tags": [
           "auth"
         ],
@@ -1014,6 +1014,3939 @@
                   "required": [
                     "ok",
                     "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tools/registrations": {
+      "get": {
+        "summary": "List every registered outside tool, for the super admin.",
+        "description": "Roles: super_admin.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: UNAUTHENTICATED, FORBIDDEN, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "tools"
+        ],
+        "responses": {
+          "200": {
+            "description": "Every tool.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "tools": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "Id of the registration row."
+                              },
+                              "clientId": {
+                                "type": "string",
+                                "pattern": "^krt_[A-Za-z0-9_-]{16,64}$",
+                                "description": "The tool client id given at registration, for example krt_Ab12Cd34Ef56Gh78Ij90Kl12. Public, not a secret."
+                              },
+                              "label": {
+                                "type": "string",
+                                "description": "Words shown in the left menu."
+                              },
+                              "description": {
+                                "type": "string",
+                                "description": "One-line purpose, shown as the menu tooltip."
+                              },
+                              "icon": {
+                                "type": "string",
+                                "enum": [
+                                  "dashboard",
+                                  "leads",
+                                  "contacts",
+                                  "matters",
+                                  "billing",
+                                  "tasks",
+                                  "accounts",
+                                  "documents",
+                                  "communications",
+                                  "reports",
+                                  "settings",
+                                  "attendance"
+                                ],
+                                "description": "Icon drawn beside the tool in the left menu."
+                              },
+                              "menuOrder": {
+                                "type": "integer",
+                                "description": "Position among the outside tools in the menu; lower comes first."
+                              },
+                              "origin": {
+                                "type": "string",
+                                "description": "Origin of the tool screen (scheme, host and port), taken from entryUrl."
+                              },
+                              "entryUrl": {
+                                "type": "string",
+                                "description": "Full address of the tool screen."
+                              },
+                              "allowedRoles": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "Roles that see the tool in the menu and may use it."
+                              },
+                              "scopes": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "contacts:read",
+                                    "contacts:write",
+                                    "leads:read",
+                                    "leads:write",
+                                    "communications:read",
+                                    "communications:write",
+                                    "tasks:read",
+                                    "tasks:write",
+                                    "timekeeping:read",
+                                    "timekeeping:write",
+                                    "billing:read",
+                                    "billing:write",
+                                    "matters:read",
+                                    "matters:write",
+                                    "documents:read",
+                                    "documents:write",
+                                    "reports:read"
+                                  ],
+                                  "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
+                                },
+                                "description": "Permissions granted to the tool."
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "active",
+                                  "disabled"
+                                ],
+                                "description": "active: shown and allowed to call the API. disabled: hidden, and every call is refused at once."
+                              },
+                              "serverAccessEnabled": {
+                                "type": "boolean",
+                                "description": "True when the tool server may get access tokens (path B)."
+                              },
+                              "serverIpAllowlist": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "When not empty, the only addresses the tool server may call from."
+                              },
+                              "hasSecret": {
+                                "type": "boolean",
+                                "description": "True when a client secret exists. The secret itself is shown only once, when it is made."
+                              },
+                              "secretCreatedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "When the current client secret was made (ISO time), or null."
+                              },
+                              "previousSecretValidUntil": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Until when the secret replaced last still works (ISO time), or null."
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "description": "When the tool was registered (ISO time)."
+                              },
+                              "updatedAt": {
+                                "type": "string",
+                                "description": "When the registration last changed (ISO time)."
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "clientId",
+                              "label",
+                              "description",
+                              "icon",
+                              "menuOrder",
+                              "origin",
+                              "entryUrl",
+                              "allowedRoles",
+                              "scopes",
+                              "status",
+                              "serverAccessEnabled",
+                              "serverIpAllowlist",
+                              "hasSecret",
+                              "secretCreatedAt",
+                              "previousSecretValidUntil",
+                              "createdAt",
+                              "updatedAt"
+                            ]
+                          },
+                          "description": "Every registered tool, in menu order."
+                        }
+                      },
+                      "required": [
+                        "tools"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The tools tables cannot be reached (TOOLS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Register an outside tool and, when server access is on, make its client secret.",
+        "description": "Roles: super_admin.\n\nSide effects: Writes workspace_tool; Writes workspace_tool_audit.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TOOL_ENTRY_URL_REFUSED, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "tools"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40,
+                    "description": "Words shown in the left menu (up to 40 characters)."
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "default": "",
+                    "description": "One-line purpose, shown as the menu tooltip."
+                  },
+                  "icon": {
+                    "type": "string",
+                    "enum": [
+                      "dashboard",
+                      "leads",
+                      "contacts",
+                      "matters",
+                      "billing",
+                      "tasks",
+                      "accounts",
+                      "documents",
+                      "communications",
+                      "reports",
+                      "settings",
+                      "attendance"
+                    ],
+                    "default": "documents",
+                    "description": "Icon drawn beside the tool in the left menu."
+                  },
+                  "menuOrder": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9999,
+                    "default": 100,
+                    "description": "Position among the outside tools; lower comes first."
+                  },
+                  "entryUrl": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "format": "uri",
+                    "description": "Full address of the tool screen, for example https://intake-tool.example.com/app. Its origin is the only place the frame may load from."
+                  },
+                  "allowedRoles": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "pattern": "^[a-z][a-z0-9_]*$",
+                      "description": "A role name as stored on user accounts, for example staff or super_admin."
+                    },
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "description": "Roles that see and may use the tool. At least one."
+                  },
+                  "scopes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "contacts:read",
+                        "contacts:write",
+                        "leads:read",
+                        "leads:write",
+                        "communications:read",
+                        "communications:write",
+                        "tasks:read",
+                        "tasks:write",
+                        "timekeeping:read",
+                        "timekeeping:write",
+                        "billing:read",
+                        "billing:write",
+                        "matters:read",
+                        "matters:write",
+                        "documents:read",
+                        "documents:write",
+                        "reports:read"
+                      ],
+                      "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
+                    },
+                    "maxItems": 17,
+                    "default": [],
+                    "description": "Permissions to grant. Empty means the tool can learn only who is using it."
+                  },
+                  "serverAccessEnabled": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "True to let the tool server get access tokens (path B). A client secret is made and shown once."
+                  },
+                  "serverIpAllowlist": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 45,
+                      "pattern": "^[0-9A-Fa-f:.]+$",
+                      "description": "One IPv4 or IPv6 address the tool server calls from. Ranges are not supported."
+                    },
+                    "maxItems": 20,
+                    "default": [],
+                    "description": "Optional: the only addresses the tool server may call from."
+                  }
+                },
+                "required": [
+                  "label",
+                  "entryUrl",
+                  "allowedRoles"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Registered. The client secret is in this reply only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "tool": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "Id of the registration row."
+                            },
+                            "clientId": {
+                              "type": "string",
+                              "pattern": "^krt_[A-Za-z0-9_-]{16,64}$",
+                              "description": "The tool client id given at registration, for example krt_Ab12Cd34Ef56Gh78Ij90Kl12. Public, not a secret."
+                            },
+                            "label": {
+                              "type": "string",
+                              "description": "Words shown in the left menu."
+                            },
+                            "description": {
+                              "type": "string",
+                              "description": "One-line purpose, shown as the menu tooltip."
+                            },
+                            "icon": {
+                              "type": "string",
+                              "enum": [
+                                "dashboard",
+                                "leads",
+                                "contacts",
+                                "matters",
+                                "billing",
+                                "tasks",
+                                "accounts",
+                                "documents",
+                                "communications",
+                                "reports",
+                                "settings",
+                                "attendance"
+                              ],
+                              "description": "Icon drawn beside the tool in the left menu."
+                            },
+                            "menuOrder": {
+                              "type": "integer",
+                              "description": "Position among the outside tools in the menu; lower comes first."
+                            },
+                            "origin": {
+                              "type": "string",
+                              "description": "Origin of the tool screen (scheme, host and port), taken from entryUrl."
+                            },
+                            "entryUrl": {
+                              "type": "string",
+                              "description": "Full address of the tool screen."
+                            },
+                            "allowedRoles": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "Roles that see the tool in the menu and may use it."
+                            },
+                            "scopes": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "contacts:read",
+                                  "contacts:write",
+                                  "leads:read",
+                                  "leads:write",
+                                  "communications:read",
+                                  "communications:write",
+                                  "tasks:read",
+                                  "tasks:write",
+                                  "timekeeping:read",
+                                  "timekeeping:write",
+                                  "billing:read",
+                                  "billing:write",
+                                  "matters:read",
+                                  "matters:write",
+                                  "documents:read",
+                                  "documents:write",
+                                  "reports:read"
+                                ],
+                                "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
+                              },
+                              "description": "Permissions granted to the tool."
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "disabled"
+                              ],
+                              "description": "active: shown and allowed to call the API. disabled: hidden, and every call is refused at once."
+                            },
+                            "serverAccessEnabled": {
+                              "type": "boolean",
+                              "description": "True when the tool server may get access tokens (path B)."
+                            },
+                            "serverIpAllowlist": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "When not empty, the only addresses the tool server may call from."
+                            },
+                            "hasSecret": {
+                              "type": "boolean",
+                              "description": "True when a client secret exists. The secret itself is shown only once, when it is made."
+                            },
+                            "secretCreatedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "When the current client secret was made (ISO time), or null."
+                            },
+                            "previousSecretValidUntil": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Until when the secret replaced last still works (ISO time), or null."
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "description": "When the tool was registered (ISO time)."
+                            },
+                            "updatedAt": {
+                              "type": "string",
+                              "description": "When the registration last changed (ISO time)."
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "clientId",
+                            "label",
+                            "description",
+                            "icon",
+                            "menuOrder",
+                            "origin",
+                            "entryUrl",
+                            "allowedRoles",
+                            "scopes",
+                            "status",
+                            "serverAccessEnabled",
+                            "serverIpAllowlist",
+                            "hasSecret",
+                            "secretCreatedAt",
+                            "previousSecretValidUntil",
+                            "createdAt",
+                            "updatedAt"
+                          ],
+                          "description": "The new registration."
+                        },
+                        "clientSecret": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The client secret, shown only in this reply. Null when the server path is off."
+                        }
+                      },
+                      "required": [
+                        "tool",
+                        "clientSecret"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The tool address is not allowed (TOOL_ENTRY_URL_REFUSED); details.reason says why.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The tools tables cannot be reached (TOOLS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tools/registrations/{toolId}": {
+      "get": {
+        "summary": "Return one registered outside tool, for the super admin.",
+        "description": "Roles: super_admin.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TOOL_NOT_FOUND, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "tools"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "Id of the registration row."
+            },
+            "required": true,
+            "description": "Id of the registration row.",
+            "name": "toolId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The tool.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "tool": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "Id of the registration row."
+                            },
+                            "clientId": {
+                              "type": "string",
+                              "pattern": "^krt_[A-Za-z0-9_-]{16,64}$",
+                              "description": "The tool client id given at registration, for example krt_Ab12Cd34Ef56Gh78Ij90Kl12. Public, not a secret."
+                            },
+                            "label": {
+                              "type": "string",
+                              "description": "Words shown in the left menu."
+                            },
+                            "description": {
+                              "type": "string",
+                              "description": "One-line purpose, shown as the menu tooltip."
+                            },
+                            "icon": {
+                              "type": "string",
+                              "enum": [
+                                "dashboard",
+                                "leads",
+                                "contacts",
+                                "matters",
+                                "billing",
+                                "tasks",
+                                "accounts",
+                                "documents",
+                                "communications",
+                                "reports",
+                                "settings",
+                                "attendance"
+                              ],
+                              "description": "Icon drawn beside the tool in the left menu."
+                            },
+                            "menuOrder": {
+                              "type": "integer",
+                              "description": "Position among the outside tools in the menu; lower comes first."
+                            },
+                            "origin": {
+                              "type": "string",
+                              "description": "Origin of the tool screen (scheme, host and port), taken from entryUrl."
+                            },
+                            "entryUrl": {
+                              "type": "string",
+                              "description": "Full address of the tool screen."
+                            },
+                            "allowedRoles": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "Roles that see the tool in the menu and may use it."
+                            },
+                            "scopes": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "contacts:read",
+                                  "contacts:write",
+                                  "leads:read",
+                                  "leads:write",
+                                  "communications:read",
+                                  "communications:write",
+                                  "tasks:read",
+                                  "tasks:write",
+                                  "timekeeping:read",
+                                  "timekeeping:write",
+                                  "billing:read",
+                                  "billing:write",
+                                  "matters:read",
+                                  "matters:write",
+                                  "documents:read",
+                                  "documents:write",
+                                  "reports:read"
+                                ],
+                                "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
+                              },
+                              "description": "Permissions granted to the tool."
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "disabled"
+                              ],
+                              "description": "active: shown and allowed to call the API. disabled: hidden, and every call is refused at once."
+                            },
+                            "serverAccessEnabled": {
+                              "type": "boolean",
+                              "description": "True when the tool server may get access tokens (path B)."
+                            },
+                            "serverIpAllowlist": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "When not empty, the only addresses the tool server may call from."
+                            },
+                            "hasSecret": {
+                              "type": "boolean",
+                              "description": "True when a client secret exists. The secret itself is shown only once, when it is made."
+                            },
+                            "secretCreatedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "When the current client secret was made (ISO time), or null."
+                            },
+                            "previousSecretValidUntil": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Until when the secret replaced last still works (ISO time), or null."
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "description": "When the tool was registered (ISO time)."
+                            },
+                            "updatedAt": {
+                              "type": "string",
+                              "description": "When the registration last changed (ISO time)."
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "clientId",
+                            "label",
+                            "description",
+                            "icon",
+                            "menuOrder",
+                            "origin",
+                            "entryUrl",
+                            "allowedRoles",
+                            "scopes",
+                            "status",
+                            "serverAccessEnabled",
+                            "serverIpAllowlist",
+                            "hasSecret",
+                            "secretCreatedAt",
+                            "previousSecretValidUntil",
+                            "createdAt",
+                            "updatedAt"
+                          ],
+                          "description": "The registration."
+                        }
+                      },
+                      "required": [
+                        "tool"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such tool (TOOL_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The tools tables cannot be reached (TOOLS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Change an outside tool: menu text, address, roles, permissions, status or server access.",
+        "description": "Roles: super_admin.\n\nSide effects: Writes workspace_tool; Deletes workspace_tool_token rows when the tool is turned off, server access is turned off or permissions change; Writes workspace_tool_audit.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TOOL_NOT_FOUND, TOOL_ENTRY_URL_REFUSED, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "tools"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "Id of the registration row."
+            },
+            "required": true,
+            "description": "Id of the registration row.",
+            "name": "toolId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40,
+                    "description": "New menu words."
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "description": "New one-line purpose."
+                  },
+                  "icon": {
+                    "type": "string",
+                    "enum": [
+                      "dashboard",
+                      "leads",
+                      "contacts",
+                      "matters",
+                      "billing",
+                      "tasks",
+                      "accounts",
+                      "documents",
+                      "communications",
+                      "reports",
+                      "settings",
+                      "attendance"
+                    ],
+                    "description": "Icon drawn beside the tool in the left menu."
+                  },
+                  "menuOrder": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9999,
+                    "description": "New menu position."
+                  },
+                  "entryUrl": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "format": "uri",
+                    "description": "Full address of the tool screen, for example https://intake-tool.example.com/app. Its origin is the only place the frame may load from."
+                  },
+                  "allowedRoles": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "pattern": "^[a-z][a-z0-9_]*$",
+                      "description": "A role name as stored on user accounts, for example staff or super_admin."
+                    },
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "description": "New list of roles."
+                  },
+                  "scopes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "contacts:read",
+                        "contacts:write",
+                        "leads:read",
+                        "leads:write",
+                        "communications:read",
+                        "communications:write",
+                        "tasks:read",
+                        "tasks:write",
+                        "timekeeping:read",
+                        "timekeeping:write",
+                        "billing:read",
+                        "billing:write",
+                        "matters:read",
+                        "matters:write",
+                        "documents:read",
+                        "documents:write",
+                        "reports:read"
+                      ],
+                      "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
+                    },
+                    "maxItems": 17,
+                    "description": "New list of permissions. Replaces the old list."
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "disabled"
+                    ],
+                    "description": "active: shown and allowed to call the API. disabled: hidden, and every call is refused at once."
+                  },
+                  "serverAccessEnabled": {
+                    "type": "boolean",
+                    "description": "Turn the server path on or off. Turning it off ends every access token at once."
+                  },
+                  "serverIpAllowlist": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 45,
+                      "pattern": "^[0-9A-Fa-f:.]+$",
+                      "description": "One IPv4 or IPv6 address the tool server calls from. Ranges are not supported."
+                    },
+                    "maxItems": 20,
+                    "description": "New address list. Empty allows any address."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The changed tool.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "tool": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "Id of the registration row."
+                            },
+                            "clientId": {
+                              "type": "string",
+                              "pattern": "^krt_[A-Za-z0-9_-]{16,64}$",
+                              "description": "The tool client id given at registration, for example krt_Ab12Cd34Ef56Gh78Ij90Kl12. Public, not a secret."
+                            },
+                            "label": {
+                              "type": "string",
+                              "description": "Words shown in the left menu."
+                            },
+                            "description": {
+                              "type": "string",
+                              "description": "One-line purpose, shown as the menu tooltip."
+                            },
+                            "icon": {
+                              "type": "string",
+                              "enum": [
+                                "dashboard",
+                                "leads",
+                                "contacts",
+                                "matters",
+                                "billing",
+                                "tasks",
+                                "accounts",
+                                "documents",
+                                "communications",
+                                "reports",
+                                "settings",
+                                "attendance"
+                              ],
+                              "description": "Icon drawn beside the tool in the left menu."
+                            },
+                            "menuOrder": {
+                              "type": "integer",
+                              "description": "Position among the outside tools in the menu; lower comes first."
+                            },
+                            "origin": {
+                              "type": "string",
+                              "description": "Origin of the tool screen (scheme, host and port), taken from entryUrl."
+                            },
+                            "entryUrl": {
+                              "type": "string",
+                              "description": "Full address of the tool screen."
+                            },
+                            "allowedRoles": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "Roles that see the tool in the menu and may use it."
+                            },
+                            "scopes": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "contacts:read",
+                                  "contacts:write",
+                                  "leads:read",
+                                  "leads:write",
+                                  "communications:read",
+                                  "communications:write",
+                                  "tasks:read",
+                                  "tasks:write",
+                                  "timekeeping:read",
+                                  "timekeeping:write",
+                                  "billing:read",
+                                  "billing:write",
+                                  "matters:read",
+                                  "matters:write",
+                                  "documents:read",
+                                  "documents:write",
+                                  "reports:read"
+                                ],
+                                "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
+                              },
+                              "description": "Permissions granted to the tool."
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "disabled"
+                              ],
+                              "description": "active: shown and allowed to call the API. disabled: hidden, and every call is refused at once."
+                            },
+                            "serverAccessEnabled": {
+                              "type": "boolean",
+                              "description": "True when the tool server may get access tokens (path B)."
+                            },
+                            "serverIpAllowlist": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "When not empty, the only addresses the tool server may call from."
+                            },
+                            "hasSecret": {
+                              "type": "boolean",
+                              "description": "True when a client secret exists. The secret itself is shown only once, when it is made."
+                            },
+                            "secretCreatedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "When the current client secret was made (ISO time), or null."
+                            },
+                            "previousSecretValidUntil": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Until when the secret replaced last still works (ISO time), or null."
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "description": "When the tool was registered (ISO time)."
+                            },
+                            "updatedAt": {
+                              "type": "string",
+                              "description": "When the registration last changed (ISO time)."
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "clientId",
+                            "label",
+                            "description",
+                            "icon",
+                            "menuOrder",
+                            "origin",
+                            "entryUrl",
+                            "allowedRoles",
+                            "scopes",
+                            "status",
+                            "serverAccessEnabled",
+                            "serverIpAllowlist",
+                            "hasSecret",
+                            "secretCreatedAt",
+                            "previousSecretValidUntil",
+                            "createdAt",
+                            "updatedAt"
+                          ],
+                          "description": "The registration."
+                        }
+                      },
+                      "required": [
+                        "tool"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The tool address is not allowed (TOOL_ENTRY_URL_REFUSED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such tool (TOOL_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The tools tables cannot be reached (TOOLS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove an outside tool and end its access tokens. Its audit rows are kept.",
+        "description": "Roles: super_admin.\n\nSide effects: Deletes workspace_tool and its workspace_tool_token rows; Writes workspace_tool_audit.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TOOL_NOT_FOUND, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "tools"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "Id of the registration row."
+            },
+            "required": true,
+            "description": "Id of the registration row.",
+            "name": "toolId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Removed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "deleted": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ],
+                          "description": "Always true. The registration and its access tokens are gone; its audit rows are kept."
+                        }
+                      },
+                      "required": [
+                        "deleted"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such tool (TOOL_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The tools tables cannot be reached (TOOLS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tools/registrations/{toolId}/secret": {
+      "post": {
+        "summary": "Make a new client secret for an outside tool; the old one may keep working for a short overlap.",
+        "description": "Roles: super_admin.\n\nSide effects: Writes workspace_tool (secret hashes); Deletes workspace_tool_token rows when the overlap is 0; Writes workspace_tool_audit.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TOOL_NOT_FOUND, TOOL_SERVER_ACCESS_OFF, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "tools"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "Id of the registration row."
+            },
+            "required": true,
+            "description": "Id of the registration row.",
+            "name": "toolId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "keepPreviousForHours": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 72,
+                    "default": 24,
+                    "description": "Hours the old secret keeps working (0 to 72). 0 ends it at once."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The new secret, in this reply only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "clientSecret": {
+                          "type": "string",
+                          "description": "The new client secret, shown only in this reply."
+                        },
+                        "previousSecretValidUntil": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Until when the old secret still works (ISO time), or null when it ended at once."
+                        }
+                      },
+                      "required": [
+                        "clientSecret",
+                        "previousSecretValidUntil"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such tool (TOOL_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Turn server access on first (TOOL_SERVER_ACCESS_OFF).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The tools tables cannot be reached (TOOLS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tools/registrations/{toolId}/audit": {
+      "get": {
+        "summary": "List the most recent calls and changes for an outside tool, newest first.",
+        "description": "Roles: super_admin.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "tools"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "Id of the registration row."
+            },
+            "required": true,
+            "description": "Id of the registration row.",
+            "name": "toolId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Up to 200 entries.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "entries": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "Id of the audit row."
+                              },
+                              "channel": {
+                                "type": "string",
+                                "enum": [
+                                  "frame",
+                                  "server",
+                                  "admin"
+                                ],
+                                "description": "frame: the tool in the browser. server: the tool server through external-api. admin: a super admin changed the registration."
+                              },
+                              "userId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Signed-in person for frame and admin rows; null for server calls."
+                              },
+                              "method": {
+                                "type": "string",
+                                "description": "HTTP method, or the admin action (CREATE, UPDATE, ROTATE_SECRET, DELETE)."
+                              },
+                              "path": {
+                                "type": "string",
+                                "description": "API path called, without the query."
+                              },
+                              "status": {
+                                "type": "integer",
+                                "description": "Reply status code."
+                              },
+                              "requestId": {
+                                "type": "string",
+                                "description": "Request id, to match the API logs."
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "description": "When it happened (ISO time)."
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "channel",
+                              "userId",
+                              "method",
+                              "path",
+                              "status",
+                              "requestId",
+                              "createdAt"
+                            ]
+                          },
+                          "description": "The most recent entries, newest first (at most 200)."
+                        }
+                      },
+                      "required": [
+                        "entries"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The tools tables cannot be reached (TOOLS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tools/menu": {
+      "get": {
+        "summary": "List the active outside tools the signed-in person may use, for the left menu.",
+        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: UNAUTHENTICATED, FORBIDDEN, INTERNAL_ERROR.",
+        "tags": [
+          "tools"
+        ],
+        "responses": {
+          "200": {
+            "description": "The tools for this person. Empty when the tools tables cannot be reached.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "tools": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "clientId": {
+                                "type": "string",
+                                "pattern": "^krt_[A-Za-z0-9_-]{16,64}$",
+                                "description": "The tool client id given at registration, for example krt_Ab12Cd34Ef56Gh78Ij90Kl12. Public, not a secret."
+                              },
+                              "label": {
+                                "type": "string",
+                                "description": "Words shown in the left menu."
+                              },
+                              "description": {
+                                "type": "string",
+                                "description": "Tooltip text."
+                              },
+                              "icon": {
+                                "type": "string",
+                                "enum": [
+                                  "dashboard",
+                                  "leads",
+                                  "contacts",
+                                  "matters",
+                                  "billing",
+                                  "tasks",
+                                  "accounts",
+                                  "documents",
+                                  "communications",
+                                  "reports",
+                                  "settings",
+                                  "attendance"
+                                ],
+                                "description": "Icon drawn beside the tool in the left menu."
+                              },
+                              "menuOrder": {
+                                "type": "integer",
+                                "description": "Position among the outside tools."
+                              },
+                              "origin": {
+                                "type": "string",
+                                "description": "The only origin the frame may load from and whose messages the host accepts."
+                              },
+                              "entryUrl": {
+                                "type": "string",
+                                "description": "Address loaded in the frame."
+                              },
+                              "scopes": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "contacts:read",
+                                    "contacts:write",
+                                    "leads:read",
+                                    "leads:write",
+                                    "communications:read",
+                                    "communications:write",
+                                    "tasks:read",
+                                    "tasks:write",
+                                    "timekeeping:read",
+                                    "timekeeping:write",
+                                    "billing:read",
+                                    "billing:write",
+                                    "matters:read",
+                                    "matters:write",
+                                    "documents:read",
+                                    "documents:write",
+                                    "reports:read"
+                                  ],
+                                  "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
+                                },
+                                "description": "Permissions the tool was granted (shown to the person for transparency)."
+                              }
+                            },
+                            "required": [
+                              "clientId",
+                              "label",
+                              "description",
+                              "icon",
+                              "menuOrder",
+                              "origin",
+                              "entryUrl",
+                              "scopes"
+                            ]
+                          },
+                          "description": "Tools the signed-in person may use, in menu order."
+                        }
+                      },
+                      "required": [
+                        "tools"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tools/token": {
+      "post": {
+        "summary": "Trade a tool client id and secret for a 15-minute access token (server path only).",
+        "description": "Public (no sign-in).\n\nSide effects: Writes workspace_tool_token; Deletes ended workspace_tool_token rows; Writes workspace_tool_audit.\n\nOutside tools: any registered tool.\n\nError codes: VALIDATION_FAILED, TOOL_GATEWAY_REQUIRED, TOOL_TOKEN_INVALID, TOOL_FORBIDDEN, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "tools"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "grantType": {
+                    "type": "string",
+                    "enum": [
+                      "client_credentials"
+                    ],
+                    "description": "Always client_credentials."
+                  },
+                  "clientId": {
+                    "type": "string",
+                    "pattern": "^krt_[A-Za-z0-9_-]{16,64}$",
+                    "description": "The tool client id given at registration, for example krt_Ab12Cd34Ef56Gh78Ij90Kl12. Public, not a secret."
+                  },
+                  "clientSecret": {
+                    "type": "string",
+                    "minLength": 20,
+                    "maxLength": 200,
+                    "description": "The client secret shown once at registration or rotation."
+                  },
+                  "scopes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "contacts:read",
+                        "contacts:write",
+                        "leads:read",
+                        "leads:write",
+                        "communications:read",
+                        "communications:write",
+                        "tasks:read",
+                        "tasks:write",
+                        "timekeeping:read",
+                        "timekeeping:write",
+                        "billing:read",
+                        "billing:write",
+                        "matters:read",
+                        "matters:write",
+                        "documents:read",
+                        "documents:write",
+                        "reports:read"
+                      ],
+                      "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
+                    },
+                    "maxItems": 17,
+                    "description": "Optional: ask for fewer permissions than were granted. Left out, the token carries every granted permission."
+                  }
+                },
+                "required": [
+                  "grantType",
+                  "clientId",
+                  "clientSecret"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "accessToken": {
+                          "type": "string",
+                          "description": "Send as Authorization: Bearer <accessToken>. Keep it on the server."
+                        },
+                        "tokenType": {
+                          "type": "string",
+                          "enum": [
+                            "Bearer"
+                          ],
+                          "description": "Always Bearer."
+                        },
+                        "expiresIn": {
+                          "type": "integer",
+                          "description": "Seconds until the token ends (900)."
+                        },
+                        "scopes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "contacts:read",
+                              "contacts:write",
+                              "leads:read",
+                              "leads:write",
+                              "communications:read",
+                              "communications:write",
+                              "tasks:read",
+                              "tasks:write",
+                              "timekeeping:read",
+                              "timekeeping:write",
+                              "billing:read",
+                              "billing:write",
+                              "matters:read",
+                              "matters:write",
+                              "documents:read",
+                              "documents:write",
+                              "reports:read"
+                            ],
+                            "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
+                          },
+                          "description": "Permissions the token carries."
+                        }
+                      },
+                      "required": [
+                        "accessToken",
+                        "tokenType",
+                        "expiresIn",
+                        "scopes"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unknown client id or wrong secret (TOOL_TOKEN_INVALID).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not through external-api (TOOL_GATEWAY_REQUIRED), or the tool may not get tokens (TOOL_FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The tools tables cannot be reached (TOOLS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tools/context": {
+      "get": {
+        "summary": "Tell an outside tool who is calling: the tool, its permissions and, for frame calls, the person.",
+        "description": "Any signed-in user.\n\nSide effects: Writes workspace_tool_audit.\n\nOutside tools: any registered tool.\n\nError codes: UNAUTHENTICATED, FORBIDDEN, TOOL_CALLER_REQUIRED, INTERNAL_ERROR.",
+        "tags": [
+          "tools"
+        ],
+        "responses": {
+          "200": {
+            "description": "The caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "tool": {
+                          "type": "object",
+                          "properties": {
+                            "clientId": {
+                              "type": "string",
+                              "pattern": "^krt_[A-Za-z0-9_-]{16,64}$",
+                              "description": "The tool client id given at registration, for example krt_Ab12Cd34Ef56Gh78Ij90Kl12. Public, not a secret."
+                            },
+                            "label": {
+                              "type": "string",
+                              "description": "Menu words of the tool."
+                            },
+                            "scopes": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "contacts:read",
+                                  "contacts:write",
+                                  "leads:read",
+                                  "leads:write",
+                                  "communications:read",
+                                  "communications:write",
+                                  "tasks:read",
+                                  "tasks:write",
+                                  "timekeeping:read",
+                                  "timekeeping:write",
+                                  "billing:read",
+                                  "billing:write",
+                                  "matters:read",
+                                  "matters:write",
+                                  "documents:read",
+                                  "documents:write",
+                                  "reports:read"
+                                ],
+                                "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
+                              },
+                              "description": "Permissions this call may use."
+                            }
+                          },
+                          "required": [
+                            "clientId",
+                            "label",
+                            "scopes"
+                          ],
+                          "description": "The calling tool."
+                        },
+                        "channel": {
+                          "type": "string",
+                          "enum": [
+                            "frame",
+                            "server"
+                          ],
+                          "description": "frame: called from the browser through the host page. server: called from the tool server."
+                        },
+                        "user": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "displayName": {
+                              "type": "string",
+                              "description": "Name of the person using the tool."
+                            },
+                            "role": {
+                              "type": "string",
+                              "description": "Role of that person."
+                            },
+                            "firmName": {
+                              "type": "string",
+                              "description": "Firm name."
+                            }
+                          },
+                          "required": [
+                            "displayName",
+                            "role",
+                            "firmName"
+                          ],
+                          "description": "The signed-in person for frame calls; null for server calls."
+                        }
+                      },
+                      "required": [
+                        "tool",
+                        "channel",
+                        "user"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Called without a tool (TOOL_CALLER_REQUIRED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
                     "requestId"
                   ]
                 }

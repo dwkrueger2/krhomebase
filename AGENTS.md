@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.2</small><br>
-<small>Updated Nov 7, 2026 11:10am</small>
+<small>Version 2.4</small><br>
+<small>Updated Nov 9, 2026 9:20am</small>
 
 ## Agent Guide Index
 
@@ -14,8 +14,10 @@
 - Read and follow `AGENTS_06_d1-migration-procedures.md` for Cloudflare D1 SQL compatibility, foreign-key ordering, migration verification, and owner-applied migration procedures.
 - Read the nearest local guide to the files you are changing as well:
   - `apps/api/AGENTS.md` for routes, tests and API documentation.
+  - `apps/external-api/AGENTS.md` for the public door for outside tool servers.
   - `apps/web/AGENTS.md` for screens.
   - `packages/contracts/AGENTS.md` for the zod descriptions shared by both.
+  - `packages/tool-sdk/AGENTS.md` for the outside-tool kit (its `README.md` is the guide for outside developers).
 - Read `docs/00_PromptMemoryStart.md` (response header, command format, strict rules), `docs/04_Deployed_Architecture.md` (what is deployed now) and `docs/01_Architecture_Proposal.md` (why the repository is built this way).
 - Read a guide before starting work of the kind it covers. When two guides disagree, the stricter rule wins and the disagreement is reported to the requester.
 - **The requester.** Throughout these guides, "the requester" means the coder or prompt writer who is giving the instructions in the current session. Every decision, approval, override or hand-off that a guide reserves for a person belongs to the requester, whoever that is. A guide never means one named person.
@@ -83,29 +85,34 @@ Before creating or modifying any `.tsx`, `.css`, or `.module.css` file:
 
 ## Current Project Shape
 
-KR Homebase is a pnpm monorepo of two Cloudflare Workers and one shared package. It is the migration target for the old `apps/kr-homebase`.
+KR Homebase is a pnpm monorepo of three Cloudflare Workers and two shared packages. It is the migration target for the old `apps/kr-homebase`.
 
 ```text
 apps/web/            Screens. Next.js on vinext, deployed as the krhomebase-web Worker. No database, no business rules.
                      Shared pieces: components/dialogs (U6ConfirmationDialog), components/ui (RainbowBusySpinner), lib/KRUtilities.ts (L), lib/api.ts (callApi).
                      Folder layout and its rules: apps/web/AGENTS.md.
 apps/api/            API. Hono on a Cloudflare Worker (krhomebase-api). All business rules. The only code that touches D1.
-packages/contracts/  zod descriptions of every request, response and error. Shared by api and web.
+apps/external-api/   krhomebase-external-api Worker: the public door for outside tool servers. Forwards to the API; no rules.
+packages/contracts/  zod descriptions of every request, response and error. Shared by api, external-api and web.
+packages/tool-sdk/   Kit for outside tools (docs/05_Outside_Tools.md). Its README.md is the outside developers' guide.
 workers/             Cloudflare Workers copied from the old repository. Not part of the apps. Rules: "Workers" below and workers/Readme-workers.md.
 docs/                Documentation: schema spaces, architecture, API notes, patch notes, help documents.
 scripts/             Helper scripts: snapshot tools and the stop-port script. Replaces the old repo-utilities folder.
 snapshots/           Git-ignored database dumps. Never read.
 ```
 
-Planned, not yet created: `packages/api-client` (generated typed client), `packages/db` (migrations, generated row types), `packages/config`, `apps/external-api` (key-checked bridge for outside programs), `apps/public-inquiry`, `apps/gpt-gateway`. The public website (`apps/kr-website-public`) is not part of this repository.
+Planned, not yet created: `packages/api-client` (generated typed client), `packages/db` (migrations, generated row types), `packages/config`, `packages/tools/<name>` (built-in tools as packages), `apps/public-inquiry`, `apps/gpt-gateway`. The public website (`apps/kr-website-public`) is not part of this repository.
 
 ### Dependency direction (enforced by review)
 
-- `web` may import `contracts` and (later) `api-client`. It must not import from `apps/api`.
+- `web` may import `contracts`, `tool-sdk` (the bridge protocol) and (later) `api-client`. It must not import from `apps/api`.
 - `api` may import `contracts`. It must not import from `apps/web`.
+- `external-api` may import `contracts`. It must not import from either app.
 - `contracts` imports nothing from the apps and nothing but `zod`.
+- `tool-sdk` has no runtime dependencies (it installs on its own from a `.tgz`); `contracts` is a development-only dependency for its sync test.
 - Only `apps/api` has the D1 `krhomebase` binding. `web` never queries the database.
 - `api` has no public address (`workers_dev` and `preview_urls` are off). Only another Worker can call it through a service binding.
+- `krhomebase-external-api` has no public address until the requester adds a Custom Domain. It reaches `api` only through its `API` service binding, and only it sets the `x-kr-gateway` header; `web` strips that header from browser requests.
 - `krhomebase-crud-worker` and `krhomebase-session-worker` (in `workers/`) also have no public address. Only `api` calls them, through service bindings declared in `apps/api/kr-api-wrangler.jsonc`. `web` never calls them.
 
 ### Development servers and ports
@@ -119,6 +126,8 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 | 9340 | `crud-worker` debugger | started with it | `pnpm stop:port:9340` |
 | 8792 | `workers/d1-workers/session-worker` (wrangler dev) | `pnpm dev:session` | `pnpm stop:port:8792` |
 | 9341 | `session-worker` debugger | started with it | `pnpm stop:port:9341` |
+| 8793 | `apps/external-api` (wrangler dev) | `pnpm dev:external` | `pnpm stop:port:8793` |
+| 9342 | `external-api` debugger | started with it | `pnpm stop:port:9342` |
 | 3001 | Not used here. The old `apps/kr-homebase` runs on it. | | `pnpm stop:port:3001` |
 | 3000, 3002, 3003 | Not assigned in this repository. Kept from the old repository's scripts. | | `pnpm stop:port:3000`, `:3002`, `:3003` |
 
@@ -141,6 +150,7 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 - `docs/Schema_8.0` is the canonical current KR Homebase database schema documentation (open `index.html`). Source of truth is the database; the raw export is `docs/Schema_8.0/_source/live_schema.json`.
 - `docs/Schema_Public_Inquiry_v2.0` is the canonical public inquiry schema documentation (database `kr_public_inquiry_06_2026`).
 - `docs/Schema_GPT_Usage_1.1` is the canonical GPT gateway schema documentation (database `krhomebase_gpt_usage_dev`).
+- `docs/05_Outside_Tools.md` is the design, security model and go-live steps for outside tools. The guide for outside developers is `packages/tool-sdk/README.md`; do not repeat it elsewhere.
 - `docs/04_Deployed_Architecture.md` states what is deployed now: the four Workers, addresses, bindings, settings and deploy commands. Update it whenever one of those changes.
 - `docs/01_Architecture_Proposal.md` is the build plan and the list of open decisions.
 - `docs/02_AGENTS_Review.md` records how each old AGENTS rule was kept, changed or dropped.
@@ -176,11 +186,14 @@ pnpm install          # once, installs every package
 pnpm dev              # api (port 8787) and web (port 3011) together
 pnpm dev:crud         # crud-worker on port 8791 (optional local run; see workers/Readme-workers.md)
 pnpm dev:session      # session-worker on port 8792
+pnpm dev:external     # external-api on port 8793 (calls the deployed API)
 pnpm check            # type check + all tests; must pass before the requester commits
 pnpm openapi          # rewrite apps/api/openapi/openapi.json after changing any route
 pnpm build:web        # build the web app (apps/web)
 pnpm deploy:api       # deploy the API Worker (apps/api); the requester runs it
 pnpm deploy:web       # deploy the web Worker (apps/web); needs the cf sign-in
+pnpm deploy:external  # deploy the external-api Worker; the requester runs it, after deploy:api
+pnpm pack:tool-sdk    # build dist\tool-sdk\krhomebase-tool-sdk-1.0.0.tgz for outside developers
 pnpm stop:ports:all   # stop every development server started by this repository
 pnpm listScripts      # show the root scripts
 ```
@@ -188,16 +201,25 @@ pnpm listScripts      # show the root scripts
 ### Root scripts and the folder each one runs
 
 - **No `--filter`.** A root script that targets one package names its folder: `pnpm --dir apps/api run <script>`. Do not add `pnpm --filter <package-name>`; it finds the package by name and hides which folder runs. Do not write `pnpm deploy` for a package script, because `deploy` is a built-in pnpm command; use `run deploy`, or the root `deploy:api` and `deploy:web`.
-- `pnpm -r run <script>` (used by `build`, `typecheck`, `test`, `types:cf`, and `dev` with `--parallel`) runs the script in every package that has it.
+- **No `-r` (recursive).** A root script never searches the packages for a script name to run. Every root script names each folder or each root script it calls, and joins several calls with `&&` (one after another, stopping at the first failure). A new package is added to these scripts by hand.
+- **Running two servers together:** `dev` calls the root scripts `dev:api` and `dev:web` by name through a pnpm pattern, `pnpm --reporter=append-only run "/^dev:(api|web)$/"`, which starts the listed scripts at the same time. `--reporter=append-only` prints every line with its script name in front (`dev:api:`, `dev:web:`); without it, pnpm redraws one collapsing box per script in the terminal and the two boxes overwrite each other. Add a server by adding its name inside the parentheses. `dev:crud` and `dev:session` are not in the list and run only when called by name.
 
 | Root script | Folder | Runs |
 |---|---|---|
-| `dev` | `apps/api` and `apps/web` | `dev` in each, together |
+| `dev` | root | `dev:api` and `dev:web`, together |
+| `build` | root | `build:web` |
+| `typecheck` | `packages/contracts`, `packages/tool-sdk`, `apps/api`, `apps/external-api`, `apps/web` | `typecheck` in each, in that order, joined by `&&` |
+| `test` | `packages/contracts`, `packages/tool-sdk`, `apps/api`, `apps/external-api`, `apps/web` | `test` in each, in that order, joined by `&&` |
+| `check` | root | `typecheck`, then `test` |
+| `types:cf` | `apps/api` | `wrangler types --config kr-api-wrangler.jsonc` |
 | `dev:api` | `apps/api` | `wrangler dev --port 8787 --inspector-port 9339` |
 | `dev:web` | `apps/web` | `vite dev --port 3011` |
 | `build:web` | `apps/web` | `vite build` |
 | `deploy:api` | `apps/api` | `wrangler deploy` |
 | `deploy:web` | `apps/web` | `vinext-cloudflare deploy` |
+| `dev:external` | `apps/external-api` | `wrangler dev --port 8793 --inspector-port 9342` |
+| `deploy:external` | `apps/external-api` | `wrangler deploy` |
+| `pack:tool-sdk` | `packages/tool-sdk` | build, then `pnpm pack` into `dist/tool-sdk` |
 | `openapi` | `apps/api` | `tsx scripts/write-openapi.ts` |
 | `dev:crud`, `dev:session` | `workers/d1-workers/...` | `wrangler dev` with that Worker's config |
 

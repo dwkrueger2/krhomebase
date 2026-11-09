@@ -1,0 +1,21 @@
+{
+  "name": "@krhomebase/external-api",
+  "private": true,
+  "type": "module",
+  "description": "krhomebase-external-api Worker: the only public door for outside tool servers. Forwards allowed calls to the API. Part of the API version track (AGENTS_01).",
+  "scripts": {
+    "dev": "wrangler dev --config kr-external-api-wrangler.jsonc --port 8793 --inspector-port 9342",
+    "deploy": "wrangler deploy --config kr-external-api-wrangler.jsonc",
+    "typecheck": "wrangler types --config kr-external-api-wrangler.jsonc && tsc --noEmit",
+    "test": "vitest run",
+    "types:cf": "wrangler types --config kr-external-api-wrangler.jsonc"
+  },
+  "dependencies": {
+    "@krhomebase/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.0",
+    "wrangler": "^4.156.2"
+  }
+}

@@ -4,15 +4,20 @@
  * display-safe user the frame shows.
  *
  * The shell knows only section ids. It never imports a screen. `app/page.tsx` supplies one panel
- * for each id (see `ApplicationShell`), so the dependency rule (app -> features -> components)
+ * for each built-in id (see `ApplicationShell`), so the dependency rule (app -> features -> components)
  * holds. Ported from the old `hb-components/types.ts` (navigation part only; the session and
  * worker types come back with sign-in).
+ *
+ * Outside tools (docs/05_Outside_Tools.md) are added to the menu at run time from `GET /v1/tools/menu`.
+ * Their section id is `tool:<clientId>`, and `buildNavItems` places them after Reports and before Settings.
+ * The shell draws them itself, in a sealed frame (`ExternalToolFrame`), so no feature is imported for them.
  */
 
+import type { ToolMenuItem } from '@krhomebase/contracts'
 import type { KRHomebaseIconName } from '@/components/ui/KRHomebaseIcon.client'
 
-/** Every section the left menu can open. The three settings pages are children of `settings`. */
-export type ShellSectionId =
+/** Every built-in section the left menu can open. The three settings pages are children of `settings`. */
+export type BuiltInSectionId =
   | 'dashboard'
   | 'contacts'
   | 'leads'
@@ -26,6 +31,12 @@ export type ShellSectionId =
   | 'user-settings'
   | 'application-settings'
   | 'firm-settings'
+
+/** Section id of an outside tool: `tool:` and the tool's client id. */
+export type ToolSectionId = `tool:${string}`
+
+/** Every section the left menu can open: a built-in section or an outside tool. */
+export type ShellSectionId = BuiltInSectionId | ToolSectionId
 
 /** One row of the left menu. */
 export interface ShellNavItem {
@@ -41,6 +52,8 @@ export interface ShellNavItem {
   isSubItem?: boolean
   /** One-line purpose shown on the placeholder and used as the tooltip text. */
   description: string
+  /** Set for an outside tool: what the frame needs to load it. */
+  outsideTool?: Pick<ToolMenuItem, 'clientId' | 'origin' | 'entryUrl' | 'scopes'>
 }
 
 /** The person shown at the bottom of the left panel. Display-safe values only; never a token or cookie. */
@@ -78,29 +91,64 @@ export const SHELL_DEFAULT_SECTION_ID: ShellSectionId = 'dashboard'
  * Finds a menu row by id.
  *
  * @param id - Section id to look up.
+ * @param items - The menu to search; defaults to the built-in rows.
  * @returns The row, or the Dashboard row when the id is unknown.
  */
-export function findNavItem(id: ShellSectionId): ShellNavItem {
-  return SHELL_NAV_ITEMS.find((item) => item.id === id) ?? SHELL_NAV_ITEMS[0]!
+export function findNavItem(id: ShellSectionId, items: readonly ShellNavItem[] = SHELL_NAV_ITEMS): ShellNavItem {
+  return items.find((item) => item.id === id) ?? SHELL_NAV_ITEMS[0]!
 }
 
 /**
  * Tells whether a value read from outside the program (such as the address bar) is a section id.
  *
  * @param value - Text to test.
+ * @param items - The menu to check against; defaults to the built-in rows.
  * @returns True when `value` is one of the ids in the menu.
  */
-export function isShellSectionId(value: string | null | undefined): value is ShellSectionId {
-  return !!value && SHELL_NAV_ITEMS.some((item) => item.id === value)
+export function isShellSectionId(value: string | null | undefined, items: readonly ShellNavItem[] = SHELL_NAV_ITEMS): value is ShellSectionId {
+  return !!value && items.some((item) => item.id === value)
 }
 
 /**
  * Builds the breadcrumb trail shown under the application title.
  *
  * @param id - Section that is open.
+ * @param items - The menu; defaults to the built-in rows.
  * @returns For a settings child: ['Settings', 'User Settings']. Otherwise one label.
  */
-export function buildBreadcrumbs(id: ShellSectionId): string[] {
-  const item = findNavItem(id)
-  return item.parentId ? [findNavItem(item.parentId).label, item.label] : [item.label]
+export function buildBreadcrumbs(id: ShellSectionId, items: readonly ShellNavItem[] = SHELL_NAV_ITEMS): string[] {
+  const item = findNavItem(id, items)
+  return item.parentId ? [findNavItem(item.parentId, items).label, item.label] : [item.label]
+}
+
+/** The section id of an outside tool. */
+export function toolSectionId(clientId: string): ToolSectionId {
+  return `tool:${clientId}`
+}
+
+/** True when a section id belongs to an outside tool. */
+export function isToolSectionId(id: ShellSectionId): id is ToolSectionId {
+  return id.startsWith('tool:')
+}
+
+/**
+ * The whole menu: the built-in rows with the outside tools placed after Reports and before Settings, in
+ * their menu order.
+ *
+ * @param tools - The tools from `GET /v1/tools/menu` (only those the signed-in person may use).
+ * @returns A new list of rows.
+ */
+export function buildNavItems(tools: readonly ToolMenuItem[]): ShellNavItem[] {
+  const toolRows: ShellNavItem[] = [...tools]
+    .sort((a, b) => a.menuOrder - b.menuOrder || a.label.localeCompare(b.label))
+    .map((tool) => ({
+      id: toolSectionId(tool.clientId),
+      label: tool.label,
+      // Every tool icon is a menu icon; the typecheck fails here if the two lists drift apart.
+      icon: tool.icon,
+      description: tool.description || `${tool.label} (outside tool)`,
+      outsideTool: { clientId: tool.clientId, origin: tool.origin, entryUrl: tool.entryUrl, scopes: tool.scopes },
+    }))
+  const settingsAt = SHELL_NAV_ITEMS.findIndex((item) => item.id === 'settings')
+  return [...SHELL_NAV_ITEMS.slice(0, settingsAt), ...toolRows, ...SHELL_NAV_ITEMS.slice(settingsAt)]
 }

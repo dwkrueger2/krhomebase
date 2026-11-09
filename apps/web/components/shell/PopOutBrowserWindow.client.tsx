@@ -16,10 +16,14 @@
  *
  * If the browser blocks the pop-up, `openPopoutBrowserWindow` returns null and the frame uses the
  * in-page `PopOutWindow` instead.
+ *
+ * Development only: the window also gets its own Dev View (`DevViewLoader` with `targetWindow`), because the main
+ * window's Dev View cannot see into another window. A production build renders nothing for it.
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import DevViewLoader from '@/components/dev-view/DevViewLoader.client'
 
 /** Size of a new pop-out window, in pixels. The person can resize it afterwards. */
 const POPOUT_WIDTH_PX = 1000
@@ -146,6 +150,8 @@ export default function PopOutBrowserWindow({ popupWindow, title, onClose, child
     <div className={`${LAYOUT_STYLES.root} ${STYLES.root}`} data-kr-theme-scope="krhomebase" data-kr-id="KRH-PopOutWindow" data-kr-component="PopOutBrowserWindow">
       {/* Pop-out body: the same panel the workspace would show */}
       {children}
+      {/* Dev View for this window: development only; renders nothing in a production build */}
+      <DevViewLoader targetWindow={popupWindow as Window & typeof globalThis} />
     </div>,
     container,
   )

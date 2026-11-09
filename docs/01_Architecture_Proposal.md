@@ -1,7 +1,7 @@
 # krhomebase Architecture Proposal
 
-<small>Version 1.0</small><br>
-<small>Updated Nov 7, 2026 11:10am</small>
+<small>Version 1.1</small><br>
+<small>Updated Nov 9, 2026 9:20am</small>
 
 **Date:** 2026-11-02
 **Status:** Accepted as the build plan. Open decisions are listed in section 14.
@@ -9,6 +9,7 @@
 **Changes from v0.2:** zod is adopted. A testing plan is added (section 9). The workspace skeleton (contracts, API, web) exists and passes its checks. The AGENTS files are ported (section 10). The outside-programs bridge is added (section 8). The unclear "vertical slice" wording is gone from the document.
 **Current state:** what is deployed and at which address is in `docs/04_Deployed_Architecture.md` (live since Nov 6, 2026). Section 3 below is the Nov 2 snapshot and is kept as history.
 **Changes from v0.3:** The AGENTS system is ported in full: root index plus `AGENTS_01` to `AGENTS_06`, three version tracks, stop-port scripts, and `docs/patch-notes` (section 10).
+**Changes in 1.1:** the bridge Worker (section 8) is built for outside tools, and open decision 11 is settled. Details: `docs/05_Outside_Tools.md`.
 
 ---
 
@@ -129,6 +130,8 @@ No. The Cloudflare documentation says the Workers "run on the same thread of the
 
 ## 8. Outside programs: the bridge Worker
 
+**Built on Nov 9, 2026 (repository patch 16), for outside tools; not deployed.** The design that was built is in `docs/05_Outside_Tools.md`. In short: the Worker is a thin door (rate limit, safe headers, gateway mark), and the API does the checks: client id and secret for a 15-minute bearer token, both stored as hashes; permissions per tool, chosen by a super admin; the API sees a tool caller with permissions, never a staff session. The plan below is kept as history.
+
 Outside programs reach the API through `apps/external-api` (built late, after the staff routes work). It sits in front of `krhomebase-api`:
 
 - checks the API key on every call and rejects unknown or revoked keys;
@@ -213,7 +216,7 @@ krhomebase/
 │  │  ├─ openapi/openapi.json       # generated, committed
 │  │  ├─ scripts/write-openapi.ts
 │  │  └─ kr-api-wrangler.jsonc      # D1 binding, no public address
-│  ├─ external-api/                 # key-checked bridge for outside programs   (planned)
+│  ├─ external-api/                 # public door for outside tool servers (built, not deployed)
 │  ├─ public-inquiry/               # intake Worker and its own D1             (planned)
 │  └─ gpt-gateway/                  # AI provider Worker and its own D1        (planned)
 ├─ packages/
@@ -273,7 +276,7 @@ Several `package.json` files plus a root one for your shortcuts:
 8. **API documentation viewer.** A page served only in development, or inside the app for admins.
 9. **CI.** Run `pnpm check` automatically on every commit (for example GitHub Actions).
 10. **Migration tracking.** The baseline was loaded by import, not by a migration file. Decide how `packages/db/migrations` starts (for example, mark the baseline as applied).
-11. **Bridge key storage** (section 8).
+11. **Bridge key storage** (section 8). Settled Nov 9, 2026: hashes in D1 (`workspace_tool`, `workspace_tool_token`), managed by the API; see `docs/05_Outside_Tools.md`.
 
 ---
 

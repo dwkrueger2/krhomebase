@@ -1,7 +1,7 @@
 # KR Homebase API Agent Guide
 
-<small>Version 1.6</small><br>
-<small>Updated Nov 7, 2026 10:40am</small>
+<small>Version 1.7</small><br>
+<small>Updated Nov 9, 2026 9:20am</small>
 
 ## Purpose
 
@@ -36,6 +36,7 @@ Every route is declared with `defineRoute()` from `src/platform/defineRoute.ts`.
 | `method`, `path` | Path starts with `/v1/`. |
 | `request` | zod descriptions from `@krhomebase/contracts` for params, query and body. |
 | `responses` | zod description of each success reply, wrapped with `successEnvelope()`. |
+| `toolAccess` | Optional. Opens the route to outside tools: `'any'`, or one permission such as `'contacts:read'`. Left out, every tool is refused. See "Outside tools" below. |
 
 Rules:
 
@@ -79,6 +80,15 @@ A route is not finished until all of these pass (`pnpm check`):
 - **Bindings.** `CRUD_WORKER` and `SESSION_WORKER` are service bindings in `kr-api-wrangler.jsonc`. They are `remote: true`, so `pnpm dev:api` calls the deployed Workers.
 - **Settings and secrets** are listed in `apps/api/Readme-auth.md`. The names only are in `apps/api/.dev.vars.example`.
 
+## Outside tools
+
+The design and security model are in `docs/05_Outside_Tools.md`. In this folder:
+
+- `src/features/tools/` holds the registration (super admin only), menu, token and context routes. Its `queries.ts` reads and writes the `workspace_tool*` tables directly through the `krhomebase` D1 binding.
+- `src/platform/authGuard.ts` applies the tool checks on every request: frame calls (`x-kr-tool-id`, with a session) and server calls (bearer token, only with `x-kr-gateway: external-api`).
+- **Opening a route to tools is a decision.** Add `toolAccess` only when the requester agrees, and choose the narrowest permission. On the server path there is no person, so `toolAccess` is the only gate there: `access` roles do not apply.
+- The tests use `test/fakes.ts`: a stand-in Session Worker and an in-memory D1 built from the real migration file with Node's `node:sqlite` (Node 22.13 or later).
+
 ## Documentation and review location
 
 The route specification is generated:
@@ -90,7 +100,7 @@ The route specification is generated:
 ## Completion checklist
 
 - [ ] Existing routes and the old route table were searched; the requester's choice was followed if a similar route exists.
-- [ ] The route uses `defineRoute()` with all required fields.
+- [ ] The route uses `defineRoute()` with all required fields, and `toolAccess` only when the requester chose to open it to tools.
 - [ ] Request and response shapes come from `packages/contracts`.
 - [ ] `pnpm openapi` was run and the result is part of the change.
 - [ ] Business-rule tests were added.
