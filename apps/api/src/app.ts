@@ -9,6 +9,9 @@ import { registerHealth } from './features/health/routes.ts'
 import { ToolsUnavailableError } from './features/tools/queries.ts'
 import { registerTools } from './features/tools/routes.ts'
 import { registerContacts } from './features/contacts/routes.ts'
+import { registerContactEdits } from './features/contact-edits/routes.ts'
+import { registerContactMaintenance } from './features/contact-maintenance/routes.ts'
+import { registerBilling } from './features/billing/routes.ts'
 
 export const openApiInfo = {
   openapi: '3.1.0',
@@ -48,6 +51,9 @@ export function createApp() {
   registerAuth(app)
   registerTools(app)
   registerContacts(app)
+  registerContactEdits(app)
+  registerContactMaintenance(app)
+  registerBilling(app)
 
   app.doc31('/v1/openapi.json', openApiInfo)
 

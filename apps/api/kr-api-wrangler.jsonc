@@ -47,11 +47,15 @@
     // Only used while the database has no users: lets the email in KR_SUPER_ADMIN_EMAILS (a secret) create the first super admin.
     "KR_BOOTSTRAP_FIRST_SSO_USER_AS_SUPER_ADMIN": "true"
   },
+  // "remote": true makes `wrangler dev` (pnpm dev:api) use the live krhomebase database, not an empty local one.
+  // It has no effect on a deployed API. Requester's decision, Nov 9, 2026, while every contacts route only reads.
+  // Revisit before contact saves are built (plan stage 1d): with this on, a save made while testing locally changes live data.
   "d1_databases": [
     {
       "binding": "krhomebase",
       "database_name": "krhomebase",
-      "database_id": "ef68921f-c7d3-4d0b-9af4-defebc748616"
+      "database_id": "ef68921f-c7d3-4d0b-9af4-defebc748616",
+      "remote": true
     }
   ]
 }

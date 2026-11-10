@@ -1,7 +1,7 @@
 # KR Homebase API Agent Guide
 
-<small>Version 1.8</small><br>
-<small>Updated Nov 9, 2026 11:45am</small>
+<small>Version 1.12</small><br>
+<small>Updated Nov 9, 2026 6:20pm</small>
 
 ## Purpose
 
@@ -78,7 +78,7 @@ A route is not finished until all of these pass (`pnpm check`):
 - **Auth routes** are in `src/features/auth/` (`routes.ts`, `rules.ts`, `queries.ts`, `signIn.ts`). `queries.ts` is the only file that reaches the database, and it does so through the crud Worker.
 - **Permissions** (`permission` in `defineRoute()`) are checked after the role; see "Database access, permissions and writes".
 - **Outside calls** go through `src/platform/`: `crudClient.ts` (signs and seals each command for the crud Worker), `sessionClient.ts`, `google.ts`, `turnstile.ts`. They use WebCrypto, never `node:crypto`.
-- **Bindings.** `CRUD_WORKER` and `SESSION_WORKER` are service bindings in `kr-api-wrangler.jsonc`. They are `remote: true`, so `pnpm dev:api` calls the deployed Workers.
+- **Bindings.** `CRUD_WORKER` and `SESSION_WORKER` are service bindings in `kr-api-wrangler.jsonc`. They are `remote: true`, so `pnpm dev:api` calls the deployed Workers. The `krhomebase` database binding is `remote: true` too: local runs read and write the live database. Test saves with care, or ask the requester before switching it.
 - **Settings and secrets** are listed in `apps/api/Readme-auth.md`. The names only are in `apps/api/.dev.vars.example`.
 
 ## Database access, permissions and writes
@@ -96,7 +96,22 @@ Business areas read and write D1 directly through the `krhomebase` binding, not 
 
 ## Contacts
 
-`src/features/contacts/` serves `GET /v1/contacts` (whole list, or `mode=delta&since=`) and `GET /v1/contacts/{contactId}` (one contact with the full SSN and date of birth). `rules.ts` holds the old serializer unchanged; `queries.ts` the thirteen-table loads. Writes come with the Contacts Manager panel.
+`src/features/contacts/` serves `GET /v1/contacts` (whole list, or `mode=delta&since=`) and `GET /v1/contacts/{contactId}` (one contact with the full SSN and date of birth). `rules.ts` holds the old serializer, unchanged except for one added field, `clientDisplayName` (the client account's own name, for the browser's billing client list); `queries.ts` the thirteen-table loads.
+
+`src/features/contact-edits/` (plan stage 1d-3) serves `GET /v1/contact-capabilities`, `POST /v1/contacts` (create, optionally with the client account and its General Matter), `PATCH /v1/contacts/{contactId}` (the edit card), `GET /v1/clients`, `GET /v1/clients/next-number` and `PATCH /v1/clients/status`. Its `queries.ts` returns prepared statements; `rules.ts` gathers every statement of one save with its `audit` rows and runs them as one batch. New ICID/ECID codes are made in `rules.ts` (`generatePublicCode`, the crud Worker's rule) and the save is retried on the rare clash.
+
+`src/features/contact-maintenance/` (plan stage 1d-4, super admin only) serves six `POST /v1/contact-maintenance/...` routes: `resolution-preflight`, `merge`, `copy-and-inactivate`, `removal-preflight`, `delete`, `inactivate`. The removal SQL is the crud Worker's `contact-maintenance.ts`, copied with its guards: the audit row is inserted only while the contact is still eligible, and every later statement runs only if that row exists. Table names come only from the fixed catalogs in `queries.ts`.
+
+The contract test gives write routes a full-schema test database (the maintenance gate reads it) and, for a route with `permission`, a role set granting it, so the body check is reached.
+
+## Billing
+
+`src/features/billing/` (plan stages 3 and 4) is the old `kr-api-v1/billing` route, one route per action, every route under `/v1/billing/clients/{clientId}`: the record (`GET`), time entries (create, change, delete), invoices (create, save a draft, `lock`, `unlock`, `detach-payments`, `void`), payments (post by hand, `void`), trust requests (create, change), trust entries (deposit or disbursement) and manual register rows (change). The routes' header lists them all.
+
+- **Who:** reading uses the old office read roles; writing the old billing write roles; unlock, detach, invoice void and payment void are super admin only (route `access`, so 403). The record carries `viewer` (`canWrite`, `canAdminister`) so the screen shows only what the person may do.
+- **Rules:** `rules.ts` keeps the old arithmetic, status words and `VALIDATION_…` codes. `BillingError(code, status)` carries a refusal (404, 409 or 422). Each write is one batch with an `audit_log` row per changed record (resource `billing`). New `bcid`/`ivid` codes use `generatePublicCode` from contact-edits; an invoice number is the firm-wide highest all-digit number plus one, stepped forward on a clash.
+- **Not here yet:** card and ACH payments, refunds and pay links (stage 6: a credit-card or ACH payment answers `VALIDATION_STRIPE_PAYMENT_INTENT_REQUIRED`, a refund `STRIPE_REFUND_NOT_AVAILABLE`); invoice and statement email and print (stage 5).
+- **Read-only record:** the `GET` writes nothing. The old one also back-filled missing codes and posted paid pay links; codes are now made on insert, and pay links move with stage 6.
 
 ## Outside tools
 

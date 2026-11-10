@@ -66,7 +66,7 @@ const INDIVIDUAL_DETAIL_COLUMNS =
 const ENTITY_COLUMNS =
   'id, ecid, legal_name, entity_subtype, partnership_type, management_structure, ein, ein_last4, state_of_formation, formation_date, entity_status, sos_file_number, state_taxpayer_number, xt_number, registered_agent_name, boi_status, boi_confirmation_number, notes, created_at, updated_at'
 const METHOD_COLUMNS = 'id, contact_type, value, label, is_primary, valid_to, created_at, updated_at'
-const CLIENT_COLUMNS = 'id, client_number, client_type, individual_id, entity_id, status, updated_at'
+const CLIENT_COLUMNS = 'id, client_number, client_type, individual_id, entity_id, display_name, status, updated_at'
 const MEMBER_COLUMNS = 'client_id, individual_id, entity_id, end_date, updated_at'
 const ADDRESS_COLUMNS = 'id, street1, street2, city, state, postal_code, created_at, updated_at'
 const ADDRESS_LINK_COLUMNS = 'id, address_id, is_primary, valid_to'

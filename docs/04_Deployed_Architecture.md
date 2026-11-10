@@ -1,7 +1,7 @@
 # Deployed Architecture
 
-<small>Version 1.3</small><br>
-<small>Updated Nov 9, 2026 1:25pm</small>
+<small>Version 1.4</small><br>
+<small>Updated Nov 9, 2026 3:30pm</small>
 
 **Status:** live since Nov 6, 2026. Read this file before any work that touches a Worker, a binding, a web address, a secret or a deploy command. Update it in the same change as any of those.
 
@@ -21,7 +21,7 @@
 
 - `pnpm deploy:web` runs `vinext-cloudflare deploy`, which builds the app and deploys it as `krhomebase-web` using `cloudflare.config.ts`. It does not create another Worker. The static files go up with the same Worker.
 - The other Workers in `workers/` are copies that are **not deployed** (their databases and buckets are `NOT_SET_REVIEW_BEFORE_USE`). See `workers/Readme-workers.md`.
-- The same Cloudflare account also holds the old Workers. They are not managed from this repository. Do not deploy over them. `kr-pay-worker-dev` lost `pay.krhomebase.com` on Nov 9, 2026 and is to be deleted after a quiet day (it is still bound to the frozen `krhomebase_dev`).
+- The same Cloudflare account also holds the old Workers. They are not managed from this repository. Do not deploy over them. `kr-pay-worker-dev` lost `pay.krhomebase.com` on Nov 9, 2026. It stays (still bound to `krhomebase_dev`) because the old app runs against it for side-by-side comparison; remove it when the old app retires.
 
 ## 2. Public addresses
 

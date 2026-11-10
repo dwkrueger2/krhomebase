@@ -1,7 +1,7 @@
 # Outstanding Task List: API Patch 7
 
-<small>Version 1.0</small><br>
-<small>Updated Nov 9, 2026 11:45am</small>
+<small>Version 1.1</small><br>
+<small>Updated Nov 9, 2026 2:15pm</small>
 
 **Track:** API (`apps/api/package.json`)
 **Version:** 1.1.1  **Patch:** 7  **Patch date:** 11-09
@@ -18,6 +18,7 @@
 - `test/fakes.ts`: `createTestD1({ fullSchema: true })` builds the whole `docs/Schema_8.0/schema_d1_v8_0.sql`; batches return rows for reads.
 - `packages/contracts`: `contacts.ts` and `permissions.ts` (new).
 - `openapi/openapi.json` regenerated. `AGENTS.md` (1.8): sections "Database access, permissions and writes" and "Contacts".
+- `kr-api-wrangler.jsonc`: the `krhomebase` database binding is `remote: true`, so `pnpm dev` reads the live database (requester's decision). No effect on the deployed API.
 - 158 API tests pass, typecheck clean, in a scratch copy.
 
 ## Immediate
@@ -32,6 +33,8 @@
   ```
 
 ## Later
+
+- Before contact saves (plan stage 1d): decide whether local runs keep using the live database or switch to a local schema-only copy. With `remote: true`, a save made while testing locally changes live data.
 
 - Contact writes (create, edit, contact maintenance) with the Contacts Manager panel (plan stage 1d). Each write uses `auditStatement` and passes the write gate.
 - Sign-in still goes through the crud Worker; moving it to direct access is its own step.

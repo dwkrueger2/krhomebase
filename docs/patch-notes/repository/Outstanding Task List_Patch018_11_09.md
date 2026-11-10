@@ -1,7 +1,7 @@
 # Outstanding Task List: Repository Patch 18
 
-<small>Version 1.1</small><br>
-<small>Updated Nov 9, 2026 1:25pm</small>
+<small>Version 1.2</small><br>
+<small>Updated Nov 9, 2026 3:30pm</small>
 
 **Track:** Repository (root `package.json`)
 **Version:** 1.0.0  **Patch:** 18  **Patch date:** 11-09
@@ -20,8 +20,8 @@
 New in this patch:
 
 1. **Pay site moved** (Nov 9, 2026): databases compared (identical: 1 open, 3 posted, 3 revoked; last change Oct 22), KEK set, `pnpm deploy:pay` done, `pay.krhomebase.com` now on `kr-pay-worker-live`, version `e86c85ac-8295-4286-98c8-145060fde00d`. Still to do:
-   1. Check `/health` from PowerShell (headers `X-KR-Worker`, `X-KR-Version`, `X-KR-Deployment`; both Stripe profiles `ready`).
-   2. After a quiet day, delete `kr-pay-worker-dev` in the Cloudflare dashboard.
+   1. Check `/health` from PowerShell. Done Nov 9: `kr-pay-worker-live`, `1.0.0 p18 (11-09)`, both Stripe profiles `ready`.
+   2. (Withdrawn Nov 9: `kr-pay-worker-dev` stays for side-by-side comparison with the old app.)
 2. Confirm item 6 of the plan (Stripe and pay links last), now explained in section 4.
 
 Carried from patch 017: none open except the eight differences, now answered.

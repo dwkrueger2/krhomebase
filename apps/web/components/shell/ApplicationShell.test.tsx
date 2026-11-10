@@ -8,6 +8,7 @@ import LeftPanelFooter from '@/components/shell/LeftPanelFooter.client'
 import LeftPanelHeader from '@/components/shell/LeftPanelHeader.client'
 import LeftPanelNavList from '@/components/shell/LeftPanelNavList.client'
 import PopOutWindow from '@/components/shell/PopOutWindow.client'
+import TopTitleBar from '@/components/shell/TopTitleBar.client'
 import { SHELL_NAV_ITEMS, type ShellSectionId } from '@/components/shell/navigation'
 
 /**
@@ -90,6 +91,30 @@ describe('LeftPanelNavList', () => {
     const html = renderToStaticMarkup(<LeftPanelNavList {...base} collapsed settingsExpanded={false} />)
     expect(html).toContain('title="Clients &amp; Contacts"')
   })
+
+  it('lists open contacts under Clients & Contacts with close buttons, and hides them when collapsed', () => {
+    const openItems = [
+      { parentId: 'contacts' as const, itemId: 'ind_1', label: '[001] Test Person' },
+      { parentId: 'contacts' as const, itemId: 'ind_2', label: 'Other Person' },
+    ]
+    const html = renderToStaticMarkup(<LeftPanelNavList {...base} activeSectionId="contact:ind_1" openItems={openItems} collapsed={false} settingsExpanded={false} />)
+    expect(html).toContain('Open contacts')
+    expect((html.match(/data-kr-element="left-nav-open-item"/g) ?? []).length).toBe(2)
+    expect((html.match(/data-kr-element="left-nav-open-item-close"/g) ?? []).length).toBe(2)
+    expect(html).toContain('[001] Test Person')
+    // The open contact is the current page; its parent row is highlighted but not marked current.
+    expect((html.match(/aria-current="page"/g) ?? []).length).toBe(1)
+    const collapsed = renderToStaticMarkup(<LeftPanelNavList {...base} openItems={openItems} collapsed settingsExpanded={false} />)
+    expect(collapsed).not.toContain('Open contacts')
+  })
+})
+
+describe('TopTitleBar recently accessed', () => {
+  it('draws the recently accessed button beside the bell', () => {
+    const html = renderToStaticMarkup(<TopTitleBar title="Dashboard" breadcrumbItems={['Dashboard']} userDisplayName="Test User" recentItems={[]} />)
+    expect(html).toContain('data-kr-element="homebase-recent-menu"')
+    expect(html.indexOf('homebase-recent-menu')).toBeLessThan(html.indexOf('homebase-notification-menu'))
+  })
 })
 
 describe('LeftPanelCollapseButton', () => {
@@ -131,5 +156,23 @@ describe('PopOutWindow', () => {
     expect(html).toContain('Billing')
     expect(html).toContain('data-kr-element="popout-close-button"')
     expect(html).toContain('inside')
+  })
+})
+
+describe('ApplicationShell top-bar slots', () => {
+  it('shows the given search and status in the title bar, in place of the unconnected search box', () => {
+    const html = renderToStaticMarkup(
+      <ApplicationShell
+        user={USER}
+        panels={PANELS}
+        versionLabel="v9.9.9 p999"
+        topBarSearch={<div data-kr-element="application-search">given-search</div>}
+        topBarStatus={<span>given-status</span>}
+      />,
+    )
+    expect(html).toContain('given-search')
+    expect(html).toContain('given-status')
+    expect(html).not.toContain('placeholder="Search KR Homebase"')
+    expect(html.indexOf('given-status')).toBeLessThan(html.indexOf('data-kr-element="homebase-notification-menu"'))
   })
 })

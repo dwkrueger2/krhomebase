@@ -1,20 +1,22 @@
 # `client-data-store`: Browser Client Data Store Specification
 
-<small>Version 1.2</small><br>
-<small>Updated Nov 9, 2026 10:40am</small>
+<small>Version 1.3</small><br>
+<small>Updated Nov 9, 2026 2:45pm</small>
 
 ## 0. In this repository
 
 - Ported from the old repository's `apps/kr-homebase/src/hb-lib/hb-client-data-store/README.md` (version 1.1). Sections 1 to 13 below are that document unchanged; they still use the old paths and API addresses.
-- Ported so far (web patch 509): `types.ts`, `browserStore.client.ts`, `metrics.client.ts`, with tests in `browserStore.test.ts`. The contacts adapter, the provider and the search follow in stage 1 of `docs/06_Contacts_Billing_Port_Plan.md`.
+- Ported (web patch 509): `types.ts`, `browserStore.client.ts`, `metrics.client.ts`, with tests in `browserStore.test.ts`. `types.ts` gained one optional field in patch 510 (`clientDisplayName` on the contact element).
+- The contacts adapter (old `contacts.client.ts`), the provider and the search live in `apps/web/features/contacts/` (patch 510), because they use the contacts area's types and API call.
 - Old paths and their new places:
 
 | Old | New |
 |---|---|
 | `apps/kr-homebase/src/hb-lib/hb-client-data-store/` | `apps/web/lib/client-data-store/` |
-| `/krhomebase/api/kr-api-v1/contacts` | `/api/v1/contacts` (stage 1; not built yet) |
-| `hb-components/data-store/DataStoreProvider.client.tsx` | stage 1 |
-| `hb-components/search/ApplicationSearch.client.tsx` | stage 1 |
+| `/krhomebase/api/kr-api-v1/contacts` | `/api/v1/contacts` (API patch 7) |
+| `hb-lib/hb-client-data-store/contacts.client.ts` | `apps/web/features/contacts/contactsStore.client.ts` |
+| `hb-components/data-store/DataStoreProvider.client.tsx` | `apps/web/features/contacts/DataStoreProvider.client.tsx` |
+| `hb-components/search/ApplicationSearch.client.tsx` | `apps/web/features/contacts/components/ApplicationSearch.client.tsx` |
 
 ## 1. Purpose and naming
 

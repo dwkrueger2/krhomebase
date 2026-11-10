@@ -11,6 +11,11 @@
  * Outside tools (docs/05_Outside_Tools.md) are added to the menu at run time from `GET /v1/tools/menu`.
  * Their section id is `tool:<clientId>`, and `buildNavItems` places them after Reports and before Settings.
  * The shell draws them itself, in a sealed frame (`ExternalToolFrame`), so no feature is imported for them.
+ *
+ * Open items (plan decision 6) are listed under their parent row: the contacts open in Clients & Contacts
+ * (`contact:<contactId>`) and, from stage 2, the clients open in Billing (`billing:<clientId>`). Each is a section
+ * of its own. `app/page.tsx` supplies one screen per parent (`openItemPanels`); the screen reads which item it
+ * shows with `useOpenItem()` (shellNavigation.ts).
  */
 
 import type { ToolMenuItem } from '@krhomebase/contracts'
@@ -35,8 +40,32 @@ export type BuiltInSectionId =
 /** Section id of an outside tool: `tool:` and the tool's client id. */
 export type ToolSectionId = `tool:${string}`
 
-/** Every section the left menu can open: a built-in section or an outside tool. */
-export type ShellSectionId = BuiltInSectionId | ToolSectionId
+/**
+ * Menu rows that can list open items under them (plan decision 6): the contacts open in Clients & Contacts, and
+ * later the clients open in Billing. Each open item is a section of its own, so it can be shown in the workspace
+ * or popped out like any section.
+ */
+export type OpenItemParentId = 'contacts' | 'billing'
+
+/** The section-id prefix of each parent's open items: `contact:<contactId>`, `billing:<clientId>`. */
+export const OPEN_ITEM_PREFIXES: Readonly<Record<OpenItemParentId, string>> = { contacts: 'contact', billing: 'billing' }
+
+/** Section id of one open item, for example `contact:ind_123`. */
+export type OpenItemSectionId = `contact:${string}` | `billing:${string}`
+
+/** Every section the frame can show: a built-in section, an outside tool, or an open item. */
+export type ShellSectionId = BuiltInSectionId | ToolSectionId | OpenItemSectionId
+
+/** The most items a parent row lists at once (plan decision 6). Opening one more drops the oldest. */
+export const MAX_OPEN_ITEMS_PER_PARENT = 5
+
+/** One open item as the frame keeps it: where it belongs, its id, and the words shown in the menu. */
+export interface ShellOpenItem {
+  parentId: OpenItemParentId
+  itemId: string
+  /** Menu text, for example `[306] Dan Krueger`. The item's screen refreshes it from the data store. */
+  label: string
+}
 
 /** One row of the left menu. */
 export interface ShellNavItem {
@@ -95,7 +124,9 @@ export const SHELL_DEFAULT_SECTION_ID: ShellSectionId = 'dashboard'
  * @returns The row, or the Dashboard row when the id is unknown.
  */
 export function findNavItem(id: ShellSectionId, items: readonly ShellNavItem[] = SHELL_NAV_ITEMS): ShellNavItem {
-  return items.find((item) => item.id === id) ?? SHELL_NAV_ITEMS[0]!
+  // An open item (`contact:<id>`) belongs to its parent row.
+  const lookupId = parseOpenItemSectionId(id)?.parentId ?? id
+  return items.find((item) => item.id === lookupId) ?? SHELL_NAV_ITEMS[0]!
 }
 
 /**
@@ -124,6 +155,31 @@ export function buildBreadcrumbs(id: ShellSectionId, items: readonly ShellNavIte
 /** The section id of an outside tool. */
 export function toolSectionId(clientId: string): ToolSectionId {
   return `tool:${clientId}`
+}
+
+/** The section id of an open item. */
+export function openItemSectionId(parentId: OpenItemParentId, itemId: string): OpenItemSectionId {
+  return `${OPEN_ITEM_PREFIXES[parentId]}:${itemId}` as OpenItemSectionId
+}
+
+/**
+ * Reads an open-item section id.
+ *
+ * @param id - Any section id, or text from the address bar.
+ * @returns The parent and item id, or null when `id` is not an open item.
+ */
+export function parseOpenItemSectionId(id: string | null | undefined): { parentId: OpenItemParentId; itemId: string } | null {
+  if (!id) return null
+  const colon = id.indexOf(':')
+  if (colon < 1 || colon === id.length - 1) return null
+  const prefix = id.slice(0, colon)
+  const parentId = (Object.keys(OPEN_ITEM_PREFIXES) as OpenItemParentId[]).find((parent) => OPEN_ITEM_PREFIXES[parent] === prefix)
+  return parentId ? { parentId, itemId: id.slice(colon + 1) } : null
+}
+
+/** True when a section id is an open item. */
+export function isOpenItemSectionId(id: ShellSectionId): id is OpenItemSectionId {
+  return parseOpenItemSectionId(id) !== null
 }
 
 /** True when a section id belongs to an outside tool. */

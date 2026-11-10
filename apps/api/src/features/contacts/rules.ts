@@ -6,6 +6,9 @@
  * email and phone, primary address, client account (direct or through a group), point of contact,
  * registered agent and related people. Resolved duplicates (`contact_resolution`) are left out.
  *
+ * One field is new: `clientDisplayName`, the client account's own name, so the browser can build the billing
+ * client list from contacts (plan item 3) and list a joint client once, under its own name.
+ *
  * Added here (the old route did these inline): `applyLinkedAccounts` (the login account's email wins),
  * `toListItem` (drops the full SSN and date of birth from the list; see packages/contracts/src/contacts.ts),
  * `contactCollectionVersion` (the same SHA-256 as before, with Web Crypto instead of node:crypto) and
@@ -13,6 +16,7 @@
  */
 
 import type { ContactDetail, ContactListItem } from '@krhomebase/contracts'
+import type { ContactTables } from './queries.ts'
 
 /** A contact card before the login-account fields are added. */
 export type SerializedContact = Omit<ContactDetail, 'linkedUserId' | 'isCurrentUser' | 'canEditLoginEmail'>
@@ -141,6 +145,8 @@ export type ContactClientRow = {
   client_type: string
   individual_id: string | null
   entity_id: string | null
+  /** The client account's own name ("Ann & Bob Example" for a joint client). Added for the billing client list. */
+  display_name?: string | null
   status: string
   updated_at?: string | null
 }
@@ -334,6 +340,7 @@ export function serializeContacts(
       isClient: client?.status === 'active',
       clientId: client?.id ?? null,
       clientNumber: client?.client_number ?? null,
+      clientDisplayName: client?.display_name ?? null,
       clientType: client?.client_type ?? null,
       clientStatus: client?.status ?? null,
       createdAt: row.created_at,
@@ -419,6 +426,7 @@ export function serializeContacts(
       isClient: client?.status === 'active',
       clientId: client?.id ?? null,
       clientNumber: client?.client_number ?? null,
+      clientDisplayName: client?.display_name ?? null,
       clientType: client?.client_type ?? null,
       clientStatus: client?.status ?? null,
       createdAt: row.created_at,
@@ -490,4 +498,22 @@ export function applyLinkedAccounts(
 export function toListItem(contact: ContactDetail): ContactListItem {
   const { ssn: _ssn, dob: _dob, ...rVal } = contact
   return rVal
+}
+
+/** Turns the loaded tables into contact cards (the serializer's arguments, in its order). */
+export function serializeContactTables(tables: ContactTables): SerializedContact[] {
+  return serializeContacts(
+    tables.individuals,
+    tables.entities,
+    tables.individualMethods,
+    tables.entityMethods,
+    tables.clients,
+    tables.clientMembers,
+    tables.individualAddressLinks,
+    tables.entityAddressLinks,
+    tables.addresses,
+    tables.entityContactLinks,
+    tables.individualRelationships,
+    tables.resolutions,
+  )
 }

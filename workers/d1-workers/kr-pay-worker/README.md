@@ -1,9 +1,9 @@
 # kr-pay-worker
 
-<small>Version 1.8</small><br>
-<small>Updated Nov 9, 2026 11:45am</small>
+<small>Version 1.9</small><br>
+<small>Updated Nov 9, 2026 3:30pm</small>
 
-> **Nov 9, 2026: this folder is now the live pay Worker, `kr-pay-worker-live`.** It replaces the old `kr-pay-worker-dev` on `pay.krhomebase.com` and uses the one database, `krhomebase`. The payment code is unchanged; the only code change is version metadata on every response (section "Version metadata"). The old Worker stays deployed, without the address, until the switch is checked; then the requester deletes it.
+> **Nov 9, 2026: this folder is now the live pay Worker, `kr-pay-worker-live`.** It replaces the old `kr-pay-worker-dev` on `pay.krhomebase.com` and uses the one database, `krhomebase`. The payment code is unchanged; the only code change is version metadata on every response (section "Version metadata"). `kr-pay-worker-dev` stays deployed: it no longer serves `pay.krhomebase.com`, but the old app still runs against it, so the old screens can be compared with the new ones. Remove it only when the old app retires (phase E of the plan).
 
 Public pay-link pages for KR Homebase invoices at `pay.krhomebase.com/p/<token>`. One Worker, **kr-pay-worker-live**, serves both Stripe environments from the `krhomebase` database. The payment request's stored environment selects the API key, while the explicit webhook path selects the webhook secret. workers.dev is off.
 
@@ -85,7 +85,7 @@ The requester runs these. Claude does not run `wrangler deploy` or `wrangler sec
    Expect `kr-pay-worker-live`, the repository version (for example `1.0.0 p18 (11-09)`), and `"stripe":{"sandbox":"ready","live":"ready"}`. `PAYMENT_PROVIDER_KEK_MISMATCH` means the KEK in step 2 is not the one that encrypted the rows.
 5. **Stripe webhooks need no change.** They point at `https://pay.krhomebase.com/stripe/webhook/sandbox` and `/live`, which now reach this Worker, and their signing secrets are in the copied `payment_provider` rows.
 6. **Record the deployment id** that `pnpm deploy:pay` prints in `docs/04_Deployed_Architecture.md`.
-7. **After a day with no problems,** delete `kr-pay-worker-dev` in the Cloudflare dashboard (Workers & Pages, `kr-pay-worker-dev`, Settings, Delete). It still has a binding to `krhomebase_dev`.
+7. **Keep `kr-pay-worker-dev`.** `kr-pay-worker-dev` stays deployed: it no longer serves `pay.krhomebase.com`, but the old app still runs against it, so the old screens can be compared with the new ones. Remove it only when the old app retires (phase E of the plan).
 8. Logs while testing: `pnpm exec wrangler tail kr-pay-worker-live`.
 
 ## Version metadata

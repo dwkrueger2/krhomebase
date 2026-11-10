@@ -9,9 +9,11 @@
  * theme-aware fills and text glyphs without importing an icon library or
  * relying on Font Awesome availability.
  *
- * Not ported yet: the small utility icons (trash, pencil, copy, mail, map pin, print, preview,
- * send, add, info square). Port each one from the old file when the first screen needs it.
+ * The small utility icons (trash, pencil, copy, mail, map pin, print, preview, send, add, info square) are
+ * `KRHomebaseIcons.<Name>` components, ported with Billing (plan stage 2).
  */
+
+import type { ReactNode } from 'react'
 
 /** Every icon name this file can draw. A typo fails the typecheck. */
 export type KRHomebaseIconName =
@@ -184,3 +186,197 @@ export default function KRHomebaseIcon({ name, className, title }: KRHomebaseIco
     </svg>
   )
 }
+
+export interface KRHomebaseUtilityIconProps {
+  className?: string
+  title?: string
+}
+
+interface UtilitySvgProps extends KRHomebaseUtilityIconProps {
+  children: ReactNode
+  height?: number
+  strokeWidth?: number
+  width?: number
+}
+
+function UtilitySvg({
+  className,
+  children,
+  height = 12,
+  strokeWidth = 1.8,
+  title,
+  width = 12,
+}: UtilitySvgProps) {
+  return (
+    <svg
+      aria-hidden={title ? undefined : true}
+      aria-label={title}
+      className={className}
+      fill="none"
+      focusable="false"
+      height={height}
+      role={title ? 'img' : undefined}
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={strokeWidth}
+      viewBox="0 0 24 24"
+      width={width}
+    >
+      {title && <title>{title}</title>}
+      {children}
+    </svg>
+  )
+}
+
+/** Wastebasket: delete / void a record. */
+function TrashIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props} strokeWidth={2}>
+      <path d="M3 6h18" />
+      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </UtilitySvg>
+  )
+}
+
+/** Pencil glyph for row-level edit actions. */
+function PencilIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props} strokeWidth={2}>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+    </UtilitySvg>
+  )
+}
+
+/** Copy glyph for compact copy-to-clipboard actions. */
+function CopyIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props}>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </UtilitySvg>
+  )
+}
+
+/** Envelope glyph for contact and communication metadata. */
+function MailIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props} height={14} strokeWidth={1.7} width={14}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 7l9 6 9-6" />
+    </UtilitySvg>
+  )
+}
+
+/** Map-pin glyph for address metadata. */
+function MapPinIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props} height={14} strokeWidth={1.7} width={14}>
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+      <circle cx="12" cy="10" r="3" />
+    </UtilitySvg>
+  )
+}
+
+/** Printer glyph for row-level "print this record" actions. */
+function PrintIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props} height={14} strokeWidth={1.8} width={14}>
+      <path d="M6 9V4h12v5" />
+      <rect x="3" y="9" width="18" height="8" rx="2" />
+      <path d="M6 14h12v6H6z" />
+    </UtilitySvg>
+  )
+}
+
+/** Eye glyph for preview/open-document actions. */
+function PreviewIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props} height={14} strokeWidth={1.8} width={14}>
+      <path d="M2.5 12s3.5-5 9.5-5 9.5 5 9.5 5-3.5 5-9.5 5-9.5-5-9.5-5Z" />
+      <circle cx="12" cy="12" r="2.25" />
+    </UtilitySvg>
+  )
+}
+
+/** Paper-plane glyph for row-level "send this record" actions. */
+function SendIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props} height={14} strokeWidth={1.8} width={14}>
+      <path d="M22 2 11 13" />
+      <path d="M22 2 15 22l-4-9-9-4 20-7z" />
+    </UtilitySvg>
+  )
+}
+
+/**
+ * Rounded-square "i": inline help and detail tooltips (e.g. the refund ARN on
+ * Posted Payments). Filled glyph on a 16×16 grid; size it with `className`
+ * (defaults to 14px) and color it with `text-*` (currentColor).
+ */
+function InfoSquareIcon({ className, title }: KRHomebaseUtilityIconProps) {
+  return (
+    <svg
+      aria-hidden={title ? undefined : true}
+      aria-label={title}
+      className={className}
+      fill="currentColor"
+      focusable="false"
+      height={14}
+      role={title ? 'img' : undefined}
+      viewBox="0 0 16 16"
+      width={14}
+    >
+      {title && <title>{title}</title>}
+      <path
+        clipRule="evenodd"
+        d="M11 2.5H5A2.5 2.5 0 0 0 2.5 5v6A2.5 2.5 0 0 0 5 13.5h6a2.5 2.5 0 0 0 2.5-2.5V5A2.5 2.5 0 0 0 11 2.5ZM5 1a4 4 0 0 0-4 4v6a4 4 0 0 0 4 4h6a4 4 0 0 0 4-4V5a4 4 0 0 0-4-4H5Z"
+        fillRule="evenodd"
+      />
+      <path
+        clipRule="evenodd"
+        d="M6.25 8A.75.75 0 0 1 7 7.25h1.25A.75.75 0 0 1 9 8v3.5a.75.75 0 0 1-1.5 0V8.75H7A.75.75 0 0 1 6.25 8Z"
+        fillRule="evenodd"
+      />
+      <path d="M6.75 5a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0Z" />
+    </svg>
+  )
+}
+
+/** Plus glyph for compact add actions. */
+function AddIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props} strokeWidth={2}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </UtilitySvg>
+  )
+}
+
+/** Named utility components for JSX member notation alongside the name-based API. */
+export const KRHomebaseIcons = {
+  Add: AddIcon,
+  Copy: CopyIcon,
+  InfoDark: (props: KRHomebaseUtilityIconProps) => <KRHomebaseIcon name="info-dark" {...props} />,
+  InfoSquare: InfoSquareIcon,
+  Mail: MailIcon,
+  MapPin: MapPinIcon,
+  Pencil: PencilIcon,
+  Print: PrintIcon,
+  Preview: PreviewIcon,
+  Send: SendIcon,
+  Trash: TrashIcon,
+  WarningOrange: (props: KRHomebaseUtilityIconProps) => (
+    <KRHomebaseIcon name="warning-orange" {...props} />
+  ),
+  WarningRed: (props: KRHomebaseUtilityIconProps) => (
+    <KRHomebaseIcon name="warning-red" {...props} />
+  ),
+  WarningYellow: (props: KRHomebaseUtilityIconProps) => (
+    <KRHomebaseIcon name="warning-yellow" {...props} />
+  ),
+} as const

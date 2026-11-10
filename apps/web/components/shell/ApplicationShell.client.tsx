@@ -25,6 +25,13 @@
  * one itself in a sealed frame (`ExternalToolFrame`), in the workspace or in a pop-out, like any section.
  * While a tool reports unsaved work, moving away from it or popping it out (which reloads it) first asks the
  * person to confirm with `U6ConfirmationDialog`.
+ *
+ * Open items (plan decisions 6 and 7): a screen opens an item with `useShellNavigation().openItem(...)`, for example a
+ * contact under Clients & Contacts. The item becomes a section of its own (`contact:<id>`), listed under its parent
+ * row (at most five; a sixth drops the oldest) and in the recently accessed menu (five). It can be popped out like
+ * any section; closing its pop-out closes the item. `openItemPanels` holds one screen per parent; the frame wraps it
+ * in `OpenItemContext` so the screen knows which item to show. Both lists are saved per person
+ * (`openItemsStorage.ts`, scope `storageScope`), so a refresh keeps them; a refresh still closes every pop-out.
  */
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
@@ -46,12 +53,19 @@ import {
   buildNavItems,
   findNavItem,
   isShellSectionId,
+  isOpenItemSectionId,
   isToolSectionId,
+  openItemSectionId,
+  parseOpenItemSectionId,
   type BuiltInSectionId,
+  type OpenItemParentId,
+  type ShellOpenItem,
   type ShellSectionId,
   type ShellUser,
 } from '@/components/shell/navigation'
+import { readSavedShellItems, writeSavedShellItems } from '@/components/shell/openItemsStorage'
 import { createInitialShellState, shellReducer } from '@/components/shell/shellState'
+import { OpenItemContext, ShellNavigationContext, type OpenItemScope, type ShellNavigation } from '@/components/shell/shellNavigation'
 
 export interface ApplicationShellProps {
   /** Person shown in the footer and the bell's accessible name. */
@@ -64,6 +78,34 @@ export interface ApplicationShellProps {
   versionLabel: string
   /** Called when the log-out button in the footer is pressed. When absent, the button is not drawn. */
   onLogout?: () => void
+  /** The top-bar search (a feature's component). When absent, the bar shows an unconnected search box. */
+  topBarSearch?: ReactNode
+  /** A status mark in the top bar, before the bell (the data sync indicator). */
+  topBarStatus?: ReactNode
+  /** One screen per parent row that lists open items (Clients & Contacts: the contact detail). */
+  openItemPanels?: Partial<Record<OpenItemParentId, ReactNode>>
+  /** The signed-in person's user id. Open and recent items are saved under it; empty: they are not saved. */
+  storageScope?: string
+}
+
+/** Gives an open item's screen its item, with a `setLabel` that stays the same between renders. */
+function OpenItemScopeProvider({
+  item,
+  place,
+  onSetLabel,
+  children,
+}: {
+  item: { parentId: OpenItemParentId; itemId: string }
+  place: OpenItemScope['place']
+  onSetLabel: (parentId: OpenItemParentId, itemId: string, label: string) => void
+  children: ReactNode
+}) {
+  const { parentId, itemId } = item
+  const value = useMemo<OpenItemScope>(
+    () => ({ parentId, itemId, place, setLabel: (label) => onSetLabel(parentId, itemId, label) }),
+    [itemId, onSetLabel, parentId, place],
+  )
+  return <OpenItemContext.Provider value={value}>{children}</OpenItemContext.Provider>
 }
 
 const LAYOUT_STYLES = {
@@ -93,7 +135,17 @@ const STYLES = {
  * @param props - The user to show, one panel per section, the version label and an optional log-out callback.
  * @returns The themed frame (`data-kr-id="krhomebase-application-shell"`).
  */
-export default function ApplicationShell({ user, panels, versionLabel, onLogout, outsideTools }: ApplicationShellProps) {
+export default function ApplicationShell({
+  user,
+  panels,
+  versionLabel,
+  onLogout,
+  outsideTools,
+  topBarSearch,
+  topBarStatus,
+  openItemPanels,
+  storageScope = '',
+}: ApplicationShellProps) {
   const [state, dispatch] = useReducer(shellReducer, undefined, () => createInitialShellState())
   // The whole menu: built-in rows plus the outside tools this person may use.
   const navItems = useMemo(() => buildNavItems(outsideTools ?? []), [outsideTools])
@@ -104,8 +156,48 @@ export default function ApplicationShell({ user, panels, versionLabel, onLogout,
   // Browser windows used by the pop-outs, by section. A popped-out section with no window here is
   // shown in the in-page fallback window, because the browser blocked the real one.
   const [popoutWindows, setPopoutWindows] = useState<Partial<Record<ShellSectionId, Window>>>({})
-  const { collapsed, activeSectionId, settingsExpanded, popoutSectionIds } = state
+  const { collapsed, activeSectionId, settingsExpanded, popoutSectionIds, openItems, recentItems } = state
   const activeItem = findNavItem(activeSectionId, navItems)
+  // True once the saved open items are read, so the first save cannot overwrite them with empty lists.
+  const itemsRestoredRef = useRef(false)
+  // True while the page is being left or reloaded: pop-outs closing with it must not close their items (decision 7).
+  const unloadingRef = useRef(false)
+
+  /** Words for a section: the item's label for an open item, otherwise the menu label. */
+  const sectionLabel = useCallback(
+    (sectionId: ShellSectionId): string => {
+      const item = parseOpenItemSectionId(sectionId)
+      if (!item) return findNavItem(sectionId, navItems).label
+      return openItems.find((open) => open.parentId === item.parentId && open.itemId === item.itemId)?.label ?? item.itemId
+    },
+    [navItems, openItems],
+  )
+  const activeLabel = sectionLabel(activeSectionId)
+  const activeOpenItem = parseOpenItemSectionId(activeSectionId)
+  const breadcrumbItems = activeOpenItem ? [activeItem.label, activeLabel] : buildBreadcrumbs(activeSectionId, navItems)
+
+  const setItemLabel = useCallback((parentId: OpenItemParentId, itemId: string, label: string) => {
+    dispatch({ type: 'setItemLabel', parentId, itemId, label })
+  }, [])
+
+  // Note when the page is being left, before the pop-out windows close with it.
+  useEffect(() => {
+    const markUnloading = (): void => {
+      unloadingRef.current = true
+    }
+    window.addEventListener('beforeunload', markUnloading)
+    window.addEventListener('pagehide', markUnloading)
+    return () => {
+      window.removeEventListener('beforeunload', markUnloading)
+      window.removeEventListener('pagehide', markUnloading)
+    }
+  }, [])
+
+  // Save the open and recent items for this person whenever they change (after the saved ones were read).
+  useEffect(() => {
+    if (!itemsRestoredRef.current || unloadingRef.current) return
+    writeSavedShellItems(storageScope, { openItems: [...openItems], recentItems: [...recentItems] })
+  }, [openItems, recentItems, storageScope])
 
   // Stage 2b: keep the address bar in step with the open section. Runs before the read below on the
   // first render, when the read flag is still false, so the section in the address is not overwritten.
@@ -116,10 +208,18 @@ export default function ApplicationShell({ user, panels, versionLabel, onLogout,
     window.history.replaceState(null, '', url)
   }, [activeSectionId])
 
-  // Stage 2a: after the page loads, open the section named in the address, if it names a real one.
+  // Stage 2a: after the page loads, bring back this person's open items, then open the section named in the
+  // address, if it names a real one (an open item counts only when it is still in the saved list).
   useEffect(() => {
+    const saved = readSavedShellItems(storageScope)
+    dispatch({ type: 'restoreItems', openItems: saved.openItems, recentItems: saved.recentItems })
+    itemsRestoredRef.current = true
     const requested = new URLSearchParams(window.location.search).get('section')
-    if (isShellSectionId(requested, navItems)) dispatch({ type: 'restoreSection', sectionId: requested })
+    const requestedItem = parseOpenItemSectionId(requested)
+    if (requestedItem) {
+      const stillOpen = saved.openItems.some((item) => item.parentId === requestedItem.parentId && item.itemId === requestedItem.itemId)
+      dispatch({ type: 'restoreSection', sectionId: stillOpen ? openItemSectionId(requestedItem.parentId, requestedItem.itemId) : requestedItem.parentId })
+    } else if (isShellSectionId(requested, navItems)) dispatch({ type: 'restoreSection', sectionId: requested })
     addressReadRef.current = true
     // Runs once, after the first draw. The menu (navItems) is fixed for the life of the page.
   }, [])
@@ -151,6 +251,14 @@ export default function ApplicationShell({ user, panels, versionLabel, onLogout,
    * @param place - Where it goes: the workspace, a pop-out browser window, or the in-page pop-out window.
    */
   function renderSection(sectionId: ShellSectionId, place: 'workspace' | 'popout-window' | 'popout-inline'): ReactNode {
+    if (isOpenItemSectionId(sectionId)) {
+      const openItem = parseOpenItemSectionId(sectionId)!
+      return (
+        <OpenItemScopeProvider key={`${sectionId}-${place}`} item={openItem} place={place === 'workspace' ? 'workspace' : 'popout'} onSetLabel={setItemLabel}>
+          {openItemPanels?.[openItem.parentId] ?? panels[openItem.parentId]}
+        </OpenItemScopeProvider>
+      )
+    }
     if (!isToolSectionId(sectionId)) return panels[sectionId]
     const tool = findNavItem(sectionId, navItems).outsideTool
     if (!tool) return null
@@ -178,6 +286,24 @@ export default function ApplicationShell({ user, panels, versionLabel, onLogout,
     [popoutWindows],
   )
 
+  // A pop-out whose item was dropped (a sixth item opened under the same row) loses its window too.
+  useEffect(() => {
+    const stale = (Object.keys(popoutWindows) as ShellSectionId[]).filter((sectionId) => !popoutSectionIds.includes(sectionId))
+    if (!stale.length) return
+    for (const sectionId of stale) popoutWindows[sectionId]?.close()
+    setPopoutWindows((current) => Object.fromEntries(Object.entries(current).filter(([sectionId]) => !stale.includes(sectionId as ShellSectionId))))
+  }, [popoutSectionIds, popoutWindows])
+
+  /**
+   * Called when a pop-out browser window closed. Waits a moment: when the whole page is being reloaded, the
+   * pop-outs close with it, and their items must stay open (plan decision 7). Otherwise the person closed it.
+   */
+  function handlePopoutWindowClosed(sectionId: ShellSectionId): void {
+    window.setTimeout(() => {
+      if (!unloadingRef.current) handleClosePopout(sectionId)
+    }, 0)
+  }
+
   /**
    * Pops the open section out into its own window. The browser window must be opened here, inside
    * the click, or the browser blocks it. Each new window is offset a little from the one before.
@@ -201,7 +327,31 @@ export default function ApplicationShell({ user, panels, versionLabel, onLogout,
     else dispatch({ type: 'selectSection', sectionId })
   }
 
+  // Screens inside the frame open other sections through this (components/shell/shellNavigation.ts).
+  const navigation: ShellNavigation = {
+    openSection: (sectionId) => {
+      if (!isShellSectionId(sectionId, navItems)) return false
+      handleSelectSection(sectionId)
+      return true
+    },
+    openItem: (parentId, itemId, label) => {
+      if (!itemId) return false
+      openItemWithCheck({ parentId, itemId, label })
+      return true
+    },
+    closeItem: (parentId, itemId) => dispatch({ type: 'closeItem', parentId, itemId }),
+  }
+
+  /** Shows an open item (opening it first); leaving an outside tool with unsaved work asks first. */
+  function openItemWithCheck(item: ShellOpenItem): void {
+    const move = (): void => dispatch({ type: 'openItem', item })
+    const leaving = !popoutSectionIds.includes(activeSectionId)
+    if (leaving) confirmIfDirty(activeSectionId, move)
+    else move()
+  }
+
   return (
+    <ShellNavigationContext.Provider value={navigation}>
     <div
       className={`${collapsed ? LAYOUT_STYLES.frameCollapsed : LAYOUT_STYLES.frameExpanded} ${STYLES.frame}`}
       data-kr-theme-scope="krhomebase"
@@ -212,7 +362,15 @@ export default function ApplicationShell({ user, panels, versionLabel, onLogout,
       <HeaderBar
         leftColumn={<LeftPanelHeader collapsed={collapsed} versionLabel={versionLabel} />}
         rightColumn={
-          <TopTitleBar title={activeItem.label} breadcrumbItems={buildBreadcrumbs(activeSectionId, navItems)} userDisplayName={user.displayName} />
+          <TopTitleBar
+            title={activeItem.label}
+            breadcrumbItems={breadcrumbItems}
+            userDisplayName={user.displayName}
+            search={topBarSearch}
+            status={topBarStatus}
+            recentItems={recentItems}
+            onSelectRecent={openItemWithCheck}
+          />
         }
       />
 
@@ -225,6 +383,9 @@ export default function ApplicationShell({ user, panels, versionLabel, onLogout,
             collapsed={collapsed}
             settingsExpanded={settingsExpanded}
             onSelectSection={handleSelectSection}
+            openItems={openItems}
+            onSelectItem={openItemWithCheck}
+            onCloseItem={(item) => dispatch({ type: 'closeItem', parentId: item.parentId, itemId: item.itemId })}
           />
         }
         footer={<LeftPanelFooter user={user} collapsed={collapsed} onLogout={onLogout} />}
@@ -238,7 +399,7 @@ export default function ApplicationShell({ user, panels, versionLabel, onLogout,
         workspace={
           <KRHWorkspace
             sectionId={activeSectionId}
-            sectionLabel={activeItem.label}
+            sectionLabel={activeLabel}
             poppedOut={popoutSectionIds.includes(activeSectionId)}
             onPopOut={handlePopOut}
           >
@@ -250,9 +411,9 @@ export default function ApplicationShell({ user, panels, versionLabel, onLogout,
       {/* Pop-outs: one browser window for each popped-out section, or a floating in-page window when the browser blocked the pop-up */}
       {popoutSectionIds.map((sectionId) => {
         const popup = popoutWindows[sectionId]
-        const label = findNavItem(sectionId, navItems).label
+        const label = sectionLabel(sectionId)
         return popup ? (
-          <PopOutBrowserWindow key={sectionId} popupWindow={popup} title={label} onClose={() => handleClosePopout(sectionId)}>
+          <PopOutBrowserWindow key={sectionId} popupWindow={popup} title={label} onClose={() => handlePopoutWindowClosed(sectionId)}>
             {renderSection(sectionId, 'popout-window')}
           </PopOutBrowserWindow>
         ) : (
@@ -275,5 +436,6 @@ export default function ApplicationShell({ user, panels, versionLabel, onLogout,
         }}
       />
     </div>
+    </ShellNavigationContext.Provider>
   )
 }

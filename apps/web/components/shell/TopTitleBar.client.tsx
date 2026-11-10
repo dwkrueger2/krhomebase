@@ -4,17 +4,28 @@
  * Top title bar of KR Homebase: application label, page title, breadcrumb trail, search box, the
  * timer and "Create new" buttons, and the notification bell.
  *
- * It is the right column of the HeaderBar. The timer, create-new, time-entries and search controls
- * are visual placeholders until their data is connected (the old app also marked them TBD). The
+ * It is the right column of the HeaderBar. The timer, create-new and time-entries controls are visual
+ * placeholders until their data is connected (the old app also marked them TBD). The search box and the data
+ * sync indicator come from the contacts area through the `search` and `status` props, so this file stays
+ * free of feature code. The
  * bell opens a small list that says there is nothing to show, because the notification summary
  * needs the API.
+ *
+ * The "recently accessed" menu (a clock button beside the bell; plan decision 6 and item 8) lists the last five items
+ * the person opened (contacts now, Billing clients from stage 2), newest first. Choosing one opens it again. It
+ * closes on a click outside, Escape, or 5 seconds without pointer movement over it (`useDismissablePopup`).
  *
  * Phone (under 768px): only the page title and the bell show. Tablet (768px and up): adds the search
  * box and "Create new". Desktop (1024px and up): adds the timer and time-entries buttons. The search
  * box width follows the screen with `clamp()` between 140px and 420px.
  */
 
-import { useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
+import { useDismissablePopup } from '@/components/ui/useDismissablePopup.client'
+import type { OpenItemParentId, ShellOpenItem } from '@/components/shell/navigation'
+
+/** Small word shown beside each recently accessed item. */
+const RECENT_KIND_LABELS: Record<OpenItemParentId, string> = { contacts: 'Contact', billing: 'Billing' }
 
 export interface TopTitleBarProps {
   /** Page title, normally the label of the open section. */
@@ -25,10 +36,18 @@ export interface TopTitleBarProps {
   userDisplayName: string
   /** Number of actionable notifications. Zero until the notification summary is connected. */
   notificationCount?: number
+  /** The search box to show (the contacts area's ApplicationSearch). When absent, an unconnected box is drawn. */
+  search?: ReactNode
+  /** A status mark before the bell (the data sync indicator). */
+  status?: ReactNode
+  /** Recently accessed items, newest first (at most five). */
+  recentItems?: readonly ShellOpenItem[]
+  /** Called when the person chooses a recently accessed item. */
+  onSelectRecent?: (item: ShellOpenItem) => void
 }
 
 const LAYOUT_STYLES = {
-  bar: 'h-full gap-x-[12px] gap-y-[8px] px-[12px] py-[8px] md:px-[20px] md:pb-[10px] grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_clamp(140px,22vw,420px)_auto] items-center overflow-hidden',
+  bar: 'h-full gap-x-[12px] gap-y-[8px] px-[12px] py-[8px] md:px-[20px] md:pb-[10px] grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_clamp(140px,22vw,420px)_auto] items-center overflow-visible',
   titleCluster: 'min-w-0 gap-[2px] flex flex-col',
   breadcrumb: 'hidden md:flex min-w-0 gap-[4px] items-center overflow-hidden',
   searchBox: 'hidden md:flex min-h-[40px] gap-[6px] px-[10px] items-center',
@@ -43,6 +62,8 @@ const LAYOUT_STYLES = {
   notificationPanel: 'absolute top-[38px] right-0 z-[200] w-[260px] flex flex-col',
   notificationHeader: 'px-[10px] py-[6px]',
   notificationEmpty: 'm-0 px-[10px] py-[8px]',
+  recentList: 'm-0 p-[4px] gap-[2px] flex flex-col list-none',
+  recentButton: 'w-full min-h-[28px] px-[8px] py-[4px] gap-[8px] grid grid-cols-[minmax(0,1fr)_auto] items-center',
 } as const
 
 const STYLES = {
@@ -60,6 +81,10 @@ const STYLES = {
     'rounded-[3px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) text-(color:--kr-theme-text) shadow-[0_4px_12px_rgba(0,30,58,.25)]',
   notificationHeader: 'border-b border-(--kr-theme-line) text-[12px] font-extrabold',
   notificationEmpty: 'text-[12px] text-(color:--kr-theme-text-muted)',
+  recentButton:
+    'rounded-[2px] border-0 bg-transparent text-left text-[12px] text-(color:--kr-theme-text) cursor-pointer hover:bg-(--kr-theme-table-row-hover) focus-visible:outline-2 focus-visible:outline-(--kr-theme-brand-primary-active)',
+  recentLabel: 'min-w-0 truncate font-semibold',
+  recentKind: 'text-[10px] font-bold tracking-[.08em] uppercase text-(color:--kr-theme-text-muted)',
   // b1: ' border-red-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
   // b2: ' border-blue-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
   // b3: ' border-green-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
@@ -90,8 +115,21 @@ function NotificationBell({ hasNotifications }: { hasNotifications: boolean }) {
  * @param props - Title, breadcrumb trail, user name and notification count.
  * @returns A `<header data-kr-id="TopTitleBar">`.
  */
-export default function TopTitleBar({ title, breadcrumbItems, userDisplayName, notificationCount = 0 }: TopTitleBarProps) {
+export default function TopTitleBar({
+  title,
+  breadcrumbItems,
+  userDisplayName,
+  notificationCount = 0,
+  search,
+  status,
+  recentItems = [],
+  onSelectRecent,
+}: TopTitleBarProps) {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [recentOpen, setRecentOpen] = useState(false)
+  // The recently accessed menu closes on a click outside, Escape, or 5 seconds without pointer movement over it.
+  const recentRef = useRef<HTMLDivElement>(null)
+  useDismissablePopup(recentOpen, recentRef, () => setRecentOpen(false))
   const [searchText, setSearchText] = useState('')
   const hasNotifications = notificationCount > 0
 
@@ -116,7 +154,8 @@ export default function TopTitleBar({ title, breadcrumbItems, userDisplayName, n
         )}
       </div>
 
-      {/* Search box: not connected yet; tablet and desktop only */}
+      {/* Search box: the contacts search when given, otherwise an unconnected box; tablet and desktop only */}
+      {search ?? (
       <label className={`${LAYOUT_STYLES.searchBox} ${STYLES.searchBox}`} data-kr-element="application-search">
         <span className="sr-only">Search KR Homebase</span>
         <svg aria-hidden="true" className={LAYOUT_STYLES.bellIcon} viewBox="0 0 24 24" focusable="false">
@@ -131,6 +170,7 @@ export default function TopTitleBar({ title, breadcrumbItems, userDisplayName, n
           placeholder="Search KR Homebase"
         />
       </label>
+      )}
 
       {/* Application actions: timer, time entries, create new (placeholders) and the notification bell */}
       <div className={LAYOUT_STYLES.actions} aria-label="Application actions" data-kr-element="application-actions">
@@ -145,6 +185,57 @@ export default function TopTitleBar({ title, breadcrumbItems, userDisplayName, n
           Create new <span aria-hidden="true">+</span>
         </button>
 
+        {status}
+
+        {/* Recently accessed: the last five items opened, newest first */}
+        <div ref={recentRef} className={LAYOUT_STYLES.bellWrap} data-kr-element="homebase-recent-menu">
+          <button
+            type="button"
+            className={`${LAYOUT_STYLES.iconButton} ${STYLES.button}`}
+            aria-expanded={recentOpen}
+            aria-label="Recently accessed"
+            title="Recently accessed"
+            onClick={() => {
+              setRecentOpen((current) => !current)
+              setNotificationsOpen(false)
+            }}
+          >
+            <svg aria-hidden="true" className={LAYOUT_STYLES.bellIcon} viewBox="0 0 24 24" focusable="false">
+              <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+            </svg>
+          </button>
+          {recentOpen ? (
+            <div className={`${LAYOUT_STYLES.notificationPanel} ${STYLES.notificationPanel}`} role="menu" aria-label="Recently accessed">
+              <div className={`${LAYOUT_STYLES.notificationHeader} ${STYLES.notificationHeader}`}>Recently accessed</div>
+              {recentItems.length ? (
+                <ul className={LAYOUT_STYLES.recentList} role="none">
+                  {recentItems.map((item) => (
+                    <li key={`${item.parentId}:${item.itemId}`} role="none">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={`${LAYOUT_STYLES.recentButton} ${STYLES.recentButton}`}
+                        data-kr-action="open-recent-item"
+                        data-kr-item-id={item.itemId}
+                        onClick={() => {
+                          setRecentOpen(false)
+                          onSelectRecent?.(item)
+                        }}
+                      >
+                        <span className={STYLES.recentLabel}>{item.label}</span>
+                        <span className={STYLES.recentKind}>{RECENT_KIND_LABELS[item.parentId]}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className={`${LAYOUT_STYLES.notificationEmpty} ${STYLES.notificationEmpty}`}>Nothing opened yet.</p>
+              )}
+            </div>
+          ) : null}
+        </div>
+
         {/* Notification bell and its list */}
         <div className={LAYOUT_STYLES.bellWrap} data-kr-element="homebase-notification-menu">
           <button
@@ -153,7 +244,10 @@ export default function TopTitleBar({ title, breadcrumbItems, userDisplayName, n
             aria-expanded={notificationsOpen}
             aria-label={`Notifications for ${userDisplayName}`}
             title={hasNotifications ? 'Notifications present' : 'Notifications'}
-            onClick={() => setNotificationsOpen((current) => !current)}
+            onClick={() => {
+              setNotificationsOpen((current) => !current)
+              setRecentOpen(false)
+            }}
           >
             <NotificationBell hasNotifications={hasNotifications} />
           </button>

@@ -93,6 +93,7 @@ const contactFields = {
   isClient: z.boolean().describe('True when the contact has an active client account, directly or as a group member.'),
   clientId: z.string().nullable(),
   clientNumber: z.string().nullable(),
+  clientDisplayName: z.string().nullable().optional().describe("The client account's own name (for a joint client, both people). Used for the billing client list. Added in API patch 8; optional so a browser can read an older API's reply."),
   clientType: z.string().nullable(),
   clientStatus: z.string().nullable(),
   linkedUserId: z.string().nullable().describe('The login account linked to this person, when exactly one exists.'),

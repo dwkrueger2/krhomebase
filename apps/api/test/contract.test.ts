@@ -6,7 +6,8 @@ import { describe, expect, it } from 'vitest'
 import { createApp, openApiInfo } from '../src/app.ts'
 import { routeRegistry } from '../src/platform/defineRoute.ts'
 import { clearSessionCache } from '../src/platform/sessionClient.ts'
-import { SIGNED_IN_HEADERS, signedInEnv } from './fakes.ts'
+import { clearPermissionCache } from '../src/features/permissions/rules.ts'
+import { createTestD1, SIGNED_IN_HEADERS, signedInEnv } from './fakes.ts'
 
 /**
  * Layer 1: automatic contract tests. They loop over every route declared with defineRoute(),
@@ -106,6 +107,23 @@ describe('every route', () => {
     const signedIn = access !== 'public'
     const role = typeof access === 'object' ? (access.roles[0] ?? 'staff') : 'staff'
     clearSessionCache()
+    clearPermissionCache()
+    // A write route reads the maintenance gate (unlocked here), and a route with a permission needs the person to
+    // hold it, so those calls get a database with the whole schema and a role set granting that permission.
+    const extra: Record<string, unknown> = {}
+    if (signedIn) {
+      const { db, sqlite } = createTestD1({ fullSchema: true })
+      const permission = r.meta.permission
+      if (permission) {
+        sqlite.prepare("INSERT INTO role_set (id, role_key, label, is_system) VALUES ('rs-contract', 'contract', 'Contract', 0)").run()
+        sqlite
+          .prepare(`INSERT INTO role_set_permission (id, role_set_id, permission_key, permission_label, permission_group, can_${permission.action}) VALUES ('rsp-contract', 'rs-contract', ?1, 'Contract', 'Test', 1)`)
+          .run(permission.resource)
+        sqlite.prepare("INSERT INTO user (id, email, password_hash, role) VALUES ('user-test-1', 'test.person@example.com', 'x', ?1)").run(role)
+        sqlite.prepare("INSERT INTO user_role_set (id, user_id, role_set_id) VALUES ('urs-contract', 'user-test-1', 'rs-contract')").run()
+      }
+      extra.krhomebase = db
+    }
     const res = await app.request(
       toTestPath(r.config.path),
       {
@@ -113,7 +131,7 @@ describe('every route', () => {
         headers: { 'content-type': 'application/json', ...(signedIn ? SIGNED_IN_HEADERS : {}) },
         body: JSON.stringify(bad),
       },
-      signedIn ? signedInEnv(role) : undefined,
+      signedIn ? signedInEnv(role, extra) : undefined,
     )
     expect(res.status).toBe(422)
     const body = ErrorEnvelope.parse(await res.json())

@@ -1,0 +1,6 @@
+export { jaroWinkler } from './jaro-winkler'
+export { levenshteinSimilarity } from './levenshtein'
+export { phoneticKey, phoneticSimilarity } from './phonetic'
+export { tokenSetSimilarity } from './token-set'
+export { dateSimilarity } from './date'
+export { emailSimilarity, phoneSimilarity } from './contact'

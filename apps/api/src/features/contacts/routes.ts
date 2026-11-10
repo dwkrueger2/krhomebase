@@ -14,7 +14,8 @@
  *  - Outside tools: closed for now (no `toolAccess`). Opening the list to tools granted `contacts:read` is the
  *    requester's decision (apps/api/AGENTS.md, "Outside tools"). One contact carries the SSN and should stay closed.
  *
- * Writes (create, edit, contact maintenance) come with the Contacts Manager panel (plan stage 1d).
+ * Writes: creating and editing a contact are in `../contact-edits/`, client accounts in `../clients/`, and
+ * contact maintenance in `../contact-maintenance/` (plan stages 1d-3 and 1d-4).
  */
 
 import { ContactDetailData, ContactIdParams, ContactListData, ContactListQuery, ContactOneQuery, CONTACT_COLLECTION_SCHEMA_VERSION, ErrorEnvelope, successEnvelope } from '@krhomebase/contracts'
@@ -27,7 +28,7 @@ import type { AppEnv } from '../../platform/types.ts'
 import { permissionQueriesFor } from '../permissions/queries.ts'
 import { isAuthorized } from '../permissions/rules.ts'
 import { contactQueriesFor, EMPTY_CONTACT_TABLES, type ContactLoadStats, type ContactTables } from './queries.ts'
-import { applyLinkedAccounts, changedSinceFloor, contactCollectionVersion, serializeContacts, toListItem } from './rules.ts'
+import { applyLinkedAccounts, changedSinceFloor, contactCollectionVersion, serializeContactTables, toListItem } from './rules.ts'
 
 const json = <T,>(schema: T) => ({ 'application/json': { schema } })
 const errorBody = (description: string) => ({ description, content: json(ErrorEnvelope) })
@@ -73,23 +74,6 @@ function viewerOf(c: Context<AppEnv>) {
   return { userId: session?.userId ?? '', role: session?.role ?? '' }
 }
 
-function serialize(tables: ContactTables) {
-  return serializeContacts(
-    tables.individuals,
-    tables.entities,
-    tables.individualMethods,
-    tables.entityMethods,
-    tables.clients,
-    tables.clientMembers,
-    tables.individualAddressLinks,
-    tables.entityAddressLinks,
-    tables.addresses,
-    tables.entityContactLinks,
-    tables.individualRelationships,
-    tables.resolutions,
-  )
-}
-
 function timingOf(mode: 'full' | 'delta' | 'one', startedAt: number, queryMs: number, stats: ContactLoadStats) {
   return {
     mode,
@@ -125,7 +109,7 @@ export function registerContacts(app: OpenAPIHono<AppEnv>) {
     }
     const queryMs = Date.now() - startedAt
 
-    const withAccounts = applyLinkedAccounts(serialize(tables), tables.linkedUsers, viewerOf(c))
+    const withAccounts = applyLinkedAccounts(serializeContactTables(tables), tables.linkedUsers, viewerOf(c))
     // A slice also carries related people (for names); return only the contacts asked for.
     const contacts = (wantedIds ? withAccounts.filter((contact) => wantedIds.has(contact.id)) : withAccounts).map(toListItem)
     const collectionVersion = mode === 'full' ? await contactCollectionVersion(contacts) : undefined
@@ -165,7 +149,7 @@ export function registerContacts(app: OpenAPIHono<AppEnv>) {
     const generatedAt = new Date().toISOString()
     const tables = await queries.loadContactSlice([contactId], stats, { includeRelatedContacts: includeRelatedContacts !== '0', withSensitive: true })
     const queryMs = Date.now() - startedAt
-    const contacts = applyLinkedAccounts(serialize(tables), tables.linkedUsers, viewer).filter((contact) => contact.id === contactId)
+    const contacts = applyLinkedAccounts(serializeContactTables(tables), tables.linkedUsers, viewer).filter((contact) => contact.id === contactId)
     if (!contacts.length) return failure(c, 404, 'CONTACT_NOT_FOUND', 'No such contact.')
     logLine('CONTACTS:one', requestId, { statements: stats.statements, ms: Date.now() - startedAt })
 

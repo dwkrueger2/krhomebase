@@ -95,6 +95,7 @@ describe('GET /v1/contacts (the list)', () => {
       city: 'Testville',
       isClient: true,
       clientNumber: '0042',
+      clientDisplayName: 'Ann Example',
       clientStatus: 'active',
     })
     expect(ann.relatedContacts).toEqual([{ id: 'ind-bob', displayName: 'Bob', icid: 'IC2', relationship: 'Spouse' }])
@@ -106,6 +107,20 @@ describe('GET /v1/contacts (the list)', () => {
     expect(data.collectionVersion).toMatch(/^[0-9a-f]{64}$/)
     expect(data.allContactIds.sort()).toEqual(ids)
     expect(data.timing.mode).toBe('full')
+  })
+
+  it("gives a joint client's members the client account's own name", async () => {
+    env.sqlite.prepare(`INSERT INTO client (id, client_number, client_type, display_name, status, created_at) VALUES ('cl-joint', '0077', 'group', 'Sam & Pat Staff', 'active', ?1)`).run(OLD)
+    env.sqlite.prepare(`INSERT INTO client_member (id, client_id, individual_id) VALUES ('cm-1', 'cl-joint', 'ind-staff')`).run()
+    const res = await call('/v1/contacts', 'user-reader')
+    const data = ContactListData.parse(((await res.json()) as { data: unknown }).data)
+    expect(data.contacts.find((contact) => contact.id === 'ind-staff')).toMatchObject({
+      displayName: 'Sam Staff',
+      isClient: true,
+      clientId: 'cl-joint',
+      clientNumber: '0077',
+      clientDisplayName: 'Sam & Pat Staff',
+    })
   })
 
   it('with mode=delta returns only changed contacts and every current id', async () => {

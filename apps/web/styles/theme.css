@@ -37,10 +37,16 @@
 
   /* Accent colors. */
   --kr-theme-accent: #8a715c;
+  --kr-theme-accent-dark: #6d5948;
   --kr-theme-teal: #4e998a;
   --kr-theme-orange: #e45e25;
   --kr-theme-danger: #9d2c20;
   --kr-theme-success: #246b45;
+
+  /* Data sync light in the top bar (features/contacts/components/DataSyncIndicator.client.tsx). Bright, to show on
+     the dark title bar. Values from the old indicator. */
+  --kr-theme-sync-current: #43c46b;
+  --kr-theme-sync-stale: #f2c94c;
 
   /* Tables (the ledger). */
   --kr-theme-table-heading-dark: #21394f;
@@ -87,4 +93,9 @@
   --kr-theme-widget-padding-8-10: 8px 10px 8px 10px;
   --kr-theme-padding-2-6: 2px 6px 2px 6px;
   --kr-theme-padding-button-2-6: 2px 6px 2px 6px;
+
+  /* Menu Style One (the tab strip in Contact Detail and, from stage 2, Billing). Plan decision 8. */
+  --kr-theme-tab-strip-padding: 0 10px 0 10px;
+  --kr-theme-tab-button-padding: 0 10px 0 10px;
+  --kr-theme-menu-panel-padding: 10px 0 0 0;
 }

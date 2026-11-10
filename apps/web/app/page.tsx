@@ -10,6 +10,9 @@
  * It also reads the outside tools this person may use (`features/tools/tools.server.ts`) for the menu, and,
  * for a super admin only, places the "Outside tools" screen under Application Settings. The API refuses that
  * screen's calls from anyone else, so hiding it here is a convenience, not the protection.
+ * It also names the screen for each kind of open item (`openItemPanels`: an open contact under Clients & Contacts
+ * is drawn by `ContactDetailPanel`, an open client under Billing by `BillingClientPanel`), and passes the user id so
+ * the frame saves the open items per person.
  * Keeping the list here, and not inside `components/shell`, is what lets the shell stay free of any
  * feature import (dependency rule in apps/web/AGENTS.md).
  */
@@ -20,9 +23,14 @@ import packageJson from '../package.json'
 import type { BuiltInSectionId } from '@/components/shell/navigation'
 import SignedInShell from '@/features/auth/components/SignedInShell.client'
 import { fetchSession } from '@/features/auth/session.server'
+import BillingClientPanel from '@/features/billing/components/BillingClientPanel.client'
 import BillingPanel from '@/features/billing/components/BillingPanel.client'
 import CommunicationsPanel from '@/features/communications/components/CommunicationsPanel.client'
+import ApplicationSearch from '@/features/contacts/components/ApplicationSearch.client'
+import ContactDetailPanel from '@/features/contacts/components/ContactDetailPanel.client'
 import ContactsPanel from '@/features/contacts/components/ContactsPanel.client'
+import DataSyncIndicator from '@/features/contacts/components/DataSyncIndicator.client'
+import { DataStoreProvider } from '@/features/contacts/DataStoreProvider.client'
 import DashboardPanel from '@/features/dashboard/components/DashboardPanel.client'
 import LeadsPanel from '@/features/leads/components/LeadsPanel.client'
 import FrontEndPublishingPanel from '@/features/publishing/components/FrontEndPublishingPanel.client'
@@ -73,5 +81,20 @@ export default async function HomePage() {
     session.role === 'super_admin'
       ? { ...PANELS, 'application-settings': <ApplicationSettingsPanel><OutsideToolsAdmin /></ApplicationSettingsPanel> }
       : PANELS
-  return <SignedInShell user={user} panels={panels} outsideTools={outsideTools} versionLabel={VERSION_LABEL} />
+  // The data store (contacts and the billing client list, cached encrypted in the browser) wraps the frame, so the
+  // top-bar search, the sync light and every screen, pop-outs included, share one copy.
+  return (
+    <DataStoreProvider userId={session.userId}>
+      <SignedInShell
+        user={user}
+        panels={panels}
+        outsideTools={outsideTools}
+        versionLabel={VERSION_LABEL}
+        topBarSearch={<ApplicationSearch />}
+        topBarStatus={<DataSyncIndicator />}
+        openItemPanels={{ contacts: <ContactDetailPanel />, billing: <BillingClientPanel /> }}
+        storageScope={session.userId}
+      />
+    </DataStoreProvider>
+  )
 }

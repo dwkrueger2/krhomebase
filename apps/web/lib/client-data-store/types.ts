@@ -1,5 +1,6 @@
 // file: apps/web/lib/client-data-store/types.ts
-// Ported unchanged from the old repository (apps/kr-homebase/src/hb-lib/hb-client-data-store/types.ts).
+// Ported from the old repository (apps/kr-homebase/src/hb-lib/hb-client-data-store/types.ts). One change: the
+// optional `clientDisplayName` on ClientContactElement (Nov 9, 2026), marked below.
 // Design notes: lib/client-data-store/Readme-client-data-store.md.
 /** Type contract for the encrypted data store owned by the client browser. */
 
@@ -162,6 +163,8 @@ export interface ClientContactElement extends ClientDataElement {
   readonly isClient: boolean
   readonly clientId: string | null
   readonly clientNumber: string | null
+  /** The client account's own name, for the billing client list. New in this repository (Nov 9, 2026); absent in older caches. */
+  readonly clientDisplayName?: string | null
   readonly clientType: string | null
   readonly clientStatus: string | null
   readonly pointOfContact?: { id: string; displayName: string; icid?: string | null; relationship?: string | null } | null
