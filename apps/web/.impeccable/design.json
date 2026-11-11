@@ -1,0 +1,836 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-11T15:19:11.734Z",
+  "title": "Design System: KR Homebase",
+  "extensions": {
+    "colorMeta": {
+      "brand-primary": {
+        "role": "primary",
+        "displayName": "Firm Navy",
+        "canonical": "var(--kr-theme-brand-primary, #00305b)",
+        "tonalRamp": [
+          "#0a1624",
+          "#071d32",
+          "#05233f",
+          "#022a4d",
+          "#00305b",
+          "#4b6d8b",
+          "#96aabc",
+          "#d5dde4"
+        ]
+      },
+      "brand-secondary": {
+        "role": "primary",
+        "displayName": "Midnight Navy",
+        "canonical": "var(--kr-theme-brand-secondary, #001e3a)",
+        "tonalRamp": [
+          "#0a131d",
+          "#071624",
+          "#05182c",
+          "#021b33",
+          "#001e3a",
+          "#4b6074",
+          "#96a3ae",
+          "#d5dadf"
+        ]
+      },
+      "brand-primary-active": {
+        "role": "primary",
+        "displayName": "Active Blue",
+        "canonical": "var(--kr-theme-brand-primary-active, #0a4f9c)",
+        "tonalRamp": [
+          "#0c1d31",
+          "#0b294c",
+          "#0b3666",
+          "#0a4281",
+          "#0a4f9c",
+          "#5283b9",
+          "#9ab6d6",
+          "#d6e1ee"
+        ]
+      },
+      "button-primary-background": {
+        "role": "primary",
+        "displayName": "Ledger Slate",
+        "canonical": "var(--kr-theme-button-primary-background, #21394f)",
+        "tonalRamp": [
+          "#101821",
+          "#14202d",
+          "#192938",
+          "#1d3144",
+          "#21394f",
+          "#627383",
+          "#a3adb7",
+          "#d9dee2"
+        ]
+      },
+      "button-primary-hover-background": {
+        "role": "primary",
+        "displayName": "Ledger Slate Light",
+        "canonical": "var(--kr-theme-button-primary-hover-background, #2d4a66)",
+        "tonalRamp": [
+          "#131c26",
+          "#192736",
+          "#203346",
+          "#263e56",
+          "#2d4a66",
+          "#6b7f93",
+          "#a8b4c0",
+          "#dbe0e6"
+        ]
+      },
+      "table-heading-dark": {
+        "role": "primary",
+        "displayName": "Ledger Slate (table heading)",
+        "canonical": "var(--kr-theme-table-heading-dark, #21394f)",
+        "tonalRamp": [
+          "#101821",
+          "#14202d",
+          "#192938",
+          "#1d3144",
+          "#21394f",
+          "#627383",
+          "#a3adb7",
+          "#d9dee2"
+        ]
+      },
+      "accent": {
+        "role": "secondary",
+        "displayName": "Warm Camel",
+        "canonical": "var(--kr-theme-accent, #8a715c)",
+        "tonalRamp": [
+          "#252324",
+          "#3e3732",
+          "#584a40",
+          "#715e4e",
+          "#8a715c",
+          "#ac9a8c",
+          "#cdc4bc",
+          "#e9e6e4"
+        ]
+      },
+      "accent-dark": {
+        "role": "secondary",
+        "displayName": "Dark Camel",
+        "canonical": "var(--kr-theme-accent-dark, #6d5948)",
+        "tonalRamp": [
+          "#1f1f20",
+          "#332d2a",
+          "#463c34",
+          "#5a4a3e",
+          "#6d5948",
+          "#978a7e",
+          "#c2bab4",
+          "#e5e3e1"
+        ]
+      },
+      "panel-accent-gradient-middle": {
+        "role": "secondary",
+        "displayName": "Deep Teal",
+        "canonical": "var(--kr-theme-panel-accent-gradient-middle, #0f766e)",
+        "tonalRamp": [
+          "#0d2428",
+          "#0d3939",
+          "#0e4d4b",
+          "#0e625c",
+          "#0f766e",
+          "#569e99",
+          "#9cc6c3",
+          "#d7e7e7"
+        ]
+      },
+      "teal": {
+        "role": "tertiary",
+        "displayName": "Sea Teal",
+        "canonical": "var(--kr-theme-teal, #4e998a)",
+        "tonalRamp": [
+          "#192b2d",
+          "#264744",
+          "#34625c",
+          "#417e73",
+          "#4e998a",
+          "#82b6ac",
+          "#b5d4ce",
+          "#e0eceb"
+        ]
+      },
+      "orange": {
+        "role": "tertiary",
+        "displayName": "Signal Orange",
+        "canonical": "var(--kr-theme-orange, #e45e25)",
+        "tonalRamp": [
+          "#372019",
+          "#622f1c",
+          "#8e3f1f",
+          "#b94e22",
+          "#e45e25",
+          "#eb8d66",
+          "#f1bca6",
+          "#f7e3dc"
+        ]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Brick Red",
+        "canonical": "var(--kr-theme-danger, #9d2c20)",
+        "tonalRamp": [
+          "#291618",
+          "#461b1a",
+          "#63211c",
+          "#80261e",
+          "#9d2c20",
+          "#b96a62",
+          "#d5a8a4",
+          "#ecdcdb"
+        ]
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Ledger Green",
+        "canonical": "var(--kr-theme-success, #246b45)",
+        "tonalRamp": [
+          "#11221f",
+          "#163429",
+          "#1a4732",
+          "#1f593c",
+          "#246b45",
+          "#64967c",
+          "#a4c1b3",
+          "#dae5e1"
+        ]
+      },
+      "sync-current": {
+        "role": "tertiary",
+        "displayName": "Sync Green",
+        "canonical": "var(--kr-theme-sync-current, #43c46b)",
+        "tonalRamp": [
+          "#173427",
+          "#225838",
+          "#2d7c49",
+          "#38a05a",
+          "#43c46b",
+          "#7ad597",
+          "#b1e5c2",
+          "#dff3e6"
+        ]
+      },
+      "sync-stale": {
+        "role": "tertiary",
+        "displayName": "Sync Amber",
+        "canonical": "var(--kr-theme-sync-stale, #f2c94c)",
+        "tonalRamp": [
+          "#3a3521",
+          "#685a2c",
+          "#967f36",
+          "#c4a441",
+          "#f2c94c",
+          "#f4d881",
+          "#f7e7b6",
+          "#f9f4e2"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Ink Slate",
+        "canonical": "var(--kr-theme-text, #243142)",
+        "tonalRamp": [
+          "#11171f",
+          "#161d28",
+          "#1a2430",
+          "#1f2a39",
+          "#243142",
+          "#646e7a",
+          "#a4aab2",
+          "#dadde0"
+        ]
+      },
+      "text-muted": {
+        "role": "neutral",
+        "displayName": "Muted Slate",
+        "canonical": "var(--kr-theme-text-muted, #5a6775)",
+        "tonalRamp": [
+          "#1c2129",
+          "#2b333c",
+          "#3b444f",
+          "#4a5662",
+          "#5a6775",
+          "#8a939e",
+          "#bac0c6",
+          "#e2e5e8"
+        ]
+      },
+      "text-inverse": {
+        "role": "neutral",
+        "displayName": "Frost",
+        "canonical": "var(--kr-theme-text-inverse, #f7f9fb)",
+        "tonalRamp": [
+          "#3b3f44",
+          "#6a6d72",
+          "#999c9f",
+          "#c8cacd",
+          "#f7f9fb",
+          "#f8fafb",
+          "#f9fafc",
+          "#fafbfc"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Cool Hairline",
+        "canonical": "var(--kr-theme-line, #d7dee5)",
+        "tonalRamp": [
+          "#35393f",
+          "#5d6269",
+          "#868c92",
+          "#aeb5bc",
+          "#d7dee5",
+          "#e2e7ec",
+          "#eceff3",
+          "#f5f7f9"
+        ]
+      },
+      "shell-surface": {
+        "role": "neutral",
+        "displayName": "Shell Mist",
+        "canonical": "var(--kr-theme-shell-surface, #f7f9fb)",
+        "tonalRamp": [
+          "#3b3f44",
+          "#6a6d72",
+          "#999c9f",
+          "#c8cacd",
+          "#f7f9fb",
+          "#f8fafb",
+          "#f9fafc",
+          "#fafbfc"
+        ]
+      },
+      "card-surface": {
+        "role": "neutral",
+        "displayName": "Card White",
+        "canonical": "var(--kr-theme-card-surface, #ffffff)",
+        "tonalRamp": [
+          "#3d4045",
+          "#6d7073",
+          "#9e9fa2",
+          "#cecfd0",
+          "#ffffff",
+          "#fefefe",
+          "#fcfdfd",
+          "#fbfcfc"
+        ]
+      },
+      "muted-surface": {
+        "role": "neutral",
+        "displayName": "Pale Denim",
+        "canonical": "var(--kr-theme-muted-surface, #eef3f7)",
+        "tonalRamp": [
+          "#393d43",
+          "#666b70",
+          "#94989d",
+          "#c1c6ca",
+          "#eef3f7",
+          "#f2f5f9",
+          "#f5f8fa",
+          "#f8fafb"
+        ]
+      },
+      "table-row-background-2": {
+        "role": "neutral",
+        "displayName": "Shell Mist (alternate row)",
+        "canonical": "var(--kr-theme-table-row-background-2, #f7f9fb)",
+        "tonalRamp": [
+          "#3b3f44",
+          "#6a6d72",
+          "#999c9f",
+          "#c8cacd",
+          "#f7f9fb",
+          "#f8fafb",
+          "#f9fafc",
+          "#fafbfc"
+        ]
+      },
+      "table-row-hover": {
+        "role": "neutral",
+        "displayName": "Row Hover",
+        "canonical": "var(--kr-theme-table-row-hover, #f0f6fb)",
+        "tonalRamp": [
+          "#3a3e44",
+          "#676c72",
+          "#959a9f",
+          "#c2c8cd",
+          "#f0f6fb",
+          "#f3f8fb",
+          "#f6f9fc",
+          "#f9fafc"
+        ]
+      },
+      "table-row-selected": {
+        "role": "neutral",
+        "displayName": "Row Selected",
+        "canonical": "var(--kr-theme-table-row-selected, #e3edf7)",
+        "tonalRamp": [
+          "#373c43",
+          "#626870",
+          "#8d959d",
+          "#b8c1ca",
+          "#e3edf7",
+          "#eaf1f9",
+          "#f1f5fa",
+          "#f7f9fb"
+        ]
+      },
+      "button-secondary-background": {
+        "role": "neutral",
+        "displayName": "Pale Denim (secondary button)",
+        "canonical": "var(--kr-theme-button-secondary-background, #eef3f7)",
+        "tonalRamp": [
+          "#393d43",
+          "#666b70",
+          "#94989d",
+          "#c1c6ca",
+          "#eef3f7",
+          "#f2f5f9",
+          "#f5f8fa",
+          "#f8fafb"
+        ]
+      },
+      "link": {
+        "role": "primary",
+        "displayName": "Link Blue (not yet ported)",
+        "canonical": "var(--kr-theme-link, #004c7f)",
+        "tonalRamp": [
+          "#0a1c2b",
+          "#072840",
+          "#053455",
+          "#02406a",
+          "#004c7f",
+          "#4b81a5",
+          "#96b5ca",
+          "#d5e1e9"
+        ]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Strong Hairline (not yet ported)",
+        "canonical": "var(--kr-theme-line-strong, #b8c7d4)",
+        "tonalRamp": [
+          "#2e353c",
+          "#515962",
+          "#737e88",
+          "#96a2ae",
+          "#b8c7d4",
+          "#ccd7e0",
+          "#e0e6ec",
+          "#f0f3f6"
+        ]
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "Amber Warning (not yet ported)",
+        "canonical": "var(--kr-theme-warning, #d97706)",
+        "tonalRamp": [
+          "#352513",
+          "#5e3910",
+          "#874e0c",
+          "#b06209",
+          "#d97706",
+          "#e39f50",
+          "#edc69a",
+          "#f5e7d7"
+        ]
+      },
+      "accent-strong": {
+        "role": "secondary",
+        "displayName": "Brass (not yet ported)",
+        "canonical": "var(--kr-theme-accent-strong, #d99b3d)",
+        "tonalRamp": [
+          "#352c1e",
+          "#5e4826",
+          "#87632d",
+          "#b07f35",
+          "#d99b3d",
+          "#e3b876",
+          "#edd5b0",
+          "#f5eddf"
+        ]
+      },
+      "primary-strong": {
+        "role": "primary",
+        "displayName": "Deep Slate (not yet ported)",
+        "canonical": "var(--kr-theme-primary-strong, #102a3a)",
+        "tonalRamp": [
+          "#0d151d",
+          "#0e1a24",
+          "#0e202c",
+          "#0f2533",
+          "#102a3a",
+          "#566974",
+          "#9ca7ae",
+          "#d7dcdf"
+        ]
+      },
+      "background-soft": {
+        "role": "neutral",
+        "displayName": "Soft Background (not yet ported)",
+        "canonical": "var(--kr-theme-background-soft, #fbfcfd)",
+        "tonalRamp": [
+          "#3c3f44",
+          "#6c6e72",
+          "#9b9ea1",
+          "#cbcdcf",
+          "#fbfcfd",
+          "#fbfcfd",
+          "#fafbfc",
+          "#fafbfc"
+        ]
+      },
+      "on-dark": {
+        "role": "neutral",
+        "displayName": "Text on Dark (not yet ported)",
+        "canonical": "var(--kr-theme-on-dark, #f8fbff)",
+        "tonalRamp": [
+          "#3b3f45",
+          "#6a6e73",
+          "#9a9da2",
+          "#c9ccd0",
+          "#f8fbff",
+          "#f9fbfe",
+          "#f9fbfd",
+          "#fafbfc"
+        ]
+      },
+      "communication-surface": {
+        "role": "neutral",
+        "displayName": "Night (Communications)",
+        "canonical": "var(--kr-theme-communication-surface, #0f1011)",
+        "tonalRamp": [
+          "#0d1015",
+          "#0d1014",
+          "#0e1013",
+          "#0e1012",
+          "#0f1011",
+          "#565758",
+          "#9c9d9e",
+          "#d7d8d9"
+        ]
+      },
+      "communication-surface-elevated": {
+        "role": "neutral",
+        "displayName": "Night Raised (Communications)",
+        "canonical": "var(--kr-theme-communication-surface-elevated, #202124)",
+        "tonalRamp": [
+          "#101319",
+          "#14171c",
+          "#181a1e",
+          "#1c1e21",
+          "#202124",
+          "#616265",
+          "#a3a4a6",
+          "#d9dadc"
+        ]
+      },
+      "communication-line": {
+        "role": "neutral",
+        "displayName": "Night Line (Communications)",
+        "canonical": "var(--kr-theme-communication-line, #3c4043)",
+        "tonalRamp": [
+          "#161a1f",
+          "#1f2328",
+          "#292d31",
+          "#32363a",
+          "#3c4043",
+          "#75787b",
+          "#aeb0b2",
+          "#dedfe0"
+        ]
+      },
+      "communication-text": {
+        "role": "neutral",
+        "displayName": "Night Text (Communications)",
+        "canonical": "var(--kr-theme-communication-text, #e8eaed)",
+        "tonalRamp": [
+          "#383c41",
+          "#64676c",
+          "#909397",
+          "#bcbec2",
+          "#e8eaed",
+          "#edeff2",
+          "#f3f4f6",
+          "#f7f8fa"
+        ]
+      },
+      "communication-accent": {
+        "role": "primary",
+        "displayName": "Night Link (Communications)",
+        "canonical": "var(--kr-theme-communication-accent, #a8c7fa)",
+        "tonalRamp": [
+          "#2b3544",
+          "#4a5971",
+          "#6a7e9f",
+          "#89a2cc",
+          "#a8c7fa",
+          "#c1d7fb",
+          "#d9e6fb",
+          "#eef3fc"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Application title in the title bar."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Module title in a module header."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card and ledger captions."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All screen text (13px)."
+      },
+      "body-bigger": {
+        "displayName": "Bigger",
+        "purpose": "Dialog titles."
+      },
+      "small": {
+        "displayName": "Small",
+        "purpose": "Descriptions, toolbar text, field help."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase eyebrows and stat labels."
+      },
+      "table-heading": {
+        "displayName": "Table heading",
+        "purpose": "Ledger heading row, uppercase."
+      }
+    },
+    "shadows": [
+      {
+        "name": "hairline",
+        "value": "0 1px 2px rgba(27,35,48,.07)",
+        "purpose": "Cards, ledgers, module headers."
+      },
+      {
+        "name": "popover",
+        "value": "0 4px 12px rgba(0,30,58,.25)",
+        "purpose": "Notification and recently accessed menus."
+      },
+      {
+        "name": "floating-panel",
+        "value": "0 8px 22px rgba(0,30,58,.22)",
+        "purpose": "Search results and hover cards."
+      },
+      {
+        "name": "dialog",
+        "value": "0 18px 50px rgba(16,42,58,.22)",
+        "purpose": "Dialogs, over a 40% Midnight Navy backdrop."
+      },
+      {
+        "name": "inset-field",
+        "value": "inset 0 1px 2px rgba(0,30,58,.08)",
+        "purpose": "Recessed inputs."
+      }
+    ],
+    "motion": [
+      {
+        "name": "menu-collapse",
+        "value": "grid-template-columns 200ms",
+        "purpose": "Left menu opening and closing."
+      },
+      {
+        "name": "state-fade",
+        "value": "opacity 120ms",
+        "purpose": "Ledger sort arrows appearing on hover."
+      },
+      {
+        "name": "color-shift",
+        "value": "background-color 150ms",
+        "purpose": "Button and row hover."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile",
+        "value": "0px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main action on a card or form: Ledger Slate, bold, square corners.",
+      "html": "<button class=\"ds-btn-primary\">Add User</button>",
+      "css": ".ds-btn-primary { font-family: var(--kr-theme-font-body, Raleway, Inter, ui-sans-serif, system-ui, 'Segoe UI', sans-serif); background: var(--kr-theme-button-primary-background, #21394f); color: var(--kr-theme-text-inverse, #f7f9fb); border: 1px solid var(--kr-theme-button-primary-background, #21394f); border-radius: 2px; padding: 8px 10px; font-size: 13px; font-weight: 800; line-height: 1; cursor: pointer; transition: background-color .15s; } .ds-btn-primary:hover { background: var(--kr-theme-button-primary-hover-background, #2d4a66); border-color: var(--kr-theme-button-primary-hover-background, #2d4a66); } .ds-btn-primary:focus-visible { outline: 2px solid var(--kr-theme-brand-primary-active, #0a4f9c); outline-offset: 1px; } .ds-btn-primary:disabled { opacity: .6; cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Quiet or not-yet-ready action (for example Save with nothing to save).",
+      "html": "<button class=\"ds-btn-secondary\">Save</button>",
+      "css": ".ds-btn-secondary { font-family: var(--kr-theme-font-body, Raleway, Inter, ui-sans-serif, system-ui, 'Segoe UI', sans-serif); background: var(--kr-theme-button-secondary-background, #eef3f7); color: var(--kr-theme-text-muted, #5a6775); border: 1px solid var(--kr-theme-text-muted, #5a6775); border-radius: 2px; padding: 8px 10px; font-size: 12px; font-weight: 800; line-height: 1; cursor: pointer; } .ds-btn-secondary:hover { color: var(--kr-theme-text, #243142); border-color: var(--kr-theme-text, #243142); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--kr-theme-brand-primary-active, #0a4f9c); outline-offset: 1px; }"
+    },
+    {
+      "name": "Toolbar Actions",
+      "kind": "button",
+      "refersTo": "button-toolbar",
+      "description": "Small 24px actions in a ledger caption bar: main, quiet and attention.",
+      "html": "<div class=\"ds-toolbar\"><button class=\"ds-tb ds-tb-main\">New Invoice</button><button class=\"ds-tb ds-tb-quiet\">Export</button><button class=\"ds-tb ds-tb-alert\">Unbilled</button></div>",
+      "css": ".ds-toolbar { display: flex; gap: 6px; } .ds-tb { font-family: var(--kr-theme-font-body, Raleway, Inter, ui-sans-serif, system-ui, 'Segoe UI', sans-serif); min-height: 24px; padding: 2px 7px; border-radius: 2px; border: 1px solid; font-size: 11px; font-weight: 700; cursor: pointer; } .ds-tb:hover { border-color: var(--kr-theme-accent, #8a715c); filter: brightness(1.04); } .ds-tb:focus-visible { outline: 2px solid var(--kr-theme-accent, #8a715c); outline-offset: 1px; } .ds-tb-main { background: var(--kr-theme-brand-primary, #00305b); border-color: var(--kr-theme-brand-primary, #00305b); color: var(--kr-theme-text-inverse, #f7f9fb); } .ds-tb-quiet { background: rgba(33,57,79,.08); border-color: rgba(33,57,79,.18); color: var(--kr-theme-text, #243142); } .ds-tb-alert { background: var(--kr-theme-orange, #e45e25); border-color: var(--kr-theme-orange, #e45e25); color: var(--kr-theme-text-inverse, #f7f9fb); }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Label on the left, field on the right, on one row.",
+      "html": "<label class=\"ds-row\"><span class=\"ds-label\">Client no.</span><input class=\"ds-input\" value=\"00501\" /></label>",
+      "css": ".ds-row { font-family: var(--kr-theme-font-body, Raleway, Inter, ui-sans-serif, system-ui, 'Segoe UI', sans-serif); display: grid; grid-template-columns: 90px minmax(0,1fr); gap: 6px; align-items: center; } .ds-label { font-size: 11px; font-weight: 700; color: var(--kr-theme-text-muted, #5a6775); } .ds-input { font-family: var(--kr-theme-font-body, Raleway, Inter, ui-sans-serif, system-ui, 'Segoe UI', sans-serif); min-height: 27px; padding: 4px 6px; border: 1px solid var(--kr-theme-line, #d7dee5); border-radius: 2px; background: var(--kr-theme-card-surface, #fff); color: var(--kr-theme-text, #243142); font-size: 12px; outline: none; } .ds-input:focus { border-color: var(--kr-theme-brand-primary-active, #0a4f9c); } .ds-input:disabled { opacity: .6; cursor: not-allowed; }"
+    },
+    {
+      "name": "Left Menu",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Midnight Navy menu; the selected row is Active Blue.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item\">Contacts</a><a class=\"ds-nav-item ds-nav-active\">Billing</a><span class=\"ds-nav-group\">Open Billing</span><a class=\"ds-nav-sub\">[501] Sample Client</a></nav>",
+      "css": ".ds-nav { font-family: var(--kr-theme-font-body, Raleway, Inter, ui-sans-serif, system-ui, 'Segoe UI', sans-serif); background: var(--kr-theme-brand-secondary, #001e3a); padding: 12px 10px; display: flex; flex-direction: column; gap: 4px; width: 220px; } .ds-nav-item { min-height: 38px; padding: 9px 10px; border-radius: 2px; font-size: 13px; color: rgba(255,255,255,.86); display: flex; align-items: center; cursor: pointer; } .ds-nav-item:hover { background: rgba(255,255,255,.12); color: #fff; } .ds-nav-active { background: var(--kr-theme-brand-primary-active, #0a4f9c); color: #fff; font-weight: 800; } .ds-nav-group { margin-left: 18px; padding: 4px 8px 0; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.55); } .ds-nav-sub { margin-left: 18px; min-height: 28px; padding: 4px 8px; font-size: 12px; color: rgba(255,255,255,.86); border-radius: 2px; } .ds-nav-sub:hover { background: rgba(255,255,255,.12); }"
+    },
+    {
+      "name": "Tab Strip (Menu Style One)",
+      "kind": "nav",
+      "refersTo": "tab",
+      "description": "Tabs inside Contact Detail and Billing; active tab underlined in Warm Camel.",
+      "html": "<div class=\"ds-tabs\"><button class=\"ds-tab ds-tab-active\">Overview</button><button class=\"ds-tab\">Time &amp; Fees</button><button class=\"ds-tab\">Invoices</button></div>",
+      "css": ".ds-tabs { font-family: var(--kr-theme-font-body, Raleway, Inter, ui-sans-serif, system-ui, 'Segoe UI', sans-serif); display: flex; gap: 2px; padding: 0 10px; border-bottom: 1px solid var(--kr-theme-line, #d7dee5); background: #fff; } .ds-tab { font-family: var(--kr-theme-font-body, Raleway, Inter, ui-sans-serif, system-ui, 'Segoe UI', sans-serif); min-height: 34px; padding: 0 10px; border: 0; border-bottom: 3px solid transparent; background: transparent; font-size: 13px; font-weight: 700; color: var(--kr-theme-text-muted, #5a6775); cursor: pointer; } .ds-tab:hover { color: var(--kr-theme-text, #243142); } .ds-tab:focus-visible { outline: 2px solid var(--kr-theme-accent, #8a715c); outline-offset: -2px; } .ds-tab-active { border-bottom-color: var(--kr-theme-accent, #8a715c); font-weight: 800; color: var(--kr-theme-table-heading-dark, #21394f); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Card White body under a Pale Denim header row; hairline shadow.",
+      "html": "<section class=\"ds-card\"><header class=\"ds-card-head\"><h3 class=\"ds-card-title\">Trust</h3><p class=\"ds-card-note\">Requests and trust payments.</p></header><div class=\"ds-card-body\">Balance $0.00</div></section>",
+      "css": ".ds-card { font-family: var(--kr-theme-font-body, Raleway, Inter, ui-sans-serif, system-ui, 'Segoe UI', sans-serif); border: 1px solid var(--kr-theme-line, #d7dee5); border-radius: 2px; background: var(--kr-theme-card-surface, #fff); box-shadow: 0 1px 2px rgba(27,35,48,.07); overflow: hidden; max-width: 320px; } .ds-card-head { padding: 7px 8px; background: var(--kr-theme-muted-surface, #eef3f7); border-bottom: 1px solid var(--kr-theme-line, #d7dee5); } .ds-card-title { margin: 0; font-size: 13px; font-weight: 850; color: var(--kr-theme-text, #243142); } .ds-card-note { margin: 3px 0 0; font-size: 12px; color: var(--kr-theme-text-muted, #5a6775); } .ds-card-body { padding: 8px; font-size: 13px; color: var(--kr-theme-text, #243142); }"
+    },
+    {
+      "name": "Ledger",
+      "kind": "custom",
+      "refersTo": "ledger-heading",
+      "description": "The dense record table: slate uppercase heading row, alternating rows.",
+      "html": "<table class=\"ds-ledger\"><thead><tr><th>Name</th><th>Role</th><th>Status</th></tr></thead><tbody><tr><td>Sample Person</td><td>employee</td><td>Active</td></tr><tr><td>Another Person</td><td>manager</td><td>Active</td></tr><tr class=\"ds-sel\"><td>Third Person</td><td>staff</td><td>Inactive</td></tr></tbody></table>",
+      "css": ".ds-ledger { font-family: var(--kr-theme-font-body, Raleway, Inter, ui-sans-serif, system-ui, 'Segoe UI', sans-serif); width: 100%; border-collapse: collapse; border: 1px solid var(--kr-theme-line, #d7dee5); font-size: 12px; line-height: 1.22; color: var(--kr-theme-text, #243142); } .ds-ledger th { padding: 6px 8px; text-align: left; background: var(--kr-theme-table-heading-dark, #21394f); color: var(--kr-theme-text-inverse, #f7f9fb); font-size: 11px; font-weight: 800; letter-spacing: .045em; text-transform: uppercase; } .ds-ledger td { padding: 2px 8px; border-bottom: 1px solid var(--kr-theme-line, #d7dee5); } .ds-ledger tbody tr:nth-child(odd) { background: var(--kr-theme-table-row-background-1, #fff); } .ds-ledger tbody tr:nth-child(even) { background: var(--kr-theme-table-row-background-2, #f7f9fb); } .ds-ledger tbody tr:hover { background: var(--kr-theme-table-row-hover, #f0f6fb); } .ds-ledger tbody tr.ds-sel { background: var(--kr-theme-table-row-selected, #e3edf7); }"
+    },
+    {
+      "name": "Module Header",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Camel eyebrow, headline title, description, square filter cards.",
+      "html": "<div class=\"ds-hero\"><div><span class=\"ds-eyebrow\">Contacts Manager</span><h2 class=\"ds-hero-title\">Contacts</h2><p class=\"ds-hero-desc\">Everyone the firm works with.</p></div><div class=\"ds-stats\"><button class=\"ds-stat ds-stat-on\"><b>212</b><span>Clients</span></button><button class=\"ds-stat\"><b>2,041</b><span>All</span></button></div></div>",
+      "css": ".ds-hero { font-family: var(--kr-theme-font-body, Raleway, Inter, ui-sans-serif, system-ui, 'Segoe UI', sans-serif); display: flex; justify-content: space-between; gap: 12px; padding: 4px 10px; border: 1px solid var(--kr-theme-line, #d7dee5); border-radius: 2px; background: #fff; box-shadow: 0 1px 2px rgba(27,35,48,.07); } .ds-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--kr-theme-accent, #8a715c); } .ds-hero-title { margin: 2px 0 0; font-size: 26px; font-weight: 600; letter-spacing: -.035em; line-height: 1; color: var(--kr-theme-text, #243142); } .ds-hero-desc { margin: 3px 0 0; font-size: 11px; color: var(--kr-theme-text-muted, #5a6775); } .ds-stats { display: flex; gap: 6px; } .ds-stat { font-family: var(--kr-theme-font-body, Raleway, Inter, ui-sans-serif, system-ui, 'Segoe UI', sans-serif); width: 64px; aspect-ratio: 1; padding: 2px 4px; display: grid; align-content: center; justify-items: start; border: 1px solid var(--kr-theme-line, #d7dee5); border-radius: 2px; background: var(--kr-theme-muted-surface, #eef3f7); cursor: pointer; } .ds-stat:hover { border-color: var(--kr-theme-accent, #8a715c); } .ds-stat b { font-size: 18px; font-weight: 400; color: var(--kr-theme-text, #243142); } .ds-stat span { font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--kr-theme-text-muted, #5a6775); } .ds-stat-on { border: 3px solid var(--kr-theme-brand-primary, #00305b); }"
+    },
+    {
+      "name": "Confirmation Dialog",
+      "kind": "custom",
+      "refersTo": "dialog",
+      "description": "U6ConfirmationDialog: 440px, 4px corners, outlined cancel, slate confirm.",
+      "html": "<div class=\"ds-dialog\" role=\"dialog\"><div class=\"ds-dialog-title\">Void this payment?</div><p class=\"ds-dialog-text\">The invoice balance goes back up by $250.00.</p><div class=\"ds-dialog-actions\"><button class=\"ds-dbtn ds-dbtn-cancel\">Cancel</button><button class=\"ds-dbtn ds-dbtn-ok\">Void payment</button></div></div>",
+      "css": ".ds-dialog { font-family: var(--kr-theme-font-body, Raleway, Inter, ui-sans-serif, system-ui, 'Segoe UI', sans-serif); max-width: 440px; padding: 10px; border: 1px solid var(--kr-theme-line, #d7dee5); border-radius: 4px; background: #fff; box-shadow: 0 18px 50px rgba(16,42,58,.22); color: var(--kr-theme-text, #243142); } .ds-dialog-title { font-size: 14.5px; font-weight: 600; } .ds-dialog-text { margin: 6px 0 0; font-size: 13px; color: var(--kr-theme-text-muted, #5a6775); } .ds-dialog-actions { margin-top: 10px; display: flex; gap: 6px; justify-content: flex-end; } .ds-dbtn { font-family: var(--kr-theme-font-body, Raleway, Inter, ui-sans-serif, system-ui, 'Segoe UI', sans-serif); padding: 6px 10px; border-radius: 3px; border: 1px solid; font-size: 13px; cursor: pointer; } .ds-dbtn:focus-visible { outline: 2px solid var(--kr-theme-brand-primary-active, #0a4f9c); outline-offset: 1px; } .ds-dbtn-cancel { border-color: var(--kr-theme-line, #d7dee5); background: transparent; color: var(--kr-theme-text, #243142); } .ds-dbtn-ok { border-color: var(--kr-theme-button-primary-background, #21394f); background: var(--kr-theme-button-primary-background, #21394f); color: var(--kr-theme-text-inverse, #f7f9fb); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Firm's Ledger Room",
+    "overview": "KR Homebase looks like a well-kept records room: a deep navy frame (title bar and left menu) holds pale, ruled work surfaces where the firm's contacts, time and money are kept. Everything inside the frame is a ledger, a card or a form, set close together with hairline borders and almost no shadow. The look comes from order and density, not decoration.\n\nThe screens are dense on purpose. People spend whole days here with several clients open, so the system saves height before width, keeps labels on the same line as their fields, and uses 13px body text with 11px small print. Color carries meaning: navy is the frame and the main action, warm camel marks the current tab and the eyebrow over a title, slate heads every table, and red, orange and green appear only for state.\n\nEvery value a user may change (colors, padding, sizes) is a `--kr-theme-*` token, set on the theme scope `[data-kr-theme-scope=\"krhomebase\"]`, never on `:root`. A saved user theme overrides the same tokens, so a component that hard-codes a color breaks the user's theme.",
+    "keyCharacteristics": [
+      "Navy frame (title bar and left menu), light work surface inside.",
+      "Dense: 13px body, 2px to 10px gaps, 24px to 38px control heights.",
+      "Nearly square corners (2px; 4px for dialogs).",
+      "Flat surfaces with hairline borders; shadows only for things that float.",
+      "Uppercase, letter-spaced labels on slate table headings and camel eyebrows.",
+      "Every color and padding is a user-configurable theme token."
+    ],
+    "rules": [
+      {
+        "name": "The Token Only Rule",
+        "body": "Never write a color into a component when a `--kr-theme-*` token names it. Users can change these values, so a hard-coded color is a bug.",
+        "section": "colors"
+      },
+      {
+        "name": "The State Color Rule",
+        "body": "Red, orange, green and amber mean state. They never decorate.",
+        "section": "colors"
+      },
+      {
+        "name": "The Small and Bold Rule",
+        "body": "Body text stays at 13px and small print at 10px to 12px. Make things stand out with weight (700 to 850) and uppercase tracking, not with bigger type.",
+        "section": "typography"
+      },
+      {
+        "name": "The Login Exception Rule",
+        "body": "Black Mango, DM Serif Display and Geist belong to the sign-in card (Chalk Denim tokens in `styles/chalk-denim.css`). Do not use them inside the application frame.",
+        "section": "typography"
+      },
+      {
+        "name": "The Height Budget Rule",
+        "body": "Screens run out of height before width. Every extra line in a form is a row someone scrolls past.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat Desk Rule",
+        "body": "Nothing on the page casts a shadow unless it floats over something else.",
+        "section": "elevation"
+      },
+      {
+        "name": "Intended: The camel eyebrow",
+        "body": "The small uppercase Warm Camel label above a module title (module header, module placeholder, create dialogs) stays. It names the area the screen belongs to.",
+        "section": "components"
+      },
+      {
+        "name": "Intended: The rainbow spinner",
+        "body": "`RainbowBusySpinner` is the busy signal everywhere, including while content loads. Skeleton placeholders are not used.",
+        "section": "components"
+      },
+      {
+        "name": "Intended: Fluid titles",
+        "body": "The application title (clamp(20px, 2.4vw, 30px)) and the module title (clamp(19px, 2.1vw, 28px)) scale with the window. Body, small and label sizes stay fixed.",
+        "section": "components"
+      },
+      {
+        "name": "Intended: Text glyph icons",
+        "body": "The ⚙, × and ✓ in the ledger settings, close and copy buttons stay until an icon set replaces them. New icons use `KRHomebaseIcons.<Name>`.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do read every color and padding from a `--kr-theme-*` token, and add the token to `styles/theme.css` first when it is missing.",
+      "Do right-align amount and number columns; Raleway's figures are lining but not fixed-width.",
+      "Do keep corners at 2px to 4px (`rounded-[2px]`, `rounded-[3px]`, `rounded-[4px]`).",
+      "Do keep body text at 13px and small print at 10px to 12px, and build hierarchy with weight and uppercase tracking.",
+      "Do head every ledger with the Ledger Slate row in uppercase, tracked 11px text.",
+      "Do mark the active tab with the 3px Warm Camel underline and the selected menu row with Active Blue.",
+      "Do check every screen at 390px, 768px and 1280px, and fit a repeated form in 1280 by 720.",
+      "Do use `U6ConfirmationDialog` and the rainbow spinner for confirmations and busy states."
+    ],
+    "donts": [
+      "Don't use `rounded-lg`, `rounded-xl` or larger on cards, buttons, fields or dialogs.",
+      "Don't hard-code a color that a token names.",
+      "Don't put shadows on surfaces that do not float.",
+      "Don't use red, orange, green or amber for decoration.",
+      "Don't use the login fonts (Black Mango, DM Serif Display, Geist) inside the application frame.",
+      "Don't use the Communications dark set outside Communications.",
+      "Don't use `sm:`, `xl:`, `2xl:` or custom breakpoints."
+    ]
+  }
+}

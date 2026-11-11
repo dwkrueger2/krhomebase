@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "krhomebase-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-C", "D:\\Repos\\krhomebase", "run", "dev"],
+      "port": 3011
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.7</small><br>
-<small>Updated Nov 9, 2026 11:45am</small>
+<small>Version 2.8</small><br>
+<small>Updated Nov 11, 2026 10:05am</small>
 
 ## Agent Guide Index
 
@@ -82,6 +82,16 @@ Before creating or modifying any `.tsx`, `.css`, or `.module.css` file:
 - The reusable confirmation dialog is `U6ConfirmationDialog` in `apps/web/components/dialogs/U6ConfirmationDialog.client.tsx` (`import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'`). The parent screen owns its state: `open`, `busy`, `error`, and the `onCancel`, `onConfirm` and optional `onSecondary` handlers. It shows the rainbow indicator from `apps/web/components/ui/RainbowBusySpinner.client.tsx` while busy. For a specialized interaction, use the owning component's own custom `role="dialog"` implementation.
 - Keep user actions explicit with labeled buttons and preserve busy and error states in the dialog.
 - Do not migrate unrelated native prompts opportunistically; report them, or migrate them when the owning workflow is requested.
+
+## Impeccable (the design skill)
+
+Impeccable (`.claude/skills/impeccable`, run as `/impeccable <command>`) is a design aid. Its product record is `apps/web/PRODUCT.md` and its design record is `apps/web/DESIGN.md` (with `apps/web/.impeccable/design.json`).
+
+1. **The AGENTS files outrank Impeccable.** When Impeccable guidance (its skill files, its quality floor, its "bans", or a design hook finding) disagrees with `AGENTS.md`, `AGENTS_01` to `AGENTS_06`, a local `AGENTS.md`, or a pattern `DESIGN.md` marks as intended, the AGENTS files and `DESIGN.md` win. Report the disagreement to the requester; do not resolve it quietly in either direction.
+2. **Impeccable changes are ordinary code changes.** They follow the styling preflight above, `AGENTS_04` (keep descriptive comments, no rewrites of untouched code) and `AGENTS_05` (`STYLES` and `LAYOUT_STYLES` maps, class order, no new CSS file without an exception, `--kr-theme-*` tokens, no styling through `data-kr-*`), and they advance the version track as `AGENTS_01` requires.
+3. **Keep the target narrow.** Run refinement commands (`polish`, `layout`, `typeset`, `bolder`, `distill`, `quieter`, `overdrive` and the like) on a named component or screen, not on the whole app. A change outside the named target needs the requester's approval first.
+4. **Helper agents get the rules.** When Impeccable starts one of its own agents (for example the documenter, the finish reviewer or the live-mode edit applier), the instructions given to it name this section, `AGENTS_04` and `AGENTS_05`, and tell it to read them before editing.
+5. **Design hook findings are advice.** Fix a finding only when it breaks an AGENTS rule or `DESIGN.md`. A finding against an intended pattern is suppressed with the narrowest `ignore-value`, with a reason that names the rule or `DESIGN.md` section, and reported. `ignore-file` and `ignore-rule` need the requester's approval.
 
 ## Current Project Shape
 
@@ -203,6 +213,7 @@ pnpm listScripts      # show the root scripts
 ### Root scripts and the folder each one runs
 
 - **No `--filter`.** A root script that targets one package names its folder: `pnpm --dir apps/api run <script>`. Do not add `pnpm --filter <package-name>`; it finds the package by name and hides which folder runs. Do not write `pnpm deploy` for a package script, because `deploy` is a built-in pnpm command; use `run deploy`, or the root `deploy:api` and `deploy:web`.
+- **No `npx`; use `pnpm dlx`.** The root `package.json` names pnpm in `devEngines`, so npm (which `npx` belongs to) refuses to run here with `EBADDEVENGINES`. `pnpm dlx <tool>` downloads a tool, runs it once and adds nothing to the packages. Where a tool's instructions say `npx <tool>`, write `pnpm dlx <tool>`.
 - **No `-r` (recursive).** A root script never searches the packages for a script name to run. Every root script names each folder or each root script it calls, and joins several calls with `&&` (one after another, stopping at the first failure). A new package is added to these scripts by hand.
 - **Running two servers together:** `dev` calls the root scripts `dev:api` and `dev:web` by name through a pnpm pattern, `pnpm --reporter=append-only run "/^dev:(api|web)$/"`, which starts the listed scripts at the same time. `--reporter=append-only` prints every line with its script name in front (`dev:api:`, `dev:web:`); without it, pnpm redraws one collapsing box per script in the terminal and the two boxes overwrite each other. Add a server by adding its name inside the parentheses. `dev:crud` and `dev:session` are not in the list and run only when called by name.
 

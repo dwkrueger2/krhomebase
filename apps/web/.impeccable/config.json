@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "black mango",
+        "createdAt": "2026-11-11T15:10:34.166Z",
+        "reason": "DESIGN.md Login Exception Rule: sign-in card font ported from the old login (apps/web/AGENTS.md, Sign-in screens)"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "dm serif display",
+        "createdAt": "2026-11-11T15:10:34.295Z",
+        "reason": "DESIGN.md Login Exception Rule: sign-in card font ported from the old login (apps/web/AGENTS.md, Sign-in screens)"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "geist",
+        "createdAt": "2026-11-11T15:10:34.463Z",
+        "reason": "DESIGN.md Login Exception Rule: sign-in card font ported from the old login (apps/web/AGENTS.md, Sign-in screens)"
+      }
+    ]
+  }
+}
