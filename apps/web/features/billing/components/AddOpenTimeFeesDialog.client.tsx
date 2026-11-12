@@ -8,8 +8,8 @@ import type { BillingTimeEntry } from '../types'
 
 const STYLES = {
   backdrop: 'bg-slate-950/40',
-  dialog: 'w-full max-w-4xl overflow-hidden rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-white shadow-2xl',
-  field: 'px-1.5 py-1 rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-white text-[10pt]',
+  dialog: 'w-full max-w-4xl overflow-hidden rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) shadow-2xl',
+  field: 'px-1.5 py-1 rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[10pt]',
   primaryButton: 'px-2 py-1 rounded border border-[var(--kr-theme-brand-primary,#21394f)] bg-[var(--kr-theme-brand-primary,#21394f)] text-[10pt] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50',
   title: 'text-[12pt] font-bold text-[var(--kr-theme-text,#243142)]',
   intro: 'mt-1 text-[9pt] text-[var(--kr-theme-text-muted,#526172)]',

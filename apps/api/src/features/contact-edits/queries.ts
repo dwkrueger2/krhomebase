@@ -185,6 +185,8 @@ export interface ContactEditQueries {
 }
 
 /** The General Matter every new client gets (unchanged from the crud Worker). */
+// See the lookup table as described in Schema 8.0: docs/Schema_8.0/table_lookup.html (section "How KR Homebase uses this table").
+// The three `*LookupId` values below are rows of the choice lists `practice_area`, `matter_status` and `party_role`.
 export const GENERAL_MATTER = {
   title: 'Client General Matters',
   description: 'General Client work that has not been assigned to a specific Matter.',

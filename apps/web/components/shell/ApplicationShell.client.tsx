@@ -39,6 +39,11 @@
  * `SectionPlaceContext` (so only the workspace copy touches the address), removes the parameters of other sections
  * when the open section changes, and lets a screen open a section at a page with `openSection(id, subPage)`.
  * Breadcrumb steps before the last one open their section when chosen.
+ *
+ * Preferences (Settings plan, stage 2): the frame reads the person's theme, auto logout time and starting section from
+ * `ShellPreferencesContext` (`shellPreferences.ts`), provided by `features/preferences` around the frame. The theme is
+ * `data-kr-theme` on the frame and on `<html>` (dialogs drawn into the page body follow it); the starting section is
+ * the first section when the address names none; `IdleLogoutMonitor` warns and then calls `onIdleLogout`.
  */
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
@@ -53,6 +58,7 @@ import LeftPanelFooter from '@/components/shell/LeftPanelFooter.client'
 import LeftPanelHeader from '@/components/shell/LeftPanelHeader.client'
 import LeftPanelNavList from '@/components/shell/LeftPanelNavList.client'
 import PopOutBrowserWindow, { openPopoutBrowserWindow } from '@/components/shell/PopOutBrowserWindow.client'
+import IdleLogoutMonitor from '@/components/shell/IdleLogoutMonitor.client'
 import PopOutWindow from '@/components/shell/PopOutWindow.client'
 import TopTitleBar from '@/components/shell/TopTitleBar.client'
 import {
@@ -73,6 +79,7 @@ import {
   type ShellUser,
 } from '@/components/shell/navigation'
 import { readSavedShellItems, writeSavedShellItems } from '@/components/shell/openItemsStorage'
+import { useShellPreferences, useShellThemeStyle } from '@/components/shell/shellPreferences'
 import { createInitialShellState, shellReducer } from '@/components/shell/shellState'
 import {
   OpenItemContext,
@@ -94,6 +101,11 @@ export interface ApplicationShellProps {
   versionLabel: string
   /** Called when the log-out button in the footer is pressed. When absent, the button is not drawn. */
   onLogout?: () => void
+  /**
+   * Called when the person has been idle for their auto logout time (`IdleLogoutMonitor`). When absent, there is no
+   * idle logout.
+   */
+  onIdleLogout?: () => void
   /** The top-bar search (a feature's component). When absent, the bar shows an unconnected search box. */
   topBarSearch?: ReactNode
   /** A status mark in the top bar, before the bell (the data sync indicator). */
@@ -156,15 +168,23 @@ export default function ApplicationShell({
   panels,
   versionLabel,
   onLogout,
+  onIdleLogout,
   outsideTools,
   topBarSearch,
   topBarStatus,
   openItemPanels,
   storageScope = '',
 }: ApplicationShellProps) {
-  const [state, dispatch] = useReducer(shellReducer, undefined, () => createInitialShellState())
+  // The person's theme, auto logout time and starting section (Settings plan, stage 2; shellPreferences.ts).
+  const preferences = useShellPreferences()
+  // The person's firm theme, text size and own colors as one style rule (stage 2b; empty for the built-in theme).
+  const themeCss = useShellThemeStyle()
   // The whole menu: built-in rows plus the outside tools this person may use.
   const navItems = useMemo(() => buildNavItems(outsideTools ?? []), [outsideTools])
+  // The first section is the person's starting section; a `?section=` in the address still wins (stage 2a below).
+  const [state, dispatch] = useReducer(shellReducer, undefined, () =>
+    createInitialShellState(isShellSectionId(preferences.startingSection, navItems) ? preferences.startingSection : undefined),
+  )
   // Outside tools that reported unsaved work, and the move waiting for the person to confirm it.
   const [dirtyToolIds, setDirtyToolIds] = useState<ReadonlySet<ShellSectionId>>(() => new Set())
   const [pendingMove, setPendingMove] = useState<{ label: string; run: () => void } | null>(null)
@@ -213,6 +233,12 @@ export default function ApplicationShell({
       return next
     })
   }, [])
+
+  // The theme also goes on <html>: dialogs drawn into document.body sit outside the frame, and the dark token set in
+  // styles/theme.css applies to every theme scope under a dark <html>.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-kr-theme', preferences.theme)
+  }, [preferences.theme])
 
   // Note when the page is being left, before the pop-out windows close with it.
   useEffect(() => {
@@ -422,9 +448,13 @@ export default function ApplicationShell({
     <div
       className={`${collapsed ? LAYOUT_STYLES.frameCollapsed : LAYOUT_STYLES.frameExpanded} ${STYLES.frame}`}
       data-kr-theme-scope="krhomebase"
+      data-kr-theme={preferences.theme}
       data-kr-id="krhomebase-application-shell"
       data-kr-collapsed={collapsed ? 'true' : 'false'}
     >
+      {/* The person's theme (stage 2b): one style rule above styles/theme.css, for every theme scope on the page */}
+      {themeCss ? <style data-kr-element="user-theme-style">{themeCss}</style> : null}
+
       {/* Header bar: brand block on the left, title bar on the right */}
       <HeaderBar
         leftColumn={<LeftPanelHeader collapsed={collapsed} versionLabel={versionLabel} />}
@@ -490,6 +520,9 @@ export default function ApplicationShell({
           </PopOutWindow>
         )
       })}
+
+      {/* Idle logout: the warning 5 minutes before the person's auto logout time, then the sign-out */}
+      {onIdleLogout ? <IdleLogoutMonitor minutes={preferences.autoLogoutMinutes} onTimeout={onIdleLogout} /> : null}
 
       {/* Unsaved-work check: shown before leaving, popping out or closing an outside tool that reported unsaved work */}
       <U6ConfirmationDialog

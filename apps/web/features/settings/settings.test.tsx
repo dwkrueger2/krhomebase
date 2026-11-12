@@ -109,11 +109,19 @@ describe('Settings landing page', () => {
 })
 
 describe('Settings areas in the workspace', () => {
-  it('opens the first page when the address names none, with a placeholder naming its stage', () => {
-    const html = renderInWorkspace(<UserSettingsPanel />, 'user-settings')
+  it('opens the first page when the address names none, drawing the Preferences page it was given', () => {
+    const html = renderInWorkspace(<UserSettingsPanel preferencesPage={<p data-kr-id="preferences-stand-in">prefs</p>} />, 'user-settings')
     expect(tabIds(html)).toEqual(['user-settings', 'dashboard-settings', 'time-card', 'employee-file'])
     expect(selectedTab(html)).toBe('user-settings')
-    expect(html).toContain('Not built yet: Settings port, stage 2.')
+    expect(html).toContain('data-kr-id="preferences-stand-in"')
+  })
+
+  it('shows a placeholder naming its stage for a page not built yet, and the Time Card button', () => {
+    const employeeFile = renderInWorkspace(<UserSettingsPanel />, 'user-settings', '?userSettingsSection=employee-file')
+    expect(employeeFile).toContain('Not built yet: Settings port, after stage 5 (Employee Documents).')
+    const timeCard = renderInWorkspace(<UserSettingsPanel />, 'user-settings', '?userSettingsSection=time-card')
+    expect(timeCard).toContain('data-kr-action="open-my-time-card"')
+    expect(timeCard).toContain('Open my time card')
   })
 
   it('opens the page named in the address, reading the old Stripe alias', () => {

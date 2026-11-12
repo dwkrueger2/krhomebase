@@ -19,7 +19,10 @@
  * nothing: only the super admin grants permissions, and KR Homebase enforces them on every call.
  */
 
-import { TOOL_ICONS, TOOL_SCOPES, type ToolIconName, type ToolScopeName } from './types.ts'
+import { defineWidget } from './defineWidget.ts'
+import { TOOL_ICONS, TOOL_SCOPES, type ToolIconName, type ToolScopeName, type WidgetDefinition } from './types.ts'
+
+export { defineWidget } from './defineWidget.ts'
 
 export interface ToolManifest {
   /** Short id for the tool's own use, lowercase with dashes, for example `intake-helper`. */
@@ -40,6 +43,12 @@ export interface ToolManifest {
   serverAccess: boolean
   /** Optional: the addresses the tool server calls from, when server access is on. */
   serverIpAllowlist?: string[]
+  /**
+   * Optional: Dashboard widgets the tool offers, each checked by `defineWidget`. A widget's page is the tool's
+   * `entryUrl` opened in display mode `widget`. Showing outside widgets on the Dashboard needs KR Homebase to
+   * register them too; until it does, list them here so the super admin sees them on the registration sheet.
+   */
+  widgets?: WidgetDefinition[]
 }
 
 const LOCAL = new Set(['localhost', '127.0.0.1', '[::1]'])
@@ -76,7 +85,15 @@ export function defineTool(manifest: ToolManifest): Readonly<ToolManifest> {
   for (const scope of manifest.scopes) {
     if (!(TOOL_SCOPES as readonly string[]).includes(scope)) throw new Error(`defineTool: unknown permission "${scope}".`)
   }
-  return Object.freeze({ ...manifest, hostOrigins: [...manifest.hostOrigins], scopes: [...manifest.scopes] })
+  const widgets = (manifest.widgets ?? []).map((widget) => defineWidget(widget))
+  const widgetIds = new Set(widgets.map((widget) => widget.id))
+  if (widgetIds.size !== widgets.length) throw new Error('defineTool: two widgets have the same id.')
+  return Object.freeze({
+    ...manifest,
+    hostOrigins: [...manifest.hostOrigins],
+    scopes: [...manifest.scopes],
+    ...(manifest.widgets ? { widgets } : {}),
+  })
 }
 
 /**
@@ -95,5 +112,6 @@ export function registrationSheet(manifest: Readonly<ToolManifest>): string {
     `Permissions requested: ${manifest.scopes.length ? manifest.scopes.join(', ') : 'none (reads only who is using it)'}`,
     `Server access (client secret): ${manifest.serverAccess ? 'yes' : 'no'}`,
     ...(manifest.serverAccess && manifest.serverIpAllowlist?.length ? [`Server addresses: ${manifest.serverIpAllowlist.join(', ')}`] : []),
+    ...(manifest.widgets?.length ? [`Dashboard widgets: ${manifest.widgets.map((widget) => `${widget.title} (${widget.id}, ${widget.size})`).join('; ')}`] : []),
   ].join('\n')
 }

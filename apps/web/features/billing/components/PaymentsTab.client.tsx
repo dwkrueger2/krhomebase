@@ -29,9 +29,9 @@ import PostedPaymentsLedger from './PostedPaymentsLedger.client'
 
 const STYLES = {
   shell: 'text-[10pt] leading-tight text-[var(--kr-theme-text,#243142)]',
-  panel: 'border border-[var(--kr-theme-line,#d7dee5)] bg-white shadow-sm',
+  panel: 'border border-[var(--kr-theme-line,#d7dee5)] bg-(--kr-theme-card-surface) shadow-sm',
   field:
-    'px-1.5 py-1 w-full min-w-0 rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-white text-[10pt] outline-none focus:border-[var(--kr-theme-brand-primary,#21394f)] focus:ring-1 focus:ring-[var(--kr-theme-brand-primary,#21394f)]',
+    'px-1.5 py-1 w-full min-w-0 rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[10pt] outline-none focus:border-[var(--kr-theme-brand-primary,#21394f)] focus:ring-1 focus:ring-[var(--kr-theme-brand-primary,#21394f)]',
   currencyField: 'text-right tabular-nums',
   invalidField: 'border-[var(--kr-theme-danger,#9d2c20)] focus:border-[var(--kr-theme-danger,#9d2c20)] focus:ring-[var(--kr-theme-danger,#9d2c20)]',
   label: 'text-[9pt] font-semibold text-[var(--kr-theme-text-muted,#526172)]',
@@ -258,7 +258,7 @@ export default function PaymentsTab({
         <div className={LAYOUT_STYLES.invoiceList}>
           {openInvoices.map((invoice) => (
             <button
-              className={`${STYLES.invoiceCard} ${selected?.id === invoice.id ? 'border-[var(--kr-theme-brand-primary,#21394f)] bg-[var(--kr-theme-muted-surface,#eef3f7)]' : 'border-[var(--kr-theme-line,#d7dee5)] bg-white'}`}
+              className={`${STYLES.invoiceCard} ${selected?.id === invoice.id ? 'border-[var(--kr-theme-brand-primary,#21394f)] bg-[var(--kr-theme-muted-surface,#eef3f7)]' : 'border-[var(--kr-theme-line,#d7dee5)] bg-(--kr-theme-card-surface)'}`}
               data-kr-element={`invoice-selector-${invoice.id}`}
               disabled={busy}
               key={invoice.id}

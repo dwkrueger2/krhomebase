@@ -18,15 +18,15 @@ const ALL_STATUSES: BillingStatus[] = ['Delay Bill', 'Bill Next Invoice', 'Bille
 
 const STYLES = {
   shell: 'text-[10pt] leading-tight text-[var(--kr-theme-text,#243142)]',
-  panel: 'overflow-hidden border border-[var(--kr-theme-line,#d7dee5)] bg-white shadow-sm',
+  panel: 'overflow-hidden border border-[var(--kr-theme-line,#d7dee5)] bg-(--kr-theme-card-surface) shadow-sm',
   toolbar: 'border-b border-[var(--kr-theme-line,#d7dee5)] bg-[var(--kr-theme-muted-surface,#eef3f7)]',
-  field: 'px-1.5 py-0.5 rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-white text-[10pt]',
+  field: 'px-1.5 py-0.5 rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[10pt]',
   button: 'px-2 py-1 rounded border border-[var(--kr-theme-brand-primary,#21394f)] bg-[var(--kr-theme-brand-primary,#21394f)] text-[10pt] font-semibold text-white',
   header: 'border-b border-[var(--kr-theme-line,#b8c3cd)] bg-[var(--kr-theme-table-header-background,#f4f6f8)] text-[9pt] font-semibold uppercase text-[var(--kr-theme-text-muted,#526172)]',
   row: 'border-b border-[var(--kr-theme-table-border,#d7dee5)] bg-[var(--kr-theme-table-row-background,#eaf4e7)] text-left hover:bg-[var(--kr-theme-table-row-hover,#f0f6fb)]',
   cell: 'p-[1px] text-[10pt] leading-tight',
   status: 'px-1 py-0.5 rounded-full border text-[9pt] leading-none',
-  allPill: 'px-1.5 py-0.5 rounded-full border border-[var(--kr-theme-brand-primary,#21394f)] bg-white text-[9pt] text-[var(--kr-theme-brand-primary,#21394f)]',
+  allPill: 'px-1.5 py-0.5 rounded-full border border-[var(--kr-theme-brand-primary,#21394f)] bg-(--kr-theme-card-surface) text-[9pt] text-[var(--kr-theme-brand-primary,#21394f)]',
   footer: 'px-2 py-1 border-t border-[var(--kr-theme-line,#d7dee5)] text-right font-semibold',
   singleLineLabel: 'whitespace-nowrap text-[9pt] font-semibold text-[var(--kr-theme-text-muted,#526172)]',
 } as const

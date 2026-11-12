@@ -59,7 +59,7 @@ const STYLES = {
   caption: 'm-0 text-[13px] leading-[1.2] font-extrabold text-(color:--kr-theme-text)',
   description: 'mt-[2px] mb-0 text-[11px] leading-[1.3] text-(color:--kr-theme-text-muted) truncate',
   searchField:
-    'rounded-[2px] border border-(--kr-theme-line) bg-white text-(color:--kr-theme-text-muted) focus-within:border-(--kr-theme-accent) focus-within:text-(color:--kr-theme-text)',
+    'rounded-[2px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) text-(color:--kr-theme-text-muted) focus-within:border-(--kr-theme-accent) focus-within:text-(color:--kr-theme-text)',
   searchInput: 'w-full min-w-0 border-0 bg-transparent text-[11px] text-(color:--kr-theme-text) outline-none',
   searchIcon: 'flex-none text-[12px] leading-none',
   badge:
@@ -73,7 +73,7 @@ const STYLES = {
   toolbarActionOrange: 'border-(--kr-theme-orange) bg-(--kr-theme-orange) text-(color:--kr-theme-text-inverse)',
   settingsPanel: 'border-b border-(--kr-theme-line) bg-(--kr-theme-muted-surface)',
   settingLabel: 'text-[11px] font-bold text-(color:--kr-theme-text-muted)',
-  settingControl: 'min-h-[26px] px-[5px] py-[3px] rounded-[2px] border border-(--kr-theme-line) bg-white text-(color:--kr-theme-text)',
+  settingControl: 'min-h-[26px] px-[5px] py-[3px] rounded-[2px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) text-(color:--kr-theme-text)',
   scroller: '[scrollbar-width:thin] [scrollbar-color:rgba(33,57,79,.38)_transparent]',
   table: 'w-full table-fixed border-collapse leading-[1.22] text-[length:var(--kr-ledger-font-size)]',
   headerCell:
@@ -97,7 +97,7 @@ const STYLES = {
   iconButton:
     'size-[20px] min-w-[20px] p-0 inline-flex items-center justify-center rounded-[2px] border border-transparent bg-transparent text-[12px] leading-none text-(color:--kr-theme-text-muted) cursor-pointer hover:border-(--kr-theme-line) hover:bg-(--kr-theme-muted-surface) hover:text-(color:--kr-theme-accent)',
   hoverCard:
-    'pointer-events-auto rounded-[4px] border border-(--kr-theme-line) bg-white text-left whitespace-normal text-(color:--kr-theme-text) shadow-[0_10px_24px_rgba(27,35,48,.22)] before:absolute before:left-[-7px] before:top-[12px] before:border-solid before:border-y-[6px] before:border-r-[7px] before:border-l-0 before:border-y-transparent before:border-r-white before:content-[""]',
+    'pointer-events-auto rounded-[4px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) text-left whitespace-normal text-(color:--kr-theme-text) shadow-[0_10px_24px_rgba(27,35,48,.22)] before:absolute before:left-[-7px] before:top-[12px] before:border-solid before:border-y-[6px] before:border-r-[7px] before:border-l-0 before:border-y-transparent before:border-r-white before:content-[""]',
   emptyCell: 'px-[10px] py-[18px] text-center text-(color:--kr-theme-text-muted)',
   footer: 'border-t border-(--kr-theme-line) bg-(--kr-theme-card-surface) text-[11px] text-(color:--kr-theme-text-muted)',
   paginationButton:

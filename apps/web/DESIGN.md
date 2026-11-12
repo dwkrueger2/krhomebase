@@ -88,6 +88,7 @@ rounded:
   full: "9999px"
 spacing:
   hair: "2px"
+  tight: "3px"
   xs: "4px"
   sm: "6px"
   md: "8px"
@@ -145,6 +146,10 @@ components:
     backgroundColor: "{colors.card-surface}"
     textColor: "{colors.text}"
     padding: "2px 8px"
+  record-row:
+    textColor: "{colors.text}"
+    padding: "1px"
+    height: "20px"
   ledger-row-alternate:
     backgroundColor: "{colors.table-row-background-2}"
   ledger-row-hover:
@@ -179,8 +184,8 @@ components:
 
 # Design System: KR Homebase
 
-<small>Version 1.6</small><br>
-<small>Updated Nov 11, 2026 9:30pm</small>
+<small>Version 1.11</small><br>
+<small>Updated Nov 12, 2026 8:02am</small>
 
 This file records the visual system that is already in the code (`apps/web/styles/theme.css`, the component `STYLES` maps) and in the old app's reference pages (`/tests/krh/u/default-theme`, `/tests/krh/u5`, `/tests/krh/u1`). The YAML block above must stay at the very top of the file for design tools to read it, so this file's title and version sit below it. Product facts are in `PRODUCT.md`. Layout rules for code (widths, spacing, corners, label placement) are binding in `apps/web/AGENTS.md`; this file describes them and does not override them.
 
@@ -196,7 +201,7 @@ Every value a user may change (colors, padding, sizes) is a `--kr-theme-*` token
 
 **Key Characteristics:**
 - Navy frame (title bar and left menu), light work surface inside.
-- Dense: 13px body, 2px to 10px gaps, 24px to 38px control heights.
+- Dense: 13px body, 2px to 10px gaps (3px the default between a label and its field), 24px to 38px control heights.
 - Nearly square corners (2px; 4px for dialogs).
 - Flat surfaces with hairline borders; shadows only for things that float.
 - Uppercase, letter-spaced labels on slate table headings and camel eyebrows.
@@ -234,10 +239,16 @@ A cool navy-and-slate palette with one warm camel accent from the K&R logo pack,
 - **Row Hover** and **Row Selected** (table-row-hover, table-row-selected): ledger row states.
 
 ### Not yet ported
-These are in the old app's default theme (Application Settings, Other Configuration) and belong to the system, but `apps/web/styles/theme.css` does not define them yet: **Link Blue** (link), **Strong Hairline** (line-strong), **Amber Warning** (warning), **Brass** (accent-strong), **Deep Slate** (primary-strong), **Soft Background** (background-soft), **Text on Dark** (on-dark). The old theme also has aliases (`card`, `muted`, `primary`, `surface`, `button-primary-text`, `on-success`) and `sticky-review-top` (36px). Add a token to `theme.css` before a component uses it.
+Old components read these names, each with a fixed fallback color, but no old theme ever set them (corrected Nov 11, 2026, from the survey of the old theme code), and `apps/web/styles/theme.css` does not define them yet: **Link Blue** (link), **Strong Hairline** (line-strong), **Amber Warning** (warning), **Brass** (accent-strong), **Deep Slate** (primary-strong), **Soft Background** (background-soft), **Text on Dark** (on-dark). The old theme also has aliases (`card`, `muted`, `primary`, `surface`, `button-primary-text`, `on-success`) and `sticky-review-top` (36px). Add a token to `theme.css` before a component uses it.
 
 ### Communications (dark layer)
 The Communications screens use their own dark set, modeled on a chat client: **Night** (communication-surface), **Night Raised** (communication-surface-elevated), **Night Line** (communication-line), **Night Text** (communication-text) and **Night Link** (communication-accent). The rest of the dark set is in `theme.css`. Use it only inside Communications.
+
+### Dark theme (the person's choice)
+Since Settings stage 2 (plan `docs/08_Settings_Dashboard_Plan.md`, decision 2) each person may choose a dark theme in User Settings → Preferences. It is not a second palette for components: `theme.css` gives the same `--kr-theme-*` tokens dark values under `data-kr-theme="dark"` (on the frame, and on `<html>` for dialogs and pop-outs), so a component that reads tokens is dark without any change of its own. The frame stays navy (a little deeper); surfaces are slate (`#10161d` page, `#18212b` cards); text is pale (`#e3e9ef`, muted `#a3b0be`); state and accent colors are lighter so they read on slate. Printing always uses the light values. A component that writes `bg-white` or another fixed color for a surface does not follow the theme: read `--kr-theme-card-surface` instead. Deliberate white marks on the navy frame (the menu collapse handle, the avatar) and self-contained status pills with their own light fill and dark text are allowed.
+
+### Firm and personal themes
+Since Settings stage 2b (plan section 13) a firm theme (made by a super admin, kept in the `lookup` table) and each person's own colors and text size may change the same `--kr-theme-*` tokens above the built-in values, separately for light and dark, on screen only. A person may change only the brand, accent, surface, text, line, table and button colors (never the state colors Signal Orange, Brick Red and Grove Green, nor paddings or fonts), and every change keeps text readable (WCAG contrast 4.5, or 3 for muted text). So a component that reads tokens follows every theme with no change of its own; one more reason never to hard-code a color.
 
 ### Named Rules
 **The Token Only Rule.** Never write a color into a component when a `--kr-theme-*` token names it. Users can change these values, so a hard-coded color is a bug.
@@ -274,9 +285,42 @@ The frame is a grid filling the window (`h-dvh`, at least 320px wide): title bar
 
 Three widths are designed: mobile under 768px (checked at 390px), tablet 768px to 1023px (768px) and desktop 1024px and wider (1280px). Widths in between are handled with `clamp()`, `minmax()` and `min-w-0`. Nothing scrolls sideways at 320px.
 
-Spacing is tight: 4px to 8px between elements, 6px to 8px vertical padding in fields and buttons, 10px at most inside cards and panels. Labels sit beside their fields, short fields share a row, and help goes in a tooltip. A form people use again and again must fit whole in a 1280 by 720 window.
+Spacing is tight: 3px to 8px between elements, with 3px the default gap-x between a label, its field and its help (the requester, Nov 12, 2026), 6px to 8px vertical padding in fields and buttons, 10px at most inside cards and panels. Labels sit beside their fields, short fields share a row, and help goes in a tooltip. A form people use again and again must fit whole in a 1280 by 720 window.
 
 **The Height Budget Rule.** Screens run out of height before width. Every extra line in a form is a row someone scrolls past.
+
+### Density Contract (the requester, Nov 12, 2026)
+
+"Tight" means dense, with little vertical padding. These numbers are the contract; words such as "comfortable", "generous" or "breathing room" in a design guide mean one step up this scale, never more. `apps/web/AGENTS.md` ("Tight spacing") makes the numbers binding for code.
+
+**Spacing scale.** 1px, 2px, 3px, 4px, 6px, 8px and 10px. Nothing larger inside a card or panel. Between cards on one screen: 6px to 10px.
+
+| Space | Value |
+|---|---|
+| Label to field, field to help, short fields on one row (default gap-x) | 3px |
+| Items inside a group (buttons in a row, chips, list items) | 3px to 6px |
+| Between groups inside a card | 6px to 8px |
+| Card or panel padding | 6px to 8px (10px at most) |
+| Card header (title bar of a card) | 4px to 7px vertical, 8px horizontal |
+
+**Heights.**
+
+| Element | Height | Vertical padding |
+|---|---|---|
+| Data row in a table of records | about 20px | 1px (2px at most) |
+| Table heading row | 18px to 24px | 1px to 6px |
+| Group or banner row inside a table | 22px to 26px | 2px to 4px |
+| Field and select | 22px to 26px | 2px to 4px |
+| Button | 24px to 28px | 2px to 6px |
+| Check box or radio row | 18px to 20px | 0 to 1px |
+
+**The reference for rows of data** is the Client Accounting register (`features/billing/components/ClientAccountingLedger.client.tsx`, the rows under `data-kr-element="rows-container"`): 10pt text with `leading-tight`, 1px cell padding, a hairline under every row and between columns, no gap between rows, and the heading row in 10pt semibold uppercase muted text on the table header color. A row is about 20px tall, so a 1280 by 720 window shows about 25 rows under a header and toolbar. Every new table of records starts from this row; `KRLedgerTable` (rows 2px 8px, 12px text) stays within the contract.
+
+**Text.** Rows and fields 12px to 13.3px (10pt); small print 10px to 11px; a card title 13px to 14px. Line height 1.2 to 1.3 (`leading-tight`), never the browser's 1.5 default inside a row, field or button.
+
+**Never inside the frame:** vertical padding over 8px on a control, `py-3` or larger, `gap-4` or larger, `space-y-4` or larger, a `min-h` over 30px on a field or button, `rounded-lg` or larger, an empty line of margin above or below a heading, or a description paragraph between a heading and its form. A stated exception (a dialog's padding, the login card, the IT cards, the Attendance grid) is named in "Feature variations" below.
+
+**The checks.** A screen is not finished until (1) its computed gaps, paddings and row heights were read in the browser and match the tables above, (2) nothing scrolls sideways at 1280px and 768px, and (3) a form used again and again fits whole in 1280 by 720.
 
 ## Elevation & Depth
 
@@ -335,7 +379,7 @@ Compact and firm. Bold text on a solid fill, square corners.
 The dense record table used by Contacts and Billing (`components/tables/KRLedgerTable.client.tsx`).
 - A caption bar (13px title, 11px description, search, settings and toolbar actions).
 - A Ledger Slate heading row: 11px, 800, uppercase, tracking 0.045em, padding 6px 8px; sort arrows fade in on hover in 120ms.
-- Rows padded 2px 8px, alternating Card White and Shell Mist, Row Hover and Row Selected for state.
+- Rows padded 2px 8px, alternating Card White and Shell Mist, Row Hover and Row Selected for state. The densest rows of data are the Client Accounting register's (1px padding, 10pt); see "Density Contract".
 - Resizable columns, a hover card, an action rail and a paging footer.
 
 ### Dialogs
@@ -358,7 +402,8 @@ These are deliberate parts of this system. Generic design checks (including Impe
 - **The camel eyebrow.** The small uppercase Warm Camel label above a module title (module header, module placeholder, create dialogs) stays. It names the area the screen belongs to.
 - **The rainbow spinner.** `RainbowBusySpinner` is the busy signal everywhere, including while content loads. Skeleton placeholders are not used.
 - **Fluid titles.** The application title (clamp(20px, 2.4vw, 30px)) and the module title (clamp(19px, 2.1vw, 28px)) scale with the window. Body, small and label sizes stay fixed.
-- **Text glyph icons.** The ⚙, × and ✓ in the ledger settings, close and copy buttons stay until an icon set replaces them. New icons use `KRHomebaseIcons.<Name>`.
+- **Text glyph icons.** The ⚙, × and ✓ in the ledger settings, close and copy buttons stay until an icon set replaces them. New icons use `KRHomebaseIcons.<Name>` (`components/ui/KRHomebaseIcon.client.tsx`), the one place for icons (the requester, Nov 12, 2026). An emoji is not an icon.
+- **The disclosure chevron.** Anything that folds open (a ledger, a group of rows, a card) shows `KRHomebaseIcons.Chevron`: it points down while folded and turns over (`rotate-180`, 160ms) when open. A +/- button may sit beside it for groups of rows, as in the theme ledger.
 
 ### Do:
 - **Do** read every color and padding from a `--kr-theme-*` token, and add the token to `styles/theme.css` first when it is missing.
@@ -377,4 +422,6 @@ These are deliberate parts of this system. Generic design checks (including Impe
 - **Don't** use red, orange, green or amber for decoration.
 - **Don't** use the login fonts (Black Mango, DM Serif Display, Geist) inside the application frame.
 - **Don't** use the Communications dark set outside Communications.
+- **Don't** write `bg-white` (or another fixed color) for a card or field surface; it stays white in the dark theme. Use `--kr-theme-card-surface`.
 - **Don't** use `sm:`, `xl:`, `2xl:` or custom breakpoints.
+- **Don't** use `py-3`, `gap-4`, `space-y-4` or larger, or a field or button taller than 30px, inside the frame (Density Contract).

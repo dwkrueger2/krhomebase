@@ -347,6 +347,18 @@ function InfoSquareIcon({ className, title }: KRHomebaseUtilityIconProps) {
   )
 }
 
+/**
+ * Disclosure chevron (added Nov 12, 2026): points down while a ledger, group or card is folded. The caller turns it over
+ * when open with `rotate-180` and a 160ms transform transition, so the change reads as one movement.
+ */
+function ChevronIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props} strokeWidth={2.4}>
+      <path d="M6 9l6 6 6-6" />
+    </UtilitySvg>
+  )
+}
+
 /** Plus glyph for compact add actions. */
 function AddIcon(props: KRHomebaseUtilityIconProps) {
   return (
@@ -360,6 +372,7 @@ function AddIcon(props: KRHomebaseUtilityIconProps) {
 /** Named utility components for JSX member notation alongside the name-based API. */
 export const KRHomebaseIcons = {
   Add: AddIcon,
+  Chevron: ChevronIcon,
   Copy: CopyIcon,
   InfoDark: (props: KRHomebaseUtilityIconProps) => <KRHomebaseIcon name="info-dark" {...props} />,
   InfoSquare: InfoSquareIcon,

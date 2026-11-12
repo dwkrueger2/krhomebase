@@ -64,6 +64,32 @@ export const ToolIcon = z.enum(ToolIconNames).describe('Icon drawn beside the to
 export type ToolIcon = z.infer<typeof ToolIcon>
 
 /** Whether a tool appears and may call the API. A disabled tool is hidden and every call it makes is refused. */
+/**
+ * Dashboard widgets (Settings and Dashboard plan, section 5, stage 3). The same definition serves KR Homebase's own
+ * widgets and outside tools' widgets; `packages/tool-sdk/src/types.ts` writes it out again (the kit has no
+ * dependencies) and `contractSync.test.ts` there keeps the two equal.
+ */
+export const WidgetSizes = ['small', 'medium', 'wide'] as const
+export const WidgetSize = z.enum(WidgetSizes).describe('Card size on the Dashboard: small and medium take one column, wide takes two.')
+
+export const WidgetRequirement = z.object({
+  resource: z.string().describe('Permission resource, for example attendance.'),
+  action: z.enum(['create', 'read', 'update', 'delete']).describe('Permission action.'),
+})
+export type WidgetRequirement = z.infer<typeof WidgetRequirement>
+
+export const WidgetDefinition = z.object({
+  id: z.string().regex(/^[a-z][a-z0-9-]{1,47}$/).describe('Stable id, lowercase with dashes; the card is data-kr-id="dashboard-widget-<id>".'),
+  title: z.string().min(1).max(40).describe('Card title.'),
+  description: z.string().max(200).describe('One line shown in User Settings → Dashboard.'),
+  size: WidgetSize,
+  defaultEnabled: z.boolean().describe('Shown for someone who has not chosen yet.'),
+  defaultOrder: z.number().int().min(0).max(1000).describe('Place on the Dashboard before the person reorders it; lower comes first.'),
+  requires: WidgetRequirement.optional().describe('Permission the person needs before the widget is offered.'),
+  refreshSeconds: z.number().int().min(15).max(3600).optional().describe('How often the widget refreshes its data.'),
+})
+export type WidgetDefinition = z.infer<typeof WidgetDefinition>
+
 export const ToolStatus = z.enum(['active', 'disabled']).describe('active: shown and allowed to call the API. disabled: hidden, and every call is refused at once.')
 export type ToolStatus = z.infer<typeof ToolStatus>
 

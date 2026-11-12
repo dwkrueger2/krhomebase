@@ -1,11 +1,11 @@
 # Tool Kit Agent Guide
 
-<small>Version 1.0</small><br>
-<small>Updated Nov 9, 2026 9:20am</small>
+<small>Version 1.1</small><br>
+<small>Updated Nov 11, 2026 10:59pm</small>
 
 ## Purpose
 
-`packages/tool-sdk` is the kit outside developers use to build tools for the KR Homebase menu: the frame bridge (`src/frame.ts`), the server client (`src/server.ts`), `defineTool` (`src/defineTool.ts`), the message protocol (`src/protocol.ts`) and the shared types (`src/types.ts`). `apps/web` uses `src/protocol.ts` for the host side of the same conversation.
+`packages/tool-sdk` is the kit outside developers use to build tools for the KR Homebase menu: the frame bridge (`src/frame.ts`), the server client (`src/server.ts`), `defineTool` (`src/defineTool.ts`), `defineWidget` for Dashboard widgets (`src/defineWidget.ts`, re-exported from `./manifest`; KR Homebase's own widgets use it too), the message protocol (`src/protocol.ts`) and the shared types (`src/types.ts`). `apps/web` uses `src/protocol.ts` for the host side of the same conversation.
 
 **The developer guide is `README.md` in this folder.** It ships inside the kit. Do not repeat its instructions elsewhere; point to it. The design and the security model are in `docs/05_Outside_Tools.md`.
 

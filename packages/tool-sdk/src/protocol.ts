@@ -10,6 +10,8 @@
  *     signed-in person's session and answers `krh:response` with the same id, the status and the reply.
  *  4. At any time the tool may send `krh:set-title` (words for the pop-out window title) or `krh:set-dirty`
  *     (true while it has unsaved work, so the host can warn before closing it).
+ *  5. A Dashboard widget (display mode `widget`) may send `krh:set-height` (the card height it needs, 40 to 2000
+ *     pixels). Added with dashboard widgets; it is an addition, so the protocol version stays 1.
  *
  * Each side accepts a message only from the window and origin it expects. The parsers below accept only
  * well-formed messages; anything else is ignored.
@@ -20,6 +22,16 @@ import type { DisplayMode, HttpMethod } from './types.ts'
 /** Version of this conversation. A host refuses a tool that speaks another version. */
 export const PROTOCOL_VERSION = 1
 
+/** Smallest and largest widget card height a widget may ask for, in pixels. */
+export const MIN_WIDGET_HEIGHT = 40
+export const MAX_WIDGET_HEIGHT = 2000
+
+/** A widget height inside the allowed range, in whole pixels (a value that is not a number gives the smallest). */
+export function clampWidgetHeight(height: number): number {
+  if (!Number.isFinite(height)) return MIN_WIDGET_HEIGHT
+  return Math.min(MAX_WIDGET_HEIGHT, Math.max(MIN_WIDGET_HEIGHT, Math.round(height)))
+}
+
 /** Longest API path a tool may ask for. */
 export const MAX_PATH_LENGTH = 2000
 
@@ -28,6 +40,7 @@ export type FrameToHostMessage =
   | { kind: 'krh:request'; protocol: typeof PROTOCOL_VERSION; id: string; method: HttpMethod; path: string; body?: unknown }
   | { kind: 'krh:set-title'; protocol: typeof PROTOCOL_VERSION; title: string }
   | { kind: 'krh:set-dirty'; protocol: typeof PROTOCOL_VERSION; dirty: boolean }
+  | { kind: 'krh:set-height'; protocol: typeof PROTOCOL_VERSION; height: number }
 
 export type HostToFrameMessage =
   | { kind: 'krh:init'; protocol: typeof PROTOCOL_VERSION; clientId: string; mode: DisplayMode; theme: Record<string, string> }
@@ -76,6 +89,10 @@ export function parseFrameMessage(data: unknown): FrameToHostMessage | null {
       return typeof data.title === 'string' ? { kind: 'krh:set-title', protocol: PROTOCOL_VERSION, title: data.title.slice(0, 80) } : null
     case 'krh:set-dirty':
       return typeof data.dirty === 'boolean' ? { kind: 'krh:set-dirty', protocol: PROTOCOL_VERSION, dirty: data.dirty } : null
+    case 'krh:set-height':
+      return typeof data.height === 'number' && Number.isFinite(data.height)
+        ? { kind: 'krh:set-height', protocol: PROTOCOL_VERSION, height: clampWidgetHeight(data.height) }
+        : null
     default:
       return null
   }
@@ -91,7 +108,7 @@ export function parseHostMessage(data: unknown): HostToFrameMessage | null {
   if (!isRecord(data) || data.protocol !== PROTOCOL_VERSION) return null
   if (data.kind === 'krh:init') {
     const { clientId, mode, theme } = data
-    if (typeof clientId !== 'string' || (mode !== 'workspace' && mode !== 'popout') || !isRecord(theme)) return null
+    if (typeof clientId !== 'string' || (mode !== 'workspace' && mode !== 'popout' && mode !== 'widget') || !isRecord(theme)) return null
     const cleanTheme: Record<string, string> = {}
     for (const [name, value] of Object.entries(theme)) {
       if (name.startsWith('--kr-theme-') && typeof value === 'string') cleanTheme[name] = value

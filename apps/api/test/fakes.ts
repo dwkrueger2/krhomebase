@@ -24,6 +24,8 @@ export const SCHEMA_8_0 = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'sc
 
 /** The migration that creates the outside-tool tables. */
 export const WORKSPACE_TOOLS_MIGRATION = join(here, '..', '..', '..', 'docs', 'patch-notes', 'repository', 'Migration_Patch016_11_09_workspace_tools.sql')
+/** The user preference table (Settings plan, decision 1). It refers to `user`, so it is added only with the full schema. */
+export const USER_PREFERENCE_MIGRATION = join(here, '..', '..', '..', 'docs', 'patch-notes', 'repository', 'Migration_Patch026_11_11_user_preference.sql')
 
 /** Headers that make the sign-in middleware ask the Session Worker. */
 export const SIGNED_IN_HEADERS = { cookie: 'kr_session=test-session-token' } as const
@@ -94,7 +96,8 @@ class TestStatement {
 
 /**
  * Makes an in-memory D1 database with the outside-tool tables, from the real migration file. With
- * `{ fullSchema: true }` it first builds every table of `docs/Schema_8.0/schema_d1_v8_0.sql`.
+ * `{ fullSchema: true }` it first builds every table of `docs/Schema_8.0/schema_d1_v8_0.sql`, then the
+ * `user_preference` table from its migration file.
  *
  * @returns `db` (pass it as the `krhomebase` binding) and `sqlite` (to look at rows directly in a test).
  */
@@ -103,6 +106,7 @@ export function createTestD1(options: { fullSchema?: boolean } = {}) {
   sqlite.exec('PRAGMA foreign_keys = ON;')
   // fullSchema: every table of Schema 8.0, for areas that read the firm's records (contacts, permissions).
   if (options.fullSchema) sqlite.exec(readFileSync(SCHEMA_8_0, 'utf8'))
+  if (options.fullSchema) sqlite.exec(readFileSync(USER_PREFERENCE_MIGRATION, 'utf8'))
   sqlite.exec(readFileSync(WORKSPACE_TOOLS_MIGRATION, 'utf8'))
   const db = {
     prepare: (sql: string) => new TestStatement(sqlite, sql),

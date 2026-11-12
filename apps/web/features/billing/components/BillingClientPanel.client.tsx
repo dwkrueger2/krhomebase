@@ -52,7 +52,7 @@ import TrustTab from './TrustTab.client'
 const STYLES = {
   // minmax(0,1fr): a wide tab (e.g. the 820px Invoices table) scrolls inside itself instead of widening the panel.
   shell: 'p-3 gap-2 grid grid-cols-[minmax(0,1fr)] text-[var(--kr-theme-text,#243142)]',
-  message: 'relative p-3 border border-[var(--kr-theme-line,#d7dee5)] bg-white text-[10pt] text-[var(--kr-theme-text-muted,#526172)]',
+  message: 'relative p-3 border border-[var(--kr-theme-line,#d7dee5)] bg-(--kr-theme-card-surface) text-[10pt] text-[var(--kr-theme-text-muted,#526172)]',
   error: 'relative p-3 pr-9 border border-red-300 bg-red-50 text-[10pt] text-red-800',
 } as const
 

@@ -1,7 +1,7 @@
 # Product
 
-<small>Version 1.0</small><br>
-<small>Updated Nov 9, 2026 10:20pm</small>
+<small>Version 1.1</small><br>
+<small>Updated Nov 12, 2026 8:02am</small>
 
 <!-- impeccable:product-schema 1 -->
 
@@ -62,6 +62,12 @@ It is built for one firm and its own way of working, not as a general product. I
 - The old app (`D:\Repos\krueger-richard-website\apps\kr-homebase`, read-only) is the reference for every workflow being ported.
 - Real client data lives only in the `krhomebase` database and in git-ignored `snapshots/`. It must never appear in designs, mock-ups, screenshots or tests. Use made-up names and amounts.
 - There are no testimonials, metrics or marketing claims, and none are needed.
+
+## Mode and Density
+
+- **Mode: operate.** KR Homebase is a working tool used all day, not a page to read once. Layout follows the "operate" mode: predictable places for everything and stable density.
+- **Density: high.** Start every layout at density 0.7 (Impeccable's density setting runs from 0.6 to 1.4; 1 is its default). The numbers are the Density Contract in `DESIGN.md` (Layout). "Tight" (the requester, Nov 12, 2026) means denser, with less vertical padding.
+- **The reference screens** for density are the Client Accounting register's rows, the Time and Fees ledger, Preferences and the theme token ledger.
 
 ## Product Principles
 

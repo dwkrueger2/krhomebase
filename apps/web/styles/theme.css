@@ -99,3 +99,62 @@
   --kr-theme-tab-button-padding: 0 10px 0 10px;
   --kr-theme-menu-panel-padding: 10px 0 0 0;
 }
+
+/**
+ * Dark theme (Settings plan, decision 2, stage 2): the same tokens with dark values, chosen per person in Settings →
+ * User Settings → Preferences. The frame carries `data-kr-theme="dark"` (from the first server draw), and the frame
+ * also sets it on `<html>`, so every theme scope under it follows: dialogs drawn into the page body, and pop-out
+ * windows (which set it on their own `<html>`).
+ *
+ * Only colors change; fonts, sizes and paddings stay. The frame's navy stays navy, a little deeper. Surfaces become
+ * slate, text becomes pale, lines darker, and the state colors lighter so they read on the dark surfaces.
+ * `color-scheme: dark` lets the browser draw its own controls (selects, scroll bars) dark too.
+ *
+ * Screen only: printing always uses the light values above (decision 2, "Print stays light"). The Communications set
+ * is already dark and is not repeated here.
+ */
+@media screen {
+  :root[data-kr-theme="dark"] [data-kr-theme-scope="krhomebase"],
+  [data-kr-theme-scope="krhomebase"][data-kr-theme="dark"] {
+    color-scheme: dark;
+
+    /* Brand colors: the frame stays navy; the selected menu row is a lighter blue so it shows on the dark menu. */
+    --kr-theme-brand-primary: #0b2744;
+    --kr-theme-brand-secondary: #06182b;
+    --kr-theme-brand-primary-active: #3f7fc4;
+
+    /* Surfaces, text and lines. */
+    --kr-theme-shell-surface: #10161d;
+    --kr-theme-card-surface: #18212b;
+    --kr-theme-muted-surface: #1f2a36;
+    --kr-theme-text: #e3e9ef;
+    --kr-theme-text-muted: #a3b0be;
+    --kr-theme-text-inverse: #f7f9fb;
+    --kr-theme-line: #2f3d4c;
+
+    /* Accent colors: lighter, so they read on dark surfaces. */
+    --kr-theme-accent: #c0a68c;
+    --kr-theme-accent-dark: #a88d73;
+    --kr-theme-teal: #66b8a8;
+    --kr-theme-orange: #ec6a32;
+    --kr-theme-danger: #e2735f;
+    --kr-theme-success: #5cbf86;
+
+    /* Tables (the ledger): the heading row stays Ledger Slate; rows alternate two dark slates. */
+    --kr-theme-table-heading-dark: #2a4560;
+    --kr-theme-table-heading-light: #1f2a36;
+    --kr-theme-table-row-background-1: #18212b;
+    --kr-theme-table-row-background-2: #1c2631;
+    --kr-theme-table-row-hover: #243243;
+    --kr-theme-table-row-selected: #29405a;
+
+    /* Buttons. */
+    --kr-theme-button-primary-background: #2d4a66;
+    --kr-theme-button-primary-hover-background: #3a5c7e;
+    --kr-theme-button-secondary-background: #1f2a36;
+
+    /* Panels and the accent strip. */
+    --kr-theme-panel-background: #18212b;
+    --kr-theme-panel-accent-solid: #2d4a66;
+  }
+}

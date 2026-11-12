@@ -1,7 +1,7 @@
 # API sign-in: settings, routes and cookies
 
-<small>Version 1.4</small><br>
-<small>Updated Nov 7, 2026 10:40am</small>
+<small>Version 1.5</small><br>
+<small>Updated Nov 12, 2026 8:24am</small>
 
 How `krhomebase-api` signs people in. Code: `src/features/auth/` and `src/platform/`. Plan and history: `docs/03_Workers_And_Login_Plan.md`.
 
@@ -27,6 +27,9 @@ Plain settings are `vars` in `kr-api-wrangler.jsonc`. Secrets are set with `wran
 | `KR_WORKER_JWT_PRIVATE_KEY` | secret | The app's private signing key (PKCS#8, `BEGIN PRIVATE KEY`). |
 | `KR_CRUD_WORKER_PUBLIC_KEY` | secret | The crud Worker's public key (SPKI, `BEGIN PUBLIC KEY`). Seals each command. |
 | `KR_SESSION_WORKER_SECRET` | secret | Shared secret for the session Worker. |
+| `KR_GOOGLE_WORKSPACE_MAILER_CLIENT_EMAIL` | var | The mailer's service account (`src/platform/googleWorkspaceMailer.ts`). Public. |
+| `KR_GOOGLE_WORKSPACE_SENDER_EMAIL`, `_SENDER_NAME`, `_REPLY_TO` (and the `BILLING_` and `FIRM_` sets) | var | The mailbox the invitation (onboarding), billing and firm emails are sent as, its name and Reply-To. The sender must be a Workspace user, not a group. |
+| `KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY` | secret | The mailer's whole JSON key file (set Nov 12, 2026). Not in `.dev.vars` unless added by hand: without it a local invitation is saved and its link shown instead of emailed. |
 | `KR_SUPER_ADMIN_EMAILS` | secret, optional | Comma list of emails allowed to become the first user. Only used while the database has no users. |
 
 If a required setting is missing or malformed, the login page names it in the alert (names only, never values).

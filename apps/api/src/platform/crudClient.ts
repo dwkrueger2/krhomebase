@@ -73,7 +73,8 @@ export interface CrudClientConfig {
 const privateKeyCache = new Map<string, Promise<CryptoKey>>()
 const publicKeyCache = new Map<string, Promise<CryptoKey>>()
 
-function importJwtKey(pem: string): Promise<CryptoKey> {
+/** Imports (once) the app private key that signs Worker JWTs. Also used by `publicInquiryClient.ts`. */
+export function importJwtKey(pem: string): Promise<CryptoKey> {
   let key = privateKeyCache.get(pem)
   if (!key) {
     key = crypto.subtle.importKey('pkcs8', pemToDer(pem, 'private', 'KR_WORKER_JWT_PRIVATE_KEY'), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign'])
@@ -127,9 +128,10 @@ export async function signCrudJwt(command: CrudCommand, config: Pick<CrudClientC
 /**
  * Seals a command for the CRUD Worker (RSA-OAEP-256 wrapping an AES-256-GCM key).
  *
- * @returns The `encryptedPayload` object the CRUD Worker decrypts.
+ * @returns The `encryptedPayload` object the CRUD Worker decrypts. The public inquiry Worker uses the same envelope,
+ *   so `publicInquiryClient.ts` seals its own command shape with this function too.
  */
-export async function sealCrudCommand(command: CrudCommand, crudPublicKeyPem: string) {
+export async function sealCrudCommand(command: CrudCommand | object, crudPublicKeyPem: string) {
   const aesKey = (await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt'])) as CryptoKey
   const iv = crypto.getRandomValues(new Uint8Array(12))
   const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, new TextEncoder().encode(JSON.stringify(command)))

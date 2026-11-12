@@ -1,7 +1,7 @@
 # Deployed Architecture
 
-<small>Version 1.4</small><br>
-<small>Updated Nov 9, 2026 3:30pm</small>
+<small>Version 1.6</small><br>
+<small>Updated Nov 12, 2026 2:44am</small>
 
 **Status:** live since Nov 6, 2026. Read this file before any work that touches a Worker, a binding, a web address, a secret or a deploy command. Update it in the same change as any of those.
 
@@ -65,6 +65,8 @@ Sign-in sequence: Turnstile check, then Google, then the API creates the user an
 | `kr-pay-worker-live` | `CF_VERSION_METADATA` | Cloudflare's deployment id, tag and time | Same |
 
 Only `krhomebase-api`, the crud Worker and the session Worker can reach the database. `krhomebase-web` has no database binding.
+
+**Partly live (Settings stage 4e):** `krhomebase-crud-worker-pub-inquiry` was deployed on Nov 12, 2026 (version `17baeaf9-fcbc-46fa-b648-68bc9560b729`; no public address; D1 `kr_public_inquiry_06_2026`; KV `krhomebase-public-keys`; secret `CRUD_WORKER_PUB_INQUIRY_PRIVATE_KEY`). The API's binding to it, `PUBLIC_INQUIRY_WORKER` in `apps/api/kr-api-wrangler.jsonc`, goes live with the next `pnpm deploy:api`; move these facts into the tables above then.
 
 ## 5. Settings and secrets
 

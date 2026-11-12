@@ -15,8 +15,8 @@ interface BillingSearchProps {
 
 const STYLES = {
   shell: 'relative min-w-[18rem] flex-1',
-  input: 'w-full rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-white px-2 py-1 text-[10pt] text-[var(--kr-theme-text,#243142)] outline-none focus:border-[var(--kr-theme-brand-primary,#21394f)] focus:ring-1 focus:ring-[var(--kr-theme-brand-primary,#21394f)]',
-  results: 'absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-white shadow-lg',
+  input: 'w-full rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) px-2 py-1 text-[10pt] text-[var(--kr-theme-text,#243142)] outline-none focus:border-[var(--kr-theme-brand-primary,#21394f)] focus:ring-1 focus:ring-[var(--kr-theme-brand-primary,#21394f)]',
+  results: 'absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) shadow-lg',
   result: 'block w-full border-b border-[var(--kr-theme-line,#d7dee5)] px-2 py-1.5 text-left text-[10pt] last:border-b-0 hover:bg-[var(--kr-theme-muted-surface,#eef3f7)]',
   focused: 'bg-[var(--kr-theme-muted-surface,#eef3f7)]',
   muted: 'text-[9pt] text-[var(--kr-theme-text-muted,#526172)]',

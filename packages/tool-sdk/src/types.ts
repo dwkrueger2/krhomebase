@@ -74,5 +74,40 @@ export interface TokenReply {
   scopes: ToolScopeName[]
 }
 
-/** Whether the tool is shown in the main window's workspace or in its own pop-out window. */
-export type DisplayMode = 'workspace' | 'popout'
+/**
+ * Where the tool's page is shown: the main window's workspace, its own pop-out window, or a dashboard widget card
+ * (`widget`, added with dashboard widgets; see `defineWidget`).
+ */
+export type DisplayMode = 'workspace' | 'popout' | 'widget'
+
+/** Card sizes on the KR Homebase Dashboard: `small` and `medium` take one column, `wide` takes two. */
+export const WIDGET_SIZES = ['small', 'medium', 'wide'] as const
+export type WidgetSize = (typeof WIDGET_SIZES)[number]
+
+/** A permission a person needs before a widget is offered to them: a resource and an action, for example `attendance` and `read`. */
+export interface WidgetRequirement {
+  resource: string
+  action: 'create' | 'read' | 'update' | 'delete'
+}
+
+/**
+ * One Dashboard widget: a small card on the Dashboard. KR Homebase's own widgets and outside tools' widgets use the
+ * same definition. The card's `data-kr-id` is `dashboard-widget-<id>`.
+ */
+export interface WidgetDefinition {
+  /** Stable id, lowercase with dashes, for example `employee-clock-in`. Saved in each person's Dashboard choices. */
+  id: string
+  /** Card title (up to 40 characters). */
+  title: string
+  /** One line shown in Settings → User Settings → Dashboard (up to 200 characters). */
+  description: string
+  size: WidgetSize
+  /** True when the widget shows for someone who has not chosen yet. */
+  defaultEnabled: boolean
+  /** Place on the Dashboard before the person reorders it; lower comes first (0 to 1000). */
+  defaultOrder: number
+  /** Optional permission the person needs; without it the widget is not offered. */
+  requires?: WidgetRequirement
+  /** Optional: how often the widget refreshes its data, in seconds (15 to 3600). */
+  refreshSeconds?: number
+}

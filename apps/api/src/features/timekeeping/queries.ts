@@ -14,6 +14,8 @@
  * Every statement is fixed SQL with bound values and named columns.
  */
 
+// See the lookup table as described in Schema 8.0: docs/Schema_8.0/table_lookup.html (section "How KR Homebase uses this table").
+// A settings row: category `kr_employee_policies`, the policy JSON in `description`.
 /** The `lookup` row that holds the employee policy JSON (old `lk_kr_employee_policies`). */
 export const EMPLOYEE_POLICY_LOOKUP_ID = 'lk_kr_employee_policies'
 /** How many recent punches the clock state reads (the old route read every punch the employee ever made). */
@@ -292,6 +294,7 @@ export function createTimekeepingQueries(db: D1Database): TimekeepingQueries {
     },
 
     async policyJson() {
+      // See the lookup table as described in Schema 8.0: docs/Schema_8.0/table_lookup.html (section "How KR Homebase uses this table").
       const row = await db
         .prepare('SELECT description FROM lookup WHERE id = ?1 AND is_active <> 0 LIMIT 1')
         .bind(EMPLOYEE_POLICY_LOOKUP_ID)

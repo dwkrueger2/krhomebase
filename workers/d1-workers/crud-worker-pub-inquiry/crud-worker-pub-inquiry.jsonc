@@ -13,7 +13,10 @@
       // Public inquiry quarantine database only. Do not bind the KR Homebase operational D1 database here.
       "binding": "PUBLIC_INQUIRY_DB",
       "database_name": "kr_public_inquiry_06_2026",
-      "database_id": "NOT_SET_REVIEW_BEFORE_USE"
+      // Set Nov 12, 2026 (Settings plan, stage 4e): the id from `wrangler d1 list`, matching
+      // docs/Schema_Public_Inquiry_v2.0/schema_public_inquiry_v2_0.sql. The old live Worker
+      // (crud-worker-pub-inquiry, used by the public site) writes the same database.
+      "database_id": "8517c8e6-f557-4286-824f-30f01148c325"
     }
   ],
   "kv_namespaces": [
@@ -24,7 +27,9 @@
       "id": "f70c0ff65aa148a59bd1d598236ce1de"
     }
   ],
-  "workers_dev": true,
+  // No public address (Settings plan, stage 4e): only krhomebase-api calls this copy, through its service binding
+  // PUBLIC_INQUIRY_WORKER. The public site keeps using the old Worker by its own address.
+  "workers_dev": false,
   "preview_urls": false,
   "env": {
     "dev": {
@@ -38,7 +43,7 @@
         {
           "binding": "PUBLIC_INQUIRY_DB",
           "database_name": "kr_public_inquiry_dev",
-          "database_id": "NOT_SET_REVIEW_BEFORE_USE"
+          "database_id": "40ab02b3-d059-44db-97ba-b2a45cd92af2"
         }
       ],
       "kv_namespaces": [
@@ -47,7 +52,7 @@
           "id": "f70c0ff65aa148a59bd1d598236ce1de"
         }
       ],
-      "workers_dev": true,
+      "workers_dev": false,
       "preview_urls": false
     }
   }

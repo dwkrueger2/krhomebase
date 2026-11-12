@@ -8,6 +8,9 @@
  * clear the cookie, then goes to the login page. If the API cannot be reached the person still leaves this
  * page, and the cookie ends on its own when the session expires.
  *
+ * It also supplies `onIdleLogout` (Settings plan, stage 2): when the person has been idle for their auto logout time,
+ * the same sign-out runs and the login page shows the `idle_timeout` notice.
+ *
  * @param props - The same props `ApplicationShell` takes, minus `onLogout`.
  */
 
@@ -20,6 +23,10 @@ export default function SignedInShell(props: Omit<ApplicationShellProps, 'onLogo
       {...props}
       onLogout={() => {
         void logout().finally(() => window.location.assign('/login'))
+      }}
+      // Idle logout (Settings plan, decision 3): the same sign-out, then the login page says why.
+      onIdleLogout={() => {
+        void logout().finally(() => window.location.assign('/login?auth_error=idle_timeout'))
       }}
     />
   )

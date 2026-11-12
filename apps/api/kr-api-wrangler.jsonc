@@ -24,6 +24,14 @@
       "binding": "SESSION_WORKER",
       "service": "krhomebase-session-worker",
       "remote": true
+    },
+    // The public inquiry CRUD Worker: the only door to the quarantined public inquiry database (site feedback;
+    // Settings plan, stage 4e). Deployed by the requester Nov 12, 2026; "remote": true makes `pnpm dev:api` call the
+    // deployed Worker, so a feedback change made while testing locally changes the live public inquiry database.
+    {
+      "binding": "PUBLIC_INQUIRY_WORKER",
+      "service": "krhomebase-crud-worker-pub-inquiry",
+      "remote": true
     }
   ],
   // Plain (non-secret) settings for the live site. On this computer, apps/api/.dev.vars overrides them
@@ -45,7 +53,20 @@
     //    "KR_TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
     "KR_TURNSTILE_SITE_KEY": "0x4AAAAAADcWsYVlFL36jozU",
     // Only used while the database has no users: lets the email in KR_SUPER_ADMIN_EMAILS (a secret) create the first super admin.
-    "KR_BOOTSTRAP_FIRST_SSO_USER_AS_SUPER_ADMIN": "true"
+    "KR_BOOTSTRAP_FIRST_SSO_USER_AS_SUPER_ADMIN": "true",
+    // Google Workspace mailer (src/platform/googleWorkspaceMailer.ts; Settings plan stage 4d). Copied from the old
+    // apps/kr-homebase/.env, none secret. The key is the secret KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY (the whole JSON key file).
+    // SENDER_EMAIL is the Workspace user the service account signs in as; groups work only as Reply-To.
+    "KR_GOOGLE_WORKSPACE_MAILER_CLIENT_EMAIL": "kr-homebase-mailer@krhomebase.iam.gserviceaccount.com",
+    "KR_GOOGLE_WORKSPACE_SENDER_EMAIL": "onboarding@legaldrive.net",
+    "KR_GOOGLE_WORKSPACE_SENDER_NAME": "Krueger & Richard",
+    "KR_GOOGLE_WORKSPACE_REPLY_TO": "info@legaldrive.net",
+    "KR_GOOGLE_WORKSPACE_BILLING_SENDER_EMAIL": "onboarding@legaldrive.net",
+    "KR_GOOGLE_WORKSPACE_BILLING_SENDER_NAME": "Krueger & Richard Billing",
+    "KR_GOOGLE_WORKSPACE_BILLING_REPLY_TO": "billing@kruegerrichard.com",
+    "KR_GOOGLE_WORKSPACE_FIRM_SENDER_EMAIL": "onboarding@legaldrive.net",
+    "KR_GOOGLE_WORKSPACE_FIRM_SENDER_NAME": "Krueger & Richard",
+    "KR_GOOGLE_WORKSPACE_FIRM_REPLY_TO": "firm@kruegerrichard.com"
   },
   // "remote": true makes `wrangler dev` (pnpm dev:api) use the live krhomebase database, not an empty local one.
   // It has no effect on a deployed API. Requester's decision, Nov 9, 2026, while every contacts route only reads.

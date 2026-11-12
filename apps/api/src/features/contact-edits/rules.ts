@@ -62,6 +62,8 @@ const BOI_STATUSES = new Set(['filed', 'not_required', 'pending', 'unknown', 'ex
 const PARTNERSHIP_TYPES = new Set(['lp', 'llp', 'gp', 'lllp'])
 const MANAGEMENT_STRUCTURES = new Set(['member_managed', 'manager_managed', 'board_managed', 'unknown'])
 
+// See the lookup table as described in Schema 8.0: docs/Schema_8.0/table_lookup.html (section "How KR Homebase uses this table").
+// Rows of the choice lists `entity_contact_role` and `relationship_type`.
 export const RELATED_CONTACT_LOOKUP_ID = 'lk_relationship_related_contact'
 export const ENTITY_ROLE_PRINCIPAL = 'lk_entity_contact_role_principal'
 export const ENTITY_ROLE_REGISTERED_AGENT = 'lk_entity_contact_role_registered_agent'

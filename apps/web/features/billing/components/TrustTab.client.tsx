@@ -10,21 +10,21 @@ import type { BillingTrustEntry } from '../types'
 type TrustAction = 'request' | 'disbursement' | 'deposit' | null
 const STYLES = {
   shell: 'text-[10pt] leading-tight text-[var(--kr-theme-text,#243142)]',
-  panel: 'overflow-hidden border border-[var(--kr-theme-line,#d7dee5)] bg-white shadow-sm',
+  panel: 'overflow-hidden border border-[var(--kr-theme-line,#d7dee5)] bg-(--kr-theme-card-surface) shadow-sm',
   header:
     'bg-[var(--kr-theme-muted-surface,#eef3f7)] text-[9pt] font-semibold uppercase text-[var(--kr-theme-text-muted,#526172)]',
   // Ledger row typography matches TimeAndFeesLedger (10pt, tight) so every Billing tab reads the same.
   row: 'w-full border-b border-[var(--kr-theme-table-border,#d7dee5)] bg-[var(--kr-theme-table-row-background,#eaf4e7)] text-[10pt] leading-tight',
   cell: 'p-[1px] text-[10pt] leading-tight',
   button:
-    'px-2 py-1 rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-white text-[10pt] font-semibold',
+    'px-2 py-1 rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[10pt] font-semibold',
   primaryButton:
     'px-2 py-1 rounded border border-[var(--kr-theme-brand-primary,#21394f)] bg-[var(--kr-theme-brand-primary,#21394f)] text-[10pt] font-semibold text-white',
   field:
-    'px-1.5 py-1 w-full rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-white text-[10pt]',
+    'px-1.5 py-1 w-full rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[10pt]',
   label: 'gap-1 grid text-[9pt] font-semibold text-[var(--kr-theme-text-muted,#526172)]',
   dialog:
-    'w-full max-w-lg overflow-hidden rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-white shadow-2xl',
+    'w-full max-w-lg overflow-hidden rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) shadow-2xl',
   dialogHeader:
     'border-b border-[var(--kr-theme-line,#d7dee5)] bg-[var(--kr-theme-muted-surface,#eef3f7)]',
   dialogTitle: 'text-[12pt] font-bold',

@@ -13,6 +13,13 @@ import { registerContactEdits } from './features/contact-edits/routes.ts'
 import { registerContactMaintenance } from './features/contact-maintenance/routes.ts'
 import { registerBilling } from './features/billing/routes.ts'
 import { registerTimekeeping } from './features/timekeeping/routes.ts'
+import { registerPreferences } from './features/preferences/routes.ts'
+import { registerThemes } from './features/themes/routes.ts'
+import { registerPublishing } from './features/publishing/routes.ts'
+import { registerTeams } from './features/teams/routes.ts'
+import { registerRoleSets } from './features/role-sets/routes.ts'
+import { registerUsers } from './features/users/routes.ts'
+import { registerSiteFeedback } from './features/site-feedback/routes.ts'
 
 export const openApiInfo = {
   openapi: '3.1.0',
@@ -56,6 +63,13 @@ export function createApp() {
   registerContactMaintenance(app)
   registerBilling(app)
   registerTimekeeping(app)
+  registerPreferences(app)
+  registerThemes(app)
+  registerPublishing(app)
+  registerTeams(app)
+  registerRoleSets(app)
+  registerUsers(app)
+  registerSiteFeedback(app)
 
   app.doc31('/v1/openapi.json', openApiInfo)
 

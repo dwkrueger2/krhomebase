@@ -23,6 +23,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useShellPreferences, useShellThemeStyle } from '@/components/shell/shellPreferences'
 import DevViewLoader from '@/components/dev-view/DevViewLoader.client'
 
 /** Size of a new pop-out window, in pixels. The person can resize it afterwards. */
@@ -100,6 +101,13 @@ const STYLES = {
  */
 export default function PopOutBrowserWindow({ popupWindow, title, onClose, children }: PopOutBrowserWindowProps) {
   const [container, setContainer] = useState<HTMLElement | null>(null)
+  // The person's theme (Settings plan, stage 2): on this window's root and its <html>, as in the main window.
+  const { theme } = useShellPreferences()
+  // The person's theme style rule; this window's document has no copy of the main window's <style>.
+  const themeCss = useShellThemeStyle()
+  useEffect(() => {
+    popupWindow.document.documentElement.setAttribute('data-kr-theme', theme)
+  }, [popupWindow, theme])
   // Keeps the latest callback without restarting the effect below, which would redraw the window.
   const onCloseRef = useRef(onClose)
   useEffect(() => {
@@ -147,7 +155,8 @@ export default function PopOutBrowserWindow({ popupWindow, title, onClose, child
   if (!container) return null
 
   return createPortal(
-    <div className={`${LAYOUT_STYLES.root} ${STYLES.root}`} data-kr-theme-scope="krhomebase" data-kr-id="KRH-PopOutWindow" data-kr-component="PopOutBrowserWindow">
+    <div className={`${LAYOUT_STYLES.root} ${STYLES.root}`} data-kr-theme-scope="krhomebase" data-kr-theme={theme} data-kr-id="KRH-PopOutWindow" data-kr-component="PopOutBrowserWindow">
+      {themeCss ? <style data-kr-element="user-theme-style">{themeCss}</style> : null}
       {/* Pop-out body: the same panel the workspace would show */}
       {children}
       {/* Dev View for this window: development only; renders nothing in a production build */}

@@ -72,6 +72,10 @@ export function attachToolHost(options: ToolHostOptions): () => void {
       case 'krh:set-dirty':
         options.onDirty?.(message.dirty)
         return
+      case 'krh:set-height':
+        // A Dashboard widget's card height (Settings plan, stage 3). Outside widgets are not drawn on the Dashboard yet,
+        // and a tool in the workspace or a pop-out has no use for it, so it is ignored here.
+        return
       case 'krh:request': {
         if (inFlight >= MAX_IN_FLIGHT) {
           post({ kind: 'krh:response', protocol: PROTOCOL_VERSION, id: message.id, status: 429, body: { ok: false, error: { code: 'TOO_MANY_CALLS', message: 'Too many calls at once.' }, requestId: '' } })

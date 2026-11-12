@@ -11,7 +11,7 @@
   <span class="logo">KR<span>_</span>DatabaseSchema</span>
   <div class="header-sep"></div>
   <span class="header-title">Database Schema</span>
-  <div class="header-right"><span class="version-badge">v8.0 - 2026-10-24</span><span class="updated-badge">Live schema read from krhomebase_dev</span></div>
+  <div class="header-right"><span class="version-badge">v8.0 - 2026-10-24</span><span class="updated-badge">Live schema read from krhomebase_dev; usage guide added 2026-11-11</span></div>
 </header>
 <div class="layout">
   <nav class="sidebar" id="sidebar"><noscript><a class="sidebar-link" href="index.html">Schema 8.0 index</a></noscript></nav>
@@ -30,6 +30,59 @@
     <div class="section-title">Constraints</div><ul class="technical-list"><li><strong>Primary key:</strong> <code>id</code></li><li><strong>Unique:</strong> <code>category, value</code> must be unique as a combination.</li><li><strong>Boolean flags</strong> (CHECK IN (0,1)): <code>is_active</code>.</li></ul>
     <div class="section-title">Indexes</div><table class="field-table compact-table"><thead><tr><th>Name</th><th>Kind</th><th>Columns</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="field-name">idx_lookup_active</span></td><td>Index</td><td><code>category, is_active, sort_order</code></td><td>Supports lookup or filtering by category, is_active, sort_order.</td></tr><tr><td><span class="field-name">idx_lookup_category</span></td><td>Index</td><td><code>category</code></td><td>Supports lookup or filtering by category.</td></tr></tbody></table>
     <div class="section-title">Common usage notes</div><ul class="technical-list"><li><code>is_active</code> hides retired rows from pickers while keeping history; filter on it in active lists.</li></ul>
+    <!-- Hand-written section (Nov 11, 2026, Settings and Dashboard plan): keep it when this page is rebuilt from the live schema. -->
+    <div class="section-title" id="how-krhomebase-uses-lookup">How KR Homebase uses this table</div>
+    <div class="callout"><strong>In one sentence.</strong> <code>lookup</code> holds two kinds of rows: <strong>choice lists</strong> (one row per allowed value, pointed at by <code>*_lookup_id</code> columns in other tables) and <strong>settings rows</strong> (one row per firm-wide setting, its JSON kept in <code>description</code>). Both kinds let the firm add a choice or change a setting without changing the database shape. The category tells you which kind a row is: settings categories start with <code>kr_</code>.</div>
+
+    <div class="section-title">1. Choice lists</div>
+    <ul class="technical-list">
+      <li><strong>One row per choice.</strong> <code>category</code> names the list, <code>value</code> is the machine word, <code>label</code> is what people see, <code>sort_order</code> orders the list, and <code>is_active = 0</code> retires a choice without breaking old rows that still point at it.</li>
+      <li><strong>Id rule:</strong> <code>lk_&lt;category or short form&gt;_&lt;value&gt;</code>, for example <code>lk_payment_type_ach</code>, <code>lk_matter_status_archived</code>, <code>lk_relationship_child</code>. Other tables store this id in a column ending in <code>_lookup_id</code> (see Relationships above), sometimes without a declared foreign key (see the developer note at the top).</li>
+      <li><strong>Never delete a choice</strong> that rows may point at; set <code>is_active = 0</code>. <code>(category, value)</code> is unique.</li>
+      <li><strong>Description</strong> is plain text explaining the choice (not JSON).</li>
+    </ul>
+    <table class="field-table compact-table"><thead><tr><th>Category (live rows, Nov 11, 2026)</th><th>Example id</th><th>Pointed at by</th></tr></thead><tbody>
+      <tr><td><code>address_type</code> (5)</td><td><code>lk_address_type_billing</code></td><td>individual_address, entity_address <code>address_type_lookup_id</code></td></tr>
+      <tr><td><code>contact_subtype</code> (4)</td><td><code>lk_contact_subtype_billing</code></td><td>individual_contact_method, entity_contact_method <code>subtype_lookup_id</code></td></tr>
+      <tr><td><code>document_category</code> (4)</td><td><code>lk_document_category_employee_file</code></td><td>document_record, requested_document <code>document_category_lookup_id</code></td></tr>
+      <tr><td><code>employee_certification_type</code> (2)</td><td><code>lk_employee_cert_law_license</code></td><td>employee_certification <code>certification_type_lookup_id</code></td></tr>
+      <tr><td><code>employee_time_type</code> (6)</td><td><code>lk_employee_time_holiday</code></td><td>Attendance time types</td></tr>
+      <tr><td><code>entity_contact_role</code> (3)</td><td><code>lk_entity_contact_role_principal</code></td><td>entity_contact <code>role_lookup_id</code></td></tr>
+      <tr><td><code>event_type</code> (4)</td><td><code>lk_event_type_call</code></td><td>event, entity_event <code>event_type_lookup_id</code></td></tr>
+      <tr><td><code>fee_arrangement</code> (4)</td><td><code>lk_fee_arrangement_flat_fee</code></td><td>matter fee arrangements</td></tr>
+      <tr><td><code>hr_policy_type</code> (3)</td><td><code>lk_hr_policy_holiday_pay</code></td><td>hr_policy</td></tr>
+      <tr><td><code>ledger_bucket</code> (6)</td><td><code>lk_ledger_bucket_expense_paid</code></td><td>ledger_entry</td></tr>
+      <tr><td><code>matter_activity_type</code> (5)</td><td><code>lk_matter_activity_billing</code></td><td>matter activity log</td></tr>
+      <tr><td><code>matter_status</code> (9)</td><td><code>lk_matter_status_archived</code></td><td>matter <code>status_lookup_id</code>, matter_stage_history</td></tr>
+      <tr><td><code>party_role</code> (7)</td><td><code>lk_party_role_billing_contact</code></td><td>matter_party <code>party_role_lookup_id</code></td></tr>
+      <tr><td><code>payment_type</code> (7)</td><td><code>lk_payment_type_ach</code></td><td>payment, ledger_entry <code>payment_type_lookup_id</code></td></tr>
+      <tr><td><code>practice_area</code> (11)</td><td><code>lk_practice_area_accounting</code></td><td>matter <code>practice_area_lookup_id</code></td></tr>
+      <tr><td><code>relationship_type</code> (9)</td><td><code>lk_relationship_child</code></td><td>individual_relationship <code>a_to_b</code> / <code>b_to_a_relationship_lookup_id</code></td></tr>
+      <tr><td><code>task_priority</code> (4), <code>task_status</code> (5)</td><td><code>lk_task_priority_high</code></td><td>tasks</td></tr>
+      <tr><td><code>time_billing_mode</code> (5)</td><td><code>lk_time_billing_flat_fee_billable</code></td><td>time entries</td></tr>
+      <tr><td><code>user_role</code> (10)</td><td><code>lk_user_role_attorney</code></td><td>role names shown for users</td></tr>
+      <tr><td><code>system_migration</code> (2)</td><td><code>lk_role_storage_migration_0002</code></td><td>markers left by old data migrations; not a picker list</td></tr>
+    </tbody></table>
+    <p class="diagram-note">Example, the choices of one list in screen order: <code>SELECT id, value, label FROM lookup WHERE category = 'payment_type' AND is_active = 1 ORDER BY sort_order, label;</code> Example, adding a choice: insert one row with a new <code>value</code>, a <code>label</code>, a <code>sort_order</code> and the id <code>lk_payment_type_&lt;value&gt;</code>; no table changes.</p>
+
+    <div class="section-title">2. Settings rows (categories starting with <code>kr_</code>)</div>
+    <ul class="technical-list">
+      <li><strong>One row per setting</strong> (or one row per item, for themes). <code>description</code> holds the whole setting as a JSON object; <code>label</code> is its name; <code>value</code> is a short stable key.</li>
+      <li><strong>Only the API reads or writes them,</strong> and it checks the JSON with a zod contract (<code>packages/contracts</code>) before it is used or saved. A field that is missing or invalid falls back to its default; a screen never trusts the raw text.</li>
+      <li><strong>Shape changes need no migration:</strong> add a field to the JSON and to its contract, with a default. Settings written since Nov 2026 carry a <code>schemaVersion</code>, so a reader can tell old and new shapes apart.</li>
+      <li><strong>Saving</strong> updates <code>description</code> and <code>updated_at</code> in the same batch as an <code>audit_log</code> row. <code>is_active = 0</code> retires a row (a removed theme); readers ignore inactive rows.</li>
+      <li>Choices that belong to one person do <strong>not</strong> go here; they go in <code>user_preference</code> (one row per person and key). <code>lookup</code> is firm-wide.</li>
+    </ul>
+    <table class="field-table compact-table"><thead><tr><th>Category</th><th>Row id</th><th>What the JSON in <code>description</code> holds</th><th>Read and written by</th></tr></thead><tbody>
+      <tr><td><code>kr_employee_policies</code></td><td><code>lk_kr_employee_policies</code></td><td>Employee policies: clock edit windows, pay-period anchor, PTO accrual tiers, holiday pay tiers, holiday calendar (<code>schemaVersion: "kr-employee-policies-v1"</code>).</td><td>API <code>apps/api/src/features/timekeeping/queries.ts</code> (read, field by field); Firm Settings → Employee Policies (stage 5, write).</td></tr>
+      <tr><td><code>kr_firm_locations</code></td><td><code>lk_kr_firm_locations_profile</code></td><td>Firm Profile: firm name, office email and phone, time zone, matter number format, office locations (<code>schemaVersion: "kr-firm-settings-v1"</code>).</td><td>Firm Settings → Firm Profile (stage 5).</td></tr>
+      <tr><td><code>kr_homebase_theme</code></td><td><code>lk_kr_homebase_theme_&lt;theme id with _&gt;</code>, for example <code>lk_kr_homebase_theme_krhomebase_user_theme_1</code></td><td>One firm theme per row; <code>value</code> is the theme id, <code>label</code> its name. Two shapes are read: the old editor's <code>{ id, name, description, tokens: { brandPrimary: "#00305b", ... } }</code> (camelCase token names, light values only; the three live rows "User Theme 1" to "3" have 40 tokens each), and the new <code>{ schemaVersion: 1, description: "...", light: { "--kr-theme-brand-primary": "#00305b", ... }, dark: { ... } }</code> holding only the tokens the theme changes. New themes get the id <code>firm-&lt;name slug&gt;-&lt;4 hex&gt;</code>; saving an old-shape row rewrites it in the new shape; retiring sets <code>is_active = 0</code> (rows are never deleted). Every write has an <code>audit_log</code> row (resource <code>themes</code>).</td><td>API <code>apps/api/src/features/themes/</code> (<code>GET /v1/themes</code>; <code>POST /v1/themes</code>, <code>PUT</code> and <code>DELETE /v1/themes/{themeId}</code>, super admin); Settings → User Settings → Preferences (pick); Application Settings → Other Configuration → Firm Themes (edit, upload and download).</td></tr>
+      <tr><td><code>kr_homebase_theme_default</code> (not in the live database until a default is first chosen)</td><td><code>lk_kr_homebase_theme_default</code></td><td>Which firm theme everyone gets until they choose one: the theme id in <code>value</code>, no JSON. One row, changed in place; choosing the built-in theme sets <code>is_active = 0</code>. A default naming a retired theme is ignored.</td><td>API <code>PUT /v1/themes/firm-default</code> (super admin); Application Settings → Other Configuration → Firm Themes, "Firm default".</td></tr>
+      <tr><td><code>kr_article_helper_prompt</code> (not in the live database until first saved)</td><td><code>lk_kr_article_helper_prompt_upload_article</code></td><td>The Upload Article GPT helper prompt, as plain text in <code>description</code> (the one settings row that is not JSON); <code>value</code> <code>upload_article_gpt_helper_prompt</code>, <code>sort_order</code> 110. Inserted on the first save, changed in place after that, with an <code>audit_log</code> row (resource <code>publishing</code>).</td><td>API <code>apps/api/src/features/publishing/</code> (<code>GET</code> and <code>PUT /v1/publishing/article-prompt</code>, super admin); Application Settings → Other Configuration → Article Settings.</td></tr>
+    </tbody></table>
+    <p class="diagram-note">Example, reading one setting: <code>SELECT description FROM lookup WHERE id = 'lk_kr_employee_policies' AND is_active &lt;&gt; 0;</code> then parse the JSON with its contract. Example, the firm themes: <code>SELECT value, label, description FROM lookup WHERE category = 'kr_homebase_theme' AND is_active = 1 ORDER BY sort_order, label;</code> Example, adding a new firm-wide setting: choose a category <code>kr_&lt;area&gt;</code> and the id <code>lk_kr_&lt;area&gt;</code>, write a contract with a default for every field, and add the category to the table above.</p>
+    <p class="diagram-note">Code that reads or writes <code>lookup</code> carries a comment pointing here: <code>docs/Schema_8.0/table_lookup.html</code>, section "How KR Homebase uses this table".</p>
+
     <div class="section-title">Raw SQL</div><div class="raw-sql"><button class="copy-btn" type="button">Copy</button><pre><code>CREATE TABLE lookup (
     id            TEXT PRIMARY KEY,
     category      TEXT NOT NULL,

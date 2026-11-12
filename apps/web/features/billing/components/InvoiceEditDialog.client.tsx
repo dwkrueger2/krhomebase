@@ -19,14 +19,14 @@ import type { BillingInvoice, BillingPayment, BillingTimeEntry } from '../types'
 const STYLES = {
   backdrop: 'bg-slate-950/40',
   dialog:
-    'flex max-h-[calc(100vh-1.5rem)] min-h-0 w-full max-w-4xl flex-col overflow-hidden rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-white shadow-2xl',
+    'flex max-h-[calc(100vh-1.5rem)] min-h-0 w-full max-w-4xl flex-col overflow-hidden rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) shadow-2xl',
   field:
-    'px-1.5 py-1 w-full rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-white text-[9pt]',
+    'px-1.5 py-1 w-full rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[9pt]',
   label: 'gap-1 grid text-[9pt] font-semibold text-[var(--kr-theme-text-muted,#526172)]',
   mutedBox:
     'p-2 rounded border border-[var(--kr-theme-line,#d7dee5)] bg-[var(--kr-theme-muted-surface,#f7f9fb)]',
   button:
-    'px-2 py-1 rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-white text-[9pt] font-semibold',
+    'px-2 py-1 rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[9pt] font-semibold',
   primaryButton:
     'px-2 py-1 rounded border border-[var(--kr-theme-brand-primary,#21394f)] bg-[var(--kr-theme-brand-primary,#21394f)] text-[9pt] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50',
   // Orange call-to-action so the entry-adding button is easy to find; dark lettering per Dan.

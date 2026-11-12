@@ -168,6 +168,8 @@ export type ContactResolutionRow = {
 }
 
 
+// See the lookup table as described in Schema 8.0: docs/Schema_8.0/table_lookup.html (section "How KR Homebase uses this table").
+// Rows of the choice lists `entity_contact_role` and `relationship_type`.
 const ENTITY_CONTACT_ROLE_PRINCIPAL = 'lk_entity_contact_role_principal'
 const ENTITY_CONTACT_ROLE_REGISTERED_AGENT = 'lk_entity_contact_role_registered_agent'
 const ENTITY_CONTACT_ROLE_RELATED = 'lk_entity_contact_role_related_contact'

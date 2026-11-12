@@ -1,7 +1,7 @@
 # KR Homebase API Agent Guide
 
-<small>Version 1.14</small><br>
-<small>Updated Nov 11, 2026 6:10pm</small>
+<small>Version 1.22</small><br>
+<small>Updated Nov 12, 2026 8:24am</small>
 
 ## Purpose
 
@@ -79,7 +79,7 @@ A route is not finished until all of these pass (`pnpm check`):
 - **Who is signed in.** `signInGuard` (`src/platform/authGuard.ts`) runs on every request after `requestId`. It finds the route in `routeRegistry`, reads its `access`, and for `signed-in` or `{ roles }` routes asks the session Worker about the `kr_session` cookie. No cookie gives 401 `UNAUTHENTICATED`; an unreachable session Worker gives 503 `SESSION_VALIDATION_UNAVAILABLE`; a role not on the list gives 403. There is no implicit super admin.
 - **Auth routes** are in `src/features/auth/` (`routes.ts`, `rules.ts`, `queries.ts`, `signIn.ts`). `queries.ts` is the only file that reaches the database, and it does so through the crud Worker.
 - **Permissions** (`permission` in `defineRoute()`) are checked after the role; see "Database access, permissions and writes".
-- **Outside calls** go through `src/platform/`: `crudClient.ts` (signs and seals each command for the crud Worker), `sessionClient.ts`, `google.ts`, `turnstile.ts`. They use WebCrypto, never `node:crypto`.
+- **Outside calls** go through `src/platform/`: `crudClient.ts` (signs and seals each command for the crud Worker), `sessionClient.ts`, `google.ts`, `turnstile.ts`, `googleWorkspaceMailer.ts` (Gmail API through a delegated service account; see Users and Invites). They use WebCrypto, never `node:crypto`.
 - **Bindings.** `CRUD_WORKER` and `SESSION_WORKER` are service bindings in `kr-api-wrangler.jsonc`. They are `remote: true`, so `pnpm dev:api` calls the deployed Workers. The `krhomebase` database binding is `remote: true` too: local runs read and write the live database. Test saves with care, or ask the requester before switching it.
 - **Settings and secrets** are listed in `apps/api/Readme-auth.md`. The names only are in `apps/api/.dev.vars.example`.
 
@@ -126,6 +126,46 @@ The contract test gives write routes a full-schema test database (the maintenanc
 - **Time rules** are in `timeMath.ts` (pay periods, rounding, punch pairs, edit windows, overtime), tested in `timeMath.test.ts`. The decided changes from the old rules are listed in its header.
 - **Policies** come from the `lookup` row `lk_kr_employee_policies`, read field by field: a missing or invalid field takes its default. The old validator rejected the whole row when a required field was missing, so the old app always used the defaults.
 - **Reads write nothing** and read only the employee and period asked for.
+
+## Preferences
+
+`src/features/preferences/` (Settings plan `docs/08_Settings_Dashboard_Plan.md`, decision 1, stage 2) serves `GET /v1/me/preferences` and `PUT /v1/me/preferences`: the signed-in person's own theme, auto logout time and starting section. The person comes from the session only; there is no route to read or change anyone else's.
+
+- **Table:** `user_preference` (one row per person and key, JSON value; migration `docs/patch-notes/repository/Migration_Patch026_11_11_user_preference.sql`, applied Nov 11, 2026). Keys: `appearance` (`theme`), `session` (`autoLogoutMinutes`), `navigation` (`startingSection`), `dashboard` (`dashboardWidgets`, stage 3: each widget's shown-or-hidden and order, by widget id); `rules.ts` `PREFERENCE_FIELDS` maps them. Values are compared by content, so an unchanged widget set is not written again.
+- **Reading** fills every field: a missing row, a row that is not JSON, or a value no longer allowed reads as the default from `DEFAULT_USER_PREFERENCES` (contracts). Reads write nothing.
+- **Writing** saves only the fields that change, each key an upsert with its own `audit_log` row (resource `preferences`) in one batch; a change to nothing writes nothing. The PUT passes the write gate (not exempt).
+- A missing table or binding answers 503 `PREFERENCES_UNAVAILABLE`. The test database adds the table from the migration file when built with `fullSchema` (`test/fakes.ts`).
+
+## Themes
+
+`src/features/themes/` (Settings plan section 13, stage 2b) serves `GET /v1/themes` to every signed-in person: the firm themes and the firm default, read from `lookup` (categories `kr_homebase_theme` and `kr_homebase_theme_default`; see `docs/Schema_8.0/table_lookup.html`). `rules.ts` reads the old editor's shape (camelCase `tokens`, light only) and the new versioned shape (`schemaVersion: 1`, `light`, `dark`), and every value passes `cleanThemeValues` (`packages/contracts/src/themes.ts`) before it leaves the API. A person's own theme is the preference `personalTheme` (key `theme`): `preferences/rules.ts` keeps only colors a person may change and refuses a change that leaves text hard to read (422 `PERSONAL_THEME_LOW_CONTRAST`, the pairs in `details`).
+
+Writes (stage 4a, super admin, through the write gate, each one batch with its `audit_log` row, resource `themes`): `POST /v1/themes` (new id `firm-<name slug>-<4 hex>`, row id `lk_kr_homebase_theme_<id with _>`), `PUT /v1/themes/{themeId}` (an old-shape row is rewritten in the versioned shape), `DELETE /v1/themes/{themeId}` (retire: `is_active = 0`), `PUT /v1/themes/firm-default` (one row `lk_kr_homebase_theme_default`, changed in place; `themeId: null` switches it off). An unknown or retired theme answers 404 `THEME_NOT_FOUND`. Firm themes are not checked for readability (a super admin's choice; the editor shows the faint pairs as advice). The write routes share one loosely typed handler, as Billing's and Attendance's do.
+
+## Publishing
+
+`src/features/publishing/` (Settings plan, stage 4a; decision 7) serves `GET` and `PUT /v1/publishing/article-prompt` (super admin): the Upload Article GPT helper prompt, one `lookup` settings row (`lk_kr_article_helper_prompt_upload_article`, plain text in `description`, 1 to 50,000 characters). The first save inserts the row; later saves change it in place; each save has an `audit_log` row (resource `publishing`). Until a prompt is saved the `GET` answers an empty prompt: the old route's fallback text lived in the old code and was not ported. 503 `PUBLISHING_UNAVAILABLE` without the table.
+
+## Teams
+
+`src/features/teams/` (Settings plan, stage 4b; super admin) replaces the old `GET`/`POST /krhomebase/api/admin/teams`: `GET /v1/teams` (the active teams with their active members and leads, every employee and every active user, each with a display name), `POST /v1/teams` (create) and `PUT /v1/teams/{teamId}` (change). A save sends the whole team: anyone left out of `memberEmployeeIds` or `leadUserIds` is taken off (`is_active = 0`, `ends_at` set; rows are never deleted), a returning person gets their latest earlier row back, and a new person gets a new row (`tm_<uuid>`, `tl_<uuid>`; teams are `team_<uuid>`). The whole save is one batch with one `audit_log` row (resource `teams`). The name is checked against every `team` row, active or not, because the database's UNIQUE rule covers them all (409 `TEAM_NAME_IN_USE`); members must be employees (422 `TEAM_EMPLOYEE_NOT_FOUND`) and leads active users (422 `TEAM_LEAD_NOT_FOUND`); changing needs an active team (404 `TEAM_NOT_FOUND`). The `employee` read takes only the columns the screen needs; pay and identity columns never leave `queries.ts`. There is no retire route yet (the old app had none). The Attendance team view (`timekeeping/queries.ts`) reads the same rows.
+
+## Role Sets
+
+`src/features/role-sets/` (Settings plan, stage 4c; super admin) replaces the old `GET`/`POST`/`DELETE /krhomebase/api/admin/role-sets`: `GET /v1/role-sets` (the active role sets, each with its grants for every record (`<resource>.<action>`, from `role_set_permission`) and by scope (`<resource>.<action>.<scope>`, from `role_set_permission_scope`) and its holder count), `POST /v1/role-sets` (create a custom role set, `role_custom_<nnn>`), `PUT /v1/role-sets/{roleSetId}` (change one; the lists replace the current grants) and `DELETE /v1/role-sets/{roleSetId}` (retire: `is_active = 0` and every active `user_role_set` row for it ended). Built-in role sets (`is_system = 1`) answer 409 `ROLE_SET_BUILT_IN`; a name another active role set has answers 409 `ROLE_SET_NAME_IN_USE`. The resource catalog and the protected grants are in `packages/contracts/src/roleSets.ts` (`PERMISSION_RESOURCES`, `isProtectedPermission`); a test checks the protected list matches `CUSTOM_ROLE_PROTECTED` in `features/permissions/rules.ts`. The list shows stored rows only (the old route filled missing built-in rows from code definitions the permission check never used). Each write is one batch with one `audit_log` row (resource `role-sets`) and calls `clearPermissionCache()`.
+
+## Users and Invites
+
+`src/features/users/` (Settings plan, stage 4d; super admin) replaces the old `kr-api-v1/users`, `kr-api-v1/user-invites` and `admin/users/{userId}/role-sets`: `GET /v1/users` (users with status, role sets and employee record, invitations not accepted, the role sets), `POST /v1/users` (create by invitation or active at once; an inactive account may be invited again), `PUT /v1/users/{userId}` (status, staff code and role sets in one save), `POST /v1/users/{userId}/employee` (enroll), `POST /v1/user-invites/{inviteId}/resend` and `/cancel`, `DELETE /v1/user-invites/{inviteId}` (only when no longer pending). The rules and every change from the old routes are in the header of `rules.ts`. Points to keep:
+
+- **One source of truth for roles.** `user.role` (the database allows only seven values) and `user.role_set_id` follow the primary role set in the same save as the `user_role_set` rows; a person holding Super Admin keeps `super_admin`.
+- **Invitation email** goes through `src/platform/googleWorkspaceMailer.ts` (ported from the old `krGoogleWorkspaceMailer.ts`, WebCrypto instead of `node:crypto`; tests pass a stand-in `fetch`). Sender settings are `vars` in `kr-api-wrangler.jsonc`; the key is the secret `KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY` (the whole JSON key file). Without the key the invitation is still saved and the reply carries the link (`inviteUrl`, only when no email went out). The rows are written first, then the email is sent, then its result is recorded (`sent_at`, provider, message id) with its own audit row.
+- **Reads write nothing:** a pending invitation past its end is shown as expired; the old GET rewrote it on every read.
+- Each write is one batch with its `audit_log` rows (resource `users`) and clears the permission cache.
+
+## Web Site Feedback
+
+`src/features/site-feedback/` (Settings plan, stage 4e) replaces the old `kr-api-v1/site-feedback` route. The rows live in table `site_feedback` of the quarantined public inquiry database (`kr_public_inquiry_06_2026`, `docs/Schema_Public_Inquiry_v2.0`), which this API never binds directly: every read and write goes through the public inquiry CRUD Worker (`krhomebase-crud-worker-pub-inquiry`, service binding `PUBLIC_INQUIRY_WORKER`, `"remote": true` since the requester deployed the Worker on Nov 12, 2026, so `pnpm dev:api` changes the live public inquiry database) with `src/platform/publicInquiryClient.ts` (the same signed pass and sealed command as `crudClient.ts`, with that Worker's fixed issuer, audience, subject and purpose). Routes: `GET /v1/site-feedback` (newest 100), `PUT` and `DELETE /v1/site-feedback/{feedbackId}`, `POST /v1/site-feedback/bulk-update` and `/bulk-delete` (super admin), `POST /v1/site-feedback/{feedbackId}/vote` (the old internal staff roles; once each, a super admin any number of times). The assignee and votes stay JSON after the old marker line in `internal_notes`; the reader also finds the marker at the very start, where the old app put it when the notes were empty. Each change writes an `audit_log` row in `krhomebase` after the Worker answers (resource `site-feedback`). A missing binding or key, or any Worker failure, answers 503 `SITE_FEEDBACK_UNAVAILABLE`; the Worker's error text is logged, never returned. The list never carries the bot-check and network columns.
 
 ## Outside tools
 

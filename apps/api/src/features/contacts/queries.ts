@@ -313,6 +313,8 @@ export function createContactQueries(db: D1Database): ContactQueries {
   }
 }
 
+// See the lookup table as described in Schema 8.0: docs/Schema_8.0/table_lookup.html (section "How KR Homebase uses this table").
+// Rows of the choice lists `entity_contact_role` and `relationship_type`.
 const ROLE_PRINCIPAL = 'lk_entity_contact_role_principal'
 const ROLE_REGISTERED_AGENT = 'lk_entity_contact_role_registered_agent'
 

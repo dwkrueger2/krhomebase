@@ -22,7 +22,7 @@ import BillingSearch from './BillingSearch.client'
 
 const STYLES = {
   shell: 'p-3 gap-2 grid grid-cols-[minmax(0,1fr)] text-[var(--kr-theme-text,#243142)]',
-  message: 'p-3 border border-[var(--kr-theme-line,#d7dee5)] bg-white text-[10pt] text-[var(--kr-theme-text-muted,#526172)]',
+  message: 'p-3 border border-[var(--kr-theme-line,#d7dee5)] bg-(--kr-theme-card-surface) text-[10pt] text-[var(--kr-theme-text-muted,#526172)]',
   error: 'p-3 border border-red-300 bg-red-50 text-[10pt] text-red-800',
 } as const
 

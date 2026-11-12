@@ -27,8 +27,8 @@ describe('describeAuthError', () => {
     expect(missing).toEqual([])
   })
 
-  it('treats the three reminders as notices that also have sentences', () => {
-    expect([...AUTH_NOTICE_CODES].sort()).toEqual(['missing_session_cookie', 'session_expired', 'session_revoked'])
+  it('treats the four reminders (the idle logout added in Settings stage 2) as notices that also have sentences', () => {
+    expect([...AUTH_NOTICE_CODES].sort()).toEqual(['idle_timeout', 'missing_session_cookie', 'session_expired', 'session_revoked'])
     for (const code of AUTH_NOTICE_CODES) expect(describeAuthError(code)).not.toBe(AUTH_ERROR_MESSAGES.UNKNOWN)
   })
 })

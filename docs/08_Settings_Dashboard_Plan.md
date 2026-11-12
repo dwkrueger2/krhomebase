@@ -1,7 +1,7 @@
 # Settings and Dashboard Port Plan
 
-<small>Version 1.1</small><br>
-<small>Updated Nov 11, 2026 9:31pm</small>
+<small>Version 1.6</small><br>
+<small>Updated Nov 12, 2026 8:24am</small>
 
 This plan covers the Settings tab (User, Application and Firm Settings) and the Dashboard with its widgets. It records what exists today, the requester's direction, a recommended structure, the stages, and the decisions that belong to the requester. Nothing in it is built yet. It follows the same pattern as `06_Contacts_Billing_Port_Plan.md` (roadmap phase D: Dashboard, Settings) and `07_Attendance_Port_Plan.md`.
 
@@ -177,3 +177,113 @@ Use them to check each area as each role. The agent never signs in; the requeste
 - **Changed from the structure in section 3:** Application Settings gained "Other Configuration" (firm themes and the article prompt, kept by decision 7). The old landing page's Reports card (Reports has its own menu row) and its development-only Developer Tests card are not carried over.
 - **Not built:** every page except Outside Tools; old `?applicationSettingsTab=employee-documents` links open Users and Invites.
 - **Next:** stage 2, User Settings (needs the `user_preference` migration applied).
+
+## 11. Stage 2 results (Nov 11, 2026, API patch 13 and web patch 520)
+
+- **Built:** `GET` and `PUT /v1/me/preferences` (contract `packages/contracts/src/preferences.ts`; API `src/features/preferences/`; table `user_preference`, keys `appearance`, `session`, `navigation`); Settings → User Settings → Preferences (Theme, Starting page, Auto logout time) and Time Card ("Open my time card"); the dark theme app-wide; the idle logout; the starting section.
+- **Decision 1, changed in one detail:** the server reads the preferences for the first draw, so the theme and starting section are right before anything is painted; browser storage was not needed for a fast first paint and is not used.
+- **Decision 2:** the dark token set is in `styles/theme.css` (screen only; printing light), switched by `data-kr-theme` on the frame and on `<html>`. `DESIGN.md` 1.7 allows it app-wide. 35 hard-coded white surfaces (the shared ledger and Billing) now read the card-surface token, so they follow the theme; the light look is unchanged.
+- **Decision 3:** the old idle monitor's behavior, the warning 5 minutes before in `U6ConfirmationDialog`, sign-out through the API, and the login page says why (`idle_timeout`). A changed limit applies at once.
+- **Browser check:** saving Dark applied at once and survived a reload; Attendance, Billing search and the contacts ledger read well in dark; the theme was set back to light. These saves wrote to the live database on the requester's account (one preference row, two audit rows).
+- **Not checked in the browser:** the idle warning and sign-out, the starting page, a Billing client's tabs in dark, pop-outs in dark (unit tests cover the timing, the starting section and the theme attribute).
+- **Next:** stage 3, Dashboard widgets.
+
+## 12. Stage 3 results (Nov 11, 2026, API patch 14 and web patch 521)
+
+- **Widget specification:** `WidgetDefinition`, `WIDGET_SIZES` and `defineWidget` in `packages/tool-sdk` (re-exported from `./manifest`); a tool's manifest may list `widgets`; protocol additions `widget` display mode and `krh:set-height` (protocol version stays 1). The same shapes in `packages/contracts/src/tools.ts`, kept equal by the kit's sync test. Kit `README.md` 1.1 and `docs/05_Outside_Tools.md` 1.1 (section 7a) describe them.
+- **Preference:** `dashboardWidgets` (key `dashboard` in `user_preference`): shown or hidden and order, by widget id.
+- **Web:** the Dashboard draws the widgets `app/page.tsx` hands it, each in `DashboardWidgetShell` (`data-kr-id="dashboard-widget-<id>"`), in the person's order; User Settings → Dashboard shows or hides and reorders them (Up and Down), with Reset. The first widget is Employee Time Entry (`dashboard-widget-employee-clock-in`), ported from the old `EmployeeClockInWidget` with Attendance's routes and its missed clock-out dialog.
+- **Fixed during the browser check:** the widget crashed the Dashboard before its first read (the missed clock-out dialog formats its date while closed); it showed "Clocked Out" before the first read; View Time Card was cut off in a narrow column.
+- **Not built:** outside tools' widgets on the Dashboard (registration stores no widget list yet); the old Review Queue widget (waits for Web Site Feedback, stage 4).
+- **Also done (the requester, Nov 11, 2026):** the Preferences drop-downs are 2px 3px with no minimum height (they were held at 30px by `min-h-[30px]`, which is why changing the padding in dev tools did nothing).
+- **Next:** the user-theme decisions (section 13), then stage 4.
+
+## 13. User themes: proposal and decisions (Nov 11, 2026)
+
+The requester asked that people be able to set the `--kr-theme-*` values themselves, starting from a default that can be loaded. The old app (survey Nov 11, 2026, from `hb-components/theme/*` and `modules/settings/theme-settings/*`) had a full token editor for super admins only, two built-in themes (one with the misspelled id `krhomebase-default-theme-setings`), custom themes saved in `lookup` (category `kr_homebase_theme`; the live database holds rows "User Theme 1" to "User Theme 3" and more), and a theme chosen per browser, not per person. Ordinary users could not even read the theme list (the route was admin-only), every theme had to carry all 54 tokens (adding one later silently dropped stored themes), and the theme was applied as an inline style, which in the new app would beat the dark theme and print colors.
+
+**Recommended design:**
+
+1. **Three layers, each optional:** the built-in KR Homebase theme (`styles/theme.css`, light and dark) → a **firm theme** a super admin made (one may be marked the firm default) → the person's own **color overrides**. "Load default" offers two buttons: *Reset to the firm default* (drops the person's choice and overrides) and *Start from* a firm theme (copies it into the person's overrides to adjust).
+2. **What ordinary users may change:** colors only (brand, accent, surfaces, text, lines, tables, buttons), each checked for contrast before saving, plus a **text density** choice (Compact 13/11, Default 14/12, Comfortable 15/13) instead of free sizes. Paddings, fonts and the Communications colors stay with super admins in firm themes, so no one can break the dense layout for themselves by accident.
+3. **Light and dark kept apart:** every theme and override stores `{ "schemaVersion": 1, "light": {...}, "dark": {...} }` with only the tokens that differ; missing tokens fall through to the layer below, unknown ones are ignored, so a token added later never breaks a stored theme.
+4. **How it reaches the page:** a generated `<style>` rule, screen only, for every theme scope under the current `data-kr-theme` (so dialogs, pop-outs and the dark switch all follow, and printing stays light). Only checked values (six-digit hex colors, listed presets) are ever written into it.
+5. **Where:** the person's choice and overrides in `user_preference` (a new `theme` key); firm themes in the `lookup` table, where the old app already keeps them (see the answers below), with an editor in Application Settings → Other Configuration (stage 4) and JSONC import and export for super admins.
+
+| # | Decision | Recommendation |
+|---|---|---|
+| T1 | Layers: firm themes plus personal overrides, only personal overrides, or only firm themes? | Firm themes plus personal color overrides (above). |
+| T2 | What may an ordinary user change? | Colors (contrast-checked) and a text density preset; paddings, fonts and Communications colors only in firm themes. |
+| T3 | Where do firm themes live? | A new small table `ui_theme` (id, name, light and dark JSON, firm default flag, audit columns), and copy the old `lookup` theme rows into it once, converted to the new shape. The old `lookup` rows stay untouched. |
+| T4 | When? | Personal colors and density with the Preferences page as stage 2b (needs T1 to T3); the firm theme editor with stage 4 (Other Configuration). |
+
+### Answers (Nov 11, 2026)
+
+- **T1, T2 and T4: approved as recommended.** Personal colors and the text density preset come as stage 2b (with the Preferences page); the firm theme editor comes with stage 4.
+- **T3: no new table.** The requester: use the `lookup` table, which was designed for settings like these so the database shape does not change for each small addition. A read-only check on Nov 11, 2026 found what is already there:
+  - `lookup` category `kr_homebase_theme` holds three active firm themes from the old editor: `krhomebase-user-theme-1`, `-2` and `-3` ("User Theme 1" to "User Theme 3"; ids `lk_kr_homebase_theme_krhomebase_user_theme_<n>`), each valid JSON with 40 tokens in the old flat shape (`{ id, name, description, tokens: { <camelCase>: value } }`, light values only).
+  - The old built-in themes ("KR Homebase Default" and "KR Teal Gradient") were never in the database; they lived in the old code (`hb-components/theme/KRHomebaseTheme.ts`). In the new app the built-in default is `styles/theme.css`, so "Reset to the default" needs no row.
+- **So:** firm themes stay in `lookup` (category `kr_homebase_theme`); the API reads the old flat shape as the light values (camelCase names mapped to `--kr-theme-*`) and writes new themes in the versioned `{ schemaVersion, light, dark }` shape in the same `description` column, so the three existing rows work unchanged and nothing is copied or migrated. The firm default, when a super admin marks one, is one more `lookup` row (category `kr_homebase_theme_default`, the chosen theme id in its `value`), as Firm Profile and Employee Policies keep their settings. The person's own choice and color overrides go in `user_preference` (key `theme`), which already exists.
+
+## 14. Stage 2b results (Nov 11, 2026, API patch 15 and web patch 522)
+
+- **Documentation first:** `docs/Schema_8.0/table_lookup.html` now has a hand-written section "How KR Homebase uses this table": the two kinds of rows (choice lists and `kr_` settings rows), the id rules, every live category with an example id and who points at it, every settings row with its JSON and the code that reads it, and example queries. Every place in the code that reads `lookup` or names a `lookup` row id carries a comment pointing to it, and the root `AGENTS.md` (2.9) makes that a rule.
+- **Built:** `packages/contracts/src/themes.ts` (the catalog of every `--kr-theme-*` setting with its old name, kind, value check and who may change it; the built-in values; the readability check; the layering); `GET /v1/themes` (firm themes and the firm default from `lookup`, both stored shapes, every value checked); the preference `personalTheme` (key `theme`; own colors checked for readability, 422 `PERSONAL_THEME_LOW_CONTRAST`); the Theme card under Preferences (firm theme, text size, own colors for the theme in use, Copy the theme's colors, Clear my colors, Reset to the firm default, live preview); the style rule drawn by the frame and pop-outs.
+- **Text size names:** the approved Compact / Default / Comfortable became Compact 13/11 (the standard), Comfortable 14/12 and Large 15/13, because the app's own size is already 13/11.
+- **Browser check:** the Theme card lists the three firm themes from the live `lookup` rows; choosing "User Theme 1" previewed it across the page; Undo put it back. Nothing was saved.
+- **Not built:** writing firm themes and the firm default (stage 4 editor); the Communications colors, fonts and paddings stay out of personal reach by design.
+- **Next:** stage 4.
+
+## 15. Stage 4a results: Other Configuration (Nov 11, 2026, API patch 16 and web patch 523)
+
+Stage 4 is split so each part can be checked on its own: **4a** Other Configuration (firm themes, firm default, article prompt), **4b** Teams and Scope, **4c** Role Sets, **4d** Users and Invites (needs the email decision below), **4e** Web Site Feedback (needs the feedback database decision below).
+
+- **Built (API):** `POST /v1/themes`, `PUT` and `DELETE /v1/themes/{themeId}`, `PUT /v1/themes/firm-default` (super admin, audited, through the write gate; new themes in the versioned shape; an old-shape theme rewritten when saved; retire keeps the row with `is_active = 0`); `GET` and `PUT /v1/publishing/article-prompt` (the `lookup` row `lk_kr_article_helper_prompt_upload_article`). Contracts `FirmThemeBody`, `FirmThemeParams`, `FirmThemeSavedData`, `FirmDefaultThemeBody`, `THEME_VALUE_CHOICES` (themes.ts) and `publishing.ts`. 10 new API tests.
+- **Built (web):** Application Settings → Other Configuration: **Firm Themes** (the old Theme Settings: choose a theme, New theme, Upload and Download `.jsonc`, Retire, Save theme; Firm default; Name and Description; Light and Dark editing; grouped settings with Expand all and Collapse all, gradient rows hidden while the accent strip is solid; the Theme in action sample; readability advice) and **Article Settings** (the prompt, Revert, Save prompt). Saving a change to an existing theme, retiring a theme and changing the firm default ask first in `U6ConfirmationDialog`; the old app used the same kind of dialog for save and delete. 9 new web tests.
+- **Changed from the old screens:** both cards are open by default (the old ones started collapsed); the built-in themes are not listed as editable rows (the built-in theme is `styles/theme.css`, and every setting a theme leaves alone shows its built-in value); Article Settings has no "Restore Default", because the old default prompt was text in the old code; "Apply Theme" is gone, because each person picks their theme under Preferences.
+- **Browser check (account 001):** both cards drew the live data: the three old themes ("Saved by the old editor: light values only"), no firm default, no saved prompt. The light and dark switch and the sample worked; one unreadable button state was fixed. **Nothing was saved**, so no theme, default or prompt was written to the live database.
+- **Not checked in the browser:** saving, retiring, the firm default, upload and download (covered by API and web tests).
+- **Decisions needed before 4d and 4e:**
+  1. **Invitation email (4d):** the old app sent invitations through its Google Workspace mailer (`krGoogleWorkspaceMailer.ts`). Port that mailer into `apps/api/src/platform/` (its service account key would be a Worker secret you set), use another email service, or build Users and Invites first without sending email (copy the invitation link by hand)? **Decided (Nov 12, 2026): port the Google Workspace mailer** into `apps/api/src/platform/`. The requester sets its key as a Worker secret; no key goes in a tracked file.
+  2. **Web Site Feedback (4e):** the old app kept feedback in table `site_feedback` of the public inquiry database, reached through the public-inquiry CRUD Worker. Give `krhomebase-api` a service binding to that Worker (as the old app did), or wait until the public inquiry app is ported? **Decided (Nov 12, 2026): bind the inquiry Worker.** The answer was in `apps/shared/d1-workers/crud-worker-pub-inquiry` (copied to `workers/` on Nov 4); the public site writes through the old copy of the same Worker.
+
+## 16. Stage 4b results: Teams and Scope (Nov 12, 2026, API patch 17 and web patch 524)
+
+- **Built (API):** `GET /v1/teams`, `POST /v1/teams`, `PUT /v1/teams/{teamId}` (super admin, through the write gate, one batch per save with one `audit_log` row, resource `teams`). Contract `packages/contracts/src/teams.ts`. 5 new API tests.
+- **Built (web):** Application Settings → Teams and Scope (`features/teams/components/TeamsCard.client.tsx`): Team (existing or New team), Team name, Description, Employee members and Team leads with Find boxes and counts, New team, Revert, Save team. 4 new web tests.
+- **Changed from the old screen:**
+  - The old single POST becomes create (`POST`) and change (`PUT`).
+  - The name is checked against every team row, active or retired, because the database's UNIQUE rule covers them all. The old route checked only active teams, so a clash with a retired team failed as a server error.
+  - A whole save is one batch, so a team is never half saved. The old route made each change as its own call.
+  - A save that takes people off a team asks first, naming them. The old card saved without asking.
+  - A former employee (status other than active) is marked in the members list.
+- **Kept from the old screen:** people taken off keep their row (`is_active = 0`, `ends_at`); a returning person gets their latest earlier row back; there is no delete or retire for a team (the old app had none).
+- **Browser check (account 001):** the card drew the live data: no teams yet, 3 employees, 3 users. Typing a name, ticking a member and a lead, the Find box and the counts worked; New team cleared the form. **Nothing was saved.**
+- **Not checked in the browser:** creating or changing a team, and the take-off question (covered by API and web tests).
+- **Next:** 4c Role Sets.
+
+## 17. Stage 4e results: Web Site Feedback (Nov 12, 2026, API patch 18 and web patch 525)
+
+- **Where the feedback lives:** table `site_feedback` of the quarantined public inquiry database `kr_public_inquiry_06_2026` (id `8517c8e6-f557-4286-824f-30f01148c325`), written by the public site through the old Worker `crud-worker-pub-inquiry` (live since Jun 5, 2026) and read by the old app through the same Worker by its address. Found in the old repository's `apps/shared/d1-workers/crud-worker-pub-inquiry` and `apps/kr-homebase/src/hb-lib/public-inquiries/publicInquiryWorkerClient.ts`; `apps/kr-website-public` was not opened (hard rule 1 limits the old repository to `apps/kr-homebase` and `apps/shared`).
+- **Binding:** this repository's copy `krhomebase-crud-worker-pub-inquiry` now names that database and has no public address; `krhomebase-api` reaches it through the service binding `PUBLIC_INQUIRY_WORKER`. **Not deployed yet:** the requester sets its secret and deploys it (`workers/Readme-workers.md`, "Put the public inquiry Worker live"), then deploys the API. Until then the page answers "cannot be reached" locally.
+- **Built (API):** `src/platform/publicInquiryClient.ts`; `src/features/site-feedback/` with `GET /v1/site-feedback`, `PUT` and `DELETE /v1/site-feedback/{feedbackId}`, `POST /v1/site-feedback/bulk-update`, `/bulk-delete` and `/{feedbackId}/vote`. Contract `packages/contracts/src/siteFeedback.ts`. 6 new API tests against a fake Worker that checks the pass with the Workers' own `verifyJwt` and opens the sealed command.
+- **Built (web):** Application Settings → Web Site Feedback (`features/feedback/components/SiteFeedbackPage.client.tsx`): the review card with filters and bulk controls, the ledger, and the Feedback Review card. 2 new web tests.
+- **Changed from the old screen:** deleting asks in `U6ConfirmationDialog` (the old screen used the browser's native confirm); an app filter; "Only the newest 100 are listed" when the Worker's limit is reached; bulk changes report rows that no longer exist; each change is audited in `krhomebase`; the network and bot-check columns are never sent to the browser.
+- **Old bug fixed:** with empty notes the old app saved the review marker at the very start of `internal_notes` and then could not read its own votes and assignee back. The new reader finds the marker there too, so old rows read correctly.
+- **Browser check (account 001):** the page drew with the expected "cannot be reached" line (the API answered 503 because the Worker is not deployed). Nothing was read from or written to the feedback database.
+- **Mailer key (4d):** the Google Workspace service account key is `private\dev-private-keys\krhomebase-google-workspace-mailer-key.json` in the old repository (name listed only). It becomes the API secret `KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY` (the whole JSON, as the old mailer read it). The mailer code is ported with 4d.
+- **Next:** 4c Role Sets, then 4d Users and Invites.
+
+## 18. Density Contract and icons (Nov 12, 2026, web patch 527)
+
+- **The requester:** "tight" means denser, with less vertical padding; the rows under `data-kr-element="rows-container"` of the Client Accounting register are the model for tables of records.
+- **Recorded:** `apps/web/DESIGN.md` 1.11 "Density Contract" (scale 1 to 10px, 3px default gap-x, rows about 20px with 1px cell padding, fields 22px to 26px, buttons 24px to 28px, card padding 6px to 8px, the forbidden classes, the browser checks), binding in `apps/web/AGENTS.md` ("Tight spacing"), `PRODUCT.md` 1.1 ("operate" mode, density 0.7), `.impeccable/design.json`, and root `AGENTS.md` Impeccable rule 5 (density words mean one step up the scale).
+- **Icons:** `KRHomebaseIcons` is the one place for icons. The theme selector's wastebasket is now `KRHomebaseIcons.Trash`; the ledger's caret is the new `KRHomebaseIcons.Chevron` (points down when folded, turns over when open). Glyphs left in older screens are listed in `apps/web/AGENTS.md`.
+
+## 19. Stages 4c and 4d results (Nov 12, 2026, API patch 20 and web patch 527)
+
+- **4c Role Sets:** contract `packages/contracts/src/roleSets.ts` (the resource catalog and protected grants, shared by the API and the screens); API `src/features/role-sets/` (`GET`, `POST /v1/role-sets`, `PUT`, `DELETE /v1/role-sets/{roleSetId}`); screen `features/role-sets/components/RoleSetsCard.client.tsx` with the shared `components/tables/PermissionMatrix.client.tsx`. Changes from the old tab: New custom role set is an unsaved draft; Retire role set (the old API had it, the screen did not); built-in grants show what is stored, not the old code definitions; one batch per save.
+- **4d Users and Invites (core):** the Google Workspace mailer ported (`apps/api/src/platform/googleWorkspaceMailer.ts`, sender settings as `vars`, key as the secret set Nov 12); contract `packages/contracts/src/users.ts`; API `src/features/users/` (list, create by invitation or active, one save for status, staff code and role sets, enroll as employee, resend, cancel and delete invitations); screens `features/users/` (the list with the old filters, Add user, the selected user with the invitation controls, role sets with a primary choice and the effective permissions). Changes from the old tab: a new person gets a `user_role_set` row for the chosen role set at once (the old route left them with no grants); `user.role` and `user.role_set_id` follow the primary role set in the same save; any active role set (custom ones too) may be chosen on create; reads never rewrite invitations.
+- **4d-2, not built yet:** the contact header and photo of the user editor, Bar Admissions (`employee_certification`), and the Security, Notifications and Danger zone tabs (placeholders in the old app).
+- **Checked in the browser (account 001), nothing saved:** Role Sets lists the 12 live role sets; the custom role set opens as an editor; rows measure 19.7px with 1px padding; nothing scrolls sideways at 1615px or 768px. Users and Invites lists the 3 live users; your own status is locked. No user, role set or invitation was created, changed or sent.
+- **Next:** 4d-2, then stage 5 (Firm Settings).

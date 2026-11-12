@@ -28,7 +28,7 @@ function friendlyVoidError(code: string): string | null {
 }
 
 const STYLES = {
-  panel: 'border border-[var(--kr-theme-line,#d7dee5)] bg-white shadow-sm',
+  panel: 'border border-[var(--kr-theme-line,#d7dee5)] bg-(--kr-theme-card-surface) shadow-sm',
   legend: 'ml-2 px-1 text-[10pt] font-bold text-[var(--kr-theme-brand-primary,#21394f)]',
   toolbar: 'text-[9pt] text-[var(--kr-theme-text-muted,#526172)]',
   headerCell: 'px-1 py-0.5 border-b border-[var(--kr-theme-line,#d7dee5)] bg-[var(--kr-theme-muted-surface,#eef3f7)] text-[9pt] font-semibold',
@@ -42,18 +42,18 @@ const STYLES = {
   voidChip: 'px-1 rounded border border-[#b3473b] bg-white text-[7pt] font-bold uppercase text-[#9d2c20]',
   ivid: 'ml-0.5 text-[7.5pt] text-[var(--kr-theme-text-muted,#526172)]',
   amount: 'text-right tabular-nums',
-  voidButton: 'px-1.5 py-0.5 rounded border border-[var(--kr-theme-danger,#9d2c20)] bg-white text-[8pt] font-semibold text-[var(--kr-theme-danger,#9d2c20)] disabled:opacity-50',
+  voidButton: 'px-1.5 py-0.5 rounded border border-[var(--kr-theme-danger,#9d2c20)] bg-(--kr-theme-card-surface) text-[8pt] font-semibold text-[var(--kr-theme-danger,#9d2c20)] disabled:opacity-50',
   empty: 'p-2 text-[9pt] text-[var(--kr-theme-text-muted,#526172)]',
   stripeTag: 'ml-1 px-1 rounded text-[7pt] font-bold uppercase text-white bg-[var(--kr-theme-brand-primary,#21394f)]',
   noticeOk: 'px-2 py-1 border-b border-emerald-300 bg-emerald-50 text-[9pt] text-emerald-800',
   backdrop: 'bg-slate-950/40',
-  dialog: 'w-full max-w-md rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-white shadow-2xl',
+  dialog: 'w-full max-w-md rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) shadow-2xl',
   dialogTitle: 'text-[12pt] font-bold text-[var(--kr-theme-text,#243142)]',
   dialogText: 'text-[9pt] text-[var(--kr-theme-text,#243142)]',
   dialogDetails: 'text-[8pt] text-[var(--kr-theme-text-muted,#526172)]',
   dialogWarning: 'text-[9pt] font-semibold text-amber-800',
-  field: 'px-1.5 py-1 w-full rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-white text-[10pt]',
-  cancelButton: 'px-2 py-1 rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-white text-[10pt] font-semibold',
+  field: 'px-1.5 py-1 w-full rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[10pt]',
+  cancelButton: 'px-2 py-1 rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[10pt] font-semibold',
   confirmButton: 'px-2 py-1 rounded border border-[var(--kr-theme-danger,#9d2c20)] bg-[var(--kr-theme-danger,#9d2c20)] text-[10pt] font-semibold text-white disabled:opacity-50',
 } as const
 

@@ -19,7 +19,7 @@
  * After that, every call is a `krh:request` matched to its `krh:response` by id.
  */
 
-import { PROTOCOL_VERSION, isAllowedApiPath, parseHostMessage, type FrameToHostMessage } from './protocol.ts'
+import { PROTOCOL_VERSION, clampWidgetHeight, isAllowedApiPath, parseHostMessage, type FrameToHostMessage } from './protocol.ts'
 import type { ApiReply, DisplayMode, HttpMethod } from './types.ts'
 
 /** Milliseconds between hellos while waiting for the host to answer. */
@@ -55,7 +55,7 @@ export interface ToolApi {
 export interface ToolHost {
   /** The tool's client id, as KR Homebase knows it. */
   clientId: string
-  /** `workspace` in the main window, `popout` in its own window. The frame is reloaded when this changes. */
+  /** `workspace` in the main window, `popout` in its own window, `widget` in a Dashboard card. The frame is reloaded when this changes. */
   mode: DisplayMode
   /** The host's theme values (`--kr-theme-*` names), already applied unless `applyTheme` was false. */
   theme: Record<string, string>
@@ -66,6 +66,11 @@ export interface ToolHost {
   setTitle(title: string): void
   /** True while the tool has unsaved work, so KR Homebase can warn before closing it. */
   setDirty(dirty: boolean): void
+  /**
+   * Asks for a widget card of this height in pixels (40 to 2000), so the card fits the widget's content. Only a widget
+   * (`mode === 'widget'`) needs it; the host ignores it elsewhere. Added with dashboard widgets; protocol version 1.
+   */
+  setHeight(height: number): void
   /** Stops listening. Calls still waiting resolve as `BRIDGE_CLOSED`. */
   disconnect(): void
 }
@@ -186,6 +191,7 @@ export function connectToHost(options: ConnectOptions): Promise<ToolHost> {
         },
         setTitle: (title) => send({ kind: 'krh:set-title', protocol: PROTOCOL_VERSION, title: String(title).slice(0, 80) }),
         setDirty: (dirty) => send({ kind: 'krh:set-dirty', protocol: PROTOCOL_VERSION, dirty: Boolean(dirty) }),
+        setHeight: (height) => send({ kind: 'krh:set-height', protocol: PROTOCOL_VERSION, height: clampWidgetHeight(height) }),
         disconnect: () => {
           win.removeEventListener('message', onMessage)
           for (const [id, waiting] of pending) {

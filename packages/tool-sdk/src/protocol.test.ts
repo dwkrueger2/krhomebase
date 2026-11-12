@@ -27,4 +27,11 @@ describe('bridge messages', () => {
     expect(init).toEqual({ kind: 'krh:init', protocol: 1, clientId: 'krt_x', mode: 'popout', theme: { '--kr-theme-text': '#111' } })
     expect(parseHostMessage({ kind: 'krh:init', protocol: 1, clientId: 'krt_x', mode: 'side', theme: {} })).toBeNull()
   })
+
+  it('reads a widget height, kept between 40 and 2000 pixels, and the widget display mode', () => {
+    expect(parseFrameMessage({ kind: 'krh:set-height', protocol: 1, height: 180.4 })).toEqual({ kind: 'krh:set-height', protocol: 1, height: 180 })
+    expect(parseFrameMessage({ kind: 'krh:set-height', protocol: 1, height: 99999 })).toEqual({ kind: 'krh:set-height', protocol: 1, height: 2000 })
+    expect(parseFrameMessage({ kind: 'krh:set-height', protocol: 1, height: 'tall' })).toBeNull()
+    expect(parseHostMessage({ kind: 'krh:init', protocol: 1, clientId: 'krt_x', mode: 'widget', theme: {} })).toMatchObject({ mode: 'widget' })
+  })
 })

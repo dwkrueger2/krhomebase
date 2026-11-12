@@ -56,20 +56,20 @@ export interface SettingsPageDefinition<T extends string = string> {
 
 /** User Settings pages, in tab order (plan section 3). */
 export const USER_SETTINGS_PAGES: readonly SettingsPageDefinition<UserSettingsPageId>[] = [
-  { id: 'user-settings', label: 'Preferences', description: 'Theme (light or dark), starting page and auto logout.', stage: 'stage 2' },
-  { id: 'dashboard-settings', label: 'Dashboard', description: 'Which widgets show on your Dashboard, and in what order.', stage: 'stage 3' },
-  { id: 'time-card', label: 'Time Card', description: 'Opens Attendance on your own time card for the current pay period.', stage: 'stage 2' },
+  { id: 'user-settings', label: 'Preferences', description: 'Theme (light or dark), starting page and auto logout.', stage: null },
+  { id: 'dashboard-settings', label: 'Dashboard', description: 'Which widgets show on your Dashboard, and in what order.', stage: null },
+  { id: 'time-card', label: 'Time Card', description: 'Opens Attendance on your own time card for the current pay period.', stage: null },
   { id: 'employee-file', label: 'Employee File', description: 'Your own employee documents, read-only.', stage: 'after stage 5 (Employee Documents)' },
 ]
 
 /** Application Settings pages, in tab order. The whole area is for super admins. */
 export const APPLICATION_SETTINGS_PAGES: readonly SettingsPageDefinition<ApplicationSettingsPageId>[] = [
-  { id: 'user-management', label: 'Users and Invites', description: 'Who may sign in to KR Homebase, account status and invitations.', stage: 'stage 4' },
-  { id: 'role-specifications', label: 'Role Sets', description: 'Role sets and the permissions each one grants.', stage: 'stage 4' },
-  { id: 'team-management', label: 'Teams and Scope', description: 'Team leads and members; team-scoped permissions follow them.', stage: 'stage 4' },
+  { id: 'user-management', label: 'Users and Invites', description: 'Who may sign in to KR Homebase, account status and invitations.', stage: null },
+  { id: 'role-specifications', label: 'Role Sets', description: 'Role sets and the permissions each one grants.', stage: null },
+  { id: 'team-management', label: 'Teams and Scope', description: 'Team leads and members; team-scoped permissions follow them.', stage: null },
   { id: 'outside-tools', label: 'Outside Tools', description: 'Outside tool servers registered with KR Homebase.', stage: null },
-  { id: 'other-configuration', label: 'Other Configuration', description: 'Firm themes and the Upload Article GPT helper prompt.', stage: 'stage 4' },
-  { id: 'site-feedback', label: 'Web Site Feedback', description: 'Review feedback sent from the public site and from KR Homebase.', stage: 'stage 4' },
+  { id: 'other-configuration', label: 'Other Configuration', description: 'Firm themes and the Upload Article GPT helper prompt.', stage: null },
+  { id: 'site-feedback', label: 'Web Site Feedback', description: 'Review feedback sent from the public site and from KR Homebase.', stage: null },
 ]
 
 /** Firm Settings pages, in tab order: the ordinary pages first, then the three IT pages (super admin). */

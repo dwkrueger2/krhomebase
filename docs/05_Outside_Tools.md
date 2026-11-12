@@ -1,7 +1,7 @@
 # Outside Tools: Design, Security and Operation
 
-<small>Version 1.0</small><br>
-<small>Updated Nov 9, 2026 9:20am</small>
+<small>Version 1.1</small><br>
+<small>Updated Nov 11, 2026 10:59pm</small>
 
 **Headline:** other developers can add a tool to the left menu without a redeploy. A super admin registers the tool's address and grants it permissions. KR Homebase shows the tool in a sealed frame, in the workspace or popped out. The tool reaches data only through KR Homebase, and only within its grant.
 
@@ -138,6 +138,15 @@ pnpm deploy:web
 4. Build the kit file for developers: `pnpm pack:tool-sdk`, which writes `dist\tool-sdk\krhomebase-tool-sdk-1.0.0.tgz`.
 5. Register a test tool under Settings, Application Settings, Outside tools.
 
+## 7a. Dashboard widgets
+
+Added with Settings and Dashboard stage 3 (`docs/08_Settings_Dashboard_Plan.md`, section 5).
+
+- **One definition** for KR Homebase's own widgets and outside widgets: `WidgetDefinition` and `defineWidget` in `packages/tool-sdk` (`src/types.ts`, `src/defineWidget.ts`), with the same shape in `packages/contracts/src/tools.ts` (`WidgetDefinition`, `WidgetSizes`), kept equal by the kit's sync test. A tool's manifest may list `widgets`.
+- **Protocol additions** (version stays 1): display mode `widget` in `krh:init`, and `krh:set-height` from the frame (40 to 2000 pixels; the parser clamps it). The host (`apps/web/components/shell/toolHost.ts`) ignores the height for now.
+- **Security:** an outside widget will run in the same sandboxed frame as a tool page (`TOOL_FRAME_SANDBOX` unchanged), with the same origin check and the same API relay, so it can do nothing a tool page cannot. A widget's `requires` only decides whether it is offered; every call it makes is still checked.
+- **Not done:** registering outside widgets in KR Homebase (the `workspace_tool` row has no widget list) and drawing them on the Dashboard. Until then, the registration sheet lists them so the super admin knows they exist.
+
 ## 8. Open items
 
 - **Page security settings:** the app sends no `Content-Security-Policy` yet. A `frame-src` list made from the registered origins would add a second guard on where frames may load from.
@@ -145,3 +154,4 @@ pnpm deploy:web
 - **Schema documentation:** add the three tables to `docs/Schema_8.0` once the migration is applied (that folder is generated from the live database).
 - **Built-in tools as packages:** each built-in menu item becomes its own `packages/tools/<name>` package declared with `defineTool` (agreed in principle; not started).
 - **Kit delivery:** the kit is a `.tgz` file. A private registry can replace it later.
+- **Outside Dashboard widgets:** store a tool's widget list at registration, return it with the menu, and draw each in a sandboxed widget frame on the Dashboard, honoring `krh:set-height` (section 7a).

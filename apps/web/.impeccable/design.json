@@ -755,7 +755,7 @@
     "overview": "KR Homebase looks like a well-kept records room: a deep navy frame (title bar and left menu) holds pale, ruled work surfaces where the firm's contacts, time and money are kept. Everything inside the frame is a ledger, a card or a form, set close together with hairline borders and almost no shadow. The look comes from order and density, not decoration.\n\nThe screens are dense on purpose. People spend whole days here with several clients open, so the system saves height before width, keeps labels on the same line as their fields, and uses 13px body text with 11px small print. Color carries meaning: navy is the frame and the main action, warm camel marks the current tab and the eyebrow over a title, slate heads every table, and red, orange and green appear only for state.\n\nEvery value a user may change (colors, padding, sizes) is a `--kr-theme-*` token, set on the theme scope `[data-kr-theme-scope=\"krhomebase\"]`, never on `:root`. A saved user theme overrides the same tokens, so a component that hard-codes a color breaks the user's theme.",
     "keyCharacteristics": [
       "Navy frame (title bar and left menu), light work surface inside.",
-      "Dense: 13px body, 2px to 10px gaps, 24px to 38px control heights.",
+      "Dense: 13px body, 2px to 10px gaps (3px the default between a label and its field), 22px to 28px controls, rows of data about 20px with 1px cell padding (the Density Contract).",
       "Nearly square corners (2px; 4px for dialogs).",
       "Flat surfaces with hairline borders; shadows only for things that float.",
       "Uppercase, letter-spaced labels on slate table headings and camel eyebrows.",
@@ -788,6 +788,11 @@
         "section": "layout"
       },
       {
+        "name": "The Density Contract",
+        "body": "Tight means dense, with little vertical padding (the requester, Nov 12, 2026). Spacing scale 1, 2, 3, 4, 6, 8 and 10px; 3px default gap-x; rows of data like the Client Accounting register (10pt, leading-tight, 1px cell padding, about 20px a row); fields 22px to 26px, buttons 24px to 28px; card padding 6px to 8px (10px at most). 'Generous' or 'comfortable' means one step up this scale, never more. Density setting 0.7. Full tables: DESIGN.md, Layout.",
+        "section": "layout"
+      },
+      {
         "name": "The Flat Desk Rule",
         "body": "Nothing on the page casts a shadow unless it floats over something else.",
         "section": "elevation"
@@ -809,7 +814,12 @@
       },
       {
         "name": "Intended: Text glyph icons",
-        "body": "The ⚙, × and ✓ in the ledger settings, close and copy buttons stay until an icon set replaces them. New icons use `KRHomebaseIcons.<Name>`.",
+        "body": "The ⚙, × and ✓ in the ledger settings, close and copy buttons stay until an icon set replaces them. New icons use `KRHomebaseIcons.<Name>`, the one place for icons; an emoji is not an icon.",
+        "section": "components"
+      },
+      {
+        "name": "Intended: The disclosure chevron",
+        "body": "Anything that folds open shows `KRHomebaseIcons.Chevron`, pointing down while folded and turned over (rotate-180, 160ms) when open.",
         "section": "components"
       }
     ],
@@ -830,7 +840,8 @@
       "Don't use red, orange, green or amber for decoration.",
       "Don't use the login fonts (Black Mango, DM Serif Display, Geist) inside the application frame.",
       "Don't use the Communications dark set outside Communications.",
-      "Don't use `sm:`, `xl:`, `2xl:` or custom breakpoints."
+      "Don't use `sm:`, `xl:`, `2xl:` or custom breakpoints.",
+      "Don't use `py-3`, `gap-4`, `space-y-4` or larger, or a field or button taller than 30px, inside the frame."
     ]
   }
 }

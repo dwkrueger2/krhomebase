@@ -6,7 +6,7 @@
 import type { ReactNode } from 'react'
 
 const STYLES = {
-  card: 'overflow-hidden rounded border border-[var(--kr-theme-line,#d7dee5)] bg-white shadow-sm',
+  card: 'overflow-hidden rounded border border-[var(--kr-theme-line,#d7dee5)] bg-(--kr-theme-card-surface) shadow-sm',
   shell: 'text-[10pt] leading-tight text-[var(--kr-theme-text,#243142)]',
   stepNumber: 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--kr-theme-brand-primary,#21394f)] text-[10pt] font-bold text-white',
   title: 'text-[10pt] font-bold text-[var(--kr-theme-text,#243142)]',

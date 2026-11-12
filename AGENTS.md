@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.8</small><br>
-<small>Updated Nov 11, 2026 10:05am</small>
+<small>Version 2.11</small><br>
+<small>Updated Nov 12, 2026 8:02am</small>
 
 ## Agent Guide Index
 
@@ -91,7 +91,8 @@ Impeccable (`.claude/skills/impeccable`, run as `/impeccable <command>`) is a de
 2. **Impeccable changes are ordinary code changes.** They follow the styling preflight above, `AGENTS_04` (keep descriptive comments, no rewrites of untouched code) and `AGENTS_05` (`STYLES` and `LAYOUT_STYLES` maps, class order, no new CSS file without an exception, `--kr-theme-*` tokens, no styling through `data-kr-*`), and they advance the version track as `AGENTS_01` requires.
 3. **Keep the target narrow.** Run refinement commands (`polish`, `layout`, `typeset`, `bolder`, `distill`, `quieter`, `overdrive` and the like) on a named component or screen, not on the whole app. A change outside the named target needs the requester's approval first.
 4. **Helper agents get the rules.** When Impeccable starts one of its own agents (for example the documenter, the finish reviewer or the live-mode edit applier), the instructions given to it name this section, `AGENTS_04` and `AGENTS_05`, and tell it to read them before editing.
-5. **Design hook findings are advice.** Fix a finding only when it breaks an AGENTS rule or `DESIGN.md`. A finding against an intended pattern is suppressed with the narrowest `ignore-value`, with a reason that names the rule or `DESIGN.md` section, and reported. `ignore-file` and `ignore-rule` need the requester's approval.
+5. **Density words mean the Density Contract.** In KR Homebase, Impeccable's words for space ("generous separation", "breathing room", "comfortable", "airy") mean one step up the Density Contract's scale in `apps/web/DESIGN.md` (Layout), never more, and its density setting starts at 0.7 (`apps/web/PRODUCT.md`). A finding or a suggestion that asks for more space than the contract allows is reported, not applied.
+6. **Design hook findings are advice.** Fix a finding only when it breaks an AGENTS rule or `DESIGN.md`. A finding against an intended pattern is suppressed with the narrowest `ignore-value`, with a reason that names the rule or `DESIGN.md` section, and reported. `ignore-file` and `ignore-rule` need the requester's approval.
 
 ## Current Project Shape
 
@@ -123,7 +124,7 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 - Only `apps/api` has the D1 `krhomebase` binding. `web` never queries the database.
 - `api` has no public address (`workers_dev` and `preview_urls` are off). Only another Worker can call it through a service binding.
 - `krhomebase-external-api` has no public address until the requester adds a Custom Domain. It reaches `api` only through its `API` service binding, and only it sets the `x-kr-gateway` header; `web` strips that header from browser requests.
-- `krhomebase-crud-worker` and `krhomebase-session-worker` (in `workers/`) also have no public address. Only `api` calls them, through service bindings declared in `apps/api/kr-api-wrangler.jsonc`. `web` never calls them.
+- `krhomebase-crud-worker`, `krhomebase-session-worker` and `krhomebase-crud-worker-pub-inquiry` (in `workers/`) also have no public address. Only `api` calls them, through service bindings declared in `apps/api/kr-api-wrangler.jsonc` (`CRUD_WORKER`, `SESSION_WORKER`, `PUBLIC_INQUIRY_WORKER`). `web` never calls them. The public inquiry database (`kr_public_inquiry_06_2026`) is reached only through `krhomebase-crud-worker-pub-inquiry`; `api` never binds it directly.
 
 ### Development servers and ports
 
@@ -184,6 +185,7 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 
 - One public version prefix: `/v1`. Do not add another version namespace to avoid reviewing an existing route. No product prefix (no `/krhomebase`, no `kr-api-v1`).
 - Wire format is camelCase only. Database columns stay snake_case; the mapping happens in each feature's `queries.ts`.
+- **The `lookup` table:** it holds choice lists and firm-wide settings rows (JSON in `description`); its use is documented in `docs/Schema_8.0/table_lookup.html`, section "How KR Homebase uses this table". Code that reads or writes `lookup`, or names a `lookup` row id, carries the comment `// See the lookup table as described in Schema 8.0: docs/Schema_8.0/table_lookup.html (section "How KR Homebase uses this table").` A new settings row or category is added to that section's tables in the same change.
 - Every reply uses the envelope from `packages/contracts` and includes `requestId`.
 - Error codes are stable, safe to expose, and free of secrets and personal information.
 - Folder and file names are plain nouns for a business area (`clients`, `billing`). No `kr-` or `hb-` prefixes. No folder repeats its parent's name.

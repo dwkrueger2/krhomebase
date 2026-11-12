@@ -1,7 +1,7 @@
 # KR Homebase Tool Kit: Developer Guide
 
-<small>Version 1.0</small><br>
-<small>Updated Nov 9, 2026 9:20am</small>
+<small>Version 1.1</small><br>
+<small>Updated Nov 11, 2026 10:59pm</small>
 
 **Who this is for:** a developer building an outside tool for KR Homebase without access to the KR Homebase code.
 
@@ -77,6 +77,27 @@ The person can pop your tool out into its own window and close it again. Each ti
 ### What the frame allows
 
 Your page runs from its own address, sealed off from KR Homebase. It may run scripts, use forms, open new tabs, download files and use its own cookies and storage. It may **not** change the KR Homebase page's address, show `alert`, `confirm` or `prompt` boxes (draw your own dialogs), or use the camera, microphone or location. It never sees the KR Homebase session.
+
+### Dashboard widgets
+
+A tool may also offer small cards for the KR Homebase Dashboard. Describe each with `defineWidget` (also in `@krhomebase/tool-sdk/manifest`) and list them in `defineTool({ ..., widgets: [...] })`:
+
+```ts
+import { defineWidget } from '@krhomebase/tool-sdk/manifest'
+
+export const openIntakes = defineWidget({
+  id: 'open-intakes',          // lowercase with dashes; the card is data-kr-id="dashboard-widget-open-intakes"
+  title: 'Open Intakes',       // up to 40 characters
+  description: 'Intake forms still missing answers.',
+  size: 'medium',              // small, medium (one column) or wide (two columns)
+  defaultEnabled: false,       // shown before the person chooses?
+  defaultOrder: 50,            // 0 to 1000; lower comes first
+  requires: { resource: 'contacts', action: 'read' }, // optional
+  refreshSeconds: 120,         // optional, 15 to 3600
+})
+```
+
+A widget's page is your entry URL opened in display mode `widget` (`host.mode === 'widget'`). Keep it small, and call `host.setHeight(pixels)` (40 to 2000) when its content changes so the card fits. **Today KR Homebase lists outside widgets on the registration sheet only; drawing them on the Dashboard comes later.** Each person chooses their own widgets and order in Settings → User Settings → Dashboard.
 
 ## 5. Describe your tool
 

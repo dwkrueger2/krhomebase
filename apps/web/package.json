@@ -1,8 +1,8 @@
 {
   "name": "@krhomebase/web",
   "version": "1.1.5",
-  "patchNum": "519",
-  "patchDate": "11-11",
+  "patchNum": "527",
+  "patchDate": "11-12",
   "private": true,
   "type": "module",
   "description": "KR Homebase screens. Next.js on vinext. No database code and no business rules.",

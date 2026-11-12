@@ -30,7 +30,7 @@ export interface EditTimeAndFeeDialogProps {
 const STYLES = {
   backdrop: 'bg-slate-950/40',
   dialog:
-    'w-full max-w-3xl overflow-hidden rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-white shadow-2xl',
+    'w-full max-w-3xl overflow-hidden rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) shadow-2xl',
   header:
     'border-b border-[var(--kr-theme-line,#d7dee5)] bg-[var(--kr-theme-muted-surface,#eef3f7)]',
   title: 'text-[12pt] font-semibold text-[var(--kr-theme-text,#243142)]',
@@ -38,10 +38,10 @@ const STYLES = {
   // Public record code: muted monospace, never competes with the surrounding text.
   publicCode: 'font-mono text-[8.5pt] tracking-[0.04em] text-[var(--kr-theme-text-muted,#526172)] opacity-80',
   field:
-    'px-1.5 py-1 w-full rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-white text-[10pt] text-[var(--kr-theme-text,#243142)] outline-none focus:border-[var(--kr-theme-brand-primary,#21394f)] focus:ring-1 focus:ring-[var(--kr-theme-brand-primary,#21394f)]',
+    'px-1.5 py-1 w-full rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[10pt] text-[var(--kr-theme-text,#243142)] outline-none focus:border-[var(--kr-theme-brand-primary,#21394f)] focus:ring-1 focus:ring-[var(--kr-theme-brand-primary,#21394f)]',
   label: 'gap-1 grid text-[9pt] font-semibold text-[var(--kr-theme-text-muted,#526172)]',
   button:
-    'px-2 py-1 rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-white text-[10pt] font-semibold',
+    'px-2 py-1 rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[10pt] font-semibold',
   primaryButton:
     'px-2 py-1 rounded border border-[var(--kr-theme-brand-primary,#21394f)] bg-[var(--kr-theme-brand-primary,#21394f)] text-[10pt] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50',
   deleteButton:
@@ -50,7 +50,7 @@ const STYLES = {
     'px-2 py-1 flex min-h-[42px] items-center justify-between border-2 border-[var(--kr-theme-brand-primary,#21394f)] bg-[var(--kr-theme-muted-surface,#f7f9fb)] text-[10pt]',
   // Entry status: quieter than the calculated box (thin dashed rule, muted text); amber when the invoice is locked.
   entryStatus:
-    'px-2 py-1 gap-2 flex min-h-[42px] items-center rounded border border-dashed border-[var(--kr-theme-line,#b8c3cd)] bg-white text-[9pt] text-[var(--kr-theme-text-muted,#526172)]',
+    'px-2 py-1 gap-2 flex min-h-[42px] items-center rounded border border-dashed border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[9pt] text-[var(--kr-theme-text-muted,#526172)]',
   entryStatusLocked:
     'px-2 py-1 gap-2 flex min-h-[42px] items-center rounded border border-amber-400 bg-amber-50 text-[9pt] text-amber-900',
   entryStatusIcon: 'h-4 w-4 shrink-0 cursor-help',

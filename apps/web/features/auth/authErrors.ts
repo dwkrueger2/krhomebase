@@ -40,6 +40,8 @@ export const AUTH_ERROR_MESSAGES: Record<string, string> = {
   session_expired: 'Your session ended. Please sign in again.',
   session_not_found: 'Your session was not found. Please sign in again.',
   session_revoked: 'You were signed out. Please sign in again.',
+  // Settings plan, decision 3: the idle logout (IdleLogoutMonitor) sends the person here with this code.
+  idle_timeout: 'You were signed out after a period without activity. Please sign in again.',
   user_inactive: 'This KR Homebase user account is not active. Contact an administrator.',
   turnstile_required: 'Please complete the Cloudflare human check before starting sign-in.',
   TURNSTILE_REQUIRED: 'Please complete the Cloudflare human check before starting sign-in.',
@@ -47,7 +49,7 @@ export const AUTH_ERROR_MESSAGES: Record<string, string> = {
 }
 
 /** Codes that are a plain reminder, not a failure. The card shows them without the "Sign-in failed" label. */
-export const AUTH_NOTICE_CODES: readonly string[] = ['missing_session_cookie', 'session_expired', 'session_revoked']
+export const AUTH_NOTICE_CODES: readonly string[] = ['missing_session_cookie', 'session_expired', 'session_revoked', 'idle_timeout']
 
 /**
  * Turns a code into the sentence the card shows.

@@ -14,7 +14,7 @@ import type { BillingInvoice, BillingPayment, BillingTimeEntry } from '../types'
 
 const STYLES = {
   shell: 'text-[10pt] leading-tight text-[var(--kr-theme-text,#243142)]',
-  panel: 'overflow-hidden border border-[var(--kr-theme-line,#d7dee5)] bg-white shadow-sm',
+  panel: 'overflow-hidden border border-[var(--kr-theme-line,#d7dee5)] bg-(--kr-theme-card-surface) shadow-sm',
   // Ledger row typography matches TimeAndFeesLedger (10pt, tight) so every Billing tab reads the same.
   row: 'border-b border-[var(--kr-theme-table-border,#d7dee5)] bg-[var(--kr-theme-table-row-background,#eaf4e7)] text-left text-[10pt] leading-tight hover:bg-[var(--kr-theme-table-row-hover,#f0f6fb)]',
   header:
@@ -22,10 +22,10 @@ const STYLES = {
   cell: 'p-[1px] text-[10pt] leading-tight',
   status: 'px-1.5 py-0.5 inline-flex rounded-full border text-[9pt] leading-none',
   button:
-    'px-2 py-1 rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-white text-[10pt] font-semibold',
+    'px-2 py-1 rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[10pt] font-semibold',
   // Small white toggle beside the matter selector.
   filterToggle:
-    'px-1.5 py-0.5 rounded-[2px] border border-[var(--kr-theme-line,#b8c3cd)] bg-white text-[9pt] font-semibold text-[var(--kr-theme-text-muted,#526172)] hover:border-[var(--kr-theme-brand-primary,#21394f)] hover:text-[var(--kr-theme-brand-primary,#21394f)]',
+    'px-1.5 py-0.5 rounded-[2px] border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[9pt] font-semibold text-[var(--kr-theme-text-muted,#526172)] hover:border-[var(--kr-theme-brand-primary,#21394f)] hover:text-[var(--kr-theme-brand-primary,#21394f)]',
   primaryButton:
     'px-2 py-1 rounded border border-[var(--kr-theme-brand-primary,#21394f)] bg-[var(--kr-theme-brand-primary,#21394f)] text-[10pt] font-semibold text-white',
   // Row utility buttons: icon-only, inherit the row hover, disabled state reads as informational.

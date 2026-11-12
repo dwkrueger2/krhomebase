@@ -31,6 +31,8 @@ export class BillingError extends Error {
 /** Who is writing, from the checked session. */
 export type Actor = { userId: string; email: string; role: string; requestId: string }
 
+// See the lookup table as described in Schema 8.0: docs/Schema_8.0/table_lookup.html (section "How KR Homebase uses this table").
+// A choice list: category `payment_type`, ids `lk_payment_type_<value>`.
 /** Payment type words ↔ `lookup` ids (old `kr_lookup.types.ts`). */
 export const PAYMENT_TYPE_LOOKUP_IDS = {
   ACH: 'lk_payment_type_ach',

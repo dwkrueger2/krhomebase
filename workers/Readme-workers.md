@@ -1,7 +1,7 @@
 # Workers
 
-<small>Version 1.5</small><br>
-<small>Updated Nov 9, 2026 1:25pm</small>
+<small>Version 1.7</small><br>
+<small>Updated Nov 12, 2026 2:44am</small>
 
 The Cloudflare Workers copied from the old repository (`apps\shared`). Plan and reasons: `docs/03_Workers_And_Login_Plan.md`.
 
@@ -48,7 +48,7 @@ Cloudflare names now start with `krhomebase-`, like `krhomebase-api` and `krhome
 |---|---|---|---|
 | `d1-workers/crud-worker` | `krhomebase-crud-worker` | `krhomebase` (id `ef68921f-c7d3-4d0b-9af4-defebc748616`) | Yes |
 | `d1-workers/session-worker` | `krhomebase-session-worker` | `krhomebase` | Yes |
-| `d1-workers/crud-worker-pub-inquiry` | `krhomebase-crud-worker-pub-inquiry` | not set | No |
+| `d1-workers/crud-worker-pub-inquiry` | `krhomebase-crud-worker-pub-inquiry` | `kr_public_inquiry_06_2026` (id `8517c8e6-f557-4286-824f-30f01148c325`; set Nov 12, 2026) | Yes, deployed Nov 12, 2026 (Web Site Feedback, stage 4e) |
 | `d1-workers/kr-pay-worker` | `kr-pay-worker-live` (serves `pay.krhomebase.com`) | `krhomebase` | Yes, deployed Nov 9, 2026 |
 | `d1-workers/article-read-worker` | `krhomebase-article-read-worker` | not set | No |
 | `d1-workers/article-publish-worker` | `krhomebase-article-publish-worker` | not set | No |
@@ -95,6 +95,7 @@ Not changed: every `.ts`, `.mjs` and `.sql` file is byte for byte the same as it
 | `krhomebase-crud-worker` | `08b3ee64-86c0-47c0-9dbc-3c14d4095d84` | Nov 4, 2026 |
 | `krhomebase-session-worker` | `8832360b-5412-4d1a-ba2f-d58cd1677eb2` | Nov 4, 2026 |
 | `kr-pay-worker-live` | `e86c85ac-8295-4286-98c8-145060fde00d` (repository 1.0.0 p18) | Nov 9, 2026 |
+| `krhomebase-crud-worker-pub-inquiry` | `17baeaf9-fcbc-46fa-b648-68bc9560b729` | Nov 12, 2026 |
 
 ## Secrets
 
@@ -136,6 +137,24 @@ pnpm exec wrangler deployments list --name krhomebase-session-worker
 ```
 
 The old Workers, the old key store and the old databases are not touched by any of these commands.
+
+## Put the public inquiry Worker live (Settings stage 4e)
+
+`krhomebase-crud-worker-pub-inquiry` is the only door to the quarantined public inquiry database, which holds the `site_feedback` table read by Application Settings → Web Site Feedback. Its configuration was changed on Nov 12, 2026: both database ids are set (from `wrangler d1 list`, matching `docs/Schema_Public_Inquiry_v2.0`) and `workers_dev` is off, so only `krhomebase-api` can call it (binding `PUBLIC_INQUIRY_WORKER`). Its code is unchanged. The old Worker `crud-worker-pub-inquiry`, which the public site still uses, writes the same database and is not touched.
+
+It checks the application's pass against the key store `krhomebase-public-keys`, which already holds `public-dev-dan-2.pem` (step 1 above). It opens sealed commands with the same key pair as `krhomebase-crud-worker`, under its own secret name. Run from the repository root, before the next `pnpm deploy:api` (the API's binding names this Worker):
+
+```powershell
+$Repo   = "D:\Repos\krhomebase"
+$Config = "workers/d1-workers/crud-worker-pub-inquiry/crud-worker-pub-inquiry.jsonc"
+$Key    = Join-Path $Repo "private\dev-private-keys\private-worker-crud-operations-2.pem"
+Set-Location $Repo
+(Get-Content $Key -Raw).Trim() | pnpm exec wrangler secret put CRUD_WORKER_PUB_INQUIRY_PRIVATE_KEY --config $Config
+pnpm exec wrangler deploy --config $Config
+pnpm exec wrangler deployments list --name krhomebase-crud-worker-pub-inquiry
+```
+
+Then add `"remote": true` to the `PUBLIC_INQUIRY_WORKER` binding in `apps/api/kr-api-wrangler.jsonc`, so `pnpm dev:api` reaches the deployed Worker, and record the version id in "Deployed versions".
 
 ## Run the sign-in Workers on this computer (optional)
 
