@@ -20,6 +20,12 @@
         "value": "geist",
         "createdAt": "2026-11-11T15:10:34.463Z",
         "reason": "DESIGN.md Login Exception Rule: sign-in card font ported from the old login (apps/web/AGENTS.md, Sign-in screens)"
+      },
+      {
+        "rule": "overused-font",
+        "value": "geist",
+        "createdAt": "2026-11-12T03:32:22.958Z",
+        "reason": "apps/web/AGENTS.md 'Sign-in screens': Geist is one of the old login card's fonts, kept on purpose; AGENTS Impeccable rule 5 (intended pattern)"
       }
     ]
   }

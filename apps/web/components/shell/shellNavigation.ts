@@ -12,11 +12,25 @@
  */
 
 import { createContext, useContext } from 'react'
-import type { OpenItemParentId } from '@/components/shell/navigation'
+import type { OpenItemParentId, ShellSectionId } from '@/components/shell/navigation'
+
+/**
+ * A request to show a page inside a section (for example the Settings landing opening Firm Settings at its Stripe
+ * page). `nonce` grows with every request, so a screen that is already showing can tell a new request from one it
+ * has already seen.
+ */
+export interface SubPageRequest {
+  sectionId: string
+  subPage: string
+  nonce: number
+}
 
 export interface ShellNavigation {
-  /** Opens the section with this menu id. Returns false when no such section exists. */
-  openSection: (sectionId: string) => boolean
+  /**
+   * Opens the section with this menu id. Returns false when no such section exists. `subPage` names the page to show
+   * inside it (the value of the section's second address parameter, `SECTION_SUB_PAGE_PARAMS`).
+   */
+  openSection: (sectionId: string, subPage?: string) => boolean
   /**
    * Opens an item under a parent row (a contact under Clients & Contacts) and shows it. Past five open items under
    * that row, the oldest is closed. Returns false outside the frame.
@@ -24,9 +38,19 @@ export interface ShellNavigation {
   openItem: (parentId: OpenItemParentId, itemId: string, label: string) => boolean
   /** Closes an open item. When it was showing, its parent row opens instead. */
   closeItem: (parentId: OpenItemParentId, itemId: string) => void
+  /** Names the page open inside a section, for the last breadcrumb step. Null removes it. */
+  setSubPageLabel: (sectionId: ShellSectionId, label: string | null) => void
+  /** The latest `openSection(..., subPage)` request, or null when there has been none. */
+  subPageRequest: SubPageRequest | null
 }
 
-const NO_FRAME: ShellNavigation = { openSection: () => false, openItem: () => false, closeItem: () => undefined }
+const NO_FRAME: ShellNavigation = {
+  openSection: () => false,
+  openItem: () => false,
+  closeItem: () => undefined,
+  setSubPageLabel: () => undefined,
+  subPageRequest: null,
+}
 
 export const ShellNavigationContext = createContext<ShellNavigation>(NO_FRAME)
 
@@ -50,4 +74,20 @@ export const OpenItemContext = createContext<OpenItemScope | null>(null)
 /** The item this screen shows, or null when it is not drawn as an open item. */
 export function useOpenItem(): OpenItemScope | null {
   return useContext(OpenItemContext)
+}
+
+/**
+ * Where a built-in section's screen is drawn. The frame wraps every built-in panel in it, because the same panel can
+ * be shown in the workspace and in a pop-out at once; only the workspace copy owns the address bar and the breadcrumb.
+ */
+export interface SectionPlace {
+  sectionId: ShellSectionId
+  place: 'workspace' | 'popout'
+}
+
+export const SectionPlaceContext = createContext<SectionPlace | null>(null)
+
+/** Where this screen is drawn, or null outside the frame (tests, a screen drawn on its own). */
+export function useSectionPlace(): SectionPlace | null {
+  return useContext(SectionPlaceContext)
 }

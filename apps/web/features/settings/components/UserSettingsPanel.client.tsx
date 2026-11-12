@@ -1,26 +1,19 @@
 'use client'
 // file: apps/web/features/settings/components/UserSettingsPanel.client.tsx
 /**
- * Placeholder for the User Settings screen (menu id `user-settings`).
+ * User Settings (menu id `user-settings`; plan `docs/08_Settings_Dashboard_Plan.md`, stage 1): what every person may
+ * set for themselves. Pages, in tab order: Preferences, Dashboard, Time Card and Employee File
+ * (`USER_SETTINGS_PAGES`). The address parameter is `?userSettingsSection=`, with the old app's values.
  *
- * It shows the "Module [TBD]" card, with the name and purpose taken from the menu list in
- * `components/shell/navigation.ts`. Replace the body of this file with the real screen when the
- * User Settings section is built. `app/page.tsx` already places this component in the workspace and in
- * the pop-out window, so nothing else needs to change.
+ * Stage 1 builds the frame only; each page shows its placeholder until its stage (Preferences and Time Card in
+ * stage 2, Dashboard in stage 3, Employee File after Employee Documents in stage 5).
  *
- * @returns The placeholder card.
+ * @returns The User Settings area (`data-kr-id="UserSettingsPanel"`).
  */
 
-import { findNavItem } from '@/components/shell/navigation'
-import ModulePlaceholder from '@/components/ui/ModulePlaceholder.client'
+import SettingsAreaFrame from '@/features/settings/components/SettingsAreaFrame.client'
+import { USER_SETTINGS_PAGES } from '@/features/settings/settingsAreas'
 
 export default function UserSettingsPanel() {
-  const item = findNavItem('user-settings')
-
-  return (
-    <div data-kr-id="UserSettingsPanel">
-      {/* User Settings placeholder: replace with the real screen */}
-      <ModulePlaceholder sectionId={item.id} label={item.label} description={item.description} />
-    </div>
-  )
+  return <SettingsAreaFrame ariaLabel="User Settings pages" krId="UserSettingsPanel" pages={USER_SETTINGS_PAGES} />
 }

@@ -1,7 +1,7 @@
 # Settings and Dashboard Port Plan
 
-<small>Version 1.0</small><br>
-<small>Updated Nov 11, 2026 7:46pm</small>
+<small>Version 1.1</small><br>
+<small>Updated Nov 11, 2026 9:31pm</small>
 
 This plan covers the Settings tab (User, Application and Firm Settings) and the Dashboard with its widgets. It records what exists today, the requester's direction, a recommended structure, the stages, and the decisions that belong to the requester. Nothing in it is built yet. It follows the same pattern as `06_Contacts_Billing_Port_Plan.md` (roadmap phase D: Dashboard, Settings) and `07_Attendance_Port_Plan.md`.
 
@@ -58,6 +58,7 @@ Settings (landing: three cards, then the IT cards a super admin sees)
     Role Sets              roles and their permissions
     Teams and Scope        team leads and members (Attendance team view depends on it)
     Outside Tools          already built; moves here as a tab
+    Other Configuration    firm themes and the Upload Article GPT helper prompt (decision 7)
     Web Site Feedback      (decision 7)
   Firm Settings            everyone may read the profile; changes need the permission
     Firm Profile           reworked design (Impeccable)
@@ -134,6 +135,21 @@ Each stage ends with `pnpm check`, the task lists (`AGENTS_01`), and a browser c
 | 7 | Web Site Feedback and the article prompt (old Application Settings): keep? | Keep Web Site Feedback (with the review-queue widget later); drop the article prompt unless the requester names a use. |
 | 8 | Feedback button preference (old User Settings). | Port only when the feedback feature is ported. |
 
+### Answers (Nov 11, 2026)
+
+The requester answered in the stage 0 prompt and confirmed the restated decisions 3 and 5 the same day.
+
+| # | Answer |
+|---|---|
+| 1 | **As recommended.** Table `user_preference` (one row per user and key, JSON value), `GET` and `PUT /v1/me/preferences`, `localStorage` only for a fast first paint. The migration is `docs/patch-notes/repository/Migration_Patch026_11_11_user_preference.sql` (the requester applies it; the only earlier migration, patch 16, was confirmed applied). |
+| 2 | **As recommended.** A dark `--kr-theme-*` set app-wide; the viewer's choice is the `appearance` key in `user_preference`. |
+| 3 | **Confirmed:** keep the old behavior. A browser idle timer with the old choices (15, 30, 60, 120, 480 minutes; default 60) and the warning **5 minutes** before logout as the old app does (the plan had said 1 minute), shown as a `U6ConfirmationDialog` with "Stay signed in"; the API session lengths (8 hours, 30 days) do not change. New: the value follows the person (decision 1) and takes effect without a reload. |
+| 4 | Decide in stage 7, and add a feature task: a Worker that manages GPT use. Stage 0 found that this Worker already exists in the repository (`workers/gpt-workers/gpt-models-worker.ts`, copied Nov 4, not deployed, no database id); the task is to review it, choose its transport (service binding from the API instead of the old public HTTPS address), give it its database, and deploy it. |
+| 5 | **Confirmed:** stage 4 (who may sign in: users, invites, role sets, teams) comes before stages 5 to 8 (Firm Settings), because Teams feed the Attendance team view and Employee Documents uses team scope. |
+| 6 | Employee File is the employee's own documents (the R2 files that Employee Documents stores). Build it after Employee Documents (stage 5) as a read-only view of one's own files; an HR-style employee card can grow from it later. |
+| 7 | **Keep both** Web Site Feedback and the article prompt. New rule: every image in an article must carry a license. The image table `content_asset` (public content database) has no license field, so this needs a schema change there and a check where articles are uploaded; recorded as a task, outside this port's stages. |
+| 8 | Do not port the feedback-button preference until the feedback feature itself is ported. |
+
 ## 8. Test accounts
 
 The requester owns these three sign-ins and keeps them in the database for testing (roles as stored in `user.role`):
@@ -145,3 +161,19 @@ The requester owns these three sign-ins and keeps them in the database for testi
 | Dan-DevBIC Krueger | 003 | staff | dankrueger@bicproperty.com |
 
 Use them to check each area as each role. The agent never signs in; the requester does.
+
+## 9. Stage 0 results (Nov 11, 2026, repository patch 26)
+
+- **Written:** `docs/API/Settings_AsIs_Reference.md` (1.0): the old Settings router, landing cards and breadcrumbs; User Settings and the idle logout; Application Settings (six tabs, 20 routes); Firm Settings (Profile, Employee Policies, Data Import); Stripe Payment Configuration recorded class for class; the GPT Model Gateway with the Edit Model Connection dialog's exact markup and CSS; the widget registry, grid, shell, preferences and `EmployeeClockInWidget`.
+- **Written:** the `user_preference` migration (decision 1), tested on a scratch SQLite database (bad JSON, unknown users and duplicate keys are refused; deleting a user removes their rows).
+- **Found:** the idle warning is 5 minutes, not 1 (decision 3); the GPT Worker already exists (decision 4); the article image table has no license field (decision 7); nine native `window.confirm` calls to replace; `user.role` and `user.role_set_id` can disagree in the old user save (reference section 9).
+- **Next:** stage 1, the Settings frame (web only; it does not need the migration). Decisions 3 and 5 were confirmed Nov 11, 2026.
+
+## 10. Stage 1 results (Nov 11, 2026, web patch 519)
+
+- **Built:** the landing page (User, Application and Firm Settings cards; then, for a super admin, "Firm IT · Super Admin" with the Data Import, GPT Model Gateway and Stripe Payment Configuration cards in their old orange styles and with their old ids); the three areas as Menu Style One tabs with a placeholder card naming the stage for each page not built; Outside Tools as an Application Settings tab; anyone but a super admin sees a notice in Application Settings and no IT pages in Firm Settings.
+- **Shell:** a second address parameter per section (the old names and values), read on first draw and written on change by `useSectionSubPage`; a third breadcrumb step; earlier breadcrumb steps open their section; a popped-out area keeps its own tab. Old `stripe-dev-tests` links open the Stripe page.
+- **Design:** `DESIGN.md` 1.6 lists "Settings IT cards" under Feature variations, with the brief `apps/web/.impeccable/surfaces/settings-it-cards.md`.
+- **Changed from the structure in section 3:** Application Settings gained "Other Configuration" (firm themes and the article prompt, kept by decision 7). The old landing page's Reports card (Reports has its own menu row) and its development-only Developer Tests card are not carried over.
+- **Not built:** every page except Outside Tools; old `?applicationSettingsTab=employee-documents` links open Users and Invites.
+- **Next:** stage 2, User Settings (needs the `user_preference` migration applied).

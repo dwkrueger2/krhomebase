@@ -1,26 +1,28 @@
 'use client'
 // file: apps/web/features/settings/components/FirmSettingsPanel.client.tsx
 /**
- * Placeholder for the Firm Settings screen (menu id `firm-settings`).
+ * Firm Settings (menu id `firm-settings`; plan `docs/08_Settings_Dashboard_Plan.md`, stage 1): the firm itself.
+ * Pages, in tab order (`FIRM_SETTINGS_PAGES`): Firm Profile, Employee Policies and Employee Documents (moved here
+ * from Application Settings) for everyone, then the three IT pages for a super admin only: Data Import, GPT Model
+ * Gateway and Stripe Payment Configuration. The address parameter is `?firmSettingsSection=`, with the old app's
+ * values; the old `stripe-dev-tests` still opens the Stripe page.
  *
- * It shows the "Module [TBD]" card, with the name and purpose taken from the menu list in
- * `components/shell/navigation.ts`. Replace the body of this file with the real screen when the
- * Firm Settings section is built. `app/page.tsx` already places this component in the workspace and in
- * the pop-out window, so nothing else needs to change.
+ * Stage 1 builds the frame only; each page shows its placeholder until its stage (5 for the ordinary pages, then 6
+ * Stripe, 7 GPT, 8 Data Import). `isSuperAdmin` comes from the session in `app/page.tsx` and only hides the IT pages.
  *
- * @returns The placeholder card.
+ * @param props - Whether the signed-in person is a super admin.
+ * @returns The Firm Settings area (`data-kr-id="FirmSettingsPanel"`).
  */
 
-import { findNavItem } from '@/components/shell/navigation'
-import ModulePlaceholder from '@/components/ui/ModulePlaceholder.client'
+import SettingsAreaFrame from '@/features/settings/components/SettingsAreaFrame.client'
+import { FIRM_SETTINGS_ALIASES, FIRM_SETTINGS_PAGES, visibleSettingsPages } from '@/features/settings/settingsAreas'
 
-export default function FirmSettingsPanel() {
-  const item = findNavItem('firm-settings')
+export interface FirmSettingsPanelProps {
+  /** True for a super admin: shows the three IT pages. */
+  isSuperAdmin?: boolean
+}
 
-  return (
-    <div data-kr-id="FirmSettingsPanel">
-      {/* Firm Settings placeholder: replace with the real screen */}
-      <ModulePlaceholder sectionId={item.id} label={item.label} description={item.description} />
-    </div>
-  )
+export default function FirmSettingsPanel({ isSuperAdmin = false }: FirmSettingsPanelProps) {
+  const pages = visibleSettingsPages(FIRM_SETTINGS_PAGES, isSuperAdmin)
+  return <SettingsAreaFrame aliases={FIRM_SETTINGS_ALIASES} ariaLabel="Firm Settings pages" krId="FirmSettingsPanel" pages={pages} />
 }

@@ -111,7 +111,7 @@ describe('LeftPanelNavList', () => {
 
 describe('TopTitleBar recently accessed', () => {
   it('draws the recently accessed button beside the bell', () => {
-    const html = renderToStaticMarkup(<TopTitleBar title="Dashboard" breadcrumbItems={['Dashboard']} userDisplayName="Test User" recentItems={[]} />)
+    const html = renderToStaticMarkup(<TopTitleBar title="Dashboard" breadcrumbItems={[{ label: 'Dashboard' }]} userDisplayName="Test User" recentItems={[]} />)
     expect(html).toContain('data-kr-element="homebase-recent-menu"')
     expect(html.indexOf('homebase-recent-menu')).toBeLessThan(html.indexOf('homebase-notification-menu'))
   })

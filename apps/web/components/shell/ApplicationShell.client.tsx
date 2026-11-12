@@ -32,6 +32,13 @@
  * any section; closing its pop-out closes the item. `openItemPanels` holds one screen per parent; the frame wraps it
  * in `OpenItemContext` so the screen knows which item to show. Both lists are saved per person
  * (`openItemsStorage.ts`, scope `storageScope`), so a refresh keeps them; a refresh still closes every pop-out.
+ *
+ * Pages inside a section (Settings plan, stage 1): a section may have a second address parameter
+ * (`SECTION_SUB_PAGE_PARAMS`, for example `firmSettingsSection`). The section's screen owns it through
+ * `useSectionSubPage`, which also names the page for a third breadcrumb step. The frame wraps every built-in panel in
+ * `SectionPlaceContext` (so only the workspace copy touches the address), removes the parameters of other sections
+ * when the open section changes, and lets a screen open a section at a page with `openSection(id, subPage)`.
+ * Breadcrumb steps before the last one open their section when chosen.
  */
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
@@ -49,7 +56,7 @@ import PopOutBrowserWindow, { openPopoutBrowserWindow } from '@/components/shell
 import PopOutWindow from '@/components/shell/PopOutWindow.client'
 import TopTitleBar from '@/components/shell/TopTitleBar.client'
 import {
-  buildBreadcrumbs,
+  buildBreadcrumbTrail,
   buildNavItems,
   findNavItem,
   isShellSectionId,
@@ -57,15 +64,24 @@ import {
   isToolSectionId,
   openItemSectionId,
   parseOpenItemSectionId,
+  SECTION_SUB_PAGE_PARAMS,
   type BuiltInSectionId,
   type OpenItemParentId,
+  type ShellBreadcrumb,
   type ShellOpenItem,
   type ShellSectionId,
   type ShellUser,
 } from '@/components/shell/navigation'
 import { readSavedShellItems, writeSavedShellItems } from '@/components/shell/openItemsStorage'
 import { createInitialShellState, shellReducer } from '@/components/shell/shellState'
-import { OpenItemContext, ShellNavigationContext, type OpenItemScope, type ShellNavigation } from '@/components/shell/shellNavigation'
+import {
+  OpenItemContext,
+  SectionPlaceContext,
+  ShellNavigationContext,
+  type OpenItemScope,
+  type ShellNavigation,
+  type SubPageRequest,
+} from '@/components/shell/shellNavigation'
 
 export interface ApplicationShellProps {
   /** Person shown in the footer and the bell's accessible name. */
@@ -162,6 +178,11 @@ export default function ApplicationShell({
   const itemsRestoredRef = useRef(false)
   // True while the page is being left or reloaded: pop-outs closing with it must not close their items (decision 7).
   const unloadingRef = useRef(false)
+  // The page open inside each section, named by its screen (useSectionSubPage), for the last breadcrumb step.
+  const [subPageLabels, setSubPageLabels] = useState<Partial<Record<ShellSectionId, string>>>({})
+  // The latest openSection(id, subPage) request, for a screen that is already showing (useSectionSubPage step 4).
+  const [subPageRequest, setSubPageRequest] = useState<SubPageRequest | null>(null)
+  const subPageNonceRef = useRef(0)
 
   /** Words for a section: the item's label for an open item, otherwise the menu label. */
   const sectionLabel = useCallback(
@@ -174,10 +195,23 @@ export default function ApplicationShell({
   )
   const activeLabel = sectionLabel(activeSectionId)
   const activeOpenItem = parseOpenItemSectionId(activeSectionId)
-  const breadcrumbItems = activeOpenItem ? [activeItem.label, activeLabel] : buildBreadcrumbs(activeSectionId, navItems)
+  const breadcrumbItems: ShellBreadcrumb[] = activeOpenItem
+    ? [{ label: activeItem.label, sectionId: activeItem.id }, { label: activeLabel }]
+    : buildBreadcrumbTrail(activeSectionId, navItems, subPageLabels[activeSectionId] ?? null)
 
   const setItemLabel = useCallback((parentId: OpenItemParentId, itemId: string, label: string) => {
     dispatch({ type: 'setItemLabel', parentId, itemId, label })
+  }, [])
+
+  /** Records (or, with null, forgets) the name of the page open inside a section. */
+  const setSubPageLabel = useCallback((sectionId: ShellSectionId, label: string | null) => {
+    setSubPageLabels((current) => {
+      if ((current[sectionId] ?? null) === label) return current
+      const next = { ...current }
+      if (label) next[sectionId] = label
+      else delete next[sectionId]
+      return next
+    })
   }, [])
 
   // Note when the page is being left, before the pop-out windows close with it.
@@ -201,10 +235,14 @@ export default function ApplicationShell({
 
   // Stage 2b: keep the address bar in step with the open section. Runs before the read below on the
   // first render, when the read flag is still false, so the section in the address is not overwritten.
+  // The second parameter of every other section is removed (the open section's screen keeps its own up to date).
   useEffect(() => {
     if (!addressReadRef.current) return
     const url = new URL(window.location.href)
     url.searchParams.set('section', activeSectionId)
+    for (const [ownerId, param] of Object.entries(SECTION_SUB_PAGE_PARAMS)) {
+      if (ownerId !== activeSectionId) url.searchParams.delete(param)
+    }
     window.history.replaceState(null, '', url)
   }, [activeSectionId])
 
@@ -259,7 +297,14 @@ export default function ApplicationShell({
         </OpenItemScopeProvider>
       )
     }
-    if (!isToolSectionId(sectionId)) return panels[sectionId]
+    if (!isToolSectionId(sectionId)) {
+      // The place tells the panel whether it owns the address bar and the breadcrumb (only the workspace copy does).
+      return (
+        <SectionPlaceContext.Provider key={`${sectionId}-${place}`} value={{ sectionId, place: place === 'workspace' ? 'workspace' : 'popout' }}>
+          {panels[sectionId]}
+        </SectionPlaceContext.Provider>
+      )
+    }
     const tool = findNavItem(sectionId, navItems).outsideTool
     if (!tool) return null
     return (
@@ -327,10 +372,30 @@ export default function ApplicationShell({
     else dispatch({ type: 'selectSection', sectionId })
   }
 
+  /**
+   * Opens the section of a breadcrumb step. Unlike the menu's Settings row it never closes the Settings group
+   * (`restoreSection`); leaving an outside tool with unsaved work still asks first.
+   */
+  function handleSelectBreadcrumb(sectionId: ShellSectionId): void {
+    if (sectionId === activeSectionId) return
+    const move = (): void => dispatch({ type: 'restoreSection', sectionId })
+    if (!popoutSectionIds.includes(activeSectionId)) confirmIfDirty(activeSectionId, move)
+    else move()
+  }
+
   // Screens inside the frame open other sections through this (components/shell/shellNavigation.ts).
   const navigation: ShellNavigation = {
-    openSection: (sectionId) => {
+    openSection: (sectionId, subPage) => {
       if (!isShellSectionId(sectionId, navItems)) return false
+      const param = SECTION_SUB_PAGE_PARAMS[sectionId as BuiltInSectionId]
+      if (subPage && param) {
+        // Written first so the section's screen finds it when it appears; the request covers a screen already showing.
+        const url = new URL(window.location.href)
+        url.searchParams.set(param, subPage)
+        window.history.replaceState(null, '', url)
+        subPageNonceRef.current += 1
+        setSubPageRequest({ sectionId, subPage, nonce: subPageNonceRef.current })
+      }
       handleSelectSection(sectionId)
       return true
     },
@@ -340,6 +405,8 @@ export default function ApplicationShell({
       return true
     },
     closeItem: (parentId, itemId) => dispatch({ type: 'closeItem', parentId, itemId }),
+    setSubPageLabel,
+    subPageRequest,
   }
 
   /** Shows an open item (opening it first); leaving an outside tool with unsaved work asks first. */
@@ -365,6 +432,7 @@ export default function ApplicationShell({
           <TopTitleBar
             title={activeItem.label}
             breadcrumbItems={breadcrumbItems}
+            onSelectBreadcrumb={handleSelectBreadcrumb}
             userDisplayName={user.displayName}
             search={topBarSearch}
             status={topBarStatus}

@@ -22,7 +22,7 @@
 
 import { useRef, useState, type ReactNode } from 'react'
 import { useDismissablePopup } from '@/components/ui/useDismissablePopup.client'
-import type { OpenItemParentId, ShellOpenItem } from '@/components/shell/navigation'
+import type { OpenItemParentId, ShellBreadcrumb, ShellOpenItem, ShellSectionId } from '@/components/shell/navigation'
 
 /** Small word shown beside each recently accessed item. */
 const RECENT_KIND_LABELS: Record<OpenItemParentId, string> = { contacts: 'Contact', billing: 'Billing' }
@@ -30,8 +30,10 @@ const RECENT_KIND_LABELS: Record<OpenItemParentId, string> = { contacts: 'Contac
 export interface TopTitleBarProps {
   /** Page title, normally the label of the open section. */
   title: string
-  /** Trail shown under the title; the last entry is the current page. */
-  breadcrumbItems: readonly string[]
+  /** Trail shown under the title; the last entry is the current page. Earlier steps with a section can be chosen. */
+  breadcrumbItems: readonly ShellBreadcrumb[]
+  /** Called when the person chooses an earlier breadcrumb step. When absent, the steps are plain text. */
+  onSelectBreadcrumb?: (sectionId: ShellSectionId) => void
   /** Name of the signed-in person, used in the bell's accessible name. */
   userDisplayName: string
   /** Number of actionable notifications. Zero until the notification summary is connected. */
@@ -72,6 +74,9 @@ const STYLES = {
   appTitle: 'm-0 truncate font-(family-name:--kr-theme-font-display) text-[length:var(--kr-theme-font-size-title)] leading-none font-extrabold text-white',
   breadcrumb: 'text-[10pt] whitespace-nowrap text-white/[.74]',
   breadcrumbCurrent: 'text-white',
+  /* An earlier step that opens its section: looks like the trail text, underlines on hover */
+  breadcrumbLink:
+    'border-0 bg-transparent p-0 font-[inherit] text-[length:inherit] text-white/[.74] cursor-pointer hover:text-white hover:underline focus-visible:outline-2 focus-visible:outline-white/70',
   searchBox: 'rounded-[2px] border border-white/[.12] bg-(--kr-theme-brand-secondary)/[.34] text-white focus-within:border-white/40',
   searchInput: 'min-w-0 flex-1 border-0 bg-transparent text-[length:var(--kr-theme-font-size-base)] text-white outline-none placeholder:text-white/60',
   button:
@@ -118,6 +123,7 @@ function NotificationBell({ hasNotifications }: { hasNotifications: boolean }) {
 export default function TopTitleBar({
   title,
   breadcrumbItems,
+  onSelectBreadcrumb,
   userDisplayName,
   notificationCount = 0,
   search,
@@ -143,10 +149,24 @@ export default function TopTitleBar({
           <nav className={`${LAYOUT_STYLES.breadcrumb} ${STYLES.breadcrumb}`} aria-label="Application breadcrumb" data-kr-element="application-breadcrumb">
             {breadcrumbItems.map((item, index) => {
               const current = index === breadcrumbItems.length - 1
+              const sectionId = item.sectionId
               return (
-                <span className={current ? STYLES.breadcrumbCurrent : undefined} key={`${item}-${index}`}>
+                <span className={current ? STYLES.breadcrumbCurrent : undefined} key={`${item.label}-${index}`}>
                   {index > 0 && <span aria-hidden="true"> / </span>}
-                  {item}
+                  {/* Earlier steps open their section; the last step is the current page */}
+                  {!current && sectionId && onSelectBreadcrumb ? (
+                    <button
+                      className={STYLES.breadcrumbLink}
+                      data-kr-action="select-breadcrumb-section"
+                      data-kr-section-id={sectionId}
+                      onClick={() => onSelectBreadcrumb(sectionId)}
+                      type="button"
+                    >
+                      {item.label}
+                    </button>
+                  ) : (
+                    item.label
+                  )}
                 </span>
               )
             })}

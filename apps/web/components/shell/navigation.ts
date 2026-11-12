@@ -108,13 +108,31 @@ export const SHELL_NAV_ITEMS: readonly ShellNavItem[] = [
   { id: 'front-end-publishing', label: 'Front End Publishing', icon: 'documents', description: 'Article and Answer publishing workflow for the public site.' },
   { id: 'reports', label: 'Reports', icon: 'reports', description: 'Markdown-first payroll reports, time-card summaries, and printable exports.' },
   { id: 'settings', label: 'Settings', icon: 'settings', description: 'Firm settings, user management, role management, and preferences.' },
-  { id: 'user-settings', label: 'User Settings', icon: 'settings', parentId: 'settings', isSubItem: true, description: 'Signed-in user preferences, theme, font size, starting page, and auto logout.' },
+  { id: 'user-settings', label: 'User Settings', icon: 'settings', parentId: 'settings', isSubItem: true, description: 'Your own preferences: theme, starting page, auto logout, dashboard and time card.' },
   { id: 'application-settings', label: 'Application Settings', icon: 'settings', parentId: 'settings', isSubItem: true, description: 'Application-wide user management, role specifications, and configuration.' },
-  { id: 'firm-settings', label: 'Firm Settings', icon: 'settings', parentId: 'settings', isSubItem: true, description: 'Firm profile, matter numbering, and office-level defaults.' },
+  { id: 'firm-settings', label: 'Firm Settings', icon: 'settings', parentId: 'settings', isSubItem: true, description: 'Firm profile, employee policies, employee documents and the firm IT settings.' },
 ]
 
 /** The section opened when the page loads with no `?section=` value. */
 export const SHELL_DEFAULT_SECTION_ID: ShellSectionId = 'dashboard'
+
+/**
+ * The second address-bar parameter of a section: which page inside it is open (Settings plan, stage 1). The names
+ * are the old app's, so old links still work, for example `?section=firm-settings&firmSettingsSection=profile`.
+ * The section's screen reads and writes it through `useSectionSubPage` (`useSectionSubPage.client.ts`); the frame
+ * removes it from the address when another section opens.
+ */
+export const SECTION_SUB_PAGE_PARAMS: Readonly<Partial<Record<BuiltInSectionId, string>>> = {
+  'user-settings': 'userSettingsSection',
+  'application-settings': 'applicationSettingsTab',
+  'firm-settings': 'firmSettingsSection',
+}
+
+/** One step of the breadcrumb trail. A step with a `sectionId` can be chosen to open that section. */
+export interface ShellBreadcrumb {
+  label: string
+  sectionId?: ShellSectionId
+}
 
 /**
  * Finds a menu row by id.
@@ -150,6 +168,23 @@ export function isShellSectionId(value: string | null | undefined, items: readon
 export function buildBreadcrumbs(id: ShellSectionId, items: readonly ShellNavItem[] = SHELL_NAV_ITEMS): string[] {
   const item = findNavItem(id, items)
   return item.parentId ? [findNavItem(item.parentId, items).label, item.label] : [item.label]
+}
+
+/**
+ * Builds the breadcrumb trail with the section each step opens, and the page inside the section as a last step.
+ *
+ * @param id - Section that is open.
+ * @param items - The menu; defaults to the built-in rows.
+ * @param subPageLabel - Name of the page open inside the section (for example `Firm Profile`), or null for none.
+ * @returns For a settings child with a page: Settings (opens `settings`), Firm Settings (opens `firm-settings`),
+ *   Firm Profile (the current page, no section).
+ */
+export function buildBreadcrumbTrail(id: ShellSectionId, items: readonly ShellNavItem[] = SHELL_NAV_ITEMS, subPageLabel: string | null = null): ShellBreadcrumb[] {
+  const item = findNavItem(id, items)
+  const trail: ShellBreadcrumb[] = item.parentId ? [{ label: findNavItem(item.parentId, items).label, sectionId: item.parentId }] : []
+  trail.push({ label: item.label, sectionId: item.id })
+  if (subPageLabel) trail.push({ label: subPageLabel })
+  return trail
 }
 
 /** The section id of an outside tool. */

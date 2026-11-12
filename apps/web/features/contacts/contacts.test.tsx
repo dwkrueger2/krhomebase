@@ -178,7 +178,7 @@ describe('open contact (stage 1d, part 2)', () => {
   it('opens a contact through the frame and remembers the lookup', async () => {
     const { openContact, readRecentContactLookups } = await import('./openContact')
     const opened: string[] = []
-    const navigation = { openSection: () => false, closeItem: () => undefined, openItem: (parentId: string, itemId: string, label: string) => (opened.push(`${parentId}|${itemId}|${label}`), true) }
+    const navigation = { openSection: () => false, closeItem: () => undefined, setSubPageLabel: () => undefined, subPageRequest: null, openItem: (parentId: string, itemId: string, label: string) => (opened.push(`${parentId}|${itemId}|${label}`), true) }
     expect(openContact(navigation, contact('a', 'Ann Example', { clientNumber: '0042' }))).toBe(true)
     expect(opened).toEqual(['contacts|a|[0042] Ann Example'])
     expect(readRecentContactLookups()[0]!.id).toBe('a')

@@ -8,8 +8,10 @@
  * pop-out window.
  * Each panel is its own file under `features/<area>/components/`; most are placeholders today.
  * It also reads the outside tools this person may use (`features/tools/tools.server.ts`) for the menu, and,
- * for a super admin only, places the "Outside tools" screen under Application Settings. The API refuses that
- * screen's calls from anyone else, so hiding it here is a convenience, not the protection.
+ * for a super admin only, places the "Outside tools" screen as the Outside Tools page of Application Settings. The
+ * API refuses that screen's calls from anyone else, so hiding it here is a convenience, not the protection.
+ * The Settings panels are told whether the person is a super admin (the landing page's IT cards, the Firm Settings IT
+ * pages and Application Settings are for super admins); this too only hides what the API would refuse.
  * It also names the screen for each kind of open item (`openItemPanels`: an open contact under Clients & Contacts
  * is drawn by `ContactDetailPanel`, an open client under Billing by `BillingClientPanel`), and passes the user id so
  * the frame saves the open items per person.
@@ -77,10 +79,13 @@ export default async function HomePage() {
   const { session } = state
   const user = { displayName: session.displayName, firmName: session.firmName, avatarInitials: session.avatarInitials }
   const outsideTools = await fetchToolMenu()
-  const panels: Record<BuiltInSectionId, ReactNode> =
-    session.role === 'super_admin'
-      ? { ...PANELS, 'application-settings': <ApplicationSettingsPanel><OutsideToolsAdmin /></ApplicationSettingsPanel> }
-      : PANELS
+  const isSuperAdmin = session.role === 'super_admin'
+  const panels: Record<BuiltInSectionId, ReactNode> = {
+    ...PANELS,
+    settings: <SettingsPanel isSuperAdmin={isSuperAdmin} />,
+    'application-settings': <ApplicationSettingsPanel isSuperAdmin={isSuperAdmin} outsideTools={isSuperAdmin ? <OutsideToolsAdmin /> : undefined} />,
+    'firm-settings': <FirmSettingsPanel isSuperAdmin={isSuperAdmin} />,
+  }
   // The data store (contacts and the billing client list, cached encrypted in the browser) wraps the frame, so the
   // top-bar search, the sync light and every screen, pop-outs included, share one copy.
   return (
