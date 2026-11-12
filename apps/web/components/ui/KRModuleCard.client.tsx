@@ -22,11 +22,15 @@ const STYLES = {
   header: 'border-b border-(--kr-theme-line) bg-(--kr-theme-muted-surface)',
   title: 'm-0 text-[13px] font-[850] leading-[1.2] text-(color:--kr-theme-text)',
   note: 'text-[12px] leading-[1.35] text-(color:--kr-theme-text-muted)',
+  /* noteTone="strong": body text color and semibold, for notes that carry facts the reader needs (Attendance) */
+  noteStrong: 'text-[12px] leading-[1.35] font-[600] text-(color:--kr-theme-text)',
 } as const
 
 export interface KRModuleCardProps {
   title: string
   note?: ReactNode
+  /** `muted` (default): the gray note. `strong`: dark, semibold note text. */
+  noteTone?: 'muted' | 'strong'
   actions?: ReactNode
   children: ReactNode
   /** Prefix of the card's `data-kr-id` (`<krId>-KRModuleCard`) and header marker. */
@@ -37,13 +41,13 @@ export interface KRModuleCardProps {
 }
 
 /** Renders a standard dense module card. */
-export function KRModuleCard({ title, note, actions, children, krId, component = 'KRModuleCard', className, bodyClassName }: KRModuleCardProps) {
+export function KRModuleCard({ title, note, noteTone = 'muted', actions, children, krId, component = 'KRModuleCard', className, bodyClassName }: KRModuleCardProps) {
   return (
     <section className={[LAYOUT_STYLES.card, STYLES.card, className].filter(Boolean).join(' ')} data-kr-id={`${krId}-KRModuleCard`} data-kr-component={component}>
       <header className={`${LAYOUT_STYLES.header} ${STYLES.header}`} data-kr-element={`${krId}-header`}>
         <div>
           <h3 className={STYLES.title}>{title}</h3>
-          {note ? <p className={`${LAYOUT_STYLES.note} ${STYLES.note}`}>{note}</p> : null}
+          {note ? <p className={`${LAYOUT_STYLES.note} ${noteTone === 'strong' ? STYLES.noteStrong : STYLES.note}`}>{note}</p> : null}
         </div>
         {actions ? <div className={LAYOUT_STYLES.actions}>{actions}</div> : null}
       </header>

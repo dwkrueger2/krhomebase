@@ -19006,6 +19006,4550 @@
           }
         }
       }
+    },
+    "/v1/timekeeping/time-card": {
+      "get": {
+        "summary": "One employee's time card for the pay period holding a date: punches, worked spans, hand-entered hours, totals, what the viewer may do and whether they may approve now. Default: the viewer's own card, today. Another employee needs the attendance team or all scope.",
+        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, EMPLOYEE_NOT_FOUND, ATTENDANCE_SCOPE_NOT_AUTHORIZED, VALIDATION_INVALID_DATE, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "timekeeping"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Any date in the wanted pay period (firm-local YYYY-MM-DD). Default: today."
+            },
+            "required": false,
+            "description": "Any date in the wanted pay period (firm-local YYYY-MM-DD). Default: today.",
+            "name": "date",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "The employee whose card to show. Default: the signed-in person's own. Another employee needs the team or all scope."
+            },
+            "required": false,
+            "description": "The employee whose card to show. Default: the signed-in person's own. Another employee needs the team or all scope.",
+            "name": "employeeId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The card.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "today": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                          "description": "Today in the firm time zone."
+                        },
+                        "period": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "`pp_<start date>`."
+                            },
+                            "start": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                              "description": "First day (a Sunday with the default anchor)."
+                            },
+                            "end": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                              "description": "Last day (14 days in all)."
+                            },
+                            "number": {
+                              "type": "integer",
+                              "description": "Period number within the year of its end date (1 = the first period ending in January)."
+                            },
+                            "status": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Stored status (`open`, ...), or null when no punch has created the period row yet."
+                            },
+                            "payDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                              "description": "Pay date when one is stored (none is today)."
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "start",
+                            "end",
+                            "number",
+                            "status",
+                            "payDate"
+                          ],
+                          "description": "The pay period holding the requested date."
+                        },
+                        "employee": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "Employee id."
+                            },
+                            "userId": {
+                              "type": "string",
+                              "description": "The employee's user account."
+                            },
+                            "name": {
+                              "type": "string",
+                              "description": "First and last name, else the login email."
+                            },
+                            "employeeNumber": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Employee number, when set."
+                            },
+                            "employmentStatus": {
+                              "type": "string",
+                              "description": "`active`, `on_leave`, `terminated`, `contractor` or `inactive`."
+                            },
+                            "is1099Vendor": {
+                              "type": "boolean",
+                              "description": "True for a 1099 contractor."
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "userId",
+                            "name",
+                            "employeeNumber",
+                            "employmentStatus",
+                            "is1099Vendor"
+                          ],
+                          "description": "Whose card this is."
+                        },
+                        "card": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "`tc_<uuid>`."
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "open",
+                                "submitted",
+                                "approved",
+                                "reopened",
+                                "exported"
+                              ],
+                              "description": "Card status."
+                            },
+                            "isLocked": {
+                              "type": "boolean",
+                              "description": "True when locked, approved or exported: no punch or entry may change."
+                            },
+                            "lockedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "When it was locked."
+                            },
+                            "employeeApprovedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "When the employee approved (submitted) it."
+                            },
+                            "employeeApprovedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Who approved it for the employee."
+                            },
+                            "managerApprovedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "When a manager or super admin approved it."
+                            },
+                            "managerApprovedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Who approved it as manager."
+                            },
+                            "reopenedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "When it was last reopened."
+                            },
+                            "reopenedByUserId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Who reopened it."
+                            },
+                            "notes": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Card notes."
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "status",
+                            "isLocked",
+                            "lockedAt",
+                            "employeeApprovedAt",
+                            "employeeApprovedByUserId",
+                            "managerApprovedAt",
+                            "managerApprovedByUserId",
+                            "reopenedAt",
+                            "reopenedByUserId",
+                            "notes"
+                          ],
+                          "description": "The stored card, or null when no punch or entry has created it yet."
+                        },
+                        "punches": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "`punch_<uuid>`."
+                              },
+                              "punchType": {
+                                "type": "string",
+                                "enum": [
+                                  "clock_in",
+                                  "clock_out"
+                                ],
+                                "description": "Clock-in or clock-out."
+                              },
+                              "occurredAt": {
+                                "type": "string",
+                                "description": "When, rounded to the reporting increment."
+                              },
+                              "localDate": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                                "description": "Firm-local date of the punch."
+                              },
+                              "source": {
+                                "type": "string",
+                                "description": "`button`, `employee_correction`, `manager_correction`, `auto_break_resume` or `system`."
+                              },
+                              "correctionReason": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Reason given for a correction."
+                              },
+                              "supersedesPunchId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The punch this one replaced (a correction)."
+                              },
+                              "voidedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Set when the punch was removed. Voided punches are kept for the record and never counted."
+                              },
+                              "createdByUserId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Who made the punch."
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "punchType",
+                              "occurredAt",
+                              "localDate",
+                              "source",
+                              "correctionReason",
+                              "supersedesPunchId",
+                              "voidedAt",
+                              "createdByUserId"
+                            ]
+                          },
+                          "description": "Every punch on the card in time order, voided ones included (marked)."
+                        },
+                        "intervals": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "startPunchId": {
+                                "type": "string",
+                                "description": "The clock-in (or, for a clock-out without a clock-in, the clock-out)."
+                              },
+                              "endPunchId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The clock-out, or null when none closed it."
+                              },
+                              "startAt": {
+                                "type": "string",
+                                "description": "Start."
+                              },
+                              "endAt": {
+                                "type": "string",
+                                "description": "End; for an unclosed clock-in, the next local midnight (a stand-in, never paid)."
+                              },
+                              "workDate": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                                "description": "Local date of the start."
+                              },
+                              "hours": {
+                                "type": "number",
+                                "description": "Rounded reported hours."
+                              },
+                              "isAssumedMidnightClose": {
+                                "type": "boolean",
+                                "description": "True when the end is a stand-in, not a real clock-out."
+                              },
+                              "exception": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "enum": [
+                                  "duplicate_clock_in",
+                                  "clock_out_without_clock_in",
+                                  "shift_over_10_hours",
+                                  "assumed_midnight_close",
+                                  null
+                                ],
+                                "description": "A problem with this pair, or null."
+                              }
+                            },
+                            "required": [
+                              "startPunchId",
+                              "endPunchId",
+                              "startAt",
+                              "endAt",
+                              "workDate",
+                              "hours",
+                              "isAssumedMidnightClose",
+                              "exception"
+                            ]
+                          },
+                          "description": "The punches paired into worked spans."
+                        },
+                        "events": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "`tte_<uuid>`."
+                              },
+                              "workDate": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                                "description": "Day the hours belong to."
+                              },
+                              "timeType": {
+                                "type": "string",
+                                "description": "`pto`, `holiday`, `sick`, `unpaid` or `other`. Regular time comes from the punches."
+                              },
+                              "hours": {
+                                "type": "number",
+                                "description": "Hours, rounded to the increment."
+                              },
+                              "status": {
+                                "type": "string",
+                                "description": "`draft`, `submitted`, `approved`, `rejected` or `paid`."
+                              },
+                              "notes": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Notes, up to 500 characters."
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "workDate",
+                              "timeType",
+                              "hours",
+                              "status",
+                              "notes"
+                            ]
+                          },
+                          "description": "Hand-entered hours (PTO, holiday, sick, unpaid, other) in the period."
+                        },
+                        "totals": {
+                          "type": "object",
+                          "properties": {
+                            "regularHours": {
+                              "type": "number",
+                              "description": "From real in and out pairs, up to 40 a week."
+                            },
+                            "overtimeHours": {
+                              "type": "number",
+                              "description": "Computed: hours over 40 in a Sunday-to-Saturday week. Stored overtime entries never count."
+                            },
+                            "ptoHours": {
+                              "type": "number",
+                              "description": "Hand-entered PTO."
+                            },
+                            "holidayHours": {
+                              "type": "number",
+                              "description": "Hand-entered holiday hours."
+                            },
+                            "sickHours": {
+                              "type": "number",
+                              "description": "Hand-entered sick hours."
+                            },
+                            "unpaidHours": {
+                              "type": "number",
+                              "description": "Hand-entered unpaid hours."
+                            },
+                            "otherHours": {
+                              "type": "number",
+                              "description": "Hand-entered other hours."
+                            }
+                          },
+                          "required": [
+                            "regularHours",
+                            "overtimeHours",
+                            "ptoHours",
+                            "holidayHours",
+                            "sickHours",
+                            "unpaidHours",
+                            "otherHours"
+                          ],
+                          "description": "Hours by category for the period."
+                        },
+                        "exceptions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "duplicate_clock_in",
+                              "clock_out_without_clock_in",
+                              "shift_over_10_hours",
+                              "assumed_midnight_close"
+                            ]
+                          },
+                          "description": "Each kind of pairing problem on the card, once."
+                        },
+                        "isCardEditWindowExpired": {
+                          "type": "boolean",
+                          "description": "True when the period ended longer ago than the viewer's window."
+                        },
+                        "policy": {
+                          "type": "object",
+                          "properties": {
+                            "timezone": {
+                              "type": "string",
+                              "description": "Firm time zone (IANA name)."
+                            },
+                            "incrementMinutes": {
+                              "type": "number",
+                              "description": "Punches and hours are rounded to this many minutes (6 = a tenth of an hour)."
+                            },
+                            "employeeEditWindowDays": {
+                              "type": "integer",
+                              "description": "Days after the work date an employee may still change their own punches."
+                            },
+                            "managerEditWindowDays": {
+                              "type": "integer",
+                              "description": "Days after the work date a manager may still change a team member's punches."
+                            }
+                          },
+                          "required": [
+                            "timezone",
+                            "incrementMinutes",
+                            "employeeEditWindowDays",
+                            "managerEditWindowDays"
+                          ],
+                          "description": "The policy values the screen needs."
+                        },
+                        "viewer": {
+                          "type": "object",
+                          "properties": {
+                            "scope": {
+                              "type": "string",
+                              "enum": [
+                                "own",
+                                "team",
+                                "all"
+                              ],
+                              "description": "Why the viewer may see this card: their own, a team member's, or everyone's."
+                            },
+                            "canUpdate": {
+                              "type": "boolean",
+                              "description": "May change hand-entered hours and notes on this card (window and lock still apply)."
+                            },
+                            "canEditPunches": {
+                              "type": "boolean",
+                              "description": "May add, change or remove punches on this card. An employee on leave may enter hours but not punches."
+                            },
+                            "canApprove": {
+                              "type": "boolean",
+                              "description": "May approve this card."
+                            },
+                            "isSuperAdmin": {
+                              "type": "boolean",
+                              "description": "Super admin: bypasses the edit windows and sees the correction history."
+                            },
+                            "editWindowDays": {
+                              "type": "integer",
+                              "description": "The window that applies to this viewer on this card."
+                            }
+                          },
+                          "required": [
+                            "scope",
+                            "canUpdate",
+                            "canEditPunches",
+                            "canApprove",
+                            "isSuperAdmin",
+                            "editWindowDays"
+                          ],
+                          "description": "What the signed-in person may do with this card."
+                        },
+                        "approval": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "enum": [
+                                "employee",
+                                "manager",
+                                null
+                              ],
+                              "description": "`employee` on one's own card, `manager` on someone else's, null when the viewer may not approve."
+                            },
+                            "allowed": {
+                              "type": "boolean",
+                              "description": "True when the Approve button may be pressed now."
+                            },
+                            "blockedReason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Why approval is not possible now, in a plain sentence (null when allowed or not offered)."
+                            },
+                            "canReopen": {
+                              "type": "boolean",
+                              "description": "True when the viewer may reopen this card now (it is submitted or approved, and the viewer is a manager of it or a super admin)."
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "allowed",
+                            "blockedReason",
+                            "canReopen"
+                          ],
+                          "description": "Whether and how the viewer may approve or reopen this card now."
+                        }
+                      },
+                      "required": [
+                        "today",
+                        "period",
+                        "employee",
+                        "card",
+                        "punches",
+                        "intervals",
+                        "events",
+                        "totals",
+                        "exceptions",
+                        "isCardEditWindowExpired",
+                        "policy",
+                        "viewer",
+                        "approval"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No Attendance access, not set up as an employee, or not allowed to see this employee.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such employee (EMPLOYEE_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The date is not a real calendar date (VALIDATION_INVALID_DATE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached (TIMEKEEPING_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/timekeeping/clock-state": {
+      "get": {
+        "summary": "The signed-in person's clock: clocked in or out, minutes worked today, the open shift, any older clock-in that needs repair, and whether they may use the clock.",
+        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "timekeeping"
+        ],
+        "responses": {
+          "200": {
+            "description": "The clock state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "today": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                          "description": "Today in the firm time zone."
+                        },
+                        "period": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "`pp_<start date>`."
+                            },
+                            "start": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                              "description": "First day (a Sunday with the default anchor)."
+                            },
+                            "end": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                              "description": "Last day (14 days in all)."
+                            },
+                            "number": {
+                              "type": "integer",
+                              "description": "Period number within the year of its end date (1 = the first period ending in January)."
+                            },
+                            "status": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Stored status (`open`, ...), or null when no punch has created the period row yet."
+                            },
+                            "payDate": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                              "description": "Pay date when one is stored (none is today)."
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "start",
+                            "end",
+                            "number",
+                            "status",
+                            "payDate"
+                          ],
+                          "description": "The current pay period."
+                        },
+                        "isClockedIn": {
+                          "type": "boolean",
+                          "description": "True while a shift is open (today's, or last night's before 3 am)."
+                        },
+                        "minutesWorkedToday": {
+                          "type": "integer",
+                          "description": "Minutes worked today so far, the open shift included."
+                        },
+                        "openPunch": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "The open clock-in."
+                            },
+                            "localDate": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                              "description": "Its local date."
+                            },
+                            "occurredAt": {
+                              "type": "string",
+                              "description": "When."
+                            },
+                            "timeCardId": {
+                              "type": "string",
+                              "description": "Its card."
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "localDate",
+                            "occurredAt",
+                            "timeCardId"
+                          ],
+                          "description": "The open shift's clock-in, or null."
+                        },
+                        "staleOpenPunch": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "The open clock-in."
+                            },
+                            "localDate": {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                              "description": "Its local date."
+                            },
+                            "occurredAt": {
+                              "type": "string",
+                              "description": "When."
+                            },
+                            "timeCardId": {
+                              "type": "string",
+                              "description": "Its card."
+                            },
+                            "daysOpen": {
+                              "type": "integer",
+                              "description": "Local days since the punch."
+                            },
+                            "message": {
+                              "type": "string",
+                              "description": "Plain sentence for the screen."
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "localDate",
+                            "occurredAt",
+                            "timeCardId",
+                            "daysOpen",
+                            "message"
+                          ],
+                          "description": "An older clock-in never closed: it must be repaired on the time card. Today's clock still works."
+                        },
+                        "canClock": {
+                          "type": "boolean",
+                          "description": "True when the viewer may use Clock in and Clock out (an active employee with the attendance create and update grants)."
+                        }
+                      },
+                      "required": [
+                        "today",
+                        "period",
+                        "isClockedIn",
+                        "minutesWorkedToday",
+                        "openPunch",
+                        "staleOpenPunch",
+                        "canClock"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No Attendance access, or not set up as an employee.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached (TIMEKEEPING_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/timekeeping/employees": {
+      "get": {
+        "summary": "The employees whose time cards the viewer may open, for the Attendance picker: their own record first, then everyone (all scope or super admin) or the members of the teams they lead (team scope).",
+        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "timekeeping"
+        ],
+        "responses": {
+          "200": {
+            "description": "The employees.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "employees": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "Employee id."
+                              },
+                              "userId": {
+                                "type": "string",
+                                "description": "The employee's user account."
+                              },
+                              "name": {
+                                "type": "string",
+                                "description": "First and last name, else the login email."
+                              },
+                              "employeeNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Employee number, when set."
+                              },
+                              "employmentStatus": {
+                                "type": "string",
+                                "description": "`active`, `on_leave`, `terminated`, `contractor` or `inactive`."
+                              },
+                              "is1099Vendor": {
+                                "type": "boolean",
+                                "description": "True for a 1099 contractor."
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "userId",
+                              "name",
+                              "employeeNumber",
+                              "employmentStatus",
+                              "is1099Vendor"
+                            ]
+                          },
+                          "description": "The viewer's own record first (when they are an employee), then every other employee whose card the viewer may open, by name."
+                        }
+                      },
+                      "required": [
+                        "employees"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No Attendance access.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached (TIMEKEEPING_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/timekeeping/clock-in": {
+      "post": {
+        "summary": "Clock the signed-in person in now (rounded to the reporting increment). Refused while a shift is open. A repeated idempotency key returns the first punch.",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_punch; Writes pay_period and employee_time_card when missing; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_ACTIVE, TIME_CARD_LOCKED, ATTENDANCE_STATE_CONFLICT, TIME_CARD_NOT_FOUND, ALREADY_CLOCKED_IN, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "timekeeping"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 120,
+                    "description": "A key the screen makes once per click. Sending the same key again returns the first result instead of saving a second punch."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Done.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "punchId": {
+                          "type": "string",
+                          "description": "The punch that was saved (or found again for a repeated key)."
+                        },
+                        "occurredAt": {
+                          "type": "string",
+                          "description": "When, rounded to the reporting increment."
+                        },
+                        "localDate": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                          "description": "Firm-local date of the punch."
+                        },
+                        "replayed": {
+                          "type": "boolean",
+                          "description": "True when the key had already been used: nothing new was saved."
+                        }
+                      },
+                      "required": [
+                        "punchId",
+                        "occurredAt",
+                        "localDate",
+                        "replayed"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed: no access, not an active employee, outside the edit window, or not this card's manager.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such employee, card or punch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The card is locked, the clock is in another state, or approval is not possible now (the code says which).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A value is missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached (TIMEKEEPING_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/timekeeping/clock-out": {
+      "post": {
+        "summary": "Clock the signed-in person out now. With no open shift: NO_OPEN_CLOCK_IN (details name an older open punch to repair). Last night's shift still open before 3 am: MISSED_CLOCK_OUT_REQUIRES_REVIEW, answered with the missed clock-out route.",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_punch; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_ACTIVE, TIME_CARD_LOCKED, ATTENDANCE_STATE_CONFLICT, TIME_CARD_NOT_FOUND, NO_OPEN_CLOCK_IN, MISSED_CLOCK_OUT_REQUIRES_REVIEW, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "timekeeping"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 120,
+                    "description": "A key the screen makes once per click. Sending the same key again returns the first result instead of saving a second punch."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Done.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "punchId": {
+                          "type": "string",
+                          "description": "The punch that was saved (or found again for a repeated key)."
+                        },
+                        "occurredAt": {
+                          "type": "string",
+                          "description": "When, rounded to the reporting increment."
+                        },
+                        "localDate": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                          "description": "Firm-local date of the punch."
+                        },
+                        "replayed": {
+                          "type": "boolean",
+                          "description": "True when the key had already been used: nothing new was saved."
+                        }
+                      },
+                      "required": [
+                        "punchId",
+                        "occurredAt",
+                        "localDate",
+                        "replayed"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed: no access, not an active employee, outside the edit window, or not this card's manager.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such employee, card or punch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The card is locked, the clock is in another state, or approval is not possible now (the code says which).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A value is missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached (TIMEKEEPING_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/timekeeping/missed-clock-out": {
+      "post": {
+        "summary": "Close last night's open shift, before 3 am: `enter_time` saves the given clock-out on that date; `split_midnight` closes it at midnight, starts today at midnight and clocks out now (three punches, one save).",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_punch; Writes pay_period and employee_time_card when missing; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_ACTIVE, TIME_CARD_LOCKED, ATTENDANCE_STATE_CONFLICT, TIME_CARD_NOT_FOUND, NO_OPEN_CLOCK_IN, MISSED_CLOCK_OUT_REPAIR_REQUIRED, MISSED_CLOCK_OUT_TIME_REQUIRED, MISSED_CLOCK_OUT_MUST_USE_OPEN_WORK_DATE, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "timekeeping"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "choice": {
+                    "type": "string",
+                    "enum": [
+                      "enter_time",
+                      "split_midnight"
+                    ],
+                    "description": "`enter_time`: last night's clock-out at `missedAt`. `split_midnight`: close last night at midnight, start today at midnight, and clock out now."
+                  },
+                  "missedAt": {
+                    "type": "string",
+                    "description": "For `enter_time`: the clock-out time (an ISO time) on the open shift's date."
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 120,
+                    "description": "A key the screen makes once per click. Sending the same key again returns the first result instead of saving a second punch."
+                  }
+                },
+                "required": [
+                  "choice"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Done.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "punchIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "The punches saved: one for `enter_time`, three for `split_midnight`."
+                        }
+                      },
+                      "required": [
+                        "punchIds"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed: no access, not an active employee, outside the edit window, or not this card's manager.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such employee, card or punch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The card is locked, the clock is in another state, or approval is not possible now (the code says which).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A value is missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached (TIMEKEEPING_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/timekeeping/punches": {
+      "post": {
+        "summary": "Add a punch to an employee's time card, or replace one (the original is voided in the same save). The work date must be inside the edit window (from the work date through the employee's or manager's window; super admins are exempt). A manager's change clears the employee's approval.",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_punch; Writes pay_period and employee_time_card when missing; Clears employee approval on a manager change (employee_time_card); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_FOUND, EMPLOYEE_NOT_ACTIVE, TIMEKEEPING_OCCURRED_AT_INVALID, CLOCK_EDIT_WINDOW_EXPIRED, TIME_CARD_EDIT_WINDOW_EXPIRED, TIME_CARD_LOCKED, PUNCH_NOT_FOUND, PUNCH_ALREADY_VOIDED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "timekeeping"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "employeeId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "Whose card. Default: the signed-in person's own. Another employee needs the team or all scope."
+                  },
+                  "punchType": {
+                    "type": "string",
+                    "enum": [
+                      "clock_in",
+                      "clock_out"
+                    ],
+                    "description": "Clock-in or clock-out."
+                  },
+                  "occurredAt": {
+                    "type": "string",
+                    "description": "When (an ISO time); rounded to the reporting increment. Its firm-local date picks the card."
+                  },
+                  "replacesPunchId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "The punch this one corrects. It is voided in the same save; nothing is deleted."
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 300,
+                    "description": "Why, for the correction history. Default for a replacement: \"Time Card Review correction\"."
+                  }
+                },
+                "required": [
+                  "punchType",
+                  "occurredAt"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Done.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "punchId": {
+                          "type": "string",
+                          "description": "The new punch."
+                        },
+                        "supersededPunchId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The punch it replaced, now voided, or null."
+                        },
+                        "timeCardId": {
+                          "type": "string",
+                          "description": "The card it is on."
+                        }
+                      },
+                      "required": [
+                        "punchId",
+                        "supersededPunchId",
+                        "timeCardId"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed: no access, not an active employee, outside the edit window, or not this card's manager.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such employee, card or punch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The card is locked, the clock is in another state, or approval is not possible now (the code says which).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A value is missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached (TIMEKEEPING_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/timekeeping/punches/{punchId}": {
+      "delete": {
+        "summary": "Void a punch (it stays on record, marked, and stops counting). Same window and lock rules as a change. A punch already voided answers alreadyVoided.",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_punch (voided_at); Clears employee approval on a manager change (employee_time_card); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_FOUND, EMPLOYEE_NOT_ACTIVE, PUNCH_NOT_FOUND, CLOCK_EDIT_WINDOW_EXPIRED, TIME_CARD_EDIT_WINDOW_EXPIRED, TIME_CARD_LOCKED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "timekeeping"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "The punch."
+            },
+            "required": true,
+            "description": "The punch.",
+            "name": "punchId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Done.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "punchId": {
+                          "type": "string",
+                          "description": "The punch."
+                        },
+                        "voidedAt": {
+                          "type": "string",
+                          "description": "When it was voided."
+                        },
+                        "alreadyVoided": {
+                          "type": "boolean",
+                          "description": "True when it had been voided before: nothing changed."
+                        }
+                      },
+                      "required": [
+                        "punchId",
+                        "voidedAt",
+                        "alreadyVoided"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed: no access, not an active employee, outside the edit window, or not this card's manager.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such employee, card or punch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The card is locked, the clock is in another state, or approval is not possible now (the code says which).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A value is missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached (TIMEKEEPING_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/timekeeping/events": {
+      "put": {
+        "summary": "Set one kind of hand-entered hours (PTO, holiday, sick, unpaid, other) on one day, with its note. Changes that day's entry of that kind, or makes one. The card must be open and its period inside the window.",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_event; Writes pay_period and employee_time_card when missing; Clears employee approval on a manager change (employee_time_card); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_FOUND, EMPLOYEE_NOT_ACTIVE, VALIDATION_INVALID_DATE, TIME_CARD_EDIT_WINDOW_EXPIRED, TIME_CARD_LOCKED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "timekeeping"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "employeeId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "Whose card. Default: the signed-in person's own. Another employee needs the team or all scope."
+                  },
+                  "workDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "The day (firm-local YYYY-MM-DD). It picks the card."
+                  },
+                  "timeType": {
+                    "type": "string",
+                    "enum": [
+                      "pto",
+                      "holiday",
+                      "sick",
+                      "unpaid",
+                      "other"
+                    ],
+                    "description": "The kind of hours. Regular and overtime come from the punches and cannot be entered."
+                  },
+                  "hours": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 24,
+                    "description": "Hours for that day and kind; rounded to the increment. 0 clears them."
+                  },
+                  "notes": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 500,
+                    "description": "The note for that day and kind. Left out: the note is unchanged. The screen keeps the day note on the `other` entry."
+                  }
+                },
+                "required": [
+                  "workDate",
+                  "timeType",
+                  "hours"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Done.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "eventId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The entry saved, or null when there was nothing to save (0 hours and no note, with no entry yet)."
+                        },
+                        "timeCardId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The card, or null when nothing was saved and the period has no card yet."
+                        }
+                      },
+                      "required": [
+                        "eventId",
+                        "timeCardId"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed: no access, not an active employee, outside the edit window, or not this card's manager.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such employee, card or punch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The card is locked, the clock is in another state, or approval is not possible now (the code says which).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A value is missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached (TIMEKEEPING_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/timekeeping/time-cards/{cardId}/approve": {
+      "post": {
+        "summary": "Approve a time card. On one's own card (employee approval) it submits the card, on a Friday of the period or after it ends. On someone else's (manager approval) it approves and locks the card. Missing clock-ins or clock-outs block both.",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_card; Writes employee_time_event (status); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_FOUND, TIME_CARD_NOT_FOUND, TIME_CARD_LOCKED, TIME_CARD_ALREADY_APPROVED, EMPLOYEE_APPROVAL_NOT_YET_ALLOWED, TIME_CARD_HAS_UNRESOLVED_EXCEPTIONS, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "timekeeping"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "The time card."
+            },
+            "required": true,
+            "description": "The time card.",
+            "name": "cardId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Done.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "cardId": {
+                          "type": "string",
+                          "description": "The card."
+                        },
+                        "approvalType": {
+                          "type": "string",
+                          "enum": [
+                            "employee",
+                            "manager"
+                          ],
+                          "description": "Employee approval submits the card; manager approval approves and locks it."
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "open",
+                            "submitted",
+                            "approved",
+                            "reopened",
+                            "exported"
+                          ],
+                          "description": "The card status after approval."
+                        },
+                        "approvedAt": {
+                          "type": "string",
+                          "description": "When."
+                        }
+                      },
+                      "required": [
+                        "cardId",
+                        "approvalType",
+                        "status",
+                        "approvedAt"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed: no access, not an active employee, outside the edit window, or not this card's manager.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such employee, card or punch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The card is locked, the clock is in another state, or approval is not possible now (the code says which).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A value is missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached (TIMEKEEPING_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/timekeeping/time-cards/{cardId}/reopen": {
+      "post": {
+        "summary": "Reopen a submitted or approved time card: clears both approvals and the lock and sets the entered hours back to draft. A manager of the card or a super admin only; an exported card cannot be reopened.",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_card; Writes employee_time_event (status); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_FOUND, TIME_CARD_NOT_FOUND, MANAGER_REOPEN_REQUIRED, TIME_CARD_NOT_APPROVED, TIME_CARD_EXPORTED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "timekeeping"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "The time card."
+            },
+            "required": true,
+            "description": "The time card.",
+            "name": "cardId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Done.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "cardId": {
+                          "type": "string",
+                          "description": "The card."
+                        },
+                        "reopenedAt": {
+                          "type": "string",
+                          "description": "When. Both approvals and the lock are cleared, and the entered hours go back to draft."
+                        }
+                      },
+                      "required": [
+                        "cardId",
+                        "reopenedAt"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed: no access, not an active employee, outside the edit window, or not this card's manager.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such employee, card or punch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The card is locked, the clock is in another state, or approval is not possible now (the code says which).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A value is missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached (TIMEKEEPING_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "webhooks": {}

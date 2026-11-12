@@ -10,7 +10,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createTestD1 } from '../../../test/fakes.ts'
 import { createPermissionQueries } from './queries.ts'
-import { clearPermissionCache, isAuthorized, resolveEffectivePermissions } from './rules.ts'
+import { clearPermissionCache, isAuthorized, isAuthorizedScoped, resolveEffectivePermissions } from './rules.ts'
 
 let sqlite: DatabaseSync
 let queries: ReturnType<typeof createPermissionQueries>
@@ -72,5 +72,50 @@ describe('resolveEffectivePermissions', () => {
     expect(await isAuthorized(queries, 'u1', 'contacts', 'read')).toBe(false)
     clearPermissionCache('u1')
     expect(await isAuthorized(queries, 'u1', 'contacts', 'read')).toBe(true)
+  })
+})
+
+describe('isAuthorizedScoped (old isAuthorizedScoped; added for Attendance)', () => {
+  beforeEach(() => {
+    // The live Attendance grants, made up as test role sets: staff own; manager own and team.
+    run(`INSERT INTO role_set (id, role_key, label, is_system) VALUES ('rs-mgr', 'test_manager', 'Manager', 0)`)
+    run(`INSERT INTO role_set_permission_scope (id, role_set_id, permission_key, scope, can_create, can_read, can_update, can_approve)
+         VALUES ('s1', 'rs-staff', 'attendance', 'own', 1, 1, 1, 1),
+                ('s2', 'rs-mgr', 'attendance', 'own', 1, 1, 1, 1),
+                ('s3', 'rs-mgr', 'attendance', 'team', 0, 1, 1, 1)`)
+  })
+
+  it('allows a scope the role holds and refuses one it does not', async () => {
+    run(`INSERT INTO user_role_set (id, user_id, role_set_id) VALUES ('a1', 'u1', 'rs-staff')`)
+    expect(await isAuthorizedScoped(queries, 'u1', 'attendance', 'read', 'own')).toBe(true)
+    expect(await isAuthorizedScoped(queries, 'u1', 'attendance', 'read', 'team')).toBe(false)
+    expect(await isAuthorizedScoped(queries, 'u1', 'attendance', 'delete', 'own')).toBe(false)
+  })
+
+  it('lets a team grant cover own, but not the reverse, and not all', async () => {
+    run(`INSERT INTO role_set_permission_scope (id, role_set_id, permission_key, scope, can_read) VALUES ('s4', 'rs-billing', 'attendance', 'team', 1)`)
+    run(`INSERT INTO user_role_set (id, user_id, role_set_id) VALUES ('a1', 'u1', 'rs-billing')`)
+    expect(await isAuthorizedScoped(queries, 'u1', 'attendance', 'read', 'own')).toBe(true)
+    expect(await isAuthorizedScoped(queries, 'u1', 'attendance', 'read', 'all')).toBe(false)
+  })
+
+  it('lets an all grant cover every scope', async () => {
+    run(`INSERT INTO role_set_permission_scope (id, role_set_id, permission_key, scope, can_read) VALUES ('s5', 'rs-billing', 'attendance', 'all', 1)`)
+    run(`INSERT INTO user_role_set (id, user_id, role_set_id) VALUES ('a1', 'u1', 'rs-billing')`)
+    for (const scope of ['own', 'team', 'all'] as const) expect(await isAuthorizedScoped(queries, 'u1', 'attendance', 'read', scope)).toBe(true)
+  })
+
+  it('falls back to the plain grant when the resource has no scoped rows; a plain row also counts as an all grant', async () => {
+    run(`INSERT INTO user_role_set (id, user_id, role_set_id) VALUES ('a1', 'u1', 'rs-staff')`)
+    expect(await isAuthorizedScoped(queries, 'u1', 'contacts', 'read', 'team')).toBe(true)
+    run(`INSERT INTO role_set_permission (id, role_set_id, permission_key, permission_label, permission_group, can_read) VALUES ('p9', 'rs-staff', 'attendance', 'Attendance', 'People', 1)`)
+    clearPermissionCache()
+    // The plain row adds attendance.read.all (old rule), so it now reaches every scope.
+    expect(await isAuthorizedScoped(queries, 'u1', 'attendance', 'read', 'team')).toBe(true)
+  })
+
+  it('allows everything for the built-in Super Admin role set', async () => {
+    run(`INSERT INTO user_role_set (id, user_id, role_set_id) VALUES ('a1', 'u2', 'rs-super')`)
+    expect(await isAuthorizedScoped(queries, 'u2', 'attendance', 'approve', 'all')).toBe(true)
   })
 })

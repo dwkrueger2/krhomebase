@@ -179,8 +179,8 @@ components:
 
 # Design System: KR Homebase
 
-<small>Version 1.2</small><br>
-<small>Updated Nov 11, 2026 10:05am</small>
+<small>Version 1.5</small><br>
+<small>Updated Nov 11, 2026 4:50pm</small>
 
 This file records the visual system that is already in the code (`apps/web/styles/theme.css`, the component `STYLES` maps) and in the old app's reference pages (`/tests/krh/u/default-theme`, `/tests/krh/u5`, `/tests/krh/u1`). The YAML block above must stay at the very top of the file for design tools to read it, so this file's title and version sit below it. Product facts are in `PRODUCT.md`. Layout rules for code (widths, spacing, corners, label placement) are binding in `apps/web/AGENTS.md`; this file describes them and does not override them.
 
@@ -344,6 +344,11 @@ The dense record table used by Contacts and Billing (`components/tables/KRLedger
 ### Rainbow busy spinner
 `RainbowBusySpinner` is the only busy signal: a spinning gradient ring, on its own or with a short label. It is the one place the full spectrum appears.
 
+## Feature variations
+A few features depart from this system on purpose. Each departure is listed here, and its full description (what it keeps, what differs, its states) lives in that feature's surface brief in `.impeccable/surfaces/`. A design check that flags one of these inside its own feature is not a defect. A feature that departs from the system adds one line here and gets its own brief.
+- **Communications dark set.** The Communications screens use the dark layer described under Colors (`theme.css`). Only inside Communications.
+- **Attendance time-card grid.** A fixed 14-day sheet (`features/timekeeping/components/TimeCardLedger.client.tsx`) instead of the shared ledger: fixed 29px rows, In/Out pairs closed by a Firm Navy rule, extra punches on their own rows, a Brick Red problem pill, a minimum width of about 980px that scrolls inside its card, and its own print layout. It keeps the Ledger Slate heading row, the row colors and lining figures. Brief: `.impeccable/surfaces/ing-components-attendancepanel-client-tsx-5cc48da7.md`.
+- **Attendance header.** Attendance keeps the old screen's header (`AttendanceHeader.client.tsx`) instead of the shared module header, at the requester's direction: a serif title on the left and three Pale Denim context boxes on the right (Pay Period, Regular Period Hours, View), with no eyebrow. The four hour boxes (RH, OH, PTO, HOL, with their full names) sit in the time-card card header. Its card notes use the dark, semibold `noteTone="strong"` of `KRModuleCard` instead of the gray note. Same brief.
 ## Do's and Don'ts
 
 ### Intended patterns

@@ -1,7 +1,7 @@
 # KR Homebase API Agent Guide
 
-<small>Version 1.12</small><br>
-<small>Updated Nov 9, 2026 6:20pm</small>
+<small>Version 1.14</small><br>
+<small>Updated Nov 11, 2026 6:10pm</small>
 
 ## Purpose
 
@@ -55,6 +55,8 @@ src/features/<area>/
 ```
 
 Register the area in `src/app.ts` with a `register<Area>(app)` call, as `registerHealth` is.
+
+An area may add one more file for pure arithmetic that `rules.ts` would otherwise drown in (no database, no request, no clock unless the caller passes the time), with its own `<file>.test.ts`. Attendance's `timeMath.ts` is the first (plan decision 9, Nov 11, 2026).
 
 ## Testing requirements
 
@@ -112,6 +114,18 @@ The contract test gives write routes a full-schema test database (the maintenanc
 - **Rules:** `rules.ts` keeps the old arithmetic, status words and `VALIDATION_…` codes. `BillingError(code, status)` carries a refusal (404, 409 or 422). Each write is one batch with an `audit_log` row per changed record (resource `billing`). New `bcid`/`ivid` codes use `generatePublicCode` from contact-edits; an invoice number is the firm-wide highest all-digit number plus one, stepped forward on a clash.
 - **Not here yet:** card and ACH payments, refunds and pay links (stage 6: a credit-card or ACH payment answers `VALIDATION_STRIPE_PAYMENT_INTENT_REQUIRED`, a refund `STRIPE_REFUND_NOT_AVAILABLE`); invoice and statement email and print (stage 5).
 - **Read-only record:** the `GET` writes nothing. The old one also back-filled missing codes and posted paid pay links; codes are now made on insert, and pay links move with stage 6.
+
+## Attendance (timekeeping)
+
+`src/features/timekeeping/` is the old `api/timekeeping` route (`docs/07_Attendance_Port_Plan.md`; the old behavior in `docs/API/Timekeeping_AsIs_Reference.md`), one route per old action. Reads (API patch 11, and the picker in 12): `GET /v1/timekeeping/time-card`, `GET /v1/timekeeping/clock-state`, `GET /v1/timekeeping/employees`. Writes (API patch 12): clock in, clock out, missed clock-out, save and void a punch, save hours (`PUT /v1/timekeeping/events`), approve and reopen a card. The routes' header lists them.
+
+- **Writes** are one `db.batch` with their audit rows (resource `timekeeping`). Clock punches use guarded inserts (`queries.ts`, the old crud Worker's open-punch checks); a guarded insert that saves nothing leaves no audit row, and the rule answers `ATTENDANCE_STATE_CONFLICT`. A repeated `idempotencyKey` returns the first punch.
+- **Approval** is decided in one place, `approvalDecision` in `rules.ts`, used by the time-card read (so the screen can show the reason) and by the approve and reopen routes.
+- **Regular hours** come from the punch pairs only; the old copies in `employee_time_event` are not written.
+- **Scoped permissions.** Attendance grants are scoped (own, team, all) in `role_set_permission_scope`, so the routes do not use `defineRoute`'s `permission` field; `rules.ts` checks them with `scopedGrantAllows` / `isAuthorizedScoped` (`src/features/permissions/rules.ts`, the old `isAuthorizedScoped`). Another employee's card needs the all scope, or the team scope plus leading an active team the employee is an active member of.
+- **Time rules** are in `timeMath.ts` (pay periods, rounding, punch pairs, edit windows, overtime), tested in `timeMath.test.ts`. The decided changes from the old rules are listed in its header.
+- **Policies** come from the `lookup` row `lk_kr_employee_policies`, read field by field: a missing or invalid field takes its default. The old validator rejected the whole row when a required field was missing, so the old app always used the defaults.
+- **Reads write nothing** and read only the employee and period asked for.
 
 ## Outside tools
 

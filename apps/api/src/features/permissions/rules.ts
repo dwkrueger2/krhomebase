@@ -172,3 +172,38 @@ export async function isAuthorized(queries: PermissionQueries, userId: string, r
   if (resolved.isBuiltInSuperAdmin) return true
   return resolved.grants.has(permissionKey(resource, action))
 }
+
+/** Whose records a scoped grant covers: the person's own, their team's, or everyone's. */
+export type PermissionScope = 'own' | 'team' | 'all'
+
+/**
+ * The scoped check (old `isAuthorizedScoped`), used by resources whose role rows are in `role_set_permission_scope`,
+ * such as `attendance`. Added Nov 11, 2026 for the Attendance port; the rules are the old ones, in order:
+ *
+ *  1. The built-in Super Admin role set allows everything.
+ *  2. A resource with no scoped rows for this person falls back to the plain grant (`isAuthorized`).
+ *  3. `<resource>.<action>.all` allows any scope.
+ *  4. `<resource>.<action>.<scope>` allows that scope.
+ *  5. Asking for `own` is also allowed by a `team` grant (a team includes the person).
+ *
+ * Overrides change only plain grants, so they reach a scoped resource only through rule 2 (unchanged from the old code).
+ */
+export function scopedGrantAllows(resolved: EffectivePermissions, resource: string, action: PermissionAction, scope: PermissionScope): boolean {
+  if (resolved.isBuiltInSuperAdmin) return true
+  const key = permissionKey(resource, action)
+  if (!resolved.scopedResources.has(resource)) return resolved.grants.has(key)
+  if (resolved.scopedGrants.has(`${key}.all`)) return true
+  if (resolved.scopedGrants.has(`${key}.${scope}`)) return true
+  return scope === 'own' && resolved.scopedGrants.has(`${key}.team`)
+}
+
+/** Resolves the person's permissions (cached) and applies `scopedGrantAllows`. */
+export async function isAuthorizedScoped(
+  queries: PermissionQueries,
+  userId: string,
+  resource: string,
+  action: PermissionAction,
+  scope: PermissionScope,
+): Promise<boolean> {
+  return scopedGrantAllows(await resolveEffectivePermissions(queries, userId), resource, action, scope)
+}

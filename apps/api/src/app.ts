@@ -12,6 +12,7 @@ import { registerContacts } from './features/contacts/routes.ts'
 import { registerContactEdits } from './features/contact-edits/routes.ts'
 import { registerContactMaintenance } from './features/contact-maintenance/routes.ts'
 import { registerBilling } from './features/billing/routes.ts'
+import { registerTimekeeping } from './features/timekeeping/routes.ts'
 
 export const openApiInfo = {
   openapi: '3.1.0',
@@ -54,6 +55,7 @@ export function createApp() {
   registerContactEdits(app)
   registerContactMaintenance(app)
   registerBilling(app)
+  registerTimekeeping(app)
 
   app.doc31('/v1/openapi.json', openApiInfo)
 

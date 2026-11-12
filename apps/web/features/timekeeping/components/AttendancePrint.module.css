@@ -1,0 +1,58 @@
+/**
+ * file: apps/web/features/timekeeping/components/AttendancePrint.module.css
+ *
+ * The Attendance print layout and the time-card row height. A CSS file is allowed here by AGENTS_05 ("When a
+ * separate CSS file is appropriate": print rules, component-scoped custom properties). Owned by
+ * `AttendancePanel.client.tsx` (the row-height variable) and `AttendancePrint.client.tsx` (everything else).
+ */
+
+/**
+ * Row height of the time-card grid, read by `TimeCardRow` as `h-(--TimeCardRowHeight)`. Set on the panel's root
+ * (the one place AGENTS_05 lets a data-kr-id act as a selector) and on the print copy, which sits outside the panel.
+ */
+[data-kr-id="AttendancePanel"],
+.printRoot {
+  --TimeCardRowHeight: 29px;
+}
+
+/** The print-only copy of the time card is never shown on screen. */
+.printRoot {
+  display: none;
+}
+
+/** Landscape pages for the time card only (named page; other screens keep the browser's default page). */
+@page attendance {
+  size: landscape;
+  margin: 0.4in;
+}
+
+@media print {
+  /**
+   * While `AttendancePrint` is printing, it puts `kr-print-attendance` on <html>: every other child of <body> (the
+   * application frame, other portals) is hidden, and only the print copy is shown.
+   */
+  :global(html.kr-print-attendance) body > :not(.printRoot) {
+    display: none !important;
+  }
+
+  /**
+   * The print copy: shown as the grid its LAYOUT_STYLES describe (this unlayered rule outranks Tailwind's layered
+   * `grid`, which is why the screen rule above can hide it), on the landscape page, with a shorter row so the 14
+   * days fit one page.
+   */
+  .printRoot {
+    --TimeCardRowHeight: 22px;
+    display: grid;
+    page: attendance;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /**
+   * Muted gray text prints faintly, so on the printed card it uses the dark blue brand color. Set on the copy's
+   * children rather than the copy itself, because the copy also carries the theme scope that defines the gray.
+   */
+  .printRoot > * {
+    --kr-theme-text-muted: var(--kr-theme-brand-primary);
+  }
+}
