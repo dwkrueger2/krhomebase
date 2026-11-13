@@ -21,7 +21,9 @@ export interface HeaderBarProps {
 }
 
 const LAYOUT_STYLES = {
-  bar: 'h-[58px] md:h-[83px] flex md:col-span-2 md:grid md:grid-cols-subgrid',
+  // At least 58px (83px from md:), and taller when the title bar's content needs it. The fixed height let the title bar
+  // (eyebrow, title and breadcrumb, about 88px at desktop widths) draw over the top 5px of the KRH-Workspace (Nov 13, 2026).
+  bar: 'min-h-[58px] md:min-h-[83px] flex md:col-span-2 md:grid md:grid-cols-subgrid',
   left: 'shrink-0 md:min-w-0',
   right: 'min-w-0 flex-1',
 } as const

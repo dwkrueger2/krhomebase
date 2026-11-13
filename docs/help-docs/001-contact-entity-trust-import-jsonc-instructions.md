@@ -1,13 +1,13 @@
 # Contact, Entity, Trust, and Lead Import JSONC Instructions
 
 <small>Version 1.1.5</small><br>
-<small>Updated Nov 12, 2026 3:27pm</small>
+<small>Updated Nov 13, 2026 5:10pm</small>
 
-This is the old instruction file (its own version 1.2, Sep 28, 2026, prepared for KRHomebase v1.1.5 p 441), copied for the Firm Settings → Data Import page. The parts that no longer match KR Homebase are changed: the route names, what the contact create route saves, and lead rows, which wait for the Leads port.
+This is the old instruction file (its own version 1.2, Sep 28, 2026, prepared for KRHomebase v1.1.5 p 441), copied for the Firm Settings → Data Import page. The parts that no longer match KR Homebase are changed: the route names and what the contact create route saves. Lead rows are imported since the Leads port (Nov 13, 2026).
 
 ## Readiness Summary
 
-KR Homebase is ready to prepare structured import data for individual contacts, entities, trusts, and individual leads. The Firm Settings / Data Import staging panel can parse this JSONC, validate database-compatible fields, flag probable duplicates, and create safe non-duplicate contact rows through `POST /v1/contacts`. Lead rows are checked and shown in the review, but they are not imported until the Leads port: the review lists them as "Lead import waits for the Leads port."
+KR Homebase is ready to prepare structured import data for individual contacts, entities, trusts, and individual leads. The Firm Settings / Data Import staging panel can parse this JSONC, validate database-compatible fields, flag probable duplicates, and create safe non-duplicate contact rows through `POST /v1/contacts`. Lead rows are checked, shown in the review under "Leads to create", and created one at a time through `POST /v1/leads`. A lead attaches to an existing person when a likely duplicate scores 0.82 or more (or to a person this same file created earlier in the run); otherwise the person is created with the lead.
 
 The contact create route can create:
 
@@ -324,7 +324,7 @@ Trust through `POST /v1/contacts` (the same fields as an entity):
 }
 ```
 
-Individual lead (waits for the Leads port; the importer checks these rows but does not send them yet):
+Individual lead (created through `POST /v1/leads`):
 
 ```jsonc
 {

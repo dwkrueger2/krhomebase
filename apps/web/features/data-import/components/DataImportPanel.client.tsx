@@ -13,10 +13,14 @@
  *  - Duplicate checks use the contacts already in the browser data store (`useOptionalDataStore`), not
  *    `GET contacts?limit=100` and `GET matters?limit=100`; matters are no longer loaded (Matter import is disabled).
  *    After an import that created rows, the store is refreshed so the new contacts count for the next upload.
- *  - Contacts go to `POST /v1/contacts` (no `?mode=contact-import`); lead rows are never sent (`not-importable`).
+ *  - Contacts go to `POST /v1/contacts` (no `?mode=contact-import`). Lead rows (since the Leads port, Nov 13, 2026)
+ *    go one at a time to `POST /v1/leads` (`createLead` from `features/leads/api.client.ts`, the old
+ *    `/leads?mode=contact-import`): attached to the existing individual from `leadAttachCandidate` (0.82 or more,
+ *    never a row of this same file), otherwise with a new person. A person who already has a lead gets it back
+ *    (`created: false`), reported as reused, as before. A blocked lead row is never sent.
  *  - "Lock writes" asks first in `U6ConfirmationDialog` (old: `window.confirm`), with the old question.
  *  - When the API answers `MAINTENANCE_LOCKED` during an import, the remaining rows are not sent.
- *  - Rows not sent say why: merge review (the old sentence), denied by validation, or the lead reason.
+ *  - Rows not sent say why: merge review (the old sentence) or denied by validation.
  *  - The matter staging path (`runMatterImport`, matter review rows) is not ported; it could not be reached.
  *
  * State: this panel owns the gate, the staged file, the review dialog, the import run and the results. Its children
@@ -29,12 +33,15 @@ import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.
 import { useOptionalDataStore } from '@/features/contacts/DataStoreProvider.client'
 import { L } from '@/lib/KRUtilities'
 import { createImportedContact, DataImportApiError, fetchMaintenanceGate, saveMaintenanceGate } from '@/features/data-import/api.client'
+import { createLead, LeadsApiError } from '@/features/leads/api.client'
 import {
   contactApiBody,
   contactLabel,
   contactsToSend,
   existingContactsFromStore,
-  LEAD_IMPORT_WAITING,
+  leadApiBody,
+  LEAD_ATTACH_SCORE,
+  leadAttachCandidate,
   parseKrImportJsonc,
   validateBulkContactImportPayload,
 } from '@/features/data-import/contactImportValidation'
@@ -55,7 +62,6 @@ const REFERENCE_UNAVAILABLE = 'Reference rows unavailable in this session. Conta
 
 /** Why a row that is not sent was held back. */
 function skipMessage(row: BulkContactStageRow): string {
-  if (row.action === 'not-importable') return LEAD_IMPORT_WAITING
   if (row.action === 'blocked') return 'Denied by validation; not imported.'
   return 'Staged for merge review; no duplicate row created.'
 }
@@ -172,6 +178,9 @@ export default function DataImportPanel() {
     let requestNumber = 0
     let writesLocked = false
     let createdCount = 0
+    // Individuals created earlier in this run, by import key: a later lead row that matches one (a same-file
+    // duplicate, 0.82 or more) attaches to it instead of creating the person twice (Nov 13, 2026).
+    const createdIndividuals = new Map<string, { id: string; label: string }>()
     for (const row of rows) {
       const label = contactLabel(row)
       if (row.action !== 'create') {
@@ -188,13 +197,29 @@ export default function DataImportPanel() {
       setImportProgress({ current: requestNumber, total: requestRows.length, label: `Sending ${label}...` })
       let progressLabel = `${label} complete`
       try {
-        const data = await createImportedContact(contactApiBody(row.record))
-        createdCount += 1
-        const code = `${data.kind === 'individual' ? 'ICID' : 'ECID'} ${data.recordCode}`
-        results.push({ importKey: row.record.importKey, label, status: 'created', message: `Contact created (${code}).`, createdId: data.contactId })
+        if (row.record.isLead) {
+          // A lead row: attach to a close existing individual, or bring a new person (old `leadDuplicateCandidate` rule).
+          const existing = leadAttachCandidate(row)
+          const sameFile = existing ? null : row.duplicateCandidates.find((candidate) => candidate.source === 'import' && candidate.score >= LEAD_ATTACH_SCORE && createdIndividuals.has(candidate.sourceImportKey ?? ''))
+          const sameFileContact = sameFile ? createdIndividuals.get(sameFile.sourceImportKey ?? '') ?? null : null
+          const attach = existing ?? (sameFileContact ? { id: sameFileContact.id, displayName: sameFileContact.label } : null)
+          const saved = await createLead(leadApiBody(row.record, attach?.id))
+          createdCount += 1
+          const code = saved.lead.lcid ?? 'lead'
+          const message = saved.created
+            ? `Lead created (${code}${attach ? `, for existing ${attach.displayName}` : ''}).`
+            : `This person already has lead ${code}; reused it.`
+          results.push({ importKey: row.record.importKey, label, status: 'created', message, createdId: saved.lead.id })
+        } else {
+          const data = await createImportedContact(contactApiBody(row.record))
+          createdCount += 1
+          const code = `${data.kind === 'individual' ? 'ICID' : 'ECID'} ${data.recordCode}`
+          if (data.kind === 'individual' && row.record.importKey) createdIndividuals.set(row.record.importKey, { id: data.contactId, label })
+          results.push({ importKey: row.record.importKey, label, status: 'created', message: `Contact created (${code}).`, createdId: data.contactId })
+        }
       } catch (error) {
         progressLabel = `${label} failed`
-        if (error instanceof DataImportApiError && error.code === 'MAINTENANCE_LOCKED') writesLocked = true
+        if ((error instanceof DataImportApiError || error instanceof LeadsApiError) && error.code === 'MAINTENANCE_LOCKED') writesLocked = true
         results.push({ importKey: row.record.importKey, label, status: 'failed', message: error instanceof Error ? error.message : 'CONTACT_IMPORT_FAILED' })
       }
       setImportProgress({ current: requestNumber, total: requestRows.length, label: progressLabel })

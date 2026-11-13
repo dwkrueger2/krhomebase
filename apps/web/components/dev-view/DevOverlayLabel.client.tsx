@@ -64,6 +64,8 @@ export interface DevOverlayLabelProps {
   onResetContext: () => void
   onToggleElementChildren: () => void
   onToggleVisibility: () => void
+  /** P: replaces the selection with the nearest parent element's `data-kr-id` (added Nov 13, 2026). Absent: no P. */
+  onSelectParent?: () => void
 }
 
 function GrabIcon() {
@@ -120,6 +122,7 @@ export default function DevOverlayLabel({
   onResetContext,
   onToggleElementChildren,
   onToggleVisibility,
+  onSelectParent,
 }: DevOverlayLabelProps) {
   const [isSliding, setIsSliding] = useState(false)
   const dragRef = useRef<{ pointerId: number; startClientX: number; startOffsetX: number } | null>(null)
@@ -193,6 +196,18 @@ export default function DevOverlayLabel({
       >
         E
       </button>
+      {/* P: selects only the nearest parent that carries a data-kr-id, so the developer can walk up the tree */}
+      {onSelectParent ? (
+        <button
+          aria-label={`Select the parent data-kr-id of ${label}`}
+          className={`${STYLES.letterButton} ${STYLES.elementIdle} ${STYLES.iconHover}`}
+          title="Select only the parent data-kr-id"
+          type="button"
+          onClick={() => { onResetContext(); onSelectParent() }}
+        >
+          P
+        </button>
+      ) : null}
       <span className={STYLES.markerText}>{label}</span>
       {/* Copy and deselect */}
       <button aria-label={`Copy ${label}`} className={`${STYLES.copyButton} ${STYLES.iconHover}`} title="Copy marker" type="button" onClick={() => { onResetContext(); onCopy() }}>

@@ -10,8 +10,8 @@
  *    the gate is locked (Import Contacts is disabled and the import refuses to start), so the recommended sequence is
  *    import first, then lock while checking; the duplicate evidence is email, phone and name (no ICID); and the lock
  *    SQL uses the reason the API saves, "Contact import review".
- *  - The gate is described as checked by the KR Homebase API (old: the CRUD Worker), and leads as waiting for the
- *    Leads port.
+ *  - The gate is described as checked by the KR Homebase API (old: the CRUD Worker). Lead rows were described as
+ *    waiting for the Leads port until it arrived (Nov 13, 2026); step 4 now says how they are saved.
  *  - The instructions link builds the file in the browser (`instructionsDownload.ts`); there is no API route.
  *  - The leftover green dashed diagnostic border on the window is gone; the step headers use the Pale Denim surface
  *    instead of fixed pastel fills (the step graphics keep their own colors); `xl:` became `lg:`; spacing and type
@@ -153,8 +153,8 @@ export function ContactImportHelpBody({ onClose }: { onClose: () => void }) {
         <WorkflowStep description="Download the Contact JSONC instructions and provide them to GPT with the people, entities, or trusts you want prepared for import." number={1} title="Provide Instructions"><PromptGraphic /></WorkflowStep>
         <WorkflowStep description="Ask GPT to build a JSONC file that follows the instructions. Each row should have a stable importKey and only known values; GPT should not invent database IDs." number={2} title="Build JSONC File"><JsoncGraphic /></WorkflowStep>
         <WorkflowStep description="Choose Import Contacts and upload the JSONC file. Homebase parses the file, normalizes names, email, and phone values, and compares it with current contact data." number={3} title="Upload Contacts"><UploadGraphic /></WorkflowStep>
-        <WorkflowStep description="Review the separate Approved, Suggested merge review, and Denied groups. Exact email, exact phone, and matching or highly similar names identify rows that may already exist. Lead rows wait for the Leads port and are listed apart." number={4} title="Review Duplicates"><ReviewGraphic /></WorkflowStep>
-        <WorkflowStep description="Import approved contacts only. Suggested merges remain held for later review, denied rows are skipped, and existing contacts are not updated by this workflow." number={5} title="Import Approved"><ImportGraphic /></WorkflowStep>
+        <WorkflowStep description="Review the separate Approved, Suggested merge review, and Denied groups. Exact email, exact phone, and matching or highly similar names identify rows that may already exist. Lead rows are listed apart: each attaches to an existing individual matching at 82% or more, otherwise it brings a new person." number={4} title="Review Duplicates"><ReviewGraphic /></WorkflowStep>
+        <WorkflowStep description="Import approved contacts and leads only. Suggested merges remain held for later review, denied rows are skipped, and existing contacts are not updated by this workflow." number={5} title="Import Approved"><ImportGraphic /></WorkflowStep>
       </div>
 
       {/* Contact Import definitions: explain the post-upload decisions and current safety boundary. */}

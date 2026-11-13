@@ -15,6 +15,7 @@
  *   session      {"autoLogoutMinutes": 15 | 30 | 60 | 120 | 480}
  *   navigation   {"startingSection": "<menu id>"}
  *   dashboard    {"dashboardWidgets": {"<widget id>": {"enabled": true, "order": 5}, ...}}   (stage 3)
+ *   workstream   {"workstreamTypes": ["PhoneCalls", "Notes"]}   (plan 10, Nov 13, 2026; empty means All)
  *   theme        {"personalTheme": {"themeId": "firm-default", "density": "compact", "light": {...}, "dark": {...}}}   (stage 2b, themes.ts)
  *
  * Changes from the old Preferences card: the theme is light or dark (the old list of administrator themes stays with
@@ -24,6 +25,7 @@
 
 import { z } from 'zod'
 import { DEFAULT_PERSONAL_THEME, PersonalTheme } from './themes.ts'
+import { WorkstreamSubgroup } from './workstream.ts'
 
 /** The two themes (decision 2). */
 export const ThemeName = z.enum(['light', 'dark']).describe('Color theme: light (the standard look) or dark.')
@@ -70,6 +72,13 @@ export const DashboardWidgetChoices = z
   .describe('Dashboard widget choices by widget id: shown or hidden, and order.')
 export type DashboardWidgetChoices = z.infer<typeof DashboardWidgetChoices>
 
+/** The activity types WorkStream lists show when they open (the requester, Nov 13, 2026). Empty means All. */
+export const WorkstreamTypesPreference = z
+  .array(WorkstreamSubgroup)
+  .max(7)
+  .describe('Activity types WorkStream shows when it opens; an empty list shows All.')
+export type WorkstreamTypesPreference = z.infer<typeof WorkstreamTypesPreference>
+
 /** One person's preferences, every field filled. */
 export const UserPreferences = z.object({
   theme: ThemeName,
@@ -77,6 +86,7 @@ export const UserPreferences = z.object({
   startingSection: StartingSection,
   dashboardWidgets: DashboardWidgetChoices,
   personalTheme: PersonalTheme.describe('The theme the person uses, their text size and their own color changes (stage 2b).'),
+  workstreamTypes: WorkstreamTypesPreference,
 })
 export type UserPreferences = z.infer<typeof UserPreferences>
 
@@ -87,6 +97,7 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   startingSection: 'dashboard',
   dashboardWidgets: {},
   personalTheme: DEFAULT_PERSONAL_THEME,
+  workstreamTypes: [],
 }
 
 /** Reply of both routes. */

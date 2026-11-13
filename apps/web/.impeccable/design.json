@@ -124,6 +124,21 @@
           "#e5e3e1"
         ]
       },
+      "accent2": {
+        "role": "secondary",
+        "displayName": "Identifier Blue",
+        "canonical": "var(--kr-theme-accent2, #0066cc)",
+        "tonalRamp": [
+          "#252324",
+          "#1c344e",
+          "#124478",
+          "#0955a2",
+          "#0066cc",
+          "#4d90d4",
+          "#9abadc",
+          "#d2d9e2"
+        ]
+      },
       "panel-accent-gradient-middle": {
         "role": "secondary",
         "displayName": "Deep Teal",

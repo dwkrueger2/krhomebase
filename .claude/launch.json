@@ -4,8 +4,24 @@
     {
       "name": "krhomebase-dev",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["-C", "D:\\Repos\\krhomebase", "run", "dev"],
+      "runtimeArgs": [
+        "-C",
+        "D:\\Repos\\krhomebase",
+        "run",
+        "dev"
+      ],
       "port": 3011
+    },
+    {
+      "name": "krhomebase-api",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "-C",
+        "D:\\Repos\\krhomebase",
+        "run",
+        "dev:api"
+      ],
+      "port": 8787
     }
   ]
 }

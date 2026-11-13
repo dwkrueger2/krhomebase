@@ -1,7 +1,7 @@
 # WorkStream, Leads, Tasks and Publishing Port Plan
 
-<small>Version 1.0</small><br>
-<small>Updated Nov 13, 2026 9:30am</small>
+<small>Version 1.2</small><br>
+<small>Updated Nov 13, 2026 4:55pm</small>
 
 ## 1. The requester's direction (Nov 13, 2026)
 
@@ -78,3 +78,22 @@ These figures are rough sizes from the old app (`apps\kr-homebase\src`), measure
 | 2 | Does WorkStream email go through the existing mailer (`KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY`)? | Yes. Do not add a second mail path. |
 | 3 | Front End Publishing: does the articles R2 bucket bind to the API directly, or go through the old articles Worker (`KR_R2_ARTICLES_WORKER_TOKEN`)? | Bind the bucket to the API, as Employee Documents does, unless stage 0 finds a reason not to. |
 | 4 | Billing audit: build everything missing before the deploy, or deploy first with the missing list recorded? | Deploy after stage 8 with Billing print and email in place. Record the rest. |
+
+### The requester's answers (Nov 13, 2026)
+
+Recorded in full in `docs/API/WorkStream_AsIs_Reference.md`, section 8.1 (decisions 1 to 4 are D12 to D15 there; 5 to 11 were added in stage 0).
+
+1. Keep the seven activity types. An entry belongs to a matter and the client is implied; with no matter chosen a client entry goes to `[Client Number].0`. Internal stays client 050 / matter 050.1.
+2. Agreed: the existing Gmail mailer, with the logo bundled into the API.
+3. Agreed: bind the articles bucket to the API.
+4. The Stripe sandbox is verified and working; the requester considers the app ready to deploy.
+
+## 6. Progress
+
+| Stage | State | Patches |
+|---|---|---|
+| 0 | Done Nov 13, 2026: `docs/API/WorkStream_AsIs_Reference.md`. | repository 27 |
+| 1 | Done Nov 13, 2026: `/v1/clients/{clientId}/matters`, `/v1/matters/{matterId}`; the Projects & Matters tab and the ASSOCIATED MATTERS box; checked on contacts 055 and 306. | API 23, web 532, repository 27 |
+| 2 | Done Nov 13, 2026: the `/v1/workstream` routes and email; the Communications section (menu: Workstream). Deployed Nov 13, 2026 with the pre-deploy list. | API 24 to 25, web 533 to 535, repository 28 |
+| 3 | Built Nov 13, 2026: `/v1/leads` (list, one, create, change, conversion); the Leads section with the lead's Workstream; Data Import lead rows. Lead notes are Workstream Notes; conversion is new. | API 26, web 536, repository 29 |
+| 8 | The Stripe sandbox was verified by the requester on Nov 13, 2026. | — |

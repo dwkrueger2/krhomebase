@@ -8,7 +8,8 @@
  * Changed from the old types:
  *  - Only the contact path is ported. The matter types (`BulkMatter*`, `BulkImportExistingMatter`) are left out:
  *    Matter import stays disabled, as it was in the old screen, and its code could not be reached there either.
- *  - A staged row may also be `not-importable`: a lead row, which waits for the Leads port and is never sent.
+ *  - The `not-importable` action (lead rows held for the Leads port) was removed again with the Leads port: a lead row
+ *    is `create` or `blocked` like any other row.
  */
 
 /** Import workflow supported by the Data Management staging panel. Matters stay disabled. */
@@ -112,10 +113,10 @@ export interface BulkContactImportRecord {
 }
 
 /**
- * Planned import action. Duplicate candidates are merge-review until a merge API exists. Changed: lead rows are
- * `not-importable` until the Leads port.
+ * Planned import action. Duplicate candidates are merge-review until a merge API exists. A lead row is never
+ * merge-review: it is approved (`create`) and attaches to a close existing individual, or `blocked`.
  */
-export type BulkContactAction = 'create' | 'merge-review' | 'blocked' | 'not-importable'
+export type BulkContactAction = 'create' | 'merge-review' | 'blocked'
 
 /** One staged contact row after JSONC parsing and duplicate review. */
 export interface BulkContactStageRow {

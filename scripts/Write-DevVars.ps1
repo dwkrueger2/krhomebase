@@ -21,6 +21,7 @@
         KR_WORKER_JWT_PRIVATE_KEY     from private-dev-dan-2.pem
         KR_CRUD_WORKER_PUBLIC_KEY     from public-worker-crud-operations-2.pem
         KR_SESSION_WORKER_SECRET      from session-symmetric-hashkey.key
+        KR_PAYMENT_PROVIDER_KEK       from payment-provider-kek.key (Stripe Payment Configuration; added Nov 13, 2026)
         KR_SUPER_ADMIN_EMAILS         only when -SuperAdminEmails is given
 
   The script prints setting names and character counts only. It never prints a value.
@@ -113,6 +114,8 @@ $apiSettings = [ordered]@{
   KR_WORKER_JWT_PRIVATE_KEY = (Read-KeyValue -FileName 'private-dev-dan-2.pem' -Kind Private)
   KR_CRUD_WORKER_PUBLIC_KEY = (Read-KeyValue -FileName 'public-worker-crud-operations-2.pem' -Kind Public)
   KR_SESSION_WORKER_SECRET  = $sessionSettings.KR_SESSION_WORKER_SECRET
+  # Stripe Payment Configuration: the key that encrypts the Stripe keys in payment_provider (same value as the pay Worker).
+  KR_PAYMENT_PROVIDER_KEK   = (Read-KeyValue -FileName 'payment-provider-kek.key' -Kind Secret)
 }
 if (-not [string]::IsNullOrWhiteSpace($SuperAdminEmails)) {
   if ($SuperAdminEmails -match '["$`\s]') { throw 'SuperAdminEmails: use plain addresses separated by commas, with no spaces or quotes.' }

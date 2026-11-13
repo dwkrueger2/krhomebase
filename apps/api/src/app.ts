@@ -24,6 +24,9 @@ import { registerEmployeeDocuments } from './features/employee-documents/routes.
 import { registerPaymentProviders } from './features/payment-providers/routes.ts'
 import { registerMaintenance } from './features/maintenance/routes.ts'
 import { registerGpt } from './features/gpt/routes.ts'
+import { registerMatters } from './features/matters/routes.ts'
+import { registerWorkstream } from './features/workstream/routes.ts'
+import { registerLeads } from './features/leads/routes.ts'
 import { registerSiteFeedback } from './features/site-feedback/routes.ts'
 
 export const openApiInfo = {
@@ -80,6 +83,9 @@ export function createApp() {
   registerPaymentProviders(app)
   registerMaintenance(app)
   registerGpt(app)
+  registerMatters(app)
+  registerWorkstream(app)
+  registerLeads(app)
 
   app.doc31('/v1/openapi.json', openApiInfo)
 

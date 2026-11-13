@@ -419,12 +419,97 @@ function InfoLetterIcon(props: KRHomebaseUtilityIconProps) {
   )
 }
 
+/** Telephone handset: the Phone Call activity type (Communications; replaces the old `☎` text glyph). */
+function PhoneIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props}>
+      <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2Z" />
+    </UtilitySvg>
+  )
+}
+
+/** A page with lines: the Note activity type (Communications; replaces the old `▤` text glyph). */
+function NoteIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props}>
+      <rect height="18" rx="2" width="16" x="4" y="3" />
+      <path d="M8 8h8" />
+      <path d="M8 12h8" />
+      <path d="M8 16h5" />
+    </UtilitySvg>
+  )
+}
+
+/** A tick: the Task activity type (Communications; replaces the old `✓` text glyph). */
+function CheckIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props} strokeWidth={2.2}>
+      <path d="M5 12.5 9.5 17 19 7" />
+    </UtilitySvg>
+  )
+}
+
+/** Arrow down onto a tray: the Received files activity type (Communications; replaces the old `⇩` text glyph). */
+function DownloadIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props} strokeWidth={2}>
+      <path d="M12 3v11" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M5 20h14" />
+    </UtilitySvg>
+  )
+}
+
+/** Arrow up from a tray: the Sent files activity type (Communications; replaces the old `⇧` text glyph). */
+function UploadIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props} strokeWidth={2}>
+      <path d="M12 15V4" />
+      <path d="M7 8l5-5 5 5" />
+      <path d="M5 20h14" />
+    </UtilitySvg>
+  )
+}
+
+/** A dashed circle: the Work in progress activity type (Communications; replaces the old `◌` text glyph). */
+function ProgressIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props} strokeWidth={2}>
+      <circle cx="12" cy="12" r="8" strokeDasharray="3 3" />
+    </UtilitySvg>
+  )
+}
+
+/** A turning arrow: reply to a communication entry (Communications; replaces the old `↩` text glyph). */
+function ReplyIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props} strokeWidth={2}>
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h10a6 6 0 0 1 6 6v5" />
+    </UtilitySvg>
+  )
+}
+
+/** An arrow out of a box: open a linked document in a new window (Communications; replaces the old `↗` text glyph). */
+function ExternalLinkIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props} strokeWidth={2}>
+      <path d="M14 4h6v6" />
+      <path d="M20 4 11 13" />
+      <path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+    </UtilitySvg>
+  )
+}
+
 /** Named utility components for JSX member notation alongside the name-based API. */
 export const KRHomebaseIcons = {
   Add: AddIcon,
+  Check: CheckIcon,
   Chevron: ChevronIcon,
   Close: CloseIcon,
   Copy: CopyIcon,
+  Download: DownloadIcon,
+  ExternalLink: ExternalLinkIcon,
   Eye: EyeIcon,
   InfoLetter: InfoLetterIcon,
   InfoDark: (props: KRHomebaseUtilityIconProps) => <KRHomebaseIcon name="info-dark" {...props} />,
@@ -432,12 +517,17 @@ export const KRHomebaseIcons = {
   Lock: LockIcon,
   Mail: MailIcon,
   MapPin: MapPinIcon,
+  Note: NoteIcon,
   Pencil: PencilIcon,
+  Phone: PhoneIcon,
   Print: PrintIcon,
   Preview: PreviewIcon,
+  Progress: ProgressIcon,
+  Reply: ReplyIcon,
   Send: SendIcon,
   Trash: TrashIcon,
   Unlock: UnlockIcon,
+  Upload: UploadIcon,
   WarningOrange: (props: KRHomebaseUtilityIconProps) => (
     <KRHomebaseIcon name="warning-orange" {...props} />
   ),

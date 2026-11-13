@@ -48,7 +48,7 @@ const auditRows = () => count(`SELECT COUNT(*) AS n FROM audit_log WHERE resourc
 describe('GET /v1/me/preferences', () => {
   it('gives a person who never saved anything the defaults (light, 60 minutes, Dashboard) and no time', async () => {
     expect(await preferencesOf(await send('GET'))).toEqual({
-      preferences: { theme: 'light', autoLogoutMinutes: 60, startingSection: 'dashboard', dashboardWidgets: {}, personalTheme: { themeId: 'firm-default', density: 'compact', light: {}, dark: {} } },
+      preferences: { theme: 'light', autoLogoutMinutes: 60, startingSection: 'dashboard', dashboardWidgets: {}, personalTheme: { themeId: 'firm-default', density: 'compact', light: {}, dark: {} }, workstreamTypes: [] },
       updatedAt: null,
     })
   })
@@ -59,7 +59,7 @@ describe('GET /v1/me/preferences', () => {
           ('u-ann', 'session', '{"autoLogoutMinutes":45}', 't1', 't2'),
           ('u-ann', 'navigation', '[]', 't1', 't1')`)
     const data = await preferencesOf(await send('GET'))
-    expect(data.preferences).toEqual({ theme: 'light', autoLogoutMinutes: 60, startingSection: 'dashboard', dashboardWidgets: {}, personalTheme: { themeId: 'firm-default', density: 'compact', light: {}, dark: {} } })
+    expect(data.preferences).toEqual({ theme: 'light', autoLogoutMinutes: 60, startingSection: 'dashboard', dashboardWidgets: {}, personalTheme: { themeId: 'firm-default', density: 'compact', light: {}, dark: {} }, workstreamTypes: [] })
     expect(data.updatedAt).toBe('t2')
     expect(auditRows()).toBe(0)
   })
@@ -68,7 +68,7 @@ describe('GET /v1/me/preferences', () => {
 describe('PUT /v1/me/preferences', () => {
   it('saves a change with its audit row and returns the whole set', async () => {
     const data = await preferencesOf(await send('PUT', { theme: 'dark', autoLogoutMinutes: 15 }))
-    expect(data.preferences).toEqual({ theme: 'dark', autoLogoutMinutes: 15, startingSection: 'dashboard', dashboardWidgets: {}, personalTheme: { themeId: 'firm-default', density: 'compact', light: {}, dark: {} } })
+    expect(data.preferences).toEqual({ theme: 'dark', autoLogoutMinutes: 15, startingSection: 'dashboard', dashboardWidgets: {}, personalTheme: { themeId: 'firm-default', density: 'compact', light: {}, dark: {} }, workstreamTypes: [] })
     expect(data.updatedAt).not.toBeNull()
     expect(count(`SELECT COUNT(*) AS n FROM user_preference WHERE user_id = 'u-ann'`)).toBe(2)
     expect(auditRows()).toBe(2)
@@ -153,6 +153,6 @@ describe('preferencesFromRows', () => {
       { key: 'navigation', valueJson: '{"startingSection":"billing"}', updatedAt: '2026-11-10T10:00:00.000Z' },
       { key: 'appearance', valueJson: 'not json', updatedAt: '2026-11-11T10:00:00.000Z' },
     ])
-    expect(data).toEqual({ preferences: { theme: 'light', autoLogoutMinutes: 60, startingSection: 'billing', dashboardWidgets: {}, personalTheme: { themeId: 'firm-default', density: 'compact', light: {}, dark: {} } }, updatedAt: '2026-11-11T10:00:00.000Z' })
+    expect(data).toEqual({ preferences: { theme: 'light', autoLogoutMinutes: 60, startingSection: 'billing', dashboardWidgets: {}, personalTheme: { themeId: 'firm-default', density: 'compact', light: {}, dark: {} }, workstreamTypes: [] }, updatedAt: '2026-11-11T10:00:00.000Z' })
   })
 })

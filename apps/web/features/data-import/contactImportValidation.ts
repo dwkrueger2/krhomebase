@@ -8,10 +8,16 @@
  * 0.86 or 0.72 across kinds, contained name 0.68, a candidate from 0.75), same-file duplicates, and the row actions.
  *
  * Changed from the old file:
- *  - Lead rows are `not-importable` (reason `LEAD_IMPORT_WAITING`) and never sent: there is no leads API yet. So the
- *    old lead body (`leadApiBody`) and `leadDuplicateCandidate` are not ported, and oddities 12 and 13 (reference
- *    section 3.6) cannot happen. When Leads are ported: skip `source: 'import'` candidates when attaching a lead to an
- *    individual, and do not put "Source detail" into the summary when `sourceDetail` is also sent.
+ *  - Lead rows (the Leads port, Nov 13, 2026): a lead row without errors is approved (`create`) and sent one at a
+ *    time to `POST /v1/leads` with `leadApiBody`. It attaches to an existing person when a duplicate candidate is an
+ *    existing individual scoring 0.82 or more (`leadAttachCandidate`, the old `leadDuplicateCandidate` rule), and
+ *    otherwise is sent with a new `person`. A candidate from this same file (`source: 'import'`) is not an attach target
+ *    here (its id is the row's import key, oddity 12); `DataImportPanel` attaches the lead to that row's contact when
+ *    the row was created earlier in the same run, so the person is not created twice. A lead row with errors is `blocked` and never sent (the
+ *    old panel could send a blocked lead row that had a duplicate candidate). Unknown source, status and urgency
+ *    values stay refused.
+ *  - `leadApiBody` no longer writes "Source detail: ..." into `inquirySummary`: the API adds that line once from
+ *    `sourceDetail` (oddity 13, the line was saved twice). The "Source row: ..." trace line is kept.
  *  - `contactsToSend` is the one list both the review count and the import use, so the count is what is sent
  *    (oddity 11).
  *  - `contactApiBody` builds the `POST /v1/contacts` body (`ContactCreateBody`). That route takes no `id`,
@@ -22,7 +28,7 @@
  *  - Matter validation is not ported (Matter import stays disabled).
  */
 
-import type { ContactCreateBody } from '@krhomebase/contracts'
+import type { ContactCreateBody, LeadCreateBody } from '@krhomebase/contracts'
 import type {
   BulkContactImportRecord,
   BulkContactStageRow,
@@ -32,8 +38,8 @@ import type {
   BulkImportIssue,
 } from './importTypes'
 
-/** The plain reason shown for every lead row until the Leads port. */
-export const LEAD_IMPORT_WAITING = 'Lead import waits for the Leads port.'
+/** A lead row attaches to an existing individual whose duplicate score is at least this (old rule). */
+export const LEAD_ATTACH_SCORE = 0.82
 
 const ENTITY_SUBTYPES = new Set(['llc', 'corporation', 'partnership', 'trust', 'estate', 'nonprofit', 'government', 'sole_prop', 'unknown'])
 const ENTITY_STATUSES = new Set(['active', 'inactive', 'dissolved', 'forfeited', 'reinstated', 'pending'])
@@ -332,11 +338,12 @@ export function validateBulkContactImportPayload(payload: unknown, existingConta
           ...sameFileCandidates,
         ]
       : []
-    // Changed: a lead row is never sent until the Leads port, whatever its checks found.
-    const action = normalized.record.isLead
-      ? 'not-importable'
-      : rowIssues.some((issue) => issue.severity === 'error')
-        ? 'blocked'
+    // Changed: a lead row without errors is approved even with duplicate candidates; at import it attaches to a close
+    // existing individual (`leadAttachCandidate`) or brings a new person.
+    const action = rowIssues.some((issue) => issue.severity === 'error')
+      ? 'blocked'
+      : normalized.record.isLead
+        ? 'create'
         : duplicateCandidates.length
           ? 'merge-review'
           : 'create'
@@ -346,9 +353,59 @@ export function validateBulkContactImportPayload(payload: unknown, existingConta
   return { kind: 'contacts', fileLabel, rows: stagedRows, issues }
 }
 
-/** The rows an import sends: approved creates only. The review's count uses the same list (oddity 11). */
+/** The rows an import sends: approved creates only, contacts and leads. The review's count uses the same list (oddity 11). */
 export function contactsToSend(rows: readonly BulkContactStageRow[]): BulkContactStageRow[] {
   return rows.filter((row) => row.action === 'create')
+}
+
+/**
+ * The existing individual a lead row attaches to: the first duplicate candidate that is an existing individual (not a
+ * row of this file) scoring `LEAD_ATTACH_SCORE` or more. Null for a contact row or when none qualifies, in which case
+ * the lead brings a new person.
+ */
+export function leadAttachCandidate(row: BulkContactStageRow): BulkImportDuplicateCandidate | null {
+  return row.record.isLead
+    ? row.duplicateCandidates.find((candidate) => candidate.source !== 'import' && candidate.kind === 'individual' && candidate.score >= LEAD_ATTACH_SCORE) ?? null
+    : null
+}
+
+/**
+ * Converts a normalized individual lead row to the `POST /v1/leads` body (`LeadCreateBody`).
+ *
+ * Ported from the old `leadApiBody`. Kept: the source detail (the row's `sourceDetail`, else its source label or row
+ * id), the "Source row: ..." trace line when it adds something, the summary (else the notes), and the defaults
+ * (source Other, status New, urgency Normal). Changed: an attached person is `individualId` and a new one `person`
+ * (the old body mixed both); "Source detail: ..." is not repeated in `inquirySummary` (the API writes it once from
+ * `sourceDetail`).
+ *
+ * @param record - The normalized lead row.
+ * @param individualId - The existing individual to attach to (`leadAttachCandidate`), or undefined for a new person.
+ */
+export function leadApiBody(record: BulkContactImportRecord, individualId?: string): LeadCreateBody {
+  const sourceDetail = record.leadSourceDetail || record.sourceLabel || record.sourceRowId
+  const sourceTrace = record.sourceRowId && sourceDetail !== record.sourceRowId ? `Source row: ${record.sourceRowId}` : null
+  const inquirySummary = [sourceTrace, record.leadSummary || record.notes].filter(Boolean).join('\n') || undefined
+  return {
+    ...(individualId
+      ? { individualId }
+      : {
+          person: {
+            firstName: record.firstName ?? '',
+            middleName: record.middleName,
+            lastName: record.lastName ?? '',
+            suffix: record.suffix,
+            preferredName: record.preferredName,
+            email: record.email,
+            phone: record.phone,
+          },
+        }),
+    source: (record.leadSource || 'other') as LeadCreateBody['source'],
+    sourceDetail,
+    status: (record.leadStatus || 'new') as LeadCreateBody['status'],
+    urgency: (record.leadUrgency || 'normal') as LeadCreateBody['urgency'],
+    inquirySummary,
+    practiceArea: record.leadPracticeArea,
+  }
 }
 
 /** Converts a normalized contact row to the `POST /v1/contacts` body (fields that route does not take are left out). */

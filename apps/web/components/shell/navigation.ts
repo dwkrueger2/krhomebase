@@ -101,7 +101,7 @@ export const SHELL_NAV_ITEMS: readonly ShellNavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', description: 'Personal dashboard, firm metrics, agenda, and quick links.' },
   { id: 'contacts', label: 'Clients & Contacts', icon: 'contacts', description: 'Clients, individuals, entities, contact methods, and relationship history.' },
   { id: 'leads', label: 'Leads', icon: 'leads', description: 'Prospective clients and people reaching out for initial contact.' },
-  { id: 'communications', label: 'Communications', icon: 'communications', description: 'Internal messages, client communications, phone logs, and email logs.' },
+  { id: 'communications', label: 'Workstream', icon: 'communications', description: 'The firm Workstream: phone calls, emails, notes, tasks, files and work in progress for every client and lead.' },
   { id: 'tasks', label: 'Tasks', icon: 'tasks', description: 'Task queues, staff assignments, due dates, and workflow tracking.' },
   { id: 'timekeeping', label: 'Attendance', icon: 'attendance', description: 'Clock in/out and employee time-card review.' },
   { id: 'billing', label: 'Billing', icon: 'billing', description: 'Invoices, ledger entries, payments, and trust/accounting views.' },

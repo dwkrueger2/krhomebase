@@ -7,15 +7,19 @@
  * Tabs, and when each gets its real screen:
  *  - Detail: `ContactDetailCard`, ported now (plan stage 1d-2).
  *  - WorkStream: the client's activity ledger. Holding card until Tasks and WorkStream are ported (phase D).
- *  - Projects & Matters: the client's matters. Holding card until the matters screens are ported (stage 3).
+ *  - Projects & Matters: the client's matters, `ClientMattersCard` from `features/matters` (plan 10, stage 1). The
+ *    workspace loads the matters once (`useClientMatters`) and shares them with the Detail tab's ASSOCIATED MATTERS
+ *    box, as the old workspace did; a contact with no client account shows a holding card.
  *  - Documents: was already a "Coming soon" card in the old app.
  *  - Danger Zone (super admin only): contact maintenance, `ContactMaintenanceCard` (stage 1d-4).
  *
- * Choosing a matter in the Detail tab opens Projects & Matters, as before.
+ * Choosing a matter in the Detail tab opens Projects & Matters with that matter selected, as before.
  */
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import MenuStyleOne, { type MenuStyleOneItem } from '@/components/ui/MenuStyleOne.client'
+import ClientMattersCard from '@/features/matters/components/ClientMattersCard.client'
+import { useClientMatters } from '@/features/matters/useClientMatters.client'
 import type { KRContactRecord } from '../types'
 import ContactDetailCard from './ContactDetailCard.client'
 import ContactDetailPlaceholder from './ContactDetailPlaceholder.client'
@@ -43,18 +47,34 @@ const LAYOUT_STYLES = {
 
 export default function ContactDetailWorkspace({ contact, onEdit, onClose, onOpenContact, onOpenBilling, canMaintain = false, onResolved }: ContactDetailWorkspaceProps) {
   const [activeMenuItemId, setActiveMenuItemId] = useState('detail')
+  const [requestedMatterId, setRequestedMatterId] = useState<string | null>(null)
+  const clientMatters = useClientMatters(contact.isClient ? contact.clientId : null)
+  // The Detail tab reads the loaded matters as the contact's related matters (the contacts list carries none).
+  const contactWithMatters = useMemo<KRContactRecord>(
+    () =>
+      clientMatters.data
+        ? {
+            ...contact,
+            relatedMatters: clientMatters.data.matters.map((matter) => ({ id: matter.id, matterNumber: matter.matterNumber, title: matter.title, role: 'primary client', status: matter.statusLabel ?? matter.statusLookupId })),
+          }
+        : contact,
+    [clientMatters.data, contact],
+  )
   const menuItems: MenuStyleOneItem[] = [
     {
       id: 'detail',
       label: 'Detail',
       card: (
         <ContactDetailCard
-          contact={contact}
+          contact={contactWithMatters}
           onClose={onClose}
           onEdit={onEdit}
           onOpenBilling={onOpenBilling}
           onOpenContact={onOpenContact}
-          onOpenMatter={() => setActiveMenuItemId('projects-matters')}
+          onOpenMatter={(matterId) => {
+            setRequestedMatterId(matterId)
+            setActiveMenuItemId('projects-matters')
+          }}
         />
       ),
     },
@@ -66,7 +86,18 @@ export default function ContactDetailWorkspace({ contact, onEdit, onClose, onOpe
     {
       id: 'projects-matters',
       label: 'Projects & Matters',
-      card: <ContactDetailPlaceholder title="Projects & Matters" description="The client's matters are listed and edited here once the matters screens are ported, with Billing." />,
+      card:
+        contact.isClient && contact.clientId ? (
+          <ClientMattersCard
+            clientId={contact.clientId}
+            clientNumber={clientMatters.data?.clientNumber ?? contact.clientNumber}
+            displayName={contact.clientDisplayName || contact.displayName}
+            requestedMatterId={requestedMatterId}
+            state={clientMatters}
+          />
+        ) : (
+          <ContactDetailPlaceholder title="Projects & Matters" description="This contact has no client account. Matters belong to a client; make the contact a client to add matters." />
+        ),
     },
     {
       id: 'documents',

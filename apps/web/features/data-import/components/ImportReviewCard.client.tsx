@@ -5,8 +5,9 @@
  * found", the issue count and the row counts, the "Review contact import" button and the safety note.
  *
  * Ported from the review block of the old `BulkDataManagementImportPanel.client.tsx` (texts kept). Changed: the
- * "ready to create" count is `contactsToSend`, the list the import really sends (oddity 11), and lead rows are
- * counted on their own as "waiting for the Leads port".
+ * "ready to create" count is the contact rows of `contactsToSend`, the list the import really sends (oddity 11), and
+ * approved lead rows are counted on their own as "leads to create" (until the Leads port: "waiting for the Leads
+ * port").
  *
  * @param props - The staged file, whether an import is running, and `onOpenReview`.
  */
@@ -54,10 +55,11 @@ export interface ImportReviewCardProps {
 }
 
 export default function ImportReviewCard({ validation, importing, onOpenReview }: ImportReviewCardProps) {
-  const createCount = contactsToSend(validation.rows).length
+  const toSend = contactsToSend(validation.rows)
+  const createCount = toSend.filter((row) => !row.record.isLead).length
   const blockedCount = validation.rows.filter((row) => row.action === 'blocked').length
   const reviewCount = validation.rows.filter((row) => row.action === 'merge-review').length
-  const leadCount = validation.rows.filter((row) => row.action === 'not-importable').length
+  const leadCount = toSend.length - createCount
 
   return (
     <div className={`${LAYOUT_STYLES.card} ${STYLES.card}`} data-kr-id="FirmSettingsDataManagementContactReviewCard">
@@ -68,7 +70,7 @@ export default function ImportReviewCard({ validation, importing, onOpenReview }
           <h3 className={`${LAYOUT_STYLES.text} ${STYLES.heading}`}>{validation.rows.length} Contacts found</h3>
           <p className={`${LAYOUT_STYLES.text} ${STYLES.paragraph}`} data-kr-element="contact-import-counts">
             {highSignalIssueText(validation.rows)}. {createCount} ready to create, {reviewCount} waiting for review, {blockedCount} blocked
-            {leadCount ? `, ${leadCount} lead${leadCount === 1 ? '' : 's'} waiting for the Leads port` : ''}.
+            {leadCount ? `, ${leadCount} lead${leadCount === 1 ? '' : 's'} to create` : ''}.
           </p>
         </div>
         <button className={STYLES.primaryButton} disabled={importing} type="button" onClick={onOpenReview}>

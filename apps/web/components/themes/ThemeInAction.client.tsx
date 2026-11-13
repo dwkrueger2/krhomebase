@@ -26,7 +26,24 @@ import type { CSSProperties } from 'react'
 import type { ThemeValueMap } from '@krhomebase/contracts'
 import { accentStripBackground } from '@/components/themes/themeEditing'
 
+/** The WorkStream sample chips: one per activity type, each reading its own --kr-theme-workstream-* colors (D17). */
+const WORKSTREAM_SAMPLE_CHIPS = [
+  { slug: 'all', label: 'All activity', className: 'border-(--kr-theme-workstream-all-line) bg-(--kr-theme-workstream-all-fill) text-(color:--kr-theme-workstream-all-text)' },
+  { slug: 'phone-calls', label: 'Phone Call', className: 'border-(--kr-theme-workstream-phone-calls-line) bg-(--kr-theme-workstream-phone-calls-fill) text-(color:--kr-theme-workstream-phone-calls-text)' },
+  { slug: 'emails', label: 'Email', className: 'border-(--kr-theme-workstream-emails-line) bg-(--kr-theme-workstream-emails-fill) text-(color:--kr-theme-workstream-emails-text)' },
+  { slug: 'notes', label: 'Note', className: 'border-(--kr-theme-workstream-notes-line) bg-(--kr-theme-workstream-notes-fill) text-(color:--kr-theme-workstream-notes-text)' },
+  { slug: 'tasks', label: 'Task', className: 'border-(--kr-theme-workstream-tasks-line) bg-(--kr-theme-workstream-tasks-fill) text-(color:--kr-theme-workstream-tasks-text)' },
+  { slug: 'received-files', label: 'Received files', className: 'border-(--kr-theme-workstream-received-files-line) bg-(--kr-theme-workstream-received-files-fill) text-(color:--kr-theme-workstream-received-files-text)' },
+  { slug: 'sent-files', label: 'Sent files', className: 'border-(--kr-theme-workstream-sent-files-line) bg-(--kr-theme-workstream-sent-files-fill) text-(color:--kr-theme-workstream-sent-files-text)' },
+  { slug: 'wip', label: 'Work in progress', className: 'border-(--kr-theme-workstream-wip-line) bg-(--kr-theme-workstream-wip-fill) text-(color:--kr-theme-workstream-wip-text)' },
+] as const
+
 const LAYOUT_STYLES = {
+  // The panel sample and the WorkStream sample stacked in one column of the layout grid.
+  panelColumn: 'gap-[8px] grid content-start',
+  workstream: 'px-[10px] py-[8px] gap-[6px] grid content-start',
+  workstreamChips: 'gap-[4px] flex flex-wrap',
+  workstreamChip: 'px-[6px] py-[2px] inline-flex items-center',
   header: 'px-[8px] py-[6px] gap-[8px] flex items-center justify-between',
   // Four samples side by side when the workspace has room, wrapping as it narrows. The old fixed columns
   // (220px, minmax(300px,1fr), minmax(230px,280px), 210px) scrolled sideways in a narrow workspace.
@@ -52,6 +69,9 @@ const STYLES = {
   title: 'm-0 text-[13px] leading-[1.2] text-(color:--kr-theme-text)',
   subtitle: 'mt-[2px] mb-0 text-[11px] leading-[1.3] text-(color:--kr-theme-text-muted)',
   sampleTitle: 'text-[12px] leading-[1.2] font-bold',
+  // The WorkStream sample: the dark Communications surface; each chip's colors are in WORKSTREAM_SAMPLE_CHIPS.
+  workstream: 'border border-(--kr-theme-line) bg-(--kr-theme-communication-surface) text-(color:--kr-theme-communication-text)',
+  workstreamChip: 'rounded-[3px] border text-[11px] font-bold',
   sampleText: 'text-[11px] leading-[1.35]',
   dark: 'bg-(--kr-theme-brand-secondary) text-(color:--kr-theme-text-inverse)',
   navRow: 'border border-white/20 text-[12px] hover:bg-(--kr-theme-brand-primary-active)',
@@ -172,6 +192,8 @@ export default function ThemeInAction({ name, values }: ThemeInActionProps) {
           </div>
         </article>
 
+        {/* Panel column: the panel sample with the WorkStream sample under it (one column, Nov 13, 2026) */}
+        <div className={LAYOUT_STYLES.panelColumn} data-kr-element="theme-sample-panel-column">
         {/* Panel: the accent strip above the working panel */}
         <article
           className={`${LAYOUT_STYLES.panel} ${STYLES.panel}`}
@@ -186,6 +208,19 @@ export default function ThemeInAction({ name, values }: ThemeInActionProps) {
             <span className={STYLES.sampleText}>Quiet workspace body surface below the accent treatment.</span>
           </div>
         </article>
+
+        {/* WorkStream colors: the activity types on the dark Communications surface (D17), under the panel sample */}
+        <article className={`${LAYOUT_STYLES.workstream} ${STYLES.workstream}`} data-kr-element="theme-sample-workstream" title={uses('--kr-theme-workstream-all-line', '--kr-theme-workstream-all-fill', '--kr-theme-workstream-all-text', '--kr-theme-workstream-phone-calls-line', '--kr-theme-workstream-phone-calls-fill', '--kr-theme-workstream-phone-calls-text', '--kr-theme-workstream-emails-line', '--kr-theme-workstream-emails-fill', '--kr-theme-workstream-emails-text', '--kr-theme-workstream-notes-line', '--kr-theme-workstream-notes-fill', '--kr-theme-workstream-notes-text', '--kr-theme-workstream-tasks-line', '--kr-theme-workstream-tasks-fill', '--kr-theme-workstream-tasks-text', '--kr-theme-workstream-received-files-line', '--kr-theme-workstream-received-files-fill', '--kr-theme-workstream-received-files-text', '--kr-theme-workstream-sent-files-line', '--kr-theme-workstream-sent-files-fill', '--kr-theme-workstream-sent-files-text', '--kr-theme-workstream-wip-line', '--kr-theme-workstream-wip-fill', '--kr-theme-workstream-wip-text', '--kr-theme-communication-surface')}>
+          <strong className={STYLES.sampleTitle} data-kr-element="theme-sample-workstream-title">WorkStream activity colors</strong>
+          <div className={LAYOUT_STYLES.workstreamChips} data-kr-element="theme-sample-workstream-chips">
+            {WORKSTREAM_SAMPLE_CHIPS.map((chip) => (
+              <span className={`${LAYOUT_STYLES.workstreamChip} ${STYLES.workstreamChip} ${chip.className}`} data-kr-element={`theme-sample-workstream-${chip.slug}`} key={chip.slug}>
+                {chip.label}
+              </span>
+            ))}
+          </div>
+        </article>
+        </div>
 
         {/* Notices: the state colors */}
         <article className={`${LAYOUT_STYLES.notices} ${STYLES.notices}`} title={uses('--kr-theme-success', '--kr-theme-danger', '--kr-theme-orange', '--kr-theme-teal')}>

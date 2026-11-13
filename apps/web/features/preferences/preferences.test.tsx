@@ -19,7 +19,7 @@ import PreferencesPage from '@/features/preferences/components/PreferencesPage.c
 import { PreferencesProvider } from '@/features/preferences/PreferencesProvider.client'
 import { AUTH_ERROR_MESSAGES, AUTH_NOTICE_CODES } from '@/features/auth/authErrors'
 
-const SAVED: UserPreferencesData = { preferences: { theme: 'dark', autoLogoutMinutes: 15, startingSection: 'timekeeping', dashboardWidgets: {}, personalTheme: { themeId: 'firm-default', density: 'compact', light: {}, dark: {} } }, updatedAt: '2026-11-11T20:00:00.000Z' }
+const SAVED: UserPreferencesData = { preferences: { theme: 'dark', autoLogoutMinutes: 15, startingSection: 'timekeeping', dashboardWidgets: {}, personalTheme: { themeId: 'firm-default', density: 'compact', light: {}, dark: {} }, workstreamTypes: [] }, updatedAt: '2026-11-11T20:00:00.000Z' }
 const USER = { displayName: 'Test Person', firmName: 'Test Firm', avatarInitials: 'TP' }
 const PANELS = Object.fromEntries(SHELL_NAV_ITEMS.map((item) => [item.id, <p key={item.id}>panel-{item.id}</p>])) as Record<ShellSectionId, ReactNode>
 
@@ -79,5 +79,15 @@ describe('idle logout timing', () => {
   it('sends the person to a login notice that says why', () => {
     expect(AUTH_NOTICE_CODES).toContain('idle_timeout')
     expect(AUTH_ERROR_MESSAGES.idle_timeout).toMatch(/without activity/)
+  })
+})
+
+describe('WorkStream view preference (Nov 13, 2026)', () => {
+  it('ticking All or unticking the last type means All; types keep the standard order', async () => {
+    const { nextWorkstreamTypes } = await import('@/features/preferences/components/WorkstreamPreferencesCard.client')
+    expect(nextWorkstreamTypes([], 'Notes', true)).toEqual(['Notes'])
+    expect(nextWorkstreamTypes(['Notes'], 'PhoneCalls', true)).toEqual(['PhoneCalls', 'Notes'])
+    expect(nextWorkstreamTypes(['Notes'], 'Notes', false)).toEqual([])
+    expect(nextWorkstreamTypes(['Notes', 'WIP'], 'all', true)).toEqual([])
   })
 })

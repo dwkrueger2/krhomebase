@@ -465,6 +465,24 @@ export default function DevView({ targetWindow }: DevViewProps = {}) {
     setOverlayContext({ cycle: nextCycle, overlayId })
   }
 
+  /**
+   * P: replaces the selection with the `data-kr-id` of the nearest parent element that carries one (the requester,
+   * Nov 13, 2026), so a developer can walk up the page one parent at a time. Does nothing at the top of the page.
+   */
+  function selectParentId(overlayId: string): void {
+    const overlay = overlays.find((candidate) => candidate.id === overlayId)
+    const parent = overlay?.element.parentElement?.closest<HTMLElement>('[data-kr-id]')
+    const value = parent?.getAttribute('data-kr-id')
+    if (!value) return
+    const key = `data-kr-id=${value}`
+    setOverlayContext(null)
+    setElementChildrenOverlay(null)
+    setContextFilterKeys(null)
+    setPickedElements([])
+    setEntries(readMarkerEntries(currentWindow().document))
+    setSelectedKeys(new Set([key]))
+  }
+
   /** Toggles all descendant `data-kr-element*` markers and mirrors them in the popup list. */
   function toggleElementChildren(overlayId: string): void {
     const overlay = overlays.find((candidate) => candidate.id === overlayId)
@@ -554,6 +572,7 @@ export default function DevView({ targetWindow }: DevViewProps = {}) {
           }}
           onResetContext={resetOverlayContext}
           onToggleElementChildren={toggleElementChildren}
+          onSelectParent={selectParentId}
           onToggleVisibility={toggleOverlayVisibility}
           onUpdateLabelOffset={updateLabelOffset}
           overlays={overlays}

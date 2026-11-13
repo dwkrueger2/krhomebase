@@ -2,13 +2,16 @@
 // file: apps/web/features/data-import/components/ContactImportReviewDialog.client.tsx
 /**
  * The Contact Import review dialog (`data-kr-id="ContactImportReviewDialog"`): what an import of the staged file
- * will create, hold for merge review, deny, and (changed) leave for the Leads port.
+ * will create, hold for merge review and deny, and (changed) the leads it will create.
  *
  * Ported from the old `src/hb-import/ContactImportReviewDialog.client.tsx` (texts, sections and markers kept).
  * Changed from the old dialog:
- *  - A fourth section, "Not importable yet (n)", lists the lead rows with the reason "Lead import waits for the
- *    Leads port." and any check that failed on them.
- *  - "Import approved contacts (n)" counts `contactsToSend`, the same list the import sends (oddity 11).
+ *  - A fourth section, "Leads to create (n)", lists the approved lead rows and says for each whether it attaches to
+ *    an existing individual (`leadAttachCandidate`, with the match) or brings a new person. (Until the Leads port it
+ *    was "Not importable yet".) A lead row with errors is listed under Denied. "Approved to create" lists the
+ *    contact rows only.
+ *  - "Import approved contacts (n)" counts `contactsToSend`, the same list the import sends (oddity 11), leads
+ *    included; when the file has approved leads the button says "Import approved contacts and leads (n)".
  *  - The progress uses the rainbow spinner (the one busy signal); the close × is `KRCloseCardButton`.
  *  - It is drawn into `document.body` with `data-kr-theme-scope="krhomebase"` so the theme tokens apply; colors are
  *    theme tokens (the old dialog used fixed fallbacks), and sizes follow the Density Contract.
@@ -19,7 +22,7 @@ import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import KRCloseCardButton from '@/components/ui/KRCloseCardButton.client'
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
-import { contactLabel, contactsToSend, LEAD_IMPORT_WAITING } from '@/features/data-import/contactImportValidation'
+import { contactLabel, contactsToSend, leadAttachCandidate } from '@/features/data-import/contactImportValidation'
 import type { BulkContactStageRow, BulkContactValidationResult, ContactImportProgress } from '@/features/data-import/importTypes'
 
 /** Props for the staged Contact Import review dialog. */
@@ -45,7 +48,7 @@ const STYLES = {
   sectionApproved: 'border-l-(--kr-theme-success)',
   sectionSuggested: 'border-l-(--kr-theme-orange)',
   sectionDenied: 'border-l-(--kr-theme-danger)',
-  sectionWaiting: 'border-l-(--kr-theme-text-muted)',
+  sectionLeads: 'border-l-(--kr-theme-brand-primary)',
   sectionHeader: 'border-b border-(--kr-theme-line) bg-(--kr-theme-muted-surface)',
   sectionTitle: 'text-[12px] font-extrabold text-(color:--kr-theme-text)',
   sectionSummary: 'text-[10px] text-(color:--kr-theme-text-muted)',
@@ -56,7 +59,7 @@ const STYLES = {
   badge: 'w-fit rounded-[2px] text-[9px] font-extrabold uppercase tracking-[0.05em] text-(color:--kr-theme-text-inverse)',
   mergeBadge: 'bg-(--kr-theme-orange)',
   deniedBadge: 'bg-(--kr-theme-danger)',
-  waitingBadge: 'bg-(--kr-theme-text-muted)',
+  leadBadge: 'bg-(--kr-theme-brand-primary)',
   empty: 'text-[10px] text-(color:--kr-theme-text-muted)',
   error: 'rounded-[2px] border border-(--kr-theme-danger) text-[11px] text-(color:--kr-theme-danger)',
   button: 'px-[10px] py-[3px] min-h-[26px] rounded-[3px] border text-[11px] font-extrabold cursor-pointer disabled:cursor-not-allowed disabled:opacity-[0.55]',
@@ -99,6 +102,13 @@ function candidateDetails(row: BulkContactStageRow): string {
   return [`${candidate.source === 'import' ? 'Earlier row' : 'Existing'} ${candidate.displayName}`, `${Math.round(candidate.score * 100)}% match`, candidate.reasons.join(', '), candidate.relatedMatterLabels.length ? `Matters: ${candidate.relatedMatterLabels.join('; ')}` : '']
     .filter(Boolean)
     .join(' · ')
+}
+
+/** How an approved lead row will be saved: on an existing individual (with the match) or with a new person. */
+function leadPlan(row: BulkContactStageRow): string {
+  const attach = leadAttachCandidate(row)
+  if (!attach) return 'New person and lead.'
+  return `Attaches to existing ${attach.displayName} (${Math.round(attach.score * 100)}% match: ${attach.reasons.join(', ')}).`
 }
 
 function rowIssueText(row: BulkContactStageRow): string {
@@ -149,9 +159,11 @@ function ReviewSection({ krElement, accent, title, summary, empty, rows, renderR
 /** The dialog panel without the portal: header, notice, the four sections, file issues, progress and actions. */
 export function ContactImportReviewBody({ contactReferenceReady, importProgress, importing, onClose, onImportApproved, validation }: Omit<ContactImportReviewDialogProps, 'open'> & { validation: BulkContactValidationResult }) {
   const approved = contactsToSend(validation.rows)
+  const approvedContacts = approved.filter((row) => !row.record.isLead)
+  const approvedLeads = approved.filter((row) => row.record.isLead)
   const suggested = validation.rows.filter((row) => row.action === 'merge-review')
   const denied = validation.rows.filter((row) => row.action === 'blocked')
-  const waiting = validation.rows.filter((row) => row.action === 'not-importable')
+  const importLabel = approvedLeads.length ? `Import approved contacts and leads (${approved.length})` : `Import approved contacts (${approved.length})`
   const badge = (tone: string, text: string) => <span className={`${LAYOUT_STYLES.badge} ${STYLES.badge} ${tone}`}>{text}</span>
 
   return (
@@ -175,7 +187,7 @@ export function ContactImportReviewBody({ contactReferenceReady, importProgress,
 
       {/* Decision sections: keep approved, merge-suggested, denied and lead rows visually separate. */}
       <div className={LAYOUT_STYLES.sections} data-kr-element="contact-import-review-sections">
-        <ReviewSection accent={STYLES.sectionApproved} empty="No contact rows are approved for creation." krElement="contact-import-approved-section" rows={approved} summary="No duplicate candidate met the review threshold." title="Approved to create" renderRow={(row) => (
+        <ReviewSection accent={STYLES.sectionApproved} empty="No contact rows are approved for creation." krElement="contact-import-approved-section" rows={approvedContacts} summary="No duplicate candidate met the review threshold." title="Approved to create" renderRow={(row) => (
           <>
             <strong className={STYLES.rowTitle}>{row.rowNumber}. {reviewLabel(row)}</strong>
             <span className={STYLES.rowMeta}>{incomingDetails(row)}</span>
@@ -196,11 +208,12 @@ export function ContactImportReviewBody({ contactReferenceReady, importProgress,
             <span className={STYLES.rowMeta}>{rowIssueText(row)}</span>
           </>
         )} />
-        <ReviewSection accent={STYLES.sectionWaiting} empty="No lead rows in this file." krElement="contact-import-leads-waiting-section" rows={waiting} summary={`${LEAD_IMPORT_WAITING} These rows are not sent.`} title="Not importable yet" renderRow={(row) => (
+        <ReviewSection accent={STYLES.sectionLeads} empty="No lead rows are approved in this file." krElement="contact-import-leads-section" rows={approvedLeads} summary="Each lead attaches to an existing individual matching at 82% or more, otherwise it brings a new person. A person who already has a lead keeps it." title="Leads to create" renderRow={(row) => (
           <>
-            {badge(STYLES.waitingBadge, 'Lead')}
+            {badge(STYLES.leadBadge, 'Lead')}
             <strong className={STYLES.rowTitle}>{row.rowNumber}. {reviewLabel(row)}</strong>
-            <span className={STYLES.rowMeta}>{[LEAD_IMPORT_WAITING, ...row.issues.map((issue) => issue.message)].join(' · ')}</span>
+            <span className={STYLES.rowMeta}>{incomingDetails(row)}</span>
+            <span className={STYLES.rowMeta}>{leadPlan(row)}</span>
           </>
         )} />
       </div>
@@ -220,7 +233,7 @@ export function ContactImportReviewBody({ contactReferenceReady, importProgress,
           Close
         </button>
         <button className={`${STYLES.button} ${STYLES.primary}`} data-kr-action="import-approved-contacts" disabled={importing || !contactReferenceReady || approved.length === 0} type="button" onClick={onImportApproved}>
-          {importing ? 'Importing...' : contactReferenceReady ? `Import approved contacts (${approved.length})` : 'Waiting for contact references'}
+          {importing ? 'Importing...' : contactReferenceReady ? importLabel : 'Waiting for contact references'}
         </button>
       </footer>
     </section>

@@ -14,6 +14,11 @@ import { L } from '@/lib/KRUtilities'
  * Local development also reports a slow call: when the API has not answered after 2 seconds, one
  * "still waiting" line is printed (always, not only when `KR_LOG_ENABLED` is on), because the first call can
  * take several seconds while the API connects to the deployed Workers. Start and finish lines use `L`.
+ *
+ * Local development also retries a dropped read once (added Nov 13, 2026). `wrangler dev` restarts the API every time
+ * an API or contracts file is saved, and a restart closes any call in flight; the page then failed with the vite error
+ * "Internal Server Error: terminated", in every open browser at once. A `GET` or `HEAD` whose connection fails is now
+ * tried again after 1.5 seconds; writes are never repeated. The deployed path (the `API` binding) is unchanged.
  */
 export async function callApi(pathAndQuery: string, init?: RequestInit): Promise<Response> {
   if (!pathAndQuery.startsWith('/v1/')) {
@@ -26,9 +31,20 @@ export async function callApi(pathAndQuery: string, init?: RequestInit): Promise
     const slowTimer = setTimeout(() => {
       console.warn(`[API_CALL:30] still waiting for the API after 2 seconds: ${pathAndQuery.split('?')[0]} (is "pnpm dev:api" running on ${base}?)`)
     }, 2000)
+    const method = (init?.method ?? 'GET').toUpperCase()
+    const send = () => fetch(`${base}${pathAndQuery}`, { redirect: 'manual', ...init })
     try {
-      const response = await fetch(`${base}${pathAndQuery}`, { redirect: 'manual', ...init })
-      L(`[API_CALL:35] done ${response.status} in ${Date.now() - started}ms ${pathAndQuery.split('?')[0]}`)
+      let response: Response
+      try {
+        response = await send()
+      } catch (error) {
+        // A dropped connection while the API dev server restarts: try a read once more, never a write.
+        if (method !== 'GET' && method !== 'HEAD') throw error
+        console.warn(`[API_CALL:47] connection dropped (${error instanceof Error ? error.message : String(error)}); the API dev server is probably restarting. Trying once more: ${pathAndQuery.split('?')[0]}`)
+        await new Promise((resolve) => setTimeout(resolve, 1500))
+        response = await send()
+      }
+      L(`[API_CALL:51] done ${response.status} in ${Date.now() - started}ms ${pathAndQuery.split('?')[0]}`)
       return response
     } finally {
       clearTimeout(slowTimer)

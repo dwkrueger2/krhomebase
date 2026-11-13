@@ -1,8 +1,8 @@
 {
   "name": "krhomebase",
   "version": "1.0.0",
-  "patchNum": "26",
-  "patchDate": "11-11",
+  "patchNum": "29",
+  "patchDate": "11-13",
   "private": true,
   "description": "KR Homebase: web (Next.js on vinext) and api (Hono on Cloudflare Workers).",
   "type": "module",

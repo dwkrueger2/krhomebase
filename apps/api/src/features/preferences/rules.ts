@@ -30,6 +30,7 @@ import {
   type ThemeContrastProblem,
   DEFAULT_USER_PREFERENCES,
   StartingSection,
+  WorkstreamTypesPreference,
   ThemeName,
   type UpdateUserPreferencesBody,
   type UserPreferences,
@@ -94,6 +95,7 @@ export const PREFERENCE_FIELDS: { readonly [F in Field]: { key: string; schema: 
   startingSection: { key: 'navigation', schema: StartingSection },
   dashboardWidgets: { key: 'dashboard', schema: DashboardWidgetChoices },
   personalTheme: { key: 'theme', schema: PersonalTheme },
+  workstreamTypes: { key: 'workstream', schema: WorkstreamTypesPreference },
 }
 
 const FIELDS = Object.keys(PREFERENCE_FIELDS) as Field[]

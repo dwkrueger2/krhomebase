@@ -129,6 +129,8 @@ export default async function HomePage() {
   const isSuperAdmin = session.role === 'super_admin'
   const panels: Record<BuiltInSectionId, ReactNode> = {
     ...PANELS,
+    leads: <LeadsPanel viewer={{ userId: session.userId, displayName: session.displayName, email: session.email, role: session.role }} />,
+    communications: <CommunicationsPanel viewer={{ userId: session.userId, displayName: session.displayName, email: session.email, role: session.role }} />,
     settings: <SettingsPanel isSuperAdmin={isSuperAdmin} />,
     'application-settings': (
       <ApplicationSettingsPanel

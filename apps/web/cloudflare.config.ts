@@ -15,6 +15,9 @@ export default defineConfig({
       ASSETS: bindings.assets(),
       // Service binding to the API Worker. The API has no public address; this is the only way in.
       API: bindings.worker({ worker: "krhomebase-api" }),
+      // Cloudflare's id, tag and time of the deployed version; shown in each page's <head> (app/layout.tsx) so the live
+      // version can be checked from the browser (the requester, Nov 13, 2026).
+      CF_VERSION_METADATA: bindings.versionMetadata(),
     },
   }),
 });

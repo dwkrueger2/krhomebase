@@ -1,0 +1,71 @@
+/**
+ * file: apps/web/features/communications/components/Communications.module.css
+ *
+ * The Communications section's own colors, as component-scoped custom properties read by the components' Tailwind
+ * classes (for example `border-(--CommunicationPhoneCallsLine)`). A CSS file is allowed here by AGENTS_05 ("When a
+ * separate CSS file is appropriate": component-scoped CSS custom properties consumed by Tailwind arbitrary values),
+ * and the variables sit on the panel's root, the one place a data-kr-id may act as a selector.
+ *
+ * Ported from the old `hb-components/KR-Communications/Communications.module.css`. The old file's class rules were
+ * already unused (the old components had moved to Tailwind maps), so only the colors the old maps wrote as literal
+ * hex values remain, each under a name. They are not `--kr-theme-*` tokens because `styles/theme.css` has no names for
+ * them yet; when the requester wants them themable, move them there as `--kr-theme-communication-*` tokens and point
+ * these names at them. The surfaces, lines and text of the dark chat look already are theme tokens
+ * (`--kr-theme-communication-*`) and are read directly.
+ *
+ * Owned by `CommunicationsPanel.client.tsx` (which imports this file); read by every component under it.
+ */
+
+/**
+ * Activity type colors (theme settings `--kr-theme-workstream-<type>-line|fill|text` since Nov 13, 2026, the requester's
+ * decision D17, so each person may change them; the values after the comma are the built-in ones): a line (border and
+ * idle text accent), a fill (the pressed button) and a text color, the same
+ * values for the thread filters, the composer's "Log as" buttons and the parser pills. "All" is the All activity filter.
+ * Avatar tones color the initials circles; the live dot marks the thread header's "Internal log" badge; the tag colors
+ * draw an accepted context tag inside the editor.
+ */
+[data-kr-id="communications-module-panel"] {
+  --CommunicationAllLine: var(--kr-theme-workstream-all-line, #8ab4f8);
+  --CommunicationAllFill: var(--kr-theme-workstream-all-fill, #1f3450);
+  --CommunicationAllText: var(--kr-theme-workstream-all-text, #dce9ff);
+
+  --CommunicationPhoneCallsLine: var(--kr-theme-workstream-phone-calls-line, #81c995);
+  --CommunicationPhoneCallsFill: var(--kr-theme-workstream-phone-calls-fill, #1f3a2c);
+  --CommunicationPhoneCallsText: var(--kr-theme-workstream-phone-calls-text, #b7e6c2);
+
+  --CommunicationEmailsLine: var(--kr-theme-workstream-emails-line, #fbbc04);
+  --CommunicationEmailsFill: var(--kr-theme-workstream-emails-fill, #443618);
+  --CommunicationEmailsText: var(--kr-theme-workstream-emails-text, #ffe08a);
+
+  --CommunicationNotesLine: var(--kr-theme-workstream-notes-line, #c58af9);
+  --CommunicationNotesFill: var(--kr-theme-workstream-notes-fill, #36234e);
+  --CommunicationNotesText: var(--kr-theme-workstream-notes-text, #e3c8ff);
+
+  --CommunicationTasksLine: var(--kr-theme-workstream-tasks-line, #f28b82);
+  --CommunicationTasksFill: var(--kr-theme-workstream-tasks-fill, #4a2727);
+  --CommunicationTasksText: var(--kr-theme-workstream-tasks-text, #ffd0cc);
+
+  --CommunicationReceivedFilesLine: var(--kr-theme-workstream-received-files-line, #78d8e1);
+  --CommunicationReceivedFilesFill: var(--kr-theme-workstream-received-files-fill, #193d42);
+  --CommunicationReceivedFilesText: var(--kr-theme-workstream-received-files-text, #b7f0f3);
+
+  --CommunicationSentFilesLine: var(--kr-theme-workstream-sent-files-line, #8ab4f8);
+  --CommunicationSentFilesFill: var(--kr-theme-workstream-sent-files-fill, #22385a);
+  --CommunicationSentFilesText: var(--kr-theme-workstream-sent-files-text, #cfe0ff);
+
+  --CommunicationWipLine: var(--kr-theme-workstream-wip-line, #ffb86b);
+  --CommunicationWipFill: var(--kr-theme-workstream-wip-fill, #4a2f1f);
+  --CommunicationWipText: var(--kr-theme-workstream-wip-text, #ffd6b2);
+
+  --CommunicationAvatarGold: #fbbc04;
+  --CommunicationAvatarBlue: #8ab4f8;
+  --CommunicationAvatarTeal: #81c995;
+  --CommunicationAvatarRose: #f28b82;
+  --CommunicationAvatarText: #101010;
+
+  --CommunicationLiveDot: #81c995;
+
+  --CommunicationTagLine: #aeb4bb;
+  --CommunicationTagSurface: #090a0b;
+  --CommunicationTagText: #ffffff;
+}

@@ -10,6 +10,7 @@ colors:
   table-heading-dark: "#21394f"
   accent: "#8a715c"
   accent-dark: "#6d5948"
+  accent2: "#0066cc"
   panel-accent-gradient-middle: "#0f766e"
   teal: "#4e998a"
   orange: "#e45e25"
@@ -184,8 +185,8 @@ components:
 
 # Design System: KR Homebase
 
-<small>Version 1.13</small><br>
-<small>Updated Nov 12, 2026 6:09pm</small>
+<small>Version 1.15</small><br>
+<small>Updated Nov 13, 2026 3:15pm</small>
 
 This file records the visual system that is already in the code (`apps/web/styles/theme.css`, the component `STYLES` maps) and in the old app's reference pages (`/tests/krh/u/default-theme`, `/tests/krh/u5`, `/tests/krh/u1`). The YAML block above must stay at the very top of the file for design tools to read it, so this file's title and version sit below it. Product facts are in `PRODUCT.md`. Layout rules for code (widths, spacing, corners, label placement) are binding in `apps/web/AGENTS.md`; this file describes them and does not override them.
 
@@ -218,7 +219,8 @@ A cool navy-and-slate palette with one warm camel accent from the K&R logo pack,
 - **Ledger Slate** (button-primary-background, table-heading-dark): the primary button, the confirm button in dialogs, and every ledger heading row. Hover deepens to **Ledger Slate Light** (button-primary-hover-background).
 
 ### Secondary
-- **Warm Camel** (accent): the underline of the active tab in Menu Style One, the eyebrow over a module title, and the hover or focus border of search fields and filter cards. **Dark Camel** (accent-dark) is its pressed or text-on-light form.
+- **Warm Camel** (accent): the underline of the active tab in Menu Style One, the eyebrow over a module title, and the hover or focus border of search fields and filter cards. **Dark Camel** (accent-dark) is its pressed or text-on-light form. **Identifier Blue** (accent2, `--kr-theme-accent2`, `#0066cc`; `#5ca8f0` in dark) colors key identifiers that must read at a glance, first the matter numbers in Projects & Matters (the requester, Nov 13, 2026: the camel accent was too light for them).
+- **WorkStream Colors** (`--kr-theme-workstream-<type>-line|fill|text`, the requester's D17, Nov 13, 2026): a line, a pressed fill and a text color for All and each of the seven activity types, on the dark Communications surface (the same values in the dark set). Personal settings; the theme preview shows them as chips.
 - **Deep Teal** (panel-accent-gradient-middle): the middle of the panel accent strip gradient (Firm Navy to Deep Teal to Ledger Slate, 135 degrees).
 
 ### Tertiary (state)

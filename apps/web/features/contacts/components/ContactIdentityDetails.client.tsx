@@ -304,7 +304,7 @@ export default function ContactIdentityDetails({ contact, onEdit, onOpenMatter, 
                 </button>
               ))
             ) : (
-              <p className={`${LAYOUT_STYLES.mutedText} ${STYLES.mutedText}`}>Matters are shown here once the matters screens are ported (plan stage 3).</p>
+              <p className={`${LAYOUT_STYLES.mutedText} ${STYLES.mutedText}`}>{contact.isClient ? 'No matters are linked to this contact.' : 'Not a client, so no matters.'}</p>
             )}
           </div>
         </div>

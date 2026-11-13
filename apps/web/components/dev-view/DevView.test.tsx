@@ -9,7 +9,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import { CORNER_LAYOUT_STYLES, DEV_VIEW_CORNERS, isDevViewCorner, readStoredCorner } from './corner'
-import { labelPlacement } from './DevOverlay.client'
+import { labelPlacement, stackLabelOffsets } from './DevOverlay.client'
 import DevView from './DevView.client'
 import DevViewPanel, { type DevViewPanelProps } from './DevViewPanel.client'
 import type { MarkerEntry } from './markers'
@@ -111,5 +111,20 @@ describe('corner', () => {
 
   it('falls back to bottom right when storage is unavailable', () => {
     expect(readStoredCorner()).toBe('bottom-right')
+  })
+})
+
+describe('stackLabelOffsets', () => {
+  it('pushes a label down when a neighbour on the same row would cover it, and leaves clear labels alone', () => {
+    const row = { top: 100, topLabel: true, width: 180 }
+    const offsets = stackLabelOffsets([
+      { ...row, id: 'item', left: 22, labels: ['data-kr-element="left-nav-open-item"'] },
+      { ...row, id: 'close', left: 205, width: 22, labels: ['data-kr-element="left-nav-open-item-close"'] },
+      { ...row, id: 'far', left: 900, labels: ['data-kr-id="Far"'] },
+    ])
+    expect(offsets.item).toBe(0)
+    expect(offsets.close).toBeGreaterThan(0)
+    expect(offsets.far).toBe(0)
+    expect(labelPlacement(true, true, 0, 23).style.transform).toBe('translateX(0px) translateY(23px)')
   })
 })

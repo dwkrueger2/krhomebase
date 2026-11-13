@@ -1,7 +1,7 @@
 # Readme: Dev View
 
-<small>Version 1.5</small><br>
-<small>Updated Nov 7, 2026 7:10pm</small>
+<small>Version 1.6</small><br>
+<small>Updated Nov 13, 2026 3:15pm</small>
 
 Ported from the old `README - Dev Overlay.md` (v1.3, krueger-richard-website, `apps/kr-homebase/src/hb-components/dev-view`). Version continues from it.
 
@@ -47,15 +47,18 @@ The boundary can be hidden with the VisIcon while its label remains visible. Thi
 A **Dev overlay label** is the attached label that identifies the selected marker and exposes its controls in this order:
 
 ```text
-[GrabIcon][VisIcon][C][E]data-kr-id="MarkerTest"[Copy][-]
+[GrabIcon][VisIcon][C][E][P]data-kr-id="MarkerTest"[Copy][-]
 ```
 
 - **GrabIcon**: press and drag horizontally to slide the label left or right. The label is not clamped to its rectangle, so it can slide outside its associated overlay.
 - **VisIcon**: toggles only the shaded boundary. Its slashed state means the boundary is hidden; the label remains visible.
 - **C**: cycles the selected marker list through descendant `data-kr-id*` markers, direct data-marked siblings, and the nearest data-marked parent. The selected keys are also checked in the Dev View master list.
 - **E**: selects the caller plus all descendant `data-kr-element*` markers and checks those keys in the Dev View master list. Clicking it again restores the selection from before E was activated.
+- **P** (added Nov 13, 2026): replaces the selection with the `data-kr-id` of the nearest parent element that carries one, so a developer can walk up the page one parent at a time.
 - **Copy**: copies the marker text to the clipboard and briefly changes to a checkmark.
 - **[-]**: deselects the marker. The marker remains available in the Dev View list for re-selection.
+
+**Label stacking (Nov 13, 2026).** Labels that would cover each other are pushed down a line until they are clear (`stackLabelOffsets` in `DevOverlay.client.tsx`). Before, two neighbours on one row, such as `left-nav-open-item` and its `left-nav-open-item-close` button, drew their labels in the same place and the second hid the first, so E seemed to miss the open items.
 
 ## Application vocabulary
 

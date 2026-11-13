@@ -38,6 +38,8 @@
   /* Accent colors. */
   --kr-theme-accent: #8a715c;
   --kr-theme-accent-dark: #6d5948;
+  /* Accent 2: strong blue for matter numbers and other key identifiers (the requester, Nov 13, 2026). */
+  --kr-theme-accent2: #0066cc;
   --kr-theme-teal: #4e998a;
   --kr-theme-orange: #e45e25;
   --kr-theme-danger: #9d2c20;
@@ -85,6 +87,33 @@
   --kr-theme-communication-reaction-surface: #303134;
   --kr-theme-communication-reaction-active: #41331c;
   --kr-theme-communication-composer-surface: #202124;
+
+  /* WorkStream activity colors (D17, Nov 13, 2026): line, pressed fill and text for each activity type, on the dark
+     Communications surface; the same in the dark set. Read by features/communications/components/Communications.module.css. */
+  --kr-theme-workstream-all-line: #8ab4f8;
+  --kr-theme-workstream-all-fill: #1f3450;
+  --kr-theme-workstream-all-text: #dce9ff;
+  --kr-theme-workstream-phone-calls-line: #81c995;
+  --kr-theme-workstream-phone-calls-fill: #1f3a2c;
+  --kr-theme-workstream-phone-calls-text: #b7e6c2;
+  --kr-theme-workstream-emails-line: #fbbc04;
+  --kr-theme-workstream-emails-fill: #443618;
+  --kr-theme-workstream-emails-text: #ffe08a;
+  --kr-theme-workstream-notes-line: #c58af9;
+  --kr-theme-workstream-notes-fill: #36234e;
+  --kr-theme-workstream-notes-text: #e3c8ff;
+  --kr-theme-workstream-tasks-line: #f28b82;
+  --kr-theme-workstream-tasks-fill: #4a2727;
+  --kr-theme-workstream-tasks-text: #ffd0cc;
+  --kr-theme-workstream-received-files-line: #78d8e1;
+  --kr-theme-workstream-received-files-fill: #193d42;
+  --kr-theme-workstream-received-files-text: #b7f0f3;
+  --kr-theme-workstream-sent-files-line: #8ab4f8;
+  --kr-theme-workstream-sent-files-fill: #22385a;
+  --kr-theme-workstream-sent-files-text: #cfe0ff;
+  --kr-theme-workstream-wip-line: #ffb86b;
+  --kr-theme-workstream-wip-fill: #4a2f1f;
+  --kr-theme-workstream-wip-text: #ffd6b2;
 
   /* Shared padding sets (top right bottom left). */
   --kr-theme-table-head-padding: 6px 8px 6px 8px;
@@ -135,6 +164,7 @@
     /* Accent colors: lighter, so they read on dark surfaces. */
     --kr-theme-accent: #c0a68c;
     --kr-theme-accent-dark: #a88d73;
+    --kr-theme-accent2: #5ca8f0;
     --kr-theme-teal: #66b8a8;
     --kr-theme-orange: #ec6a32;
     --kr-theme-danger: #e2735f;

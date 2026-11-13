@@ -23,7 +23,7 @@ const FIRM: FirmThemesData = {
   themes: [{ id: 'firm-blue', name: 'Firm Blue', description: '', light: { '--kr-theme-brand-primary': '#0000aa' }, dark: {}, storedShape: 'current' }],
 }
 const SAVED: UserPreferencesData = {
-  preferences: { theme: 'light', autoLogoutMinutes: 60, startingSection: 'dashboard', dashboardWidgets: {}, personalTheme: { themeId: 'firm-default', density: 'comfortable', light: { '--kr-theme-text': '#101010' }, dark: {} } },
+  preferences: { theme: 'light', autoLogoutMinutes: 60, startingSection: 'dashboard', dashboardWidgets: {}, personalTheme: { themeId: 'firm-default', density: 'comfortable', light: { '--kr-theme-text': '#101010' }, dark: {} }, workstreamTypes: [] },
   updatedAt: null,
 }
 const USER = { displayName: 'Test Person', firmName: 'Test Firm', avatarInitials: 'TP' }

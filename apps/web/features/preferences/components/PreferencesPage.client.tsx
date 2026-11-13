@@ -32,6 +32,7 @@ import { KRModuleCard } from '@/components/ui/KRModuleCard.client'
 import SaveButton from '@/components/ui/SaveButton.client'
 import { PreferencesApiError } from '@/features/preferences/api.client'
 import ThemePreferencesCard from '@/features/preferences/components/ThemePreferencesCard.client'
+import WorkstreamPreferencesCard from './WorkstreamPreferencesCard.client'
 import { usePreferences } from '@/features/preferences/PreferencesProvider.client'
 
 /** Words for each auto logout choice (the old card's labels). */
@@ -214,6 +215,9 @@ export default function PreferencesPage() {
         ) : null}
       </div>
     </KRModuleCard>
+
+    {/* WorkStream view: the activity types WorkStream opens on (Nov 13, 2026) */}
+    <WorkstreamPreferencesCard />
 
     {/* Theme: firm theme, text size and own colors (stage 2b) */}
     <ThemePreferencesCard />

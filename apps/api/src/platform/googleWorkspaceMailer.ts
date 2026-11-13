@@ -60,7 +60,18 @@ export interface EmailInput {
   headers?: Readonly<Record<string, string>>
   /** Sender mailbox; `firm` when left out. */
   sender?: SenderProfile
+  /** Images the HTML shows with `cid:<contentId>` (the footer logo); left out, the message has none. */
+  inlineImages?: readonly InlineImage[]
   requestId: string
+}
+
+/** One image carried inside the message and shown by the HTML through `cid:` (email clients do not show SVG or data addresses). */
+export interface InlineImage {
+  contentId: string
+  contentType: string
+  filename: string
+  /** The bytes, base64. */
+  base64: string
 }
 
 /** What `mailerFor` reads from the Worker's settings. */
@@ -238,9 +249,17 @@ This is an account-access message sent by Krueger & Richard. If you were not exp
 `
 }
 
-/** The MIME document: text and HTML as alternatives, both base64 so any character is safe. */
-export function buildMime(config: MailConfig, message: { to: readonly string[]; cc?: readonly string[]; bcc?: readonly string[]; subject: string; text: string; html: string; headers?: Readonly<Record<string, string>> }): string {
+/**
+ * The MIME document: text and HTML as alternatives, both base64 so any character is safe. With inline images the
+ * alternatives sit inside a `multipart/related` part followed by the images (added Nov 13, 2026 for the WorkStream
+ * email footer logo, plan 10 decision D13).
+ */
+export function buildMime(
+  config: MailConfig,
+  message: { to: readonly string[]; cc?: readonly string[]; bcc?: readonly string[]; subject: string; text: string; html: string; headers?: Readonly<Record<string, string>>; inlineImages?: readonly InlineImage[] },
+): string {
   const boundary = `kr-alt-${crypto.randomUUID()}`
+  const related = message.inlineImages?.length ? `kr-rel-${crypto.randomUUID()}` : null
   const extra = Object.entries(message.headers ?? {})
     .filter(([name]) => KR_HEADER.test(name))
     .map(([name, value]) => `${name}: ${headerSafe(value)}`)
@@ -253,9 +272,9 @@ export function buildMime(config: MailConfig, message: { to: readonly string[]; 
     'MIME-Version: 1.0',
     config.replyTo ? `Reply-To: ${config.replyTo}` : '',
     ...extra,
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    related ? `Content-Type: multipart/related; boundary="${related}"` : `Content-Type: multipart/alternative; boundary="${boundary}"`,
   ].filter(Boolean)
-  const body = [
+  const alternative = [
     `--${boundary}`,
     'Content-Type: text/plain; charset="UTF-8"',
     'Content-Transfer-Encoding: base64',
@@ -267,9 +286,18 @@ export function buildMime(config: MailConfig, message: { to: readonly string[]; 
     '',
     wrap76(base64(message.html)),
     `--${boundary}--`,
-    '',
   ]
-  return [...headers, '', ...body].join('\r\n')
+  if (!related) return [...headers, '', ...alternative, ''].join('\r\n')
+  const images = (message.inlineImages ?? []).flatMap((image) => [
+    `--${related}`,
+    `Content-Type: ${headerSafe(image.contentType)}; name="${headerSafe(image.filename)}"`,
+    'Content-Transfer-Encoding: base64',
+    `Content-ID: <${headerSafe(image.contentId)}>`,
+    `Content-Disposition: inline; filename="${headerSafe(image.filename)}"`,
+    '',
+    wrap76(image.base64),
+  ])
+  return [...headers, '', `--${related}`, `Content-Type: multipart/alternative; boundary="${boundary}"`, '', ...alternative, ...images, `--${related}--`, ''].join('\r\n')
 }
 
 function addressList(values: readonly string[] | undefined): string[] | null {

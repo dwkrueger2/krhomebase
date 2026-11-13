@@ -82,6 +82,8 @@ export interface DevOverlayProps {
   onResetContext: () => void
   onToggleVisibility: (overlayKey: string) => void
   onUpdateLabelOffset: (overlayKey: string, offsetX: number) => void
+  /** P on a label: select only the nearest parent `data-kr-id` of that overlay's element. */
+  onSelectParent?: (overlayId: string) => void
   overlays: DevOverlayData[]
 }
 
@@ -92,11 +94,48 @@ export interface DevOverlayProps {
  * @param nearLeft - True when the rectangle starts within 220px of the left edge.
  * @param offsetX - The label's slide offset in pixels.
  */
-export function labelPlacement(topLabel: boolean, nearLeft: boolean, offsetX: number): { overlay: string; label: string; style: CSSProperties } {
-  if (topLabel && nearLeft) return { overlay: LAYOUT_STYLES.overlayTopNearLeft, label: STYLES.labelTopNearLeft, style: { transform: `translateX(${offsetX}px)` } }
-  if (topLabel) return { overlay: LAYOUT_STYLES.overlayTop, label: STYLES.labelTop, style: { transform: `translateX(calc(-50% + ${offsetX}px))` } }
-  if (nearLeft) return { overlay: LAYOUT_STYLES.overlayNearLeft, label: STYLES.labelInlineNearLeft, style: { transform: `translateX(${offsetX}px)` } }
-  return { overlay: LAYOUT_STYLES.overlayCentered, label: STYLES.labelInline, style: { transform: `translateX(${offsetX}px)` } }
+export function labelPlacement(topLabel: boolean, nearLeft: boolean, offsetX: number, offsetY = 0): { overlay: string; label: string; style: CSSProperties } {
+  const down = offsetY ? ` translateY(${offsetY}px)` : ''
+  if (topLabel && nearLeft) return { overlay: LAYOUT_STYLES.overlayTopNearLeft, label: STYLES.labelTopNearLeft, style: { transform: `translateX(${offsetX}px)${down}` } }
+  if (topLabel) return { overlay: LAYOUT_STYLES.overlayTop, label: STYLES.labelTop, style: { transform: `translateX(calc(-50% + ${offsetX}px))${down}` } }
+  if (nearLeft) return { overlay: LAYOUT_STYLES.overlayNearLeft, label: STYLES.labelInlineNearLeft, style: { transform: `translateX(${offsetX}px)${down}` } }
+  return { overlay: LAYOUT_STYLES.overlayCentered, label: STYLES.labelInline, style: { transform: `translateX(${offsetX}px)${down}` } }
+}
+
+/** Estimated height of one label line and the room for its buttons, in pixels (11px mono text, 7 small buttons). */
+const LABEL_LINE_PX = 22
+const LABEL_CONTROLS_PX = 150
+const LABEL_CHAR_PX = 6.7
+
+/**
+ * How far down to push each top label so no two labels cover each other (added Nov 13, 2026). Without it, two
+ * neighbours on one row (for example `left-nav-open-item` and the `left-nav-open-item-close` button beside it) drew
+ * their labels in the same place and the second hid the first. Labels are placed in reading order; one that would
+ * overlap a placed label moves down a line until it is clear (at most 12 lines). Widths are estimated from the text,
+ * because the labels are not drawn yet; a label the developer slid sideways keeps its slide.
+ *
+ * @returns The extra downward offset, in pixels, for each overlay id (0 when it fits where it is).
+ */
+export function stackLabelOffsets(overlays: readonly Pick<DevOverlayData, 'id' | 'left' | 'top' | 'width' | 'labels' | 'topLabel'>[], labelOffsets: Readonly<Record<string, number>> = {}): Record<string, number> {
+  const placed: Array<{ left: number; right: number; top: number; bottom: number }> = []
+  const offsets: Record<string, number> = {}
+  const ordered = [...overlays].sort((left, right) => left.top - right.top || left.left - right.left)
+  for (const overlay of ordered) {
+    const width = LABEL_CONTROLS_PX + LABEL_CHAR_PX * Math.max(0, ...overlay.labels.map((label) => label.length))
+    const height = LABEL_LINE_PX * Math.max(1, overlay.labels.length)
+    const nearLeft = overlay.left < NEAR_LEFT_EDGE_PX
+    const slide = labelOffsets[overlay.id] || 0
+    const left = (overlay.topLabel && !nearLeft ? overlay.left + overlay.width / 2 - width / 2 : overlay.left + (nearLeft ? 8 : 0)) + slide
+    let top = overlay.top
+    for (let step = 0; step < 12; step += 1) {
+      const clash = placed.find((box) => left < box.right && left + width > box.left && top < box.bottom && top + height > box.top)
+      if (!clash) break
+      top = clash.bottom + 1
+    }
+    placed.push({ left, right: left + width, top, bottom: top + height })
+    offsets[overlay.id] = top - overlay.top
+  }
+  return offsets
 }
 
 /**
@@ -117,15 +156,17 @@ export default function DevOverlay({
   onResetContext,
   onToggleVisibility,
   onUpdateLabelOffset,
+  onSelectParent,
   overlays,
 }: DevOverlayProps) {
+  const stackOffsets = stackLabelOffsets(overlays, labelOffsets)
   return (
     <div className={LAYOUT_STYLES.layer}>
       {overlays.map((overlay) => {
         const hidden = hiddenOverlayKeys.has(overlay.id)
         const labelNearLeftEdge = overlay.left < NEAR_LEFT_EDGE_PX
         const labelOffsetX = labelNearLeftEdge ? Math.max(0, labelOffsets[overlay.id] || 0) : labelOffsets[overlay.id] || 0
-        const placement = labelPlacement(overlay.topLabel, labelNearLeftEdge, labelOffsetX)
+        const placement = labelPlacement(overlay.topLabel, labelNearLeftEdge, labelOffsetX, stackOffsets[overlay.id] ?? 0)
 
         return (
           // Dev overlay: shaded rectangle that follows the selected element
@@ -155,6 +196,7 @@ export default function DevOverlay({
                       onOffsetChange={(offsetX) => onUpdateLabelOffset(overlay.id, labelNearLeftEdge ? Math.max(0, offsetX) : offsetX)}
                       onResetContext={onResetContext}
                       onToggleVisibility={() => onToggleVisibility(overlay.id)}
+                      onSelectParent={onSelectParent ? () => onSelectParent(overlay.id) : undefined}
                     />
                   )
                 })}

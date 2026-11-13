@@ -69,6 +69,18 @@ describe('googleWorkspaceMailer', () => {
     expect(mime).toContain(btoa(String.fromCharCode(...new TextEncoder().encode('Plain é'))))
   })
 
+  it('wraps the parts in multipart/related with each inline image after them (WorkStream footer logo)', async () => {
+    const { env } = await envWithKey()
+    const mime = buildMime(mailConfigFor(env)!, { to: ['a@example.com'], subject: 'Logo', text: 'T', html: '<img src="cid:logo@x">', inlineImages: [{ contentId: 'logo@x', contentType: 'image/png', filename: 'logo.png', base64: 'AAAA' }] })
+    const [headers, ...rest] = mime.split('\r\n\r\n')
+    expect(headers).toMatch(/Content-Type: multipart\/related; boundary="kr-rel-/)
+    const body = rest.join('\r\n\r\n')
+    expect(body).toMatch(/Content-Type: multipart\/alternative; boundary="kr-alt-/)
+    expect(body).toContain('Content-ID: <logo@x>')
+    expect(body.indexOf('text/html')).toBeLessThan(body.indexOf('Content-ID: <logo@x>'))
+    expect(body.trimEnd()).toMatch(/--kr-rel-[0-9a-f-]+--$/)
+  })
+
   it('trades the JWT for a token, then sends as the sender mailbox; a refusal comes back as not sent', async () => {
     const { env } = await envWithKey()
     const calls: string[] = []

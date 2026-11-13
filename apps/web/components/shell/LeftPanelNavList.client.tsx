@@ -63,13 +63,29 @@ const LAYOUT_STYLES = {
   subButton: 'min-h-[24px] gap-[6px] px-[8px] py-[2px]',
   icon: 'size-[20px] shrink-0',
   subIcon: 'size-[14px] shrink-0',
-  openGroup: 'hidden md:flex md:ml-[18px] gap-[2px] flex-col',
+  openGroup: 'hidden md:flex md:ml-[12px] gap-[2px] flex-col',
   openGroupLabel: 'px-[8px] pt-[4px]',
   openList: 'm-0 p-0 gap-[2px] flex flex-col list-none',
   openRow: 'gap-[2px] flex min-w-0 items-center',
   openButton: 'min-h-[24px] min-w-0 flex-1 px-[8px] py-[2px] flex items-center',
   openClose: 'size-[22px] shrink-0 p-0 inline-flex items-center justify-center',
 } as const
+
+/**
+ * The per-row suffix of `data-kr-element="left-nav-label-<suffix>"`, so Dev View can tell the rows apart (the
+ * requester, Nov 13, 2026): the menu id, with the long ones shortened.
+ */
+const NAV_LABEL_SHORT: Readonly<Record<string, string>> = {
+  communications: 'comm',
+  'front-end-publishing': 'fep',
+  'user-settings': 'user-set',
+  'application-settings': 'app-set',
+  'firm-settings': 'firm-set',
+}
+
+export function navLabelMarker(sectionId: string): string {
+  return NAV_LABEL_SHORT[sectionId] ?? sectionId.replace(/[^a-z0-9-]+/gi, '-').toLowerCase()
+}
 
 const STYLES = {
   list: 'm-0 list-none',
@@ -78,7 +94,9 @@ const STYLES = {
   buttonActive: 'bg-(--kr-theme-brand-primary-active) font-extrabold text-white',
   subLabel: 'text-[12px]',
   openGroupLabel: 'text-[10px] font-extrabold tracking-[.12em] uppercase text-white/[.55]',
-  openItemLabel: 'min-w-0 truncate text-[12px]',
+  // Wraps instead of cutting to "...": an active open item turns extra-bold and wider, and the end of its name was
+  // clipped (the requester, Nov 13, 2026).
+  openItemLabel: 'min-w-0 whitespace-normal break-words text-[12px] leading-[1.25]',
   openItemClose:
     'rounded-[2px] border-0 bg-transparent text-[14px] leading-none text-white/[.6] cursor-pointer hover:bg-white/[.12] hover:text-white focus-visible:outline-2 focus-visible:outline-white/70',
   chevron: 'ml-auto text-[14px] leading-none transition-transform',
@@ -169,7 +187,7 @@ export default function LeftPanelNavList({
                 title={collapsed ? item.label : item.description}
               >
                 <KRHomebaseIcon name={item.icon} className={item.isSubItem ? LAYOUT_STYLES.subIcon : LAYOUT_STYLES.icon} />
-                <span className={`${item.isSubItem ? STYLES.subLabel : ''} ${collapsed ? 'md:hidden' : ''}`} data-kr-element="left-nav-label">
+                <span className={`${item.isSubItem ? STYLES.subLabel : ''} ${collapsed ? 'md:hidden' : ''}`} data-kr-element={`left-nav-label-${navLabelMarker(item.id)}`}>
                   {item.label}
                 </span>
                 {isSettingsRow && (

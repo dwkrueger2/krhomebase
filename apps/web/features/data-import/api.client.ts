@@ -11,7 +11,8 @@
  * `DataImportApiError` with a plain sentence for the screen.
  *
  * Changed from the old panel: the gate is `PUT { locked }` instead of `POST { operation }`, and contacts go to the one
- * contact create route (no `?mode=contact-import`). Leads are not sent (there is no leads API yet).
+ * contact create route (no `?mode=contact-import`). Lead rows are sent by the panel with `createLead` from
+ * `features/leads/api.client.ts` (`POST /api/v1/leads`), the Leads feature's own call.
  */
 
 import { ContactCreateData, ErrorEnvelope, MaintenanceGateData, successEnvelope, type ContactCreateBody } from '@krhomebase/contracts'

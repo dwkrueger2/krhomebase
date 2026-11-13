@@ -1,7 +1,7 @@
 # KR Homebase API Agent Guide
 
-<small>Version 1.24</small><br>
-<small>Updated Nov 12, 2026 5:48pm</small>
+<small>Version 1.28</small><br>
+<small>Updated Nov 13, 2026 4:55pm</small>
 
 ## Purpose
 
@@ -105,6 +105,34 @@ Business areas read and write D1 directly through the `krhomebase` binding, not 
 `src/features/contact-maintenance/` (plan stage 1d-4, super admin only) serves six `POST /v1/contact-maintenance/...` routes: `resolution-preflight`, `merge`, `copy-and-inactivate`, `removal-preflight`, `delete`, `inactivate`. The removal SQL is the crud Worker's `contact-maintenance.ts`, copied with its guards: the audit row is inserted only while the contact is still eligible, and every later statement runs only if that row exists. Table names come only from the fixed catalogs in `queries.ts`.
 
 The contract test gives write routes a full-schema test database (the maintenance gate reads it) and, for a route with `permission`, a role set granting it, so the body check is reached.
+
+## Projects & Matters
+
+`src/features/matters/` (plan `docs/10_WorkStream_Leads_Publishing_Plan.md`, stage 1; old `kr-api-v1/matters`; as-is record `docs/API/WorkStream_AsIs_Reference.md` section 2): `GET` and `POST /v1/clients/{clientId}/matters` (list with the `matter_status` and `practice_area` choices and `viewer`; create), `PATCH /v1/matters/{matterId}`, `GET /v1/matters/{matterId}/delete-check`, `DELETE /v1/matters/{matterId}` (super admin, body `confirmation: 'Delete Matter <number>'`). Read: the old office read roles; write: the old office write roles.
+
+- **Numbering** follows `docs/help-docs/Client-and-Matter-Numbering.md`: a matter belongs to a client through `matter_party` (`matter` has no client column); a new matter is `<client number>.<n>`, n one more than the client's highest positive sequence (`nextMatterNumber`), retried on a UNIQUE clash; `.0` is made only with the client (`POST /v1/contacts`), is always titled "Client General Matters" and is never deleted. No number-prefix fallback in the list (decision 5).
+- **Writes** are one batch with the `audit_log` row (resource `matters`): create (matter, primary-client party, optional "Matter Initial Notes" in `matter_activity_log`), change (title, description, status, opened date, optional note).
+- **Delete:** the 28 record tables of the old route (`MATTER_RECORD_TABLES` in `queries.ts`, `audit_log` among them) block it, with real counts. The delete is the contact-maintenance guard: the audit row is inserted only while nothing blocks the matter, and every delete runs only if that row exists. The matter's own audit rows leave `audit_log.matter_id` empty so a new matter stays deletable; old matters (whose crud Worker audit rows carry `matter_id`) stay blocked.
+
+## Communications / WorkStream
+
+`src/features/workstream/` (plan 10, stage 2; old `api/workstream/{subgroup}`, `/{subgroup}/{wsid}`, `/workstream/assignees`, `kr-api-v1/workstream/send-email`; as-is record `docs/API/WorkStream_AsIs_Reference.md` section 3): `GET /v1/workstream` (a client's, optionally one matter's, or a lead's entries), `GET /v1/workstream/feed` (every entry), `GET /v1/workstream/assignees`, `GET /v1/workstream/{wsid}`, `POST /v1/workstream`, `PATCH /v1/workstream/{wsid}` (only the fields sent), `POST /v1/workstream/{wsid}/move`, `DELETE /v1/workstream/{wsid}` (super admin), and the email routes `GET /v1/workstream/email/recipients`, `POST /v1/workstream/email/preview`, `POST /v1/workstream/email`. The fixed paths are registered before `{wsid}`.
+
+- **Who (D9):** every staff role (`WORKSTREAM_ROLES`, not `client` or `external_cpa`); email the old send roles; delete super admin.
+- **Owners (D12):** an entry belongs to a client or a lead. A client entry always gets a matter: the chosen one (a primary-client matter of that client), else the client's `.0`; a move lands on the target client's `.0`. A lead entry has no matter. Filtering by a `.0` matter also shows the client's older entries without one.
+- **Several types:** the list and feed take `subgroups` (comma-separated); an unknown type answers 422 `WORKSTREAM_SUBGROUP_INVALID`. The person's default is the preference `workstreamTypes` (key `workstream`, empty means All).
+- **Reassign (D16):** `POST /v1/workstream/{wsid}/move` takes `clientId` and an optional `matterId` of that client (the `.0` when left out), so an Internal entry on 050.1 can go to any client's matter.
+- **Lists (D10):** newest first (`activity_at`, `created_at`, `id`, all descending), paged with an opaque cursor; `nextCursor` is null on the last page.
+- **Writes** are one batch with the `audit_log` row (resource `workstream`), which carries the owner and subject, never the note text, and no `matter_id`. The `wsid` is `generatePublicCode` (seven letters and digits), retried on a clash. `noteHtml` is cleaned with the old regex cleaner and stored as `html`; replies carry `note` (plain text) and `noteHtml`.
+- **Email (D13):** `src/platform/firmEmail.ts` (the old letterhead body and footer) through `googleWorkspaceMailer.ts` (`sender: 'firm'`), subject tagged `[KR <matter number>]` (`tagEmailSubject` in contracts), headers `X-KR-Doc`, `X-KR-Client`, `X-KR-Matter`. The footer logo is `src/platform/emailLogo.ts` (the old PNG as base64), sent as an inline image: the mailer's `inlineImages` wraps the message in `multipart/related`. After a sent email an `Emails` entry is recorded on the matter; if that fails the reply says so in `workstreamError` and the email stands. Without the mailer key the send answers 503 `WORKSTREAM_EMAIL_NOT_CONFIGURED`.
+
+## Leads
+
+`src/features/leads/` (plan 10, stage 3; old `kr-api-v1/leads`; as-is record `docs/API/WorkStream_AsIs_Reference.md` section 4): `GET /v1/leads` (newest first by `received_at`, paged; converted leads only with `includeConverted=true`; `viewer`), `GET /v1/leads/{leadId}` (id or LCID), `POST /v1/leads`, `PATCH /v1/leads/{leadId}`, `POST /v1/leads/{leadId}/conversion`. Read: the old office read roles; write: the old office write roles; create and convert also need `contacts.create` (route `permission`).
+
+- **Create:** an existing person (`individualId`) or a new one (`person`, created by contact-edits' `createContact` with email and phone). One lead per person and one per public inquiry: a repeat returns the existing lead with `created: false`. LCID `L` and the highest number plus one (three digits at least), retried on a clash. "Source detail:" goes first in the summary once.
+- **Notes (decision 10, Nov 13, 2026):** lead notes are Workstream `Notes` entries on the lead; there is no notes route here.
+- **Conversion (decision 11, Nov 13, 2026):** contact-edits' `setClientStatus` opens the person's client account (next free number or the one given, with its `.0`) or reactivates theirs; then one batch marks the lead `won`, sets `converted_client_id`, moves the lead's `workstream_activity` rows to the client's `.0` matter, and writes the audit row. A second conversion answers 409 `LEAD_ALREADY_CONVERTED`.
 
 ## Billing
 

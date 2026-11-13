@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "arial",
+        "createdAt": "2026-11-13T20:00:19.425Z",
+        "reason": "Agent decision: email HTML (apps/api/src/platform/firmEmail.ts) must use web-safe fonts for mail clients; Arial stack ported unchanged from the old krWorkstreamEmail.ts and krEmailFooter.ts"
+      }
+    ]
+  }
+}
