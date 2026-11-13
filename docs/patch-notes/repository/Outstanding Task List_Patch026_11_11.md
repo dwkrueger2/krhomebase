@@ -1,7 +1,7 @@
 # Outstanding Task List: Repository Patch 26
 
-<small>Version 1.5</small><br>
-<small>Updated Nov 13, 2026 9:02am</small>
+<small>Version 1.6</small><br>
+<small>Updated Nov 13, 2026 9:30am</small>
 
 **Track:** Repository (root `package.json`)
 **Version:** 1.0.0  **Patch:** 26  **Patch date:** 11-11
@@ -10,6 +10,11 @@
 
 ## Completed by this patch
 
+- **Key mappings and the next plan (Nov 13, 2026):**
+  - `docs/09_ENV_KeyMappings.md` maps each environment key to its key file name and binding.
+  - The three `.dev.vars.example` files point to it.
+  - `docs/10_WorkStream_Leads_Publishing_Plan.md` is the next plan.
+  - Root `AGENTS.md` 2.14 lists both documents.
 - **Dev server cleanup (Nov 13, 2026).** `pnpm dev` failed with "Another vinext dev server is already running". The cause was orphaned dev servers: four `wrangler dev` trees (from Nov 11, Nov 12 and two from Nov 13) and an old vite. `stop:port:8787` stopped only the workerd that held the port, and wrangler started a new one at once. Fixed:
   - `scripts/stop-dev-port.windows.ps1` now stops the whole server tree.
   - The new `scripts/stop-dev-servers.windows.ps1` (`pnpm stop:dev:servers`, the first step of `stop:ports:all`) stops every dev server from this folder, even one that holds no port.

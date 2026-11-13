@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.13</small><br>
-<small>Updated Nov 13, 2026 9:02am</small>
+<small>Version 2.14</small><br>
+<small>Updated Nov 13, 2026 9:30am</small>
 
 ## Agent Guide Index
 
@@ -164,6 +164,8 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 - `docs/Schema_Public_Inquiry_v2.0` is the canonical public inquiry schema documentation (database `kr_public_inquiry_06_2026`).
 - `docs/Schema_GPT_Usage_1.1` is the canonical GPT gateway schema documentation (database `krhomebase_gpt_usage_dev`).
 - `docs/06_Contacts_Billing_Port_Plan.md` is the plan and the requester's decisions for porting Contacts Manager and Billing, including the open single-database question.
+- `docs/10_WorkStream_Leads_Publishing_Plan.md` is the next port plan (Projects & Matters, WorkStream, Leads, Tasks, Front End Publishing, the Billing and Stripe checks, deploy). `docs/08_Settings_Dashboard_Plan.md` is the finished Settings port.
+- `docs/09_ENV_KeyMappings.md` maps each environment key to its key file in `private\dev-private-keys` (file names only) and to its binding. The `.dev.vars.example` files point to it.
 - `docs/05_Outside_Tools.md` is the design, security model and go-live steps for outside tools. The guide for outside developers is `packages/tool-sdk/README.md`; do not repeat it elsewhere.
 - `docs/04_Deployed_Architecture.md` states what is deployed now: the four Workers, addresses, bindings, settings and deploy commands. Update it whenever one of those changes.
 - `docs/01_Architecture_Proposal.md` is the build plan and the list of open decisions.
