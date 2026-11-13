@@ -1,7 +1,7 @@
 {
   "name": "@krhomebase/api",
   "version": "1.1.1",
-  "patchNum": "20",
+  "patchNum": "21",
   "patchDate": "11-12",
   "private": true,
   "type": "module",

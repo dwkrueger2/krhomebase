@@ -46,7 +46,7 @@ describe('TeamsCard', () => {
     expect(html).toContain('Employee members (1 of 2)')
     expect(html).toContain('Team leads (1 of 2)')
     expect(html).toContain('terminated')
-    expect(html).toContain('New team…')
+    expect(html).toContain('New team...')
     expect(html).not.toContain('data-kr-action="revert-team"')
   })
 

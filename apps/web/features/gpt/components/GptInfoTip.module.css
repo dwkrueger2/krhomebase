@@ -1,0 +1,49 @@
+/* file: apps/web/features/gpt/components/GptInfoTip.module.css */
+/**
+ * The round "i" help badge of the GPT Model Gateway and its Edit Model Connection dialog (old `.info` rules in
+ * `GptModelConnectionsCard.module.css` and `GptModelsPanel.module.css`, values kept).
+ *
+ * Why a CSS module (AGENTS_05 exception, "pseudo-elements"): the help text is drawn by `::after` with
+ * `content: attr(aria-label)` on hover and keyboard focus, which Tailwind classes cannot express. Everything else of
+ * the badge and the page is in Tailwind maps. Owner: `GptInfoTip.client.tsx`.
+ *
+ * Changed from the old rules: the "i" is now `KRHomebaseIcons.InfoLetter` (an SVG) instead of a Georgia text glyph,
+ * and the white is `--kr-theme-text-inverse` so the dark theme keeps its contrast. The old panel's copy used a
+ * 240px minimum width and the dialog's 220px; one 220px rule serves both.
+ */
+
+/** The navy 15px circle that holds the icon; `position: relative` anchors the tooltip. */
+.info {
+  align-items: center;
+  background: var(--kr-theme-brand-primary, #21394f);
+  border-radius: 50%;
+  color: var(--kr-theme-text-inverse, #ffffff);
+  cursor: help;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 15px;
+  justify-content: center;
+  position: relative;
+  width: 15px;
+}
+
+/** The help text: the badge's own aria-label, shown above it on hover or keyboard focus. */
+.info:hover::after,
+.info:focus-visible::after {
+  background: var(--kr-theme-brand-primary, #21394f);
+  border-radius: 2px;
+  bottom: calc(100% + 7px);
+  color: var(--kr-theme-text-inverse, #ffffff);
+  content: attr(aria-label);
+  font-family: var(--kr-theme-font-body, Arial, sans-serif);
+  font-size: 11px;
+  font-weight: 500;
+  left: 0;
+  line-height: 1.3;
+  min-width: 220px;
+  padding: 7px 8px;
+  position: absolute;
+  text-transform: none;
+  white-space: normal;
+  z-index: 2;
+}

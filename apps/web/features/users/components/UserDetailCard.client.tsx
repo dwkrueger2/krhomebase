@@ -1,56 +1,82 @@
 'use client'
 // file: apps/web/features/users/components/UserDetailCard.client.tsx
 /**
- * Users and Invites → the selected user (Settings plan, stage 4d). Ported from the old `SelectedInviteCard` and the
- * parts of `UserEditCard` that decide who may sign in: the invitation (Resend with its days, Cancel, Delete stale),
- * User Status, Staff Code, Enroll as Employee, and the Roles tab (role sets with the effective Resource · Scope · CRUD
- * grants, "Permissions are additive").
+ * Users and Invites → the selected user (Settings plan, stages 4d and 4d-2). Ported from the old `SelectedInviteCard`
+ * and `UserEditCard`: the person's header, the invitation (Resend with its days, Cancel, Delete stale), and the old
+ * five tabs (Individual, Security, Roles, Notifications, Danger zone), with one Save user for every tab.
  *
  * Kept: User Status is fixed for your own account and a Super Admin's; Staff Code is up to 4 characters, upper-cased,
- * and required with the Staff role set; "Role assignments changed locally" until saved; the old sentences.
+ * and required with the Staff role set; the Employment details block with Professional title, Enroll as Employee and
+ * Bar Admissions for an attorney; the Roles tab (role sets with the effective Resource · Scope · CRUD grants,
+ * "Permissions are additive"); "Clear Bar Admissions?" before a save that turns the attorney flag off; the old
+ * sentences. Header: `UserIdentityHeader`; Security, Notifications and Danger zone: `UserAccountTabs`; Bar
+ * Admissions: `BarAdmissionsEditor`.
  *
  * Changed from the old card:
- * - Status, staff code and role sets save together in one call (the old screen made two calls that could disagree).
+ * - Everything saves together in one call (the old screen made two calls that could disagree).
  * - The primary role set is chosen with a radio beside each ticked one (the old card made the first one primary).
- * - Deleting an invitation and enrolling ask in `U6ConfirmationDialog` (the old card used `window.confirm` to delete).
- * - Not here yet (stage 4d-2): the person's contact details header and photo, Bar Admissions, the Security,
- *   Notifications and Danger zone tabs (the old ones were placeholders except Bar Admissions).
+ * - The attorney flag is a tick box beside Bar Admissions (the old card took it from the contact editor).
+ * - Deleting an invitation, enrolling and deactivating ask in `U6ConfirmationDialog` (the old card used
+ *   `window.confirm` to delete, and its Deactivate button did nothing).
+ * - The Employee File button waits for Employee Documents (stage 5); the old one opened a page that was a placeholder.
+ * - Nov 12, 2026 (the requester, D7): the card is the Firm Settings "Edit Employee" / "Edit User" tab. On top is the
+ *   old `IndividualSummaryDetails` card (`personSummary`, from the contacts feature through `app/page.tsx`; its
+ *   pencil opens the contact editor), and an employee's documents sit in Employment details (`employeeDocuments`).
+ *   Both are elements that read the person's ids from `PersonSlotContext`, which this card provides. Close returns to Users; leaving the tab with changes asks first.
  *
  * @returns The card (`data-kr-element="selected-user-card"`).
  */
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import type { UserInvite, UsersData, UserSavedData } from '@krhomebase/contracts'
 import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
 import PermissionMatrix, { permissionMatrixRows } from '@/components/tables/PermissionMatrix.client'
+import MenuStyleOne, { type MenuStyleOneItem } from '@/components/ui/MenuStyleOne.client'
 import SaveButton from '@/components/ui/SaveButton.client'
+import { PersonSlotContext } from '@/components/ui/editTarget.client'
+import { useReportUnsavedChanges } from '@/components/ui/unsavedChanges.client'
 import { cancelInvite, deleteInvite, enrollEmployee, resendInvite, updateUser } from '@/features/users/api.client'
-import { draftFromUser, effectiveGrants, sameUserDraft, toggleRoleSet, type UserDraft, type UserListRow } from '@/features/users/userRows'
+import BarAdmissionsEditor from '@/features/users/components/BarAdmissionsEditor.client'
+import { UserDangerZoneTab, UserNotificationsTab, UserSecurityTab } from '@/features/users/components/UserAccountTabs.client'
+import UserIdentityHeader from '@/features/users/components/UserIdentityHeader.client'
+import {
+  clearsBarAdmissions,
+  draftFromUser,
+  effectiveGrants,
+  sameUserDraft,
+  toggleRoleSet,
+  updateBodyFromDraft,
+  userDraftProblem,
+  type UserDraft,
+  type UserListRow,
+} from '@/features/users/userRows'
 
 const LAYOUT_STYLES = {
   card: 'p-[6px] gap-[6px] grid',
-  head: 'gap-[6px] flex flex-wrap items-center justify-between',
   section: 'gap-[4px] grid',
   row: 'gap-x-[8px] gap-y-[3px] flex flex-wrap items-center',
   field: 'gap-x-[3px] inline-flex items-center',
   body: 'gap-[8px] grid grid-cols-1 lg:grid-cols-[minmax(240px,320px)_minmax(0,1fr)] items-start',
   roleList: 'max-h-[420px] overflow-y-auto',
   roleRow: 'px-[4px] py-[1px] gap-[4px] grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center',
-  actions: 'gap-[6px] flex flex-wrap items-center',
+  employment: 'pt-[4px] gap-[6px] grid',
+  topRow: 'gap-[6px] flex flex-wrap items-center justify-between',
+  footer: 'gap-[6px] flex flex-wrap items-center justify-end',
 } as const
 
 const STYLES = {
   card: 'rounded-[2px] border border-(--kr-theme-brand-primary) bg-(--kr-theme-card-surface)',
-  title: 'm-0 text-[13px] font-[850] text-(color:--kr-theme-text)',
   meta: 'text-[11px] text-(color:--kr-theme-text-muted)',
   sectionTitle: 'm-0 text-[11px] font-extrabold uppercase tracking-[.06em] text-(color:--kr-theme-text-muted)',
   inviteBox: 'px-[6px] py-[4px] rounded-[2px] border border-(--kr-theme-line) bg-(--kr-theme-muted-surface)',
   pill: 'px-[4px] py-px rounded-[2px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) text-[11px] font-bold text-(color:--kr-theme-text)',
   label: 'whitespace-nowrap text-[12px] font-[780] text-(color:--kr-theme-text-muted)',
+  summary: 'cursor-pointer text-[12px] font-[780] text-(color:--kr-theme-text-muted)',
   field:
     'px-[3px] py-[2px] min-w-0 rounded-[2px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) text-[13px] leading-tight text-(color:--kr-theme-text) outline-none focus:border-(--kr-theme-brand-primary-active) disabled:cursor-not-allowed disabled:opacity-60',
   days: 'w-[52px]',
   staffCode: 'w-[64px] uppercase',
+  jobTitle: 'w-[240px] max-w-full',
   roleList: 'rounded-[2px] border border-(--kr-theme-line)',
   roleRow: 'border-b border-(--kr-theme-line) text-[10pt] leading-tight last:border-b-0 hover:bg-(--kr-theme-table-row-hover)',
   roleKind: 'text-[9pt] text-(color:--kr-theme-text-muted)',
@@ -59,7 +85,7 @@ const STYLES = {
     'inline-flex min-h-[24px] cursor-pointer items-center rounded-[2px] border border-(--kr-theme-line) bg-transparent px-[8px] py-[2px] text-[12px] font-extrabold text-(color:--kr-theme-text) disabled:cursor-not-allowed disabled:opacity-[0.56] hover:enabled:border-(--kr-theme-brand-primary)',
   dangerButton:
     'inline-flex min-h-[24px] cursor-pointer items-center rounded-[2px] border border-(--kr-theme-danger) bg-transparent px-[8px] py-[2px] text-[12px] font-extrabold text-(color:--kr-theme-danger) disabled:cursor-not-allowed disabled:opacity-[0.56]',
-  notice: 'm-0 text-[12px] font-semibold text-(color:--kr-theme-orange)',
+  notice: 'm-0 mr-auto text-[12px] font-semibold text-(color:--kr-theme-orange)',
   status: 'm-0 text-[12px] text-(color:--kr-theme-success)',
   error: 'm-0 text-[12px] font-semibold text-(color:--kr-theme-danger)',
   // b1: ' border-red-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
@@ -79,7 +105,7 @@ const formatDate = (value: string) => {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-type Confirm = 'delete-invite' | 'enroll' | null
+type Confirm = 'delete-invite' | 'enroll' | 'clear-admissions' | 'deactivate' | null
 
 export interface UserDetailCardProps {
   row: UserListRow
@@ -89,21 +115,31 @@ export interface UserDetailCardProps {
   onClose: () => void
   /** Tells the page whether the draft has changes (it asks before switching rows). */
   onDirtyChange?: (dirty: boolean) => void
+  /** The person's identity card (`IndividualSummaryDetails`); absent: the plain header. Reads `PersonSlotContext`. */
+  personSummary?: ReactNode
+  /** An employee's documents, inside Employment details. Reads `PersonSlotContext`. */
+  employeeDocuments?: ReactNode
 }
 
-export default function UserDetailCard({ row, data, onSaved, onClose, onDirtyChange }: UserDetailCardProps) {
+export default function UserDetailCard({ row, data, onSaved, onClose, onDirtyChange, personSummary, employeeDocuments }: UserDetailCardProps) {
   const { user, invite } = row
   const saved = useMemo(() => (user ? draftFromUser(user) : null), [user])
   const [draft, setDraft] = useState<UserDraft | null>(saved)
+  const [tab, setTab] = useState('individual')
   const [days, setDays] = useState('7')
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState<Confirm>(null)
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const dirty = Boolean(saved && draft && !sameUserDraft(saved, draft))
-  const statusLocked = Boolean(user && (user.id === data.viewerUserId || user.role === 'super_admin' || user.roleSetIds.includes('role_super_admin')))
+  const isSelf = user?.id === data.viewerUserId
+  const isSuperAdmin = Boolean(user && (user.role === 'super_admin' || user.roleSetIds.includes('role_super_admin')))
+  const statusLocked = isSelf || isSuperAdmin
   const grants = useMemo(() => effectiveGrants(data.roleSets, draft?.roleSetIds ?? []), [data.roleSets, draft?.roleSetIds])
   const matrixRows = useMemo(() => permissionMatrixRows(grants.permissions, grants.scopedPermissions), [grants])
+  const problem = user && draft && dirty ? userDraftProblem(user, draft) : null
+  useReportUnsavedChanges(`user-edit-${row.key}`, dirty)
+  const personSlot = useMemo(() => ({ individualId: user?.individualId ?? null, employeeId: user?.employee?.id ?? null }), [user])
 
   function change(next: UserDraft) {
     setDraft(next)
@@ -127,26 +163,143 @@ export default function UserDetailCard({ row, data, onSaved, onClose, onDirtyCha
     }
   }
 
+  function save() {
+    if (!user || !draft) return
+    void run(() => updateUser(user.id, updateBodyFromDraft(user, draft)), 'User changes saved.')
+  }
+
+  /** Save user: asks first when the save would clear the bar admissions. */
+  function requestSave() {
+    if (user && draft && clearsBarAdmissions(user, draft)) setConfirm('clear-admissions')
+    else save()
+  }
+
   const resendDays = Number(days)
   const daysOk = Number.isInteger(resendDays) && resendDays >= 1 && resendDays <= 30
-  const canSave = Boolean(user && draft && dirty && !busy)
+  const canSave = Boolean(user && draft && dirty && !busy && !problem)
+  const deactivateLockedReason = !user
+    ? 'No account.'
+    : user.accountStatus === 'deactivated'
+      ? 'This account is already deactivated.'
+      : statusLocked
+        ? 'Super Admin and your own status cannot be changed here.'
+        : dirty
+          ? 'Save or undo the changes first.'
+          : null
+
+  const tabs: MenuStyleOneItem[] =
+    user && draft
+      ? [
+          {
+            id: 'individual',
+            label: 'Individual',
+            card: (
+              <section className={LAYOUT_STYLES.section} data-kr-id="individual-bio-component">
+                {/* Account identity: Staff Code (employees) and User Status */}
+                <div className={LAYOUT_STYLES.row} data-kr-element="user-individual-account-row">
+                  {user.employee ? (
+                    <label className={LAYOUT_STYLES.field} title="Staff Code is required for users with the Staff role.">
+                      <span className={STYLES.label}>Staff Code</span>
+                      <input className={`${STYLES.field} ${STYLES.staffCode}`} disabled={busy} maxLength={4} onChange={(event) => change({ ...draft, staffCode: event.target.value.toUpperCase() })} placeholder="e.g. KRU1" value={draft.staffCode} />
+                    </label>
+                  ) : null}
+                  <label className={LAYOUT_STYLES.field} title={statusLocked ? 'Super Admin and your own status cannot be changed here' : 'User account status'}>
+                    <span className={STYLES.label}>User Status</span>
+                    <select className={STYLES.field} disabled={busy || statusLocked} onChange={(event) => change({ ...draft, accountStatus: event.target.value as UserDraft['accountStatus'] })} value={draft.accountStatus}>
+                      <option value="active">Active</option>
+                      <option value="pending">Pending</option>
+                      <option value="deactivated">Inactive</option>
+                    </select>
+                  </label>
+                </div>
+
+                {/* Employment details: title, enrollment, attorney flag and bar admissions */}
+                <details open>
+                  <summary className={STYLES.summary}>Employment details</summary>
+                  <div className={LAYOUT_STYLES.employment}>
+                    <div className={LAYOUT_STYLES.row}>
+                      {user.employee ? (
+                        <label className={LAYOUT_STYLES.field}>
+                          <span className={STYLES.label}>Professional title</span>
+                          <input className={`${STYLES.field} ${STYLES.jobTitle}`} disabled={busy} maxLength={120} onChange={(event) => change({ ...draft, jobTitle: event.target.value })} value={draft.jobTitle} />
+                        </label>
+                      ) : (
+                        <button className={STYLES.ghostButton} data-kr-action="enroll-employee" disabled={busy || dirty} onClick={() => setConfirm('enroll')} title={dirty ? 'Save or undo the changes first.' : undefined} type="button">
+                          Enroll as Employee
+                        </button>
+                      )}
+                      {user.individualId ? (
+                        <label className={LAYOUT_STYLES.field} title="Attorneys have Bar Admissions.">
+                          <input checked={draft.isAttorney} disabled={busy} onChange={(event) => change({ ...draft, isAttorney: event.target.checked })} type="checkbox" />
+                          <span className={STYLES.label}>Attorney</span>
+                        </label>
+                      ) : null}
+                    </div>
+                    {draft.isAttorney ? (
+                      <BarAdmissionsEditor admissions={draft.barAdmissions} disabled={busy} employeeNumber={user.employee?.employeeNumber ?? null} onChange={(barAdmissions) => change({ ...draft, barAdmissions })} />
+                    ) : null}
+                    {user.employee && employeeDocuments ? employeeDocuments : null}
+                  </div>
+                </details>
+              </section>
+            ),
+          },
+          { id: 'security', label: 'Security', card: <UserSecurityTab user={user} /> },
+          {
+            id: 'roles',
+            label: 'Roles',
+            card: (
+              <div className={LAYOUT_STYLES.body} data-kr-id="roles-component">
+                <div className={LAYOUT_STYLES.section}>
+                  <h5 className={STYLES.sectionTitle}>Role sets ({draft.roleSetIds.length})</h5>
+                  <div className={`${LAYOUT_STYLES.roleList} ${STYLES.roleList}`} data-kr-element="user-role-sets">
+                    {data.roleSets
+                      .filter((roleSet) => roleSet.isAssignable || draft.roleSetIds.includes(roleSet.id))
+                      .map((roleSet) => {
+                        const held = draft.roleSetIds.includes(roleSet.id)
+                        return (
+                          <div className={`${LAYOUT_STYLES.roleRow} ${STYLES.roleRow}`} key={roleSet.id}>
+                            <input aria-label={`Hold ${roleSet.label}`} checked={held} disabled={busy} onChange={() => change(toggleRoleSet(draft, roleSet.id))} type="checkbox" />
+                            <span>{roleSet.label}</span>
+                            <span className={STYLES.roleKind}>{roleSet.isSystem ? 'Built in' : 'Custom'}</span>
+                            <label className={STYLES.primary} title="Primary role set">
+                              <input aria-label={`${roleSet.label} is primary`} checked={held && draft.primaryRoleSetId === roleSet.id} disabled={busy || !held} name={`primary-${user.id}`} onChange={() => change({ ...draft, primaryRoleSetId: roleSet.id })} type="radio" />
+                              Primary
+                            </label>
+                          </div>
+                        )
+                      })}
+                  </div>
+                </div>
+                <PermissionMatrix description="Effective permissions are additive across the ticked role sets." krId="user-effective-permissions" rows={matrixRows} />
+              </div>
+            ),
+          },
+          { id: 'notifications', label: 'Notifications', card: <UserNotificationsTab /> },
+          { id: 'danger-zone', label: 'Danger zone', card: <UserDangerZoneTab busy={busy} lockedReason={deactivateLockedReason} onDeactivate={() => setConfirm('deactivate')} /> },
+        ]
+      : []
 
   return (
-    <section aria-label="Selected user" className={`${LAYOUT_STYLES.card} ${STYLES.card}`} data-kr-element="selected-user-card" data-kr-record-id={row.key}>
-      {/* Name, email, status and the close button */}
-      <div className={LAYOUT_STYLES.head}>
-        <div className={LAYOUT_STYLES.row}>
-          <h4 className={STYLES.title}>{row.name}</h4>
-          <span className={STYLES.meta}>
-            {row.email}
-            {user?.icid ? ` · ${user.icid}` : ''}
-            {user?.employee ? ` · Employee ${user.employee.employeeNumber ?? ''}` : ''} · {row.status}
-          </span>
-        </div>
-        <button aria-label="Close selected user card" className={STYLES.ghostButton} data-kr-element="selected-user-close-button" onClick={onClose} title="Close selected user card" type="button">
-          Close
-        </button>
-      </div>
+    <section aria-label="Selected user" className={`${LAYOUT_STYLES.card} ${STYLES.card}`} data-kr-element="selected-user-card" data-kr-id="user-edit-card-shell" data-kr-record-id={row.key}>
+      <PersonSlotContext.Provider value={personSlot}>
+      {user?.individualId && personSummary ? (
+        <>
+          {/* The person's identity card, then the account's status line and Close */}
+          {personSummary}
+          <div className={LAYOUT_STYLES.topRow} data-kr-element="user-account-status-row">
+            <span className={STYLES.meta}>
+              {row.email} · {row.status}
+              {user.employee?.employeeNumber ? ` · Employee #${user.employee.employeeNumber}` : ''}
+            </span>
+            <button aria-label="Close" className={STYLES.ghostButton} data-kr-element="selected-user-close-button" onClick={onClose} title="Close and return to Users" type="button">
+              Close
+            </button>
+          </div>
+        </>
+      ) : (
+        <UserIdentityHeader busy={busy} email={row.email} name={row.name} onClose={onClose} status={row.status} user={user} />
+      )}
 
       {/* The invitation, when there is one */}
       {invite ? (
@@ -181,80 +334,24 @@ export default function UserDetailCard({ row, data, onSaved, onClose, onDirtyCha
         </div>
       ) : null}
 
-      {/* The account: status, staff code or enrollment, role sets and their effective grants */}
+      {/* The account's five tabs, then one Save user for all of them */}
       {user && draft ? (
         <>
-          <div className={LAYOUT_STYLES.row} data-kr-element="user-account-row">
-            <label className={LAYOUT_STYLES.field} title={statusLocked ? 'Super Admin and your own status cannot be changed here' : undefined}>
-              <span className={STYLES.label}>User Status</span>
-              <select className={STYLES.field} disabled={busy || statusLocked} onChange={(event) => change({ ...draft, accountStatus: event.target.value as UserDraft['accountStatus'] })} value={draft.accountStatus}>
-                <option value="active">Active</option>
-                <option value="pending">Pending</option>
-                <option value="deactivated">Inactive</option>
-              </select>
-            </label>
-            {user.employee ? (
-              <label className={LAYOUT_STYLES.field} title="Staff Code is required for users with the Staff role.">
-                <span className={STYLES.label}>Staff Code</span>
-                <input className={`${STYLES.field} ${STYLES.staffCode}`} disabled={busy} maxLength={4} onChange={(event) => change({ ...draft, staffCode: event.target.value.toUpperCase() })} placeholder="e.g. KRU1" value={draft.staffCode} />
-              </label>
-            ) : (
-              <button className={STYLES.ghostButton} data-kr-action="enroll-employee" disabled={busy || dirty} onClick={() => setConfirm('enroll')} title={dirty ? 'Save or revert the changes first.' : undefined} type="button">
-                Enroll as Employee
+          <MenuStyleOne props={{ items: tabs, activeItemId: tab, onActiveItemChange: setTab, ariaLabel: 'User account', idPrefix: `user-edit-${user.id}`, menuKrId: 'user-edit-tabs' }} />
+          <div className={LAYOUT_STYLES.footer} data-kr-element="user-save-row">
+            {dirty ? <p className={STYLES.notice}>{problem ?? 'Changes are not saved yet. Click Save user to apply them.'}</p> : null}
+            {dirty && saved ? (
+              <button className={STYLES.ghostButton} disabled={busy} onClick={() => change(saved)} type="button">
+                Undo changes
               </button>
-            )}
-            <div className={LAYOUT_STYLES.actions}>
-              {dirty && saved ? (
-                <button className={STYLES.ghostButton} disabled={busy} onClick={() => change(saved)} type="button">
-                  Undo changes
-                </button>
-              ) : null}
-              <SaveButton
-                dataKrElement="save-user"
-                disabledText="Save user"
-                onClick={() =>
-                  void run(
-                    () => updateUser(user.id, { accountStatus: draft.accountStatus, staffCode: draft.staffCode.trim() ? draft.staffCode.trim().toUpperCase() : null, roleSetIds: draft.roleSetIds, primaryRoleSetId: draft.primaryRoleSetId }),
-                    'User changes saved.',
-                  )
-                }
-                state={busy ? 'Saving' : canSave ? 'Can Save' : 'Disabled'}
-                text="Save user"
-                updatingText="Saving…"
-              />
-            </div>
-          </div>
-          {dirty ? <p className={STYLES.notice}>Changes are not saved yet. Click Save user to apply them.</p> : null}
-
-          <div className={LAYOUT_STYLES.body} data-kr-id="roles-component">
-            <div className={LAYOUT_STYLES.section}>
-              <h5 className={STYLES.sectionTitle}>Role sets ({draft.roleSetIds.length})</h5>
-              <div className={`${LAYOUT_STYLES.roleList} ${STYLES.roleList}`} data-kr-element="user-role-sets">
-                {data.roleSets
-                  .filter((roleSet) => roleSet.isAssignable || draft.roleSetIds.includes(roleSet.id))
-                  .map((roleSet) => {
-                    const held = draft.roleSetIds.includes(roleSet.id)
-                    return (
-                      <div className={`${LAYOUT_STYLES.roleRow} ${STYLES.roleRow}`} key={roleSet.id}>
-                        <input aria-label={`Hold ${roleSet.label}`} checked={held} disabled={busy} onChange={() => change(toggleRoleSet(draft, roleSet.id))} type="checkbox" />
-                        <span>{roleSet.label}</span>
-                        <span className={STYLES.roleKind}>{roleSet.isSystem ? 'Built in' : 'Custom'}</span>
-                        <label className={STYLES.primary} title="Primary role set">
-                          <input aria-label={`${roleSet.label} is primary`} checked={held && draft.primaryRoleSetId === roleSet.id} disabled={busy || !held} name={`primary-${user.id}`} onChange={() => change({ ...draft, primaryRoleSetId: roleSet.id })} type="radio" />
-                          Primary
-                        </label>
-                      </div>
-                    )
-                  })}
-              </div>
-            </div>
-            <PermissionMatrix description="Effective permissions are additive across the ticked role sets." krId="user-effective-permissions" rows={matrixRows} />
+            ) : null}
+            <SaveButton dataKrElement="save-user" disabledText="Save user" onClick={requestSave} state={busy ? 'Saving' : canSave ? 'Can Save' : 'Disabled'} text="Save user" updatingText="Saving..." />
           </div>
         </>
       ) : null}
 
       {status ? <p className={STYLES.status}>{status}</p> : null}
-      {error ? <p className={STYLES.error}>{error}</p> : null}
+      {error && !confirm ? <p className={STYLES.error}>{error}</p> : null}
 
       <U6ConfirmationDialog
         busy={busy}
@@ -278,6 +375,29 @@ export default function UserDetailCard({ row, data, onSaved, onClose, onDirtyCha
         open={confirm === 'enroll'}
         title="Enroll as Employee?"
       />
+      <U6ConfirmationDialog
+        busy={busy}
+        busyLabel="Saving..."
+        confirmLabel="Clear and Save"
+        description="Turning off IsAttorney will clear the current bar-admission records when you save. Continue?"
+        error={confirm === 'clear-admissions' && error ? error : ''}
+        onCancel={() => setConfirm(null)}
+        onConfirm={save}
+        open={confirm === 'clear-admissions'}
+        title="Clear Bar Admissions?"
+      />
+      <U6ConfirmationDialog
+        busy={busy}
+        busyLabel="Deactivating..."
+        confirmLabel="Deactivate"
+        description={`Deactivate ${row.name}? They can no longer sign in, and their open sessions end now. The employee record is retained.`}
+        error={confirm === 'deactivate' && error ? error : ''}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => user && saved && void run(() => updateUser(user.id, updateBodyFromDraft(user, { ...saved, accountStatus: 'deactivated' })), 'User deactivated.')}
+        open={confirm === 'deactivate'}
+        title="Deactivate user?"
+      />
+      </PersonSlotContext.Provider>
     </section>
   )
 }

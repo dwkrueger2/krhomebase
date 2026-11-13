@@ -42,7 +42,8 @@ type PreflightResult = {
 
 /** Tailwind layout classes for the maintenance card's structural regions. */
 const LAYOUT_STYLES = {
-  card: 'm-2 p-2 gap-2 grid min-w-0',
+  card: 'relative m-2 p-2 pt-[14px] gap-2 grid min-w-0',
+  superAdminBar: 'absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 px-[10px] py-[1px] whitespace-nowrap',
   selectionGrid: 'gap-2 grid min-w-0 items-start grid-cols-[minmax(0,1fr)_minmax(0,1fr)] max-[640px]:grid-cols-1',
   fieldRow: 'gap-1.5 grid min-w-0',
   targetPicker: 'gap-1 grid min-w-0',
@@ -57,6 +58,7 @@ const LAYOUT_STYLES = {
 /** Reusable visual treatments for the privileged maintenance workflow. */
 const STYLES = {
   card: 'box-border rounded-[2px] border-2 border-solid border-[var(--kr-theme-danger,#9d2c20)]',
+  superAdminBar: 'rounded-[2px] bg-(--kr-theme-danger) text-[10px] font-extrabold uppercase leading-[14px] tracking-[.12em] text-(color:--kr-theme-text-inverse)',
   title: 'm-0 text-[13px] font-extrabold text-[var(--kr-theme-text,#243142)]',
   description: 'm-0 text-[11px] leading-[1.4] text-[var(--kr-theme-text-muted,#5a6775)]',
   label: 'text-[11px] font-extrabold text-[var(--kr-theme-text-muted,#5a6775)]',
@@ -325,6 +327,10 @@ export default function ContactMaintenanceCard({ contact, onResolved }: ContactM
       data-kr-id="ContactMaintenanceCard"
       data-kr-element="contact-maintenance-card"
     >
+      {/* Who may use this card: a bar centered over the red top border (the requester, Nov 13, 2026) */}
+      <span className={`${LAYOUT_STYLES.superAdminBar} ${STYLES.superAdminBar}`} data-kr-element="contact-maintenance-super-admin-bar">
+        Super Admin Only
+      </span>
       {/* Standalone removal: inspect relationships without selecting a merge target. */}
       <div className={LAYOUT_STYLES.fieldRow} data-kr-element="contact-maintenance-removal">
         <h3 className={STYLES.title}>Delete or inactivate contact</h3>

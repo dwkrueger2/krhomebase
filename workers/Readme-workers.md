@@ -1,7 +1,7 @@
 # Workers
 
-<small>Version 1.7</small><br>
-<small>Updated Nov 12, 2026 2:44am</small>
+<small>Version 1.8</small><br>
+<small>Updated Nov 12, 2026 5:48pm</small>
 
 The Cloudflare Workers copied from the old repository (`apps\shared`). Plan and reasons: `docs/03_Workers_And_Login_Plan.md`.
 
@@ -53,7 +53,7 @@ Cloudflare names now start with `krhomebase-`, like `krhomebase-api` and `krhome
 | `d1-workers/article-read-worker` | `krhomebase-article-read-worker` | not set | No |
 | `d1-workers/article-publish-worker` | `krhomebase-article-publish-worker` | not set | No |
 | `d1-workers/kr-homebase-mcp-worker` | `krhomebase-mcp-worker` | none needed | No |
-| `gpt-workers` | `krhomebase-gpt-models-worker` | not set | No |
+| `gpt-workers` | `krhomebase-gpt-models-worker` (no public address; changed Nov 12, 2026 to trust the API's shared secret, see `gpt-workers/README.md`) | `krhomebase_gpt_usage_dev`, id not set | No |
 | `r2-workers/front-end-assets` | `krhomebase-public-site-front-end-assets` | none | No |
 | `r2-workers/kr-r2-crud-articles-worker` | `krhomebase-r2-crud-articles-worker` | none | No |
 | `r2-workers/kr-r2-public-article-worker` | `krhomebase-r2-public-article-worker` | not set | No |

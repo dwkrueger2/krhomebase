@@ -184,8 +184,8 @@ components:
 
 # Design System: KR Homebase
 
-<small>Version 1.11</small><br>
-<small>Updated Nov 12, 2026 8:02am</small>
+<small>Version 1.13</small><br>
+<small>Updated Nov 12, 2026 6:09pm</small>
 
 This file records the visual system that is already in the code (`apps/web/styles/theme.css`, the component `STYLES` maps) and in the old app's reference pages (`/tests/krh/u/default-theme`, `/tests/krh/u5`, `/tests/krh/u1`). The YAML block above must stay at the very top of the file for design tools to read it, so this file's title and version sit below it. Product facts are in `PRODUCT.md`. Layout rules for code (widths, spacing, corners, label placement) are binding in `apps/web/AGENTS.md`; this file describes them and does not override them.
 
@@ -291,7 +291,7 @@ Spacing is tight: 3px to 8px between elements, with 3px the default gap-x betwee
 
 ### Density Contract (the requester, Nov 12, 2026)
 
-"Tight" means dense, with little vertical padding. These numbers are the contract; words such as "comfortable", "generous" or "breathing room" in a design guide mean one step up this scale, never more. `apps/web/AGENTS.md` ("Tight spacing") makes the numbers binding for code.
+"Tight" means dense, with little vertical padding. These numbers are the contract; words such as "comfortable", "generous" or "breathing room" in a design guide mean one step up this scale, never more. "Usability", "readability" and "accessibility" do not license more space: in KR Homebase usability means dense (`PRODUCT.md`, "Accessibility: usability first"). `apps/web/AGENTS.md` ("Tight spacing") makes the numbers binding for code.
 
 **Spacing scale.** 1px, 2px, 3px, 4px, 6px, 8px and 10px. Nothing larger inside a card or panel. Between cards on one screen: 6px to 10px.
 
@@ -313,12 +313,20 @@ Spacing is tight: 3px to 8px between elements, with 3px the default gap-x betwee
 | Field and select | 22px to 26px | 2px to 4px |
 | Button | 24px to 28px | 2px to 6px |
 | Check box or radio row | 18px to 20px | 0 to 1px |
+| Icon button (pencil, wastebasket) in a row or toolbar | 20px square | none |
 
 **The reference for rows of data** is the Client Accounting register (`features/billing/components/ClientAccountingLedger.client.tsx`, the rows under `data-kr-element="rows-container"`): 10pt text with `leading-tight`, 1px cell padding, a hairline under every row and between columns, no gap between rows, and the heading row in 10pt semibold uppercase muted text on the table header color. A row is about 20px tall, so a 1280 by 720 window shows about 25 rows under a header and toolbar. Every new table of records starts from this row; `KRLedgerTable` (rows 2px 8px, 12px text) stays within the contract.
 
 **Text.** Rows and fields 12px to 13.3px (10pt); small print 10px to 11px; a card title 13px to 14px. Line height 1.2 to 1.3 (`leading-tight`), never the browser's 1.5 default inside a row, field or button.
 
 **Never inside the frame:** vertical padding over 8px on a control, `py-3` or larger, `gap-4` or larger, `space-y-4` or larger, a `min-h` over 30px on a field or button, `rounded-lg` or larger, an empty line of margin above or below a heading, or a description paragraph between a heading and its form. A stated exception (a dialog's padding, the login card, the IT cards, the Attendance grid) is named in "Feature variations" below.
+
+**The requester's decisions of Nov 12, 2026** (after the Firm Settings critique):
+
+- **Icon buttons (D1).** 20px is the default for an icon button in a row or a toolbar. 24px (and a larger badge) is right where a card carries little else, such as a Settings choice card (`settings-choice-firm-settings`), which is in effect one big button; density does not matter there. Design for usability: a larger target is chosen where it helps a person, not to meet an outside size rule.
+- **Dialogs (D2).** A dialog that asks for a decision or gives a short message (Yes, No, OK, Cancel, Remove, Discard) is less dense: its buttons may be about 32px to 34px tall and its padding 10px, as `U6ConfirmationDialog` is. A dialog that edits many fields (the contact editor) follows this contract, to avoid scrolling and empty space.
+- **Number columns (D4).** A column of numbers, usually money, has its heading centered and its figures right-aligned with even-width digits (`tabular-nums`).
+- **Busy and ellipses (D5).** Loading and saving show `RainbowBusySpinner`, not text alone. Written ellipses are three periods, "...", not the single "…" character.
 
 **The checks.** A screen is not finished until (1) its computed gaps, paddings and row heights were read in the browser and match the tables above, (2) nothing scrolls sideways at 1280px and 768px, and (3) a form used again and again fits whole in 1280 by 720.
 
@@ -383,7 +391,7 @@ The dense record table used by Contacts and Billing (`components/tables/KRLedger
 - Resizable columns, a hover card, an action rail and a paging footer.
 
 ### Dialogs
-`U6ConfirmationDialog`: up to 440px wide, 4px corners, 10px padding, Dialog shadow over a 40% Midnight Navy backdrop. The title is Bigger text. While busy, it shows the rainbow spinner. Never use the browser's own alert, confirm or prompt.
+`U6ConfirmationDialog`: up to 440px wide, 4px corners, 10px padding, Dialog shadow over a 40% Midnight Navy backdrop. The title is Bigger text. While busy, it shows the rainbow spinner. Never use the browser's own alert, confirm or prompt. A decision dialog is less dense than the frame (the requester, D2): its buttons may be about 32px to 34px tall; a dialog full of fields follows the Density Contract.
 
 ### Rainbow busy spinner
 `RainbowBusySpinner` is the only busy signal: a spinning gradient ring, on its own or with a short label. It is the one place the full spectrum appears.

@@ -369,13 +369,67 @@ function AddIcon(props: KRHomebaseUtilityIconProps) {
   )
 }
 
+/** Closed padlock: lock application writes (Firm Settings → Data Import; replaces the old `[lock]` text marker). */
+function LockIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props} strokeWidth={2}>
+      <rect height="10" rx="1.5" width="14" x="5" y="11" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </UtilitySvg>
+  )
+}
+
+/** Open padlock: unlock application writes (Firm Settings → Data Import; replaces the old `[unlock]` text marker). */
+function UnlockIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props} strokeWidth={2}>
+      <rect height="10" rx="1.5" width="14" x="5" y="11" />
+      <path d="M8 11V7a4 4 0 0 1 7.75-1.4" />
+    </UtilitySvg>
+  )
+}
+
+/** A thin ×: close a dialog (GPT Model Gateway's Edit Model Connection dialog; replaces the old `×` text glyph). */
+function CloseIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props} strokeWidth={2}>
+      <path d="M6 6l12 12" />
+      <path d="M18 6L6 18" />
+    </UtilitySvg>
+  )
+}
+
+/** An eye: hold to show a hidden value (GPT Model Gateway's API key field; the old inline `HoldToRevealIcon`). */
+function EyeIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props}>
+      <path d="M2.2 12s3.5-5.2 9.8-5.2S21.8 12 21.8 12 18.3 17.2 12 17.2 2.2 12 2.2 12Z" />
+      <circle cx="12" cy="12" r="2.6" />
+    </UtilitySvg>
+  )
+}
+
+/** A lower-case i (dot and stem), drawn inside a round help badge (GPT Model Gateway's tooltips; replaces the old `i` text). */
+function InfoLetterIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props} strokeWidth={3}>
+      <path d="M12 5.5v.01" />
+      <path d="M12 10.5v8" />
+    </UtilitySvg>
+  )
+}
+
 /** Named utility components for JSX member notation alongside the name-based API. */
 export const KRHomebaseIcons = {
   Add: AddIcon,
   Chevron: ChevronIcon,
+  Close: CloseIcon,
   Copy: CopyIcon,
+  Eye: EyeIcon,
+  InfoLetter: InfoLetterIcon,
   InfoDark: (props: KRHomebaseUtilityIconProps) => <KRHomebaseIcon name="info-dark" {...props} />,
   InfoSquare: InfoSquareIcon,
+  Lock: LockIcon,
   Mail: MailIcon,
   MapPin: MapPinIcon,
   Pencil: PencilIcon,
@@ -383,6 +437,7 @@ export const KRHomebaseIcons = {
   Preview: PreviewIcon,
   Send: SendIcon,
   Trash: TrashIcon,
+  Unlock: UnlockIcon,
   WarningOrange: (props: KRHomebaseUtilityIconProps) => (
     <KRHomebaseIcon name="warning-orange" {...props} />
   ),

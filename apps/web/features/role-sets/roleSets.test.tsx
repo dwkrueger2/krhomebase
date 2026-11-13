@@ -2,16 +2,17 @@
 /**
  * The Role Sets card (Settings plan, stage 4c) and the shared permission matrix: the draft helpers (comparison, the
  * "Copy existing role set" merge without protected grants, the name warning), the matrix rows (scope-aware resources
- * get Own, Team and All rows), and first draws of `RoleSetsCard` rendered to text. Made-up role sets only.
+ * get Own, Team and All rows), the holders list, and first draws of `RoleSetsCard` rendered to text. Made-up role sets
+ * and people only.
  *
  * Run: pnpm --dir apps/web exec vitest run features/role-sets/roleSets.test.tsx
  */
 
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { PERMISSION_RESOURCES, type RoleSet } from '@krhomebase/contracts'
+import { PERMISSION_RESOURCES, type RoleSet, type UserAccount } from '@krhomebase/contracts'
 import { permissionMatrixRows } from '@/components/tables/PermissionMatrix.client'
-import RoleSetsCard, { draftFromRoleSet, mergeRoleSetGrants, roleSetNameInUse, sameRoleSetDraft } from '@/features/role-sets/components/RoleSetsCard.client'
+import RoleSetsCard, { draftFromRoleSet, mergeRoleSetGrants, roleSetHolders, roleSetNameInUse, sameRoleSetDraft } from '@/features/role-sets/components/RoleSetsCard.client'
 
 const role = (overrides: Partial<RoleSet>): RoleSet => ({
   id: 'role_staff',
@@ -31,6 +32,31 @@ const role = (overrides: Partial<RoleSet>): RoleSet => ({
 const SUPER = role({ id: 'role_super_admin', roleKey: 'super_admin', label: 'Super Admin', sortOrder: 10, permissions: ['roles.read', 'users.delete', 'contacts.create'], scopedPermissions: ['attendance.read.all'], holderCount: 1 })
 const STAFF = role({})
 const CUSTOM = role({ id: 'role_custom_001', roleKey: 'custom_001', label: 'Front Desk', isSystem: false, sortOrder: 100, permissions: ['matters.read'], scopedPermissions: [], holderCount: 0 })
+
+const person = (overrides: Partial<UserAccount>): UserAccount => ({
+  id: 'user-1',
+  email: 'pat@example.test',
+  name: 'Pat Doe',
+  individualId: null,
+  firstName: 'Pat',
+  lastName: 'Doe',
+  preferredName: null,
+  phone: null,
+  isAttorney: false,
+  ssoIdentities: [],
+  icid: null,
+  role: 'staff',
+  accountStatus: 'active',
+  lastLogin: null,
+  roleSetIds: ['role_staff'],
+  primaryRoleSetId: 'role_staff',
+  employee: null,
+  inviteId: null,
+  ...overrides,
+})
+
+const PAT = person({})
+const ALEX = person({ id: 'user-2', email: 'alex@example.test', name: 'Alex Roe', roleSetIds: ['role_staff', 'role_custom_001'], primaryRoleSetId: 'role_custom_001', accountStatus: 'pending' })
 
 describe('role set drafts', () => {
   it('compares drafts with trimmed text and sorted grants', () => {
@@ -71,6 +97,28 @@ describe('RoleSetsCard', () => {
     expect(html).toContain('Front Desk')
     expect(html).not.toContain('type="checkbox"')
     expect(html).not.toContain('Retire role set')
+  })
+
+  it('lists the people who hold the chosen role set, by name, marking the primary holders', () => {
+    expect(roleSetHolders([PAT, ALEX], 'role_staff').map((user) => user.name)).toEqual(['Alex Roe', 'Pat Doe'])
+    expect(roleSetHolders([PAT, ALEX], 'role_custom_001').map((user) => user.id)).toEqual(['user-2'])
+    const html = renderToStaticMarkup(<RoleSetsCard initialRoleSets={[CUSTOM, STAFF]} initialUsers={[PAT, ALEX]} />)
+    expect(html).toContain('data-kr-id="role-set-holders"')
+    expect(html).toContain('People with Front Desk')
+    expect(html).toContain('Alex Roe<span')
+    expect(html).toContain('(primary)')
+    expect(html).toContain('Pending')
+    expect(html).not.toContain('Pat Doe')
+  })
+
+  it('puts the pencil in the first column, for custom role sets only, and centers Grants and People', () => {
+    const html = renderToStaticMarkup(<RoleSetsCard initialRoleSets={[SUPER, STAFF, CUSTOM]} initialUsers={[]} />)
+    expect(html).toContain('data-kr-id="roles-set-definitions"')
+    expect(html.match(/data-kr-action="edit-role-set"/g)).toHaveLength(1)
+    expect(html).toContain('aria-label="Edit role set: Front Desk"')
+    const firstRow = html.slice(html.indexOf(`data-kr-record-id="${CUSTOM.id}"`))
+    expect(firstRow.indexOf('edit-role-set')).toBeLessThan(firstRow.indexOf('Front Desk</td>'))
+    expect(html).toMatch(/text-center[^"]*"[^>]*title="Grants"/)
   })
 
   it('shows a custom role set as an editor with protected grants disabled', () => {

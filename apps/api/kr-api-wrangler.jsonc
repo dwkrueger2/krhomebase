@@ -33,6 +33,15 @@
       "service": "krhomebase-crud-worker-pub-inquiry",
       "remote": true
     }
+    // The GPT models Worker (Settings plan, stage 7): the only door to the GPT usage database and the provider keys.
+    // No public address; the API sends the secret KR_GPT_WORKER_SECRET. NOT DEPLOYED YET (Nov 12, 2026): switch this
+    // block on (remove the // marks; the leading comma belongs to the block) after `krhomebase-gpt-models-worker`
+    // is deployed (workers/gpt-workers/README.md). Until then GPT Model Gateway shows "cannot be reached right now".
+    // ,{
+    //   "binding": "GPT_WORKER",
+    //   "service": "krhomebase-gpt-models-worker",
+    //   "remote": true
+    // }
   ],
   // Plain (non-secret) settings for the live site. On this computer, apps/api/.dev.vars overrides them
   // (KR_APP_BASE_URL becomes http://localhost:3011). The secrets are not here: they are set with
@@ -76,6 +85,16 @@
       "binding": "krhomebase",
       "database_name": "krhomebase",
       "database_id": "ef68921f-c7d3-4d0b-9af4-defebc748616",
+      "remote": true
+    }
+  ],
+  // Employee Documents (Settings plan, stage 5): private HR files. The requester chose the old app's bucket on
+  // Nov 12, 2026, so files it stored still open. "remote": true makes `pnpm dev:api` use the real bucket, so an upload
+  // made while testing locally is a real file.
+  "r2_buckets": [
+    {
+      "binding": "EMPLOYEE_STORAGE",
+      "bucket_name": "kr-homebase-employee-storage",
       "remote": true
     }
   ]

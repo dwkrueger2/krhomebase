@@ -55,19 +55,21 @@ describe('Settings areas', () => {
       'firm-settings': 'firmSettingsSection',
     })
     expect(USER_SETTINGS_PAGES.map((page) => page.id)).toEqual(['user-settings', 'dashboard-settings', 'time-card', 'employee-file'])
-    for (const old of ['user-management', 'role-specifications', 'team-management', 'other-configuration', 'site-feedback']) {
+    for (const old of ['role-specifications', 'team-management', 'other-configuration', 'site-feedback']) {
       expect(APPLICATION_SETTINGS_PAGES.some((page) => page.id === old)).toBe(true)
     }
+    // Users and Invites moved to Firm Settings → Users (Nov 12, 2026); its old tab name still opens it there.
+    expect(FIRM_SETTINGS_ALIASES['user-management']).toBe('users')
     for (const old of ['profile', 'employee-policies', 'data-management', 'gpt-model-gateway', 'stripe-payment-configuration']) {
       expect(FIRM_SETTINGS_PAGES.some((page) => page.id === old)).toBe(true)
     }
     expect(FIRM_SETTINGS_ALIASES['stripe-dev-tests']).toBe('stripe-payment-configuration')
   })
 
-  it('shows the three IT pages of Firm Settings to a super admin only', () => {
-    const itPages = ['data-management', 'gpt-model-gateway', 'stripe-payment-configuration']
+  it('shows Users and the three IT pages of Firm Settings to a super admin only', () => {
+    const superAdminPages = ['users', 'data-management', 'gpt-model-gateway', 'stripe-payment-configuration']
     expect(visibleSettingsPages(FIRM_SETTINGS_PAGES, false).map((page) => page.id)).toEqual(['profile', 'employee-policies', 'employee-documents'])
-    expect(visibleSettingsPages(FIRM_SETTINGS_PAGES, true).map((page) => page.id).slice(3)).toEqual(itPages)
+    expect(visibleSettingsPages(FIRM_SETTINGS_PAGES, true).map((page) => page.id).slice(3)).toEqual(superAdminPages)
   })
 
   it('keeps the old ids of the three IT cards', () => {
@@ -116,9 +118,10 @@ describe('Settings areas in the workspace', () => {
     expect(html).toContain('data-kr-id="preferences-stand-in"')
   })
 
-  it('shows a placeholder naming its stage for a page not built yet, and the Time Card button', () => {
-    const employeeFile = renderInWorkspace(<UserSettingsPanel />, 'user-settings', '?userSettingsSection=employee-file')
-    expect(employeeFile).toContain('Not built yet: Settings port, after stage 5 (Employee Documents).')
+  it('shows the Employee File page it was given (a placeholder without one), and the Time Card button', () => {
+    const employeeFile = renderInWorkspace(<UserSettingsPanel employeeFilePage={<p data-kr-id="employee-file-stand-in">file</p>} />, 'user-settings', '?userSettingsSection=employee-file')
+    expect(employeeFile).toContain('data-kr-id="employee-file-stand-in"')
+    expect(renderInWorkspace(<UserSettingsPanel />, 'user-settings', '?userSettingsSection=employee-file')).toContain('Not built yet: Settings port')
     const timeCard = renderInWorkspace(<UserSettingsPanel />, 'user-settings', '?userSettingsSection=time-card')
     expect(timeCard).toContain('data-kr-action="open-my-time-card"')
     expect(timeCard).toContain('Open my time card')

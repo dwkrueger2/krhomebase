@@ -73,7 +73,7 @@ export default function ContactDetailWorkspace({ contact, onEdit, onClose, onOpe
       label: 'Documents',
       card: <ContactDetailPlaceholder title="Documents" description="Contact documents and document relationships will be connected here." />,
     },
-    ...(canMaintain ? [{ id: 'danger-zone', label: 'Danger Zone', card: <ContactMaintenanceCard contact={contact} onResolved={onResolved} /> }] : []),
+    ...(canMaintain ? [{ id: 'danger-zone', label: 'Danger Zone', tone: 'orange' as const, card: <ContactMaintenanceCard contact={contact} onResolved={onResolved} /> }] : []),
   ]
 
   const workspaceLabel = `[${contact.clientNumber ?? 'NoNumber'}]-${contact.displayName}`

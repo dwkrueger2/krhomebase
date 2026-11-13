@@ -1,14 +1,19 @@
 # Outstanding Task List: Repository Patch 26
 
-<small>Version 1.3</small><br>
-<small>Updated Nov 12, 2026 8:24am</small>
+<small>Version 1.5</small><br>
+<small>Updated Nov 13, 2026 9:02am</small>
 
 **Track:** Repository (root `package.json`)
 **Version:** 1.0.0  **Patch:** 26  **Patch date:** 11-11
 **Previous list:** `Outstanding Task List_Patch025_11_09.md`
-**Same change set:** API patches 13 to 20 and web patches 519 to 527 (Settings stages), none committed yet. Branch `impeccable-11-09`.
+**Same change set:** API patches 13 to 21 and web patches 519 to 528 (Settings stages), none committed yet. Branch `impeccable-11-09`.
 
 ## Completed by this patch
+
+- **Dev server cleanup (Nov 13, 2026).** `pnpm dev` failed with "Another vinext dev server is already running". The cause was orphaned dev servers: four `wrangler dev` trees (from Nov 11, Nov 12 and two from Nov 13) and an old vite. `stop:port:8787` stopped only the workerd that held the port, and wrangler started a new one at once. Fixed:
+  - `scripts/stop-dev-port.windows.ps1` now stops the whole server tree.
+  - The new `scripts/stop-dev-servers.windows.ps1` (`pnpm stop:dev:servers`, the first step of `stop:ports:all`) stops every dev server from this folder, even one that holds no port.
+  - Root `AGENTS.md` 2.13 records both.
 
 - Nov 12, 2026: root `AGENTS.md` 2.11, Impeccable rule 5 "Density words mean the Density Contract" (the old rule 5 is now 6).
 
@@ -22,6 +27,8 @@
 
 - Settings stages 4a, 4b and 4e are API patches 16 to 18 and web patches 523 to 525 (their own task lists). This patch records them in `docs/08_Settings_Dashboard_Plan.md` (1.5: sections 15 to 17, both stage 4 decisions answered).
 - Stage 4e (Nov 12, 2026): `workers/d1-workers/crud-worker-pub-inquiry/crud-worker-pub-inquiry.jsonc` names the public inquiry databases (`kr_public_inquiry_06_2026` and `kr_public_inquiry_dev`, ids from a read-only `wrangler d1 list`) and turns `workers_dev` off; its code is unchanged. `workers/Readme-workers.md` (1.6: table row and "Put the public inquiry Worker live"), root `AGENTS.md` (2.10: the third Worker with no public address), `docs/04_Deployed_Architecture.md` (1.5: the pending binding). `workers/` is still not type checked by `pnpm check`.
+
+- **Nov 12, 2026 (stages 4d-2 to 9, the requester's decisions D1 to D10):** `docs/08_Settings_Dashboard_Plan.md` 1.8 (sections 20 and 21); `apps/web/DESIGN.md` 1.12 (D1, D2, D4, D5); the new folder `docs/help-docs/` with the contact import instructions; `workers/gpt-workers/` changed to trust the API's shared secret (README 1.2) and `workers/Readme-workers.md` 1.8; the Impeccable critique saved in `.impeccable/critique/`.
 
 ## Immediate (the requester)
 

@@ -4,7 +4,9 @@
  * test reaches Google). Made-up people only. Checks: the list (names, role sets, employee, invitations with their
  * shown status, no writes), create by invitation (person, user, employee, role sets, invitation row with a hashed
  * token, the link returned because no email went out) and active at once, the duplicate refusals, the status and
- * role set rules, staff codes, enrollment, resend, cancel and delete, other roles refused, and audit rows.
+ * role set rules, staff codes, enrollment, resend, cancel and delete, other roles refused, and audit rows. Stage
+ * 4d-2: the professional title, the attorney flag and bar admissions (kept, changed, cleared), sessions ended on
+ * deactivation, and the sign-in identities and phone in the list.
  *
  * Run: pnpm --dir apps/api exec vitest run src/features/users/users.test.ts
  */
@@ -162,6 +164,59 @@ describe('PUT /v1/users/{userId}', () => {
     expect(await errorCode(await call('PUT', '/v1/users/u-sam', { ...change, staffCode: 'ada' }), 409)).toBe('STAFF_CODE_IN_USE')
     await saved(await call('PUT', '/v1/users/u-sam', { ...change, staffCode: 'sm1' }))
     expect(one<{ staff_code: string }>(`SELECT staff_code FROM employee WHERE id = 'emp-sam'`).staff_code).toBe('SM1')
+  })
+})
+
+describe('PUT /v1/users/{userId}: title, attorney and bar admissions (stage 4d-2)', () => {
+  const change = { accountStatus: 'active', staffCode: 'SAM', roleSetIds: ['role_staff'], primaryRoleSetId: 'role_staff' }
+  const texas = { id: null, jurisdiction: 'Texas', registrationNumber: '24000001', admittedOn: '2010-11-05', expiresOn: '', status: 'active' }
+
+  beforeEach(() => {
+    run(`INSERT INTO lookup (id, category, value, label) VALUES ('lk_employee_cert_law_license', 'employee_certification_type', 'law_license', 'Law license')`)
+  })
+
+  it('saves the title, the attorney flag and the admissions, then updates and clears them', async () => {
+    const first = await saved(await call('PUT', '/v1/users/u-sam', { ...change, jobTitle: 'Associate', isAttorney: true, barAdmissions: [texas] }))
+    const sam = first.users.users.find((row) => row.id === 'u-sam')!
+    expect(sam).toMatchObject({ isAttorney: true, employee: { jobTitle: 'Associate', barAdmissions: [{ jurisdiction: 'Texas', registrationNumber: '24000001', admittedOn: '2010-11-05', status: 'active' }] } })
+    const storedId = sam.employee!.barAdmissions[0]!.id!
+    expect(one<{ certification_type_lookup_id: string; description: string }>(`SELECT certification_type_lookup_id, description FROM employee_certification`)).toEqual({ certification_type_lookup_id: 'lk_employee_cert_law_license', description: 'Bar admission - Texas' })
+
+    // A save that leaves the admissions out keeps them; one that names them changes them.
+    await saved(await call('PUT', '/v1/users/u-sam', change))
+    const second = await saved(await call('PUT', '/v1/users/u-sam', { ...change, barAdmissions: [{ ...texas, id: storedId, status: 'inactive' }, { ...texas, jurisdiction: 'Oklahoma' }] }))
+    expect(second.users.users.find((row) => row.id === 'u-sam')!.employee!.barAdmissions.map((row) => [row.jurisdiction, row.status])).toEqual([
+      ['Texas', 'inactive'],
+      ['Oklahoma', 'active'],
+    ])
+
+    // Turning the attorney flag off clears every admission (kept as inactive rows without details).
+    const third = await saved(await call('PUT', '/v1/users/u-sam', { ...change, isAttorney: false }))
+    expect(third.users.users.find((row) => row.id === 'u-sam')).toMatchObject({ isAttorney: false, employee: { barAdmissions: [] } })
+    expect(one<{ n: number }>(`SELECT COUNT(*) AS n FROM employee_certification WHERE status = 'inactive' AND issuing_state IS NULL`).n).toBe(2)
+  })
+
+  it('refuses admissions and a title for a user who is not an employee', async () => {
+    run(`INSERT INTO individual (id, first_name, last_name) VALUES ('i-gus', 'Gus', 'Gone')`)
+    run(`UPDATE user SET individual_id = 'i-gus' WHERE id = 'u-gone'`)
+    const base = { accountStatus: 'deactivated', staffCode: null, roleSetIds: [], primaryRoleSetId: null }
+    expect(await errorCode(await call('PUT', '/v1/users/u-gone', { ...base, isAttorney: true, barAdmissions: [texas] }), 422)).toBe('EMPLOYEE_REQUIRED_FOR_BAR_ADMISSIONS')
+    expect(await errorCode(await call('PUT', '/v1/users/u-gone', { ...base, jobTitle: 'Clerk' }), 422)).toBe('USER_NOT_EMPLOYEE')
+    expect(await errorCode(await call('PUT', '/v1/users/u-gone', { ...base, barAdmissions: [{ ...texas, admittedOn: '11/05/2010' }] }), 422)).toBe('VALIDATION_FAILED')
+  })
+
+  it('ends the open sessions of an account that stops being active', async () => {
+    run(`INSERT INTO kr_session (id, session_token_hash, user_id, created_at, expires_at) VALUES ('s1', 'h-s1', 'u-sam', '${PAST}', '${FUTURE}')`)
+    await saved(await call('PUT', '/v1/users/u-sam', { ...change, accountStatus: 'deactivated' }))
+    expect(one<{ revoked_reason: string }>(`SELECT revoked_reason FROM kr_session WHERE id = 's1'`).revoked_reason).toBe('account_deactivated')
+  })
+
+  it('lists the sign-in identities and the phone', async () => {
+    run(`INSERT INTO user_sso_identity (id, user_id, provider, provider_subject, email, last_login_at) VALUES ('sso1', 'u-sam', 'google', 'g-1', 'sam@example.com', '${PAST}')`)
+    run(`INSERT INTO individual_contact_method (id, individual_id, contact_type, value, label, is_primary) VALUES ('m1', 'i-sam', 'phone', '(555) 000-1111', 'Phone', 1)`)
+    const res = await call('GET', '/v1/users')
+    const data = UsersData.parse(((await res.json()) as { data: unknown }).data)
+    expect(data.users.find((row) => row.id === 'u-sam')).toMatchObject({ phone: '(555) 000-1111', ssoIdentities: [{ provider: 'google', email: 'sam@example.com' }] })
   })
 })
 

@@ -27,6 +27,11 @@ export interface MenuStyleOneItem {
   card: ReactNode
   /** Shows the tab but does not let it be chosen (planned features). */
   disabled?: boolean
+  /**
+   * Draws the tab's words in an Action Color instead of the muted text color, chosen or not. `orange` is
+   * `--kr-theme-orange`, the burnt orange used for attention (the Danger Zone tab; the requester, Nov 13, 2026).
+   */
+  tone?: 'orange'
 }
 
 /** Settings for the menu. */
@@ -64,6 +69,8 @@ const STYLES = {
   button:
     'border-0 border-b-[3px] border-transparent bg-transparent font-(family-name:--kr-theme-font-body) text-[length:var(--kr-theme-font-size-base)] font-bold text-(color:--kr-theme-text-muted) cursor-pointer hover:text-(color:--kr-theme-text) focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--kr-theme-accent) disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:text-(color:--kr-theme-text-muted)',
   buttonActive: 'border-b-(color:--kr-theme-accent) font-extrabold text-(color:--kr-theme-table-heading-dark)',
+  // `!` so the tone wins over the muted, hover and chosen text colors above.
+  toneOrange: 'text-(color:--kr-theme-orange)! hover:text-(color:--kr-theme-orange)!',
 } as const
 
 /**
@@ -112,7 +119,7 @@ export default function MenuStyleOne({ props: menuProps }: MenuStyleOneComponent
             <button
               aria-controls={`${idPrefix}-panel-${item.id}`}
               aria-selected={isActive}
-              className={`${LAYOUT_STYLES.button} ${STYLES.button} ${isActive ? STYLES.buttonActive : ''}`}
+              className={`${LAYOUT_STYLES.button} ${STYLES.button} ${isActive ? STYLES.buttonActive : ''} ${item.tone === 'orange' ? STYLES.toneOrange : ''}`}
               data-kr-element-menu-item={item.id}
               disabled={item.disabled}
               id={`${idPrefix}-tab-${item.id}`}

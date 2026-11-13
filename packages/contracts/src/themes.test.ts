@@ -28,7 +28,7 @@ describe('theme values', () => {
   })
 
   it('drops settings a person may not change when asked for personal values only', () => {
-    expect(cleanThemeValues({ '--kr-theme-text': '#111111', '--kr-theme-danger': '#00ff00', '--kr-theme-table-row-padding': '2px 8px 2px 8px' }, { personalOnly: true })).toEqual({ '--kr-theme-text': '#111111' })
+    expect(cleanThemeValues({ '--kr-theme-text': '#111111', '--kr-theme-panel-background': '#00ff00', '--kr-theme-table-row-padding': '2px 8px 2px 8px' }, { personalOnly: true })).toEqual({ '--kr-theme-text': '#111111' })
   })
 
   it("reads the old editor's camelCase names", () => {

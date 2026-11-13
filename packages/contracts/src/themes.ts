@@ -73,10 +73,12 @@ export const THEME_TOKEN_DEFINITIONS: readonly ThemeTokenDefinition[] = [
   t('--kr-theme-text-inverse', 'textInverse', 'Text Colors', 'Text on dark fills', 'color', true),
   t('--kr-theme-accent', 'accentColor', 'Action Colors', 'Accent (active tab, eyebrow)', 'color', true),
   t('--kr-theme-accent-dark', null, 'Action Colors', 'Accent, darker', 'color', true),
-  t('--kr-theme-teal', 'tealColor', 'Action Colors', 'Teal', 'color'),
-  t('--kr-theme-orange', 'orangeColor', 'Action Colors', 'Orange (attention)', 'color'),
-  t('--kr-theme-danger', 'dangerColor', 'Action Colors', 'Danger (red state)', 'color'),
-  t('--kr-theme-success', 'successColor', 'Action Colors', 'Success (green state)', 'color'),
+  // Teal, Orange, Danger and Success became personal on Nov 13, 2026 (the requester), so User Settings shows the
+  // Action Colors too. The State Color Rule (DESIGN.md) still governs where they are used, not their shade.
+  t('--kr-theme-teal', 'tealColor', 'Action Colors', 'Teal', 'color', true),
+  t('--kr-theme-orange', 'orangeColor', 'Action Colors', 'Orange (attention)', 'color', true),
+  t('--kr-theme-danger', 'dangerColor', 'Action Colors', 'Danger (red state)', 'color', true),
+  t('--kr-theme-success', 'successColor', 'Action Colors', 'Success (green state)', 'color', true),
   t('--kr-theme-table-heading-dark', 'tableHeadingDark', 'Table Colors', 'Ledger heading row', 'color', true),
   t('--kr-theme-table-heading-light', 'tableHeadingLight', 'Table Colors', 'Light heading', 'color', true),
   t('--kr-theme-table-row-background-1', 'tableRowBackgroundOne', 'Table Colors', 'Row background 1', 'color', true),

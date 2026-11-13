@@ -1,5 +1,6 @@
 # Names of the settings this Worker reads when it runs locally. No values here, ever.
 # Real values are written to a git-ignored .dev.vars file by scripts/Write-DevVars.ps1.
+# See D:\Repos\krhomebase\docs\09_ENV_KeyMappings.md for past environment key mappings and bindings (which key file in private\dev-private-keys holds each value).
 # The plain settings (client id, firm name, Turnstile site key) are in kr-api-wrangler.jsonc.
 KR_APP_BASE_URL=
 KR_GOOGLE_CLIENT_SECRET=
@@ -7,5 +8,11 @@ KR_TURNSTILE_SECRET_KEY=
 KR_WORKER_JWT_PRIVATE_KEY=
 KR_CRUD_WORKER_PUBLIC_KEY=
 KR_SESSION_WORKER_SECRET=
+# Invitation and billing email (Users and Invites): the whole Google service-account JSON key file.
+KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY=
+# Stripe Payment Configuration: 32 random bytes, base64; the same value the pay Worker holds.
+KR_PAYMENT_PROVIDER_KEK=
+# GPT Model Gateway: the shared secret the GPT models Worker holds as GPT_WORKER_SHARED_SECRET.
+KR_GPT_WORKER_SECRET=
 # Optional: only while the database has no users.
 KR_SUPER_ADMIN_EMAILS=

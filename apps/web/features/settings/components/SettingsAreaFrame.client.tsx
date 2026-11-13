@@ -10,13 +10,22 @@
  * pages this viewer sees; a page given in `builtPages` is drawn as given, and every other page shows
  * `SettingsPagePlaceholder` with the stage that builds it.
  *
+ * `focusPage` (Nov 12, 2026): the area may open a page itself, for example Firm Settings opening the Edit User tab
+ * when a pencil in Users is clicked; each new `nonce` opens `id` once.
+ *
+ * Unsaved changes (Nov 12, 2026): a page reports its draft with `useReportUnsavedChanges` (`components/ui`); while
+ * one does, choosing another tab asks "Leave without saving?" in `U6ConfirmationDialog` first, because the tab strip
+ * unmounts the page it leaves and its draft would be lost.
+ *
  * @param props - The area's marker, accessible name, visible pages, old address aliases and its finished pages.
  * @returns The tab strip and the open page (`data-kr-id="<krId>"`).
  */
 
-import type { ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
 import { useSectionSubPage } from '@/components/shell/useSectionSubPage.client'
 import MenuStyleOne from '@/components/ui/MenuStyleOne.client'
+import { UnsavedChangesContext, type UnsavedChangesReporter } from '@/components/ui/unsavedChanges.client'
 import SettingsPagePlaceholder from '@/features/settings/components/SettingsPagePlaceholder.client'
 import type { SettingsPageDefinition } from '@/features/settings/settingsAreas'
 
@@ -36,10 +45,38 @@ export interface SettingsAreaFrameProps<T extends string> {
   aliases?: Readonly<Record<string, T>>
   /** Finished pages, by page id. A page missing here shows its placeholder. */
   builtPages?: Partial<Record<T, ReactNode>>
+  /** A page the area wants shown now; each new `nonce` opens it once. */
+  focusPage?: { id: T; nonce: number } | null
 }
 
-export default function SettingsAreaFrame<T extends string>({ krId, ariaLabel, pages, aliases, builtPages }: SettingsAreaFrameProps<T>) {
+export default function SettingsAreaFrame<T extends string>({ krId, ariaLabel, pages, aliases, builtPages, focusPage }: SettingsAreaFrameProps<T>) {
   const [activePageId, setActivePageId] = useSectionSubPage<T>({ pages, aliases })
+  const unsavedRef = useRef(new Set<string>())
+  const [pendingPageId, setPendingPageId] = useState<T | null>(null)
+  const reporter = useMemo<UnsavedChangesReporter>(
+    () => ({
+      report: (key, dirty) => {
+        if (dirty) unsavedRef.current.add(key)
+        else unsavedRef.current.delete(key)
+      },
+    }),
+    [],
+  )
+
+  // The area asked for a page (each nonce once), once that page is in the list.
+  const focusedNonce = useRef(0)
+  useEffect(() => {
+    if (!focusPage || focusPage.nonce <= focusedNonce.current || !pages.some((page) => page.id === focusPage.id)) return
+    focusedNonce.current = focusPage.nonce
+    setActivePageId(focusPage.id)
+  }, [focusPage, pages, setActivePageId])
+
+  /** Opens a page, asking first while the open page has unsaved changes. */
+  function choosePage(pageId: T) {
+    if (pageId === activePageId) return
+    if (unsavedRef.current.size) setPendingPageId(pageId)
+    else setActivePageId(pageId)
+  }
 
   const items = pages.map((page) => ({
     id: page.id,
@@ -52,15 +89,29 @@ export default function SettingsAreaFrame<T extends string>({ krId, ariaLabel, p
   return (
     <div className={LAYOUT_STYLES.panel} data-kr-id={krId}>
       {/* Area pages: the shared tab strip, the open page under it */}
-      <MenuStyleOne
-        props={{
-          items,
-          activeItemId: activePageId,
-          onActiveItemChange: (itemId) => setActivePageId(itemId as T),
-          ariaLabel,
-          idPrefix: krId,
-          menuKrId: `${krId}-tabs`,
+      <UnsavedChangesContext.Provider value={reporter}>
+        <MenuStyleOne
+          props={{
+            items,
+            activeItemId: activePageId,
+            onActiveItemChange: (itemId) => choosePage(itemId as T),
+            ariaLabel,
+            idPrefix: krId,
+            menuKrId: `${krId}-tabs`,
+          }}
+        />
+      </UnsavedChangesContext.Provider>
+      <U6ConfirmationDialog
+        confirmLabel="Discard changes"
+        description="This page has changes that are not saved. Leave it and discard them?"
+        onCancel={() => setPendingPageId(null)}
+        onConfirm={() => {
+          unsavedRef.current.clear()
+          if (pendingPageId) setActivePageId(pendingPageId)
+          setPendingPageId(null)
         }}
+        open={pendingPageId !== null}
+        title="Leave without saving?"
       />
     </div>
   )

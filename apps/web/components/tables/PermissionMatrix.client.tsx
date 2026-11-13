@@ -14,7 +14,8 @@
  * Changed from the old card: the rows follow the Density Contract's record row (the Client Accounting register:
  * 10pt, 1px padding, ruled columns) instead of 3px 6px cells, and the old yellow "Delete restricted" chip is small
  * muted text, because yellow means state here (`DESIGN.md`, The State Color Rule). The old CSS module is the
- * `STYLES` and `LAYOUT_STYLES` maps below.
+ * `STYLES` and `LAYOUT_STYLES` maps below. Resource is left-aligned; Scope and C, R, U, D are centered, headings
+ * and cells (the requester, Nov 12, 2026).
  *
  * @returns The matrix (`data-kr-id` from `krId`, default `permission-matrix`).
  */
@@ -24,7 +25,7 @@ import { PERMISSION_RESOURCES, ROLE_SET_ACTIONS, ROLE_SET_SCOPES, type RoleSetAc
 const LAYOUT_STYLES = {
   header: 'px-[6px] py-[4px] gap-[6px] flex items-baseline justify-between',
   scroller: 'overflow-x-auto',
-  cellCenter: 'p-[1px] text-center',
+  cellCenter: 'text-center',
 } as const
 
 const STYLES = {
@@ -34,9 +35,10 @@ const STYLES = {
   description: 'm-0 text-[11px] leading-tight text-(color:--kr-theme-text-muted)',
   hint: 'shrink-0 whitespace-nowrap text-[10px] uppercase tracking-[0.04em] text-(color:--kr-theme-text-muted)',
   table: 'w-full min-w-[460px] border-collapse text-[10pt] leading-tight',
-  th: 'p-[1px] border-r border-b border-(--kr-theme-line) bg-(--kr-theme-muted-surface) text-left text-[10pt] font-semibold uppercase tracking-[0.04em] text-(color:--kr-theme-text-muted) last:border-r-0',
+  th: 'p-[1px] border-r border-b border-(--kr-theme-line) bg-(--kr-theme-muted-surface) text-[10pt] font-semibold uppercase tracking-[0.04em] text-(color:--kr-theme-text-muted) last:border-r-0',
+  thResource: 'text-left',
   thAction: 'w-[44px] text-center',
-  thScope: 'w-[56px]',
+  thScope: 'w-[56px] text-center',
   row: 'border-b border-(--kr-theme-line) hover:bg-(--kr-theme-table-row-hover)',
   td: 'p-[1px] border-r border-(--kr-theme-line) last:border-r-0',
   resource: 'font-semibold',
@@ -122,7 +124,7 @@ export default function PermissionMatrix({ rows, editable = false, isActionDisab
         <table className={STYLES.table}>
           <thead>
             <tr>
-              <th className={STYLES.th}>Resource</th>
+              <th className={`${STYLES.th} ${STYLES.thResource}`}>Resource</th>
               <th className={`${STYLES.th} ${STYLES.thScope}`}>Scope</th>
               {ROLE_SET_ACTIONS.map((action) => (
                 <th className={`${STYLES.th} ${STYLES.thAction}`} key={action} title={action}>
@@ -138,7 +140,7 @@ export default function PermissionMatrix({ rows, editable = false, isActionDisab
                   <span className={STYLES.resource}>{row.resource}</span>
                   {row.deleteRestricted ? <span className={STYLES.restricted}>delete restricted</span> : null}
                 </td>
-                <td className={STYLES.td}>{SCOPE_LABEL[row.scope]}</td>
+                <td className={`${STYLES.td} ${LAYOUT_STYLES.cellCenter}`}>{SCOPE_LABEL[row.scope]}</td>
                 {ROLE_SET_ACTIONS.map((action) => {
                   const label = `${row.resource} ${SCOPE_LABEL[row.scope]} ${action}`
                   return (

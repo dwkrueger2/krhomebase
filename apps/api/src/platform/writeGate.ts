@@ -10,6 +10,8 @@
  *  - `auth`:   signing in and out must keep working during maintenance, so a super admin can unlock it.
  *  - `health`: no data.
  *  - `tools`:  outside-tool registrations are super-admin settings, not firm records.
+ *  - `maintenance`: the gate's own lock and unlock route (Data Import, Settings plan stage 8) must work while
+ *              locked, or a super admin could never unlock.
  *
  * When the gate cannot be read (database binding missing or a database error), writes are refused with 503
  * `MAINTENANCE_GATE_UNAVAILABLE`, as the old crud Worker did. A missing table counts as unlocked.
@@ -23,7 +25,7 @@ import { readMaintenanceGate } from './queries.ts'
 import type { AppEnv } from './types.ts'
 
 const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
-export const GATE_EXEMPT_FEATURES: ReadonlySet<string> = new Set(['auth', 'health', 'tools'])
+export const GATE_EXEMPT_FEATURES: ReadonlySet<string> = new Set(['auth', 'health', 'tools', 'maintenance'])
 
 export const writeGate: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (READ_METHODS.has(c.req.method.toUpperCase())) return next()

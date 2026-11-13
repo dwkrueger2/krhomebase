@@ -11,6 +11,8 @@
  * - Saving a change that takes people off a team asks first (`U6ConfirmationDialog`), naming them, because their
  *   leads lose team-scoped access at once. The old card saved without asking.
  * - "Revert" puts back the saved team; the old card had none.
+ * - The member and lead lists are record rows (the requester, Nov 12, 2026): one line of about 20px per person, the
+ *   name then the number and title (or the email) in muted text, 1px padding and hairline rules.
  *
  * The API keeps the rows of people taken off (`is_active = 0`), so a person put back gets their old row again.
  *
@@ -21,6 +23,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Team, TeamsData } from '@krhomebase/contracts'
 import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
 import { KRModuleCard } from '@/components/ui/KRModuleCard.client'
+import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
 import SaveButton from '@/components/ui/SaveButton.client'
 import { fetchTeams, saveTeam } from '@/features/teams/api.client'
 
@@ -31,7 +34,7 @@ const LAYOUT_STYLES = {
   lists: 'gap-[8px] grid grid-cols-1 md:grid-cols-2',
   listHead: 'gap-[6px] flex items-center justify-between',
   listBody: 'max-h-[340px] overflow-y-auto',
-  option: 'px-[6px] py-[3px] gap-[6px] grid grid-cols-[auto_1fr] items-start',
+  option: 'px-[3px] py-[1px] gap-[4px] grid grid-cols-[auto_minmax(0,1fr)] items-center',
   actions: 'gap-[6px] flex flex-wrap items-center',
 } as const
 
@@ -40,13 +43,14 @@ const STYLES = {
   field:
     'px-[3px] py-[2px] min-w-0 w-full rounded-[2px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) text-(color:--kr-theme-text) text-[13px] outline-none focus:border-(--kr-theme-brand-primary-active) disabled:cursor-not-allowed disabled:opacity-60',
   list: 'rounded-[2px] border border-(--kr-theme-line)',
-  listHead: 'px-[6px] py-[3px] bg-(--kr-theme-muted-surface)',
+  listHead: 'px-[3px] py-[1px] border-b border-(--kr-theme-line) bg-(--kr-theme-muted-surface)',
   listTitle: 'm-0 shrink-0 whitespace-nowrap text-[11px] font-extrabold tracking-[.06em] uppercase text-(color:--kr-theme-text-muted)',
   find: 'px-[3px] py-[1px] min-w-[48px] w-[140px] shrink rounded-[2px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) text-(color:--kr-theme-text) text-[12px] outline-none focus:border-(--kr-theme-brand-primary-active)',
   option: 'cursor-pointer border-b border-(--kr-theme-line) last:border-b-0 hover:bg-(--kr-theme-muted-surface)',
-  checkbox: 'mt-[2px] accent-(--kr-theme-brand-primary)',
-  optionName: 'block text-[13px] text-(color:--kr-theme-text)',
-  optionNote: 'block text-[11px] text-(color:--kr-theme-text-muted)',
+  checkbox: 'm-0 accent-(--kr-theme-brand-primary)',
+  optionLine: 'block truncate text-[10pt] leading-tight',
+  optionName: 'text-(color:--kr-theme-text)',
+  optionNote: 'text-[11px] text-(color:--kr-theme-text-muted)',
   optionStatus: 'font-semibold text-(color:--kr-theme-orange)',
   empty: 'm-0 px-[6px] py-[4px] text-[12px] text-(color:--kr-theme-text-muted)',
   ghostButton:
@@ -194,7 +198,7 @@ export default function TeamsCard({ initialData }: TeamsCardProps) {
           Revert
         </button>
       ) : null}
-      <SaveButton dataKrElement="save-team" disabledText="Save team" onClick={requestSave} state={busy ? 'Saving' : canSave ? 'Can Save' : 'Disabled'} text="Save team" updatingText="Saving…" />
+      <SaveButton dataKrElement="save-team" disabledText="Save team" onClick={requestSave} state={busy ? 'Saving' : canSave ? 'Can Save' : 'Disabled'} text="Save team" updatingText="Saving..." />
     </div>
   )
 
@@ -220,7 +224,7 @@ export default function TeamsCard({ initialData }: TeamsCardProps) {
                   {team.name}
                 </option>
               ))}
-              <option value={NEW}>{selectedId === NEW && draft.name.trim() ? `${draft.name.trim()} (not saved)` : 'New team…'}</option>
+              <option value={NEW}>{selectedId === NEW && draft.name.trim() ? `${draft.name.trim()} (not saved)` : 'New team...'}</option>
             </select>
           </label>
           <label className={LAYOUT_STYLES.fieldStack}>
@@ -240,20 +244,17 @@ export default function TeamsCard({ initialData }: TeamsCardProps) {
               <h4 className={STYLES.listTitle}>
                 Employee members ({draft.memberEmployeeIds.length} of {data?.employees.length ?? 0})
               </h4>
-              <input aria-label="Find an employee" className={STYLES.find} onChange={(event) => setFindMember(event.target.value)} placeholder="Find…" value={findMember} />
+              <input aria-label="Find an employee" className={STYLES.find} onChange={(event) => setFindMember(event.target.value)} placeholder="Find..." value={findMember} />
             </div>
             <div className={LAYOUT_STYLES.listBody}>
               {data && data.employees.length === 0 ? <p className={STYLES.empty}>No employees yet. Enroll a user as an employee before giving them a team.</p> : null}
               {employees.map((employee) => (
                 <label className={`${LAYOUT_STYLES.option} ${STYLES.option}`} key={employee.id}>
                   <input checked={draft.memberEmployeeIds.includes(employee.id)} className={STYLES.checkbox} disabled={busy} onChange={() => toggle('memberEmployeeIds', employee.id)} type="checkbox" />
-                  <span>
-                    <span className={STYLES.optionName}>
-                      {employee.name}
-                      {employee.employeeNumber ? ` · ${employee.employeeNumber}` : ''}
-                    </span>
+                  <span className={STYLES.optionLine} title={[employee.name, employee.employeeNumber, employee.jobTitle].filter(Boolean).join(' · ')}>
+                    <span className={STYLES.optionName}>{employee.name}</span>
                     <span className={STYLES.optionNote}>
-                      {employee.jobTitle || 'Employee'}
+                      {employee.employeeNumber ? ` · ${employee.employeeNumber}` : ''} · {employee.jobTitle || 'Employee'}
                       {employee.employmentStatus && employee.employmentStatus !== 'active' ? <span className={STYLES.optionStatus}> · {employee.employmentStatus.replace('_', ' ')}</span> : null}
                     </span>
                   </span>
@@ -267,15 +268,15 @@ export default function TeamsCard({ initialData }: TeamsCardProps) {
               <h4 className={STYLES.listTitle}>
                 Team leads ({draft.leadUserIds.length} of {data?.users.length ?? 0})
               </h4>
-              <input aria-label="Find a user" className={STYLES.find} onChange={(event) => setFindLead(event.target.value)} placeholder="Find…" value={findLead} />
+              <input aria-label="Find a user" className={STYLES.find} onChange={(event) => setFindLead(event.target.value)} placeholder="Find..." value={findLead} />
             </div>
             <div className={LAYOUT_STYLES.listBody}>
               {users.map((user) => (
                 <label className={`${LAYOUT_STYLES.option} ${STYLES.option}`} key={user.id}>
                   <input checked={draft.leadUserIds.includes(user.id)} className={STYLES.checkbox} disabled={busy} onChange={() => toggle('leadUserIds', user.id)} type="checkbox" />
-                  <span>
+                  <span className={STYLES.optionLine} title={`${user.name} · ${user.email}`}>
                     <span className={STYLES.optionName}>{user.name}</span>
-                    <span className={STYLES.optionNote}>{user.email}</span>
+                    <span className={STYLES.optionNote}> · {user.email}</span>
                   </span>
                 </label>
               ))}
@@ -288,16 +289,18 @@ export default function TeamsCard({ initialData }: TeamsCardProps) {
           <p className={STYLES.error} role="alert">
             {error}
           </p>
+        ) : data === null ? (
+          <RainbowBusySpinner busy hideWhenIdle={false} label="Loading teams..." size={16} />
         ) : (
           <p className={STYLES.status} role="status">
-            {data === null ? 'Reading teams…' : (status ?? (dirty ? 'Unsaved changes.' : savedTeam ? `${data.teams.length} active team${data.teams.length === 1 ? '' : 's'}.` : 'New team: give it a name, then tick its members and leads.'))}
+            {status ?? (dirty ? 'Unsaved changes.' : savedTeam ? `${data.teams.length} active team${data.teams.length === 1 ? '' : 's'}.` : 'New team: give it a name, then tick its members and leads.')}
           </p>
         )}
       </div>
 
       <U6ConfirmationDialog
         busy={busy}
-        busyLabel="Saving…"
+        busyLabel="Saving..."
         confirmLabel="Save team"
         description={`Saving takes these people off ${savedTeam?.name ?? 'the team'}: ${confirmNames?.join(', ') ?? ''}. Leads lose team-scoped access to these members at once. Their rows are kept, so they can be put back.`}
         error={confirmNames !== null ? (error ?? undefined) : undefined}

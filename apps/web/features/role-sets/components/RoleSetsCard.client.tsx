@@ -17,22 +17,30 @@
  *   the saved role set.
  * - Retire role set (custom only) asks first, naming how many people lose it; the old API could retire, the old
  *   screen had no button.
- * - The list shows how many people hold each role set, and is drawn in the Density Contract's record rows.
+ * - The list shows how many people hold each role set, and is drawn in the Density Contract's record rows
+ *   (`data-kr-id="roles-set-definitions"`): a pencil in the first column for each custom role set, so it is never
+ *   scrolled out of reach, and Grants and People centered (the requester, Nov 12, 2026).
+ * - Under the list, the people who hold the chosen role set (name, email, status; read from `GET /v1/users`).
  *
  * @returns The Role Sets card (`data-kr-id="role-sets-KRModuleCard"`).
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { isProtectedPermission, type RoleSet, type RoleSetAction } from '@krhomebase/contracts'
+import { isProtectedPermission, type RoleSet, type RoleSetAction, type UserAccount } from '@krhomebase/contracts'
 import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
 import PermissionMatrix, { permissionKeyOf, permissionMatrixRows, type PermissionMatrixRow } from '@/components/tables/PermissionMatrix.client'
+import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import { KRModuleCard } from '@/components/ui/KRModuleCard.client'
+import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
 import SaveButton from '@/components/ui/SaveButton.client'
-import { fetchRoleSets, retireRoleSet, saveRoleSet } from '@/features/role-sets/api.client'
+import { fetchRoleSetHolders, fetchRoleSets, retireRoleSet, saveRoleSet } from '@/features/role-sets/api.client'
 
 const LAYOUT_STYLES = {
-  body: 'gap-[8px] grid grid-cols-1 lg:grid-cols-[minmax(260px,340px)_minmax(0,1fr)] items-start',
+  body: 'gap-[8px] grid grid-cols-1 lg:grid-cols-[minmax(280px,400px)_minmax(0,1fr)] items-start',
+  leftColumn: 'gap-[6px] grid grid-cols-[minmax(0,1fr)] min-w-0',
   listScroller: 'max-h-[560px] overflow-auto',
+  holdersScroller: 'max-h-[300px] overflow-auto',
+  holdersHead: 'px-[3px] py-[1px] gap-[6px] flex items-baseline justify-between',
   editor: 'gap-[6px] grid min-w-0',
   fieldRow: 'gap-x-[3px] gap-y-[2px] grid grid-cols-1 md:grid-cols-[84px_minmax(0,1fr)] items-center',
   nameRow: 'gap-[3px] flex flex-wrap items-center',
@@ -45,12 +53,22 @@ const LAYOUT_STYLES = {
 const STYLES = {
   list: 'rounded-[2px] border border-(--kr-theme-line)',
   table: 'w-full border-collapse text-[10pt] leading-tight',
-  th: 'p-[1px] border-r border-b border-(--kr-theme-line) bg-(--kr-theme-muted-surface) text-left text-[10pt] font-semibold uppercase tracking-[0.04em] text-(color:--kr-theme-text-muted) last:border-r-0',
-  thNumber: 'text-right',
+  th: 'p-[1px] border-r border-b border-(--kr-theme-line) bg-(--kr-theme-muted-surface) text-[10pt] font-semibold uppercase tracking-[0.04em] text-(color:--kr-theme-text-muted) last:border-r-0',
+  thText: 'text-left',
+  thNumber: 'text-center',
+  thEdit: 'w-[22px]',
   row: 'cursor-pointer border-b border-(--kr-theme-line) hover:bg-(--kr-theme-table-row-hover)',
   rowSelected: 'bg-(--kr-theme-table-row-selected) font-semibold',
   td: 'p-[1px] border-r border-(--kr-theme-line) last:border-r-0',
-  tdNumber: 'text-right tabular-nums',
+  tdNumber: 'text-center tabular-nums',
+  tdEdit: 'w-[22px] text-center',
+  editButton:
+    'inline-flex size-[20px] cursor-pointer items-center justify-center rounded-[2px] border-0 bg-transparent align-middle text-(color:--kr-theme-brand-primary) hover:bg-(--kr-theme-muted-surface)',
+  holdersHead: 'border-b border-(--kr-theme-line) bg-(--kr-theme-muted-surface)',
+  holdersTitle: 'm-0 text-[11px] font-extrabold uppercase tracking-[.06em] text-(color:--kr-theme-text-muted)',
+  holdersCount: 'text-[11px] text-(color:--kr-theme-text-muted)',
+  holderCell: 'max-w-[160px] truncate',
+  empty: 'm-0 p-[3px] text-[12px] text-(color:--kr-theme-text-muted)',
   kind: 'text-(color:--kr-theme-text-muted)',
   label: 'whitespace-nowrap text-[12px] font-[780] text-(color:--kr-theme-text-muted)',
   field:
@@ -129,13 +147,24 @@ export function roleSetNameInUse(roleSets: readonly RoleSet[], name: string, exc
   return Boolean(key) && roleSets.some((roleSet) => roleSet.id !== exceptId && roleSet.label.trim().toLocaleLowerCase() === key)
 }
 
+/** The people who hold a role set now, by name. */
+export function roleSetHolders(users: readonly UserAccount[], roleSetId: string): UserAccount[] {
+  return users.filter((user) => user.roleSetIds.includes(roleSetId)).sort((a, b) => a.name.localeCompare(b.name))
+}
+
+const ACCOUNT_STATUS_LABEL: Record<UserAccount['accountStatus'], string> = { active: 'Active', pending: 'Pending', deactivated: 'Deactivated' }
+
 export interface RoleSetsCardProps {
   /** Role sets for the first draw (tests); the card reads them itself when left out. */
   initialRoleSets?: RoleSet[]
+  /** Users for the first draw of the holders list (tests); the card reads them itself when left out. */
+  initialUsers?: UserAccount[]
 }
 
-export default function RoleSetsCard({ initialRoleSets }: RoleSetsCardProps) {
+export default function RoleSetsCard({ initialRoleSets, initialUsers }: RoleSetsCardProps) {
   const [roleSets, setRoleSets] = useState<RoleSet[] | null>(initialRoleSets ?? null)
+  const [users, setUsers] = useState<UserAccount[] | null>(initialUsers ?? null)
+  const [usersError, setUsersError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string>(initialRoleSets?.[0]?.id ?? NEW)
   const [draft, setDraft] = useState<RoleSetDraft>(draftFromRoleSet(initialRoleSets?.[0]))
   const [busy, setBusy] = useState(false)
@@ -166,6 +195,21 @@ export default function RoleSetsCard({ initialRoleSets }: RoleSetsCardProps) {
     }
   }, [initialRoleSets])
 
+  /** Reads the users again, for the holders list (after a save or a retire changes who holds what). */
+  function loadUsers(): () => void {
+    let live = true
+    setUsersError(null)
+    fetchRoleSetHolders()
+      .then((next) => live && setUsers(next))
+      .catch((caught: unknown) => live && setUsersError(caught instanceof Error ? caught.message : 'The people could not be read.'))
+    return () => {
+      live = false
+    }
+  }
+
+  // Read the users once, for the holders list, unless the first draw was given them.
+  useEffect(() => (initialUsers ? undefined : loadUsers()), [initialUsers])
+
   const saved = roleSets?.find((row) => row.id === selectedId)
   const isNew = selectedId === NEW
   const editable = isNew || saved?.isSystem === false
@@ -175,6 +219,7 @@ export default function RoleSetsCard({ initialRoleSets }: RoleSetsCardProps) {
   const nameOk = draft.name.trim().length > 0 && draft.name.trim().length <= 120 && draft.description.trim().length <= 1000
   const canSave = roleSets !== null && dirty && nameOk && !nameInUse && !busy
   const rows = useMemo(() => permissionMatrixRows(draft.permissions, draft.scopedPermissions), [draft.permissions, draft.scopedPermissions])
+  const holders = useMemo(() => (users && saved ? roleSetHolders(users, saved.id) : []), [users, saved])
 
   function choose(roleSetId: string) {
     setSelectedId(roleSetId)
@@ -210,6 +255,7 @@ export default function RoleSetsCard({ initialRoleSets }: RoleSetsCardProps) {
       })
       show(reply.roleSets, reply.roleSetId)
       setStatus(`Saved custom role set "${draft.name.trim()}".`)
+      loadUsers()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The role set was not saved.')
     } finally {
@@ -225,6 +271,7 @@ export default function RoleSetsCard({ initialRoleSets }: RoleSetsCardProps) {
       const reply = await retireRoleSet(saved.id)
       show(reply.roleSets)
       setRetireOpen(false)
+      loadUsers()
       setStatus(`Retired "${saved.label}". ${reply.assignmentsEnded === 1 ? 'One person no longer holds it.' : `${reply.assignmentsEnded} people no longer hold it.`}`)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The role set was not retired.')
@@ -250,7 +297,7 @@ export default function RoleSetsCard({ initialRoleSets }: RoleSetsCardProps) {
         </button>
       ) : null}
       {editable ? (
-        <SaveButton dataKrElement="save-role-set" disabledText="Save role set" onClick={() => void save()} state={busy ? 'Saving' : canSave ? 'Can Save' : 'Disabled'} text="Save role set" updatingText="Saving…" />
+        <SaveButton dataKrElement="save-role-set" disabledText="Save role set" onClick={() => void save()} state={busy ? 'Saving' : canSave ? 'Can Save' : 'Disabled'} text="Save role set" updatingText="Saving..." />
       ) : null}
     </div>
   )
@@ -264,47 +311,114 @@ export default function RoleSetsCard({ initialRoleSets }: RoleSetsCardProps) {
       title="Role Sets"
     >
       <div className={LAYOUT_STYLES.body} data-kr-element="role-sets-workspace">
-        {/* Role set list: name, kind, grant count and holders */}
-        <div className={`${LAYOUT_STYLES.listScroller} ${STYLES.list}`} data-kr-element="role-set-list">
-          <table className={STYLES.table}>
-            <thead>
-              <tr>
-                <th className={STYLES.th}>Role set</th>
-                <th className={STYLES.th}>Kind</th>
-                <th className={`${STYLES.th} ${STYLES.thNumber}`} title="Grants">
-                  Grants
-                </th>
-                <th className={`${STYLES.th} ${STYLES.thNumber}`} title="People who hold it">
-                  People
-                </th>
-              </tr>
-            </thead>
-            <tbody data-kr-element="rows-container">
-              {(roleSets ?? []).map((roleSet) => (
-                <tr
-                  aria-selected={roleSet.id === selectedId}
-                  className={`${STYLES.row} ${roleSet.id === selectedId ? STYLES.rowSelected : ''}`}
-                  data-kr-element="role-set-row"
-                  data-kr-record-id={roleSet.id}
-                  key={roleSet.id}
-                  onClick={() => requestChoice(roleSet.id)}
-                >
-                  <td className={STYLES.td}>{roleSet.label}</td>
-                  <td className={`${STYLES.td} ${STYLES.kind}`}>{roleSet.isSystem ? 'Built in' : 'Custom'}</td>
-                  <td className={`${STYLES.td} ${STYLES.tdNumber}`}>{roleSet.permissions.length + roleSet.scopedPermissions.length}</td>
-                  <td className={`${STYLES.td} ${STYLES.tdNumber}`}>{roleSet.holderCount}</td>
+        {/* Left column: the role set list, then the people who hold the chosen one */}
+        <div className={LAYOUT_STYLES.leftColumn} data-kr-element="role-sets-left-column">
+          {/* Role set list: edit pencil, name, kind, grant count and holders */}
+          <div className={`${LAYOUT_STYLES.listScroller} ${STYLES.list}`} data-kr-element="role-set-list">
+            <table className={STYLES.table} data-kr-id="roles-set-definitions">
+              <thead>
+                <tr>
+                  <th aria-label="Edit" className={`${STYLES.th} ${STYLES.thEdit}`} />
+                  <th className={`${STYLES.th} ${STYLES.thText}`}>Role set</th>
+                  <th className={`${STYLES.th} ${STYLES.thText}`}>Kind</th>
+                  <th className={`${STYLES.th} ${STYLES.thNumber}`} title="Grants">
+                    Grants
+                  </th>
+                  <th className={`${STYLES.th} ${STYLES.thNumber}`} title="People who hold it">
+                    People
+                  </th>
                 </tr>
-              ))}
-              {isNew && roleSets ? (
-                <tr aria-selected className={`${STYLES.row} ${STYLES.rowSelected}`} data-kr-element="role-set-row-new">
-                  <td className={STYLES.td}>{draft.name.trim() || 'New custom role set'} (not saved)</td>
-                  <td className={`${STYLES.td} ${STYLES.kind}`}>Custom</td>
-                  <td className={`${STYLES.td} ${STYLES.tdNumber}`}>{draft.permissions.length + draft.scopedPermissions.length}</td>
-                  <td className={`${STYLES.td} ${STYLES.tdNumber}`}>0</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+              </thead>
+              <tbody data-kr-element="rows-container">
+                {(roleSets ?? []).map((roleSet) => (
+                  <tr
+                    aria-selected={roleSet.id === selectedId}
+                    className={`${STYLES.row} ${roleSet.id === selectedId ? STYLES.rowSelected : ''}`}
+                    data-kr-element="role-set-row"
+                    data-kr-record-id={roleSet.id}
+                    key={roleSet.id}
+                    onClick={() => requestChoice(roleSet.id)}
+                  >
+                    <td className={`${STYLES.td} ${STYLES.tdEdit}`}>
+                      {roleSet.isSystem ? null : (
+                        <button
+                          aria-label={`Edit role set: ${roleSet.label}`}
+                          className={STYLES.editButton}
+                          data-kr-action="edit-role-set"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            requestChoice(roleSet.id)
+                          }}
+                          title="Edit role set"
+                          type="button"
+                        >
+                          <KRHomebaseIcons.Pencil />
+                        </button>
+                      )}
+                    </td>
+                    <td className={STYLES.td}>{roleSet.label}</td>
+                    <td className={`${STYLES.td} ${STYLES.kind}`}>{roleSet.isSystem ? 'Built in' : 'Custom'}</td>
+                    <td className={`${STYLES.td} ${STYLES.tdNumber}`}>{roleSet.permissions.length + roleSet.scopedPermissions.length}</td>
+                    <td className={`${STYLES.td} ${STYLES.tdNumber}`}>{roleSet.holderCount}</td>
+                  </tr>
+                ))}
+                {isNew && roleSets ? (
+                  <tr aria-selected className={`${STYLES.row} ${STYLES.rowSelected}`} data-kr-element="role-set-row-new">
+                    <td className={`${STYLES.td} ${STYLES.tdEdit}`} />
+                    <td className={STYLES.td}>{draft.name.trim() || 'New custom role set'} (not saved)</td>
+                    <td className={`${STYLES.td} ${STYLES.kind}`}>Custom</td>
+                    <td className={`${STYLES.td} ${STYLES.tdNumber}`}>{draft.permissions.length + draft.scopedPermissions.length}</td>
+                    <td className={`${STYLES.td} ${STYLES.tdNumber}`}>0</td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+
+          {/* The people who hold the chosen role set */}
+          <section aria-label="People with this role set" className={STYLES.list} data-kr-id="role-set-holders">
+            <div className={`${LAYOUT_STYLES.holdersHead} ${STYLES.holdersHead}`}>
+              <h4 className={STYLES.holdersTitle}>People with {saved ? saved.label : 'this role set'}</h4>
+              {users && saved ? <span className={STYLES.holdersCount}>{holders.length}</span> : null}
+            </div>
+            {usersError ? (
+              <p className={STYLES.error}>{usersError}</p>
+            ) : !saved ? (
+              <p className={STYLES.empty}>Nobody yet: save the role set, then give it to people from Users.</p>
+            ) : users === null ? (
+              <div className={STYLES.empty}>
+                <RainbowBusySpinner busy hideWhenIdle={false} label="Loading people..." size={16} />
+              </div>
+            ) : holders.length === 0 ? (
+              <p className={STYLES.empty}>Nobody holds this role set.</p>
+            ) : (
+              <div className={LAYOUT_STYLES.holdersScroller}>
+                <table className={STYLES.table} data-kr-element="role-set-holders-table">
+                  <thead>
+                    <tr>
+                      <th className={`${STYLES.th} ${STYLES.thText}`}>Name</th>
+                      <th className={`${STYLES.th} ${STYLES.thText}`}>Email</th>
+                      <th className={`${STYLES.th} ${STYLES.thText}`}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody data-kr-element="rows-container">
+                    {holders.map((user) => (
+                      <tr className={STYLES.row} data-kr-element="role-set-holder-row" data-kr-record-id={user.id} key={user.id}>
+                        <td className={`${STYLES.td} ${STYLES.holderCell}`} title={user.name}>
+                          {user.name}
+                          {user.primaryRoleSetId === saved.id ? <span className={STYLES.kind}> (primary)</span> : null}
+                        </td>
+                        <td className={`${STYLES.td} ${STYLES.holderCell}`} title={user.email}>
+                          {user.email}
+                        </td>
+                        <td className={`${STYLES.td} ${STYLES.kind}`}>{ACCOUNT_STATUS_LABEL[user.accountStatus]}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
         </div>
 
         {/* The chosen role set: name, description, grants and its id */}
@@ -432,7 +546,7 @@ export default function RoleSetsCard({ initialRoleSets }: RoleSetsCardProps) {
       {/* Retire a custom role set */}
       <U6ConfirmationDialog
         busy={busy}
-        busyLabel="Retiring…"
+        busyLabel="Retiring..."
         confirmLabel="Retire role set"
         description={
           saved

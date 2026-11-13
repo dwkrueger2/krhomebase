@@ -7,6 +7,10 @@
  * open that section in the KRH-Workspace. The Settings row also opens or closes its three child
  * rows. The list owns no state; every value arrives as a prop.
  *
+ * When the Settings group opens, the list scrolls just far enough to show its last child row, so the whole group is
+ * in view (the requester, Nov 13, 2026). Child rows and open items are compact: about 24px a row, 2px vertical
+ * padding. Main rows are 30px with 4px vertical padding and 2px between rows (also Nov 13, 2026).
+ *
  * Open items (plan decision 6): under Clients & Contacts ("Open contacts") and Billing ("Open Billing") it lists
  * the items open there, newest first, at most five, each with a close button (×), as the old LeftPanel did.
  * Choosing one shows it and moves it to the top. The lists are hidden while the panel is collapsed.
@@ -15,7 +19,7 @@
  * Phone (under 768px): the list becomes a strip that scrolls sideways, and `collapsed` is ignored.
  */
 
-import { Fragment } from 'react'
+import { Fragment, useEffect, useRef } from 'react'
 import KRHomebaseIcon from '@/components/ui/KRHomebaseIcon.client'
 import {
   openItemSectionId,
@@ -50,19 +54,20 @@ export interface LeftPanelNavListProps {
 }
 
 const LAYOUT_STYLES = {
-  list: 'min-h-0 flex-1 gap-[4px] px-[8px] py-[6px] md:px-[10px] md:py-[12px] flex overflow-x-auto md:flex-col md:overflow-x-hidden md:overflow-y-auto',
+  list: 'min-h-0 flex-1 gap-[2px] px-[8px] py-[6px] md:px-[10px] md:py-[12px] flex overflow-x-auto md:flex-col md:overflow-x-hidden md:overflow-y-auto',
   item: 'shrink-0 md:shrink',
   subItem: 'shrink-0 md:ml-[18px] md:shrink',
-  button: 'min-h-[38px] w-auto md:w-full gap-[12px] px-[10px] py-[9px] flex shrink-0 items-center whitespace-nowrap',
+  button: 'w-auto md:w-full flex shrink-0 items-center whitespace-nowrap',
+  mainButton: 'min-h-[30px] gap-[10px] px-[10px] py-[4px]',
   buttonCollapsed: 'md:justify-center md:px-0',
-  subButton: 'min-h-[30px] gap-[8px] px-[8px] py-[6px]',
+  subButton: 'min-h-[24px] gap-[6px] px-[8px] py-[2px]',
   icon: 'size-[20px] shrink-0',
   subIcon: 'size-[14px] shrink-0',
   openGroup: 'hidden md:flex md:ml-[18px] gap-[2px] flex-col',
   openGroupLabel: 'px-[8px] pt-[4px]',
   openList: 'm-0 p-0 gap-[2px] flex flex-col list-none',
   openRow: 'gap-[2px] flex min-w-0 items-center',
-  openButton: 'min-h-[28px] min-w-0 flex-1 px-[8px] py-[4px] flex items-center',
+  openButton: 'min-h-[24px] min-w-0 flex-1 px-[8px] py-[2px] flex items-center',
   openClose: 'size-[22px] shrink-0 p-0 inline-flex items-center justify-center',
 } as const
 
@@ -107,9 +112,24 @@ export default function LeftPanelNavList({
   const settingsChildActive = SHELL_SETTINGS_CHILD_IDS.includes(activeSectionId)
   // The parent row of an open item that is showing stays highlighted, as Settings does for its children.
   const activeItemParentId = parseOpenItemSectionId(activeSectionId)?.parentId
+  const listRef = useRef<HTMLUListElement>(null)
+  const wasExpanded = useRef(settingsExpanded)
+
+  // When the Settings group opens, scroll the list (only the list, never the page) so its last child row shows.
+  useEffect(() => {
+    const opened = settingsExpanded && !wasExpanded.current
+    wasExpanded.current = settingsExpanded
+    const list = listRef.current
+    if (!opened || collapsed || !list) return
+    const children = list.querySelectorAll<HTMLElement>('[data-kr-element="left-nav-subitem-wrapper"]')
+    const last = children[children.length - 1]
+    if (!last) return
+    const overflow = last.getBoundingClientRect().bottom - list.getBoundingClientRect().bottom
+    if (overflow > 0) list.scrollBy({ top: overflow + 6, behavior: 'smooth' })
+  }, [settingsExpanded, collapsed])
 
   return (
-    <ul className={`${LAYOUT_STYLES.list} ${STYLES.list}`} role="list" aria-label="KR Homebase sections" data-kr-id="LeftPanelNavList">
+    <ul className={`${LAYOUT_STYLES.list} ${STYLES.list}`} ref={listRef} role="list" aria-label="KR Homebase sections" data-kr-id="LeftPanelNavList">
       {items.map((item) => {
         // Children of Settings are drawn only while the group is open.
         if (item.parentId === 'settings' && !settingsExpanded) return null
@@ -135,7 +155,7 @@ export default function LeftPanelNavList({
                 aria-expanded={isSettingsRow ? settingsExpanded : undefined}
                 className={[
                   LAYOUT_STYLES.button,
-                  item.isSubItem ? LAYOUT_STYLES.subButton : '',
+                  item.isSubItem ? LAYOUT_STYLES.subButton : LAYOUT_STYLES.mainButton,
                   collapsed ? LAYOUT_STYLES.buttonCollapsed : '',
                   STYLES.button,
                   highlighted ? STYLES.buttonActive : '',

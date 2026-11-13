@@ -58,11 +58,9 @@ export interface ApplicationSettingsPanelProps {
   siteFeedback?: ReactNode
   /** The Role Sets card (super admin only; stage 4c). */
   roleSets?: ReactNode
-  /** The Users and Invites page (super admin only; stage 4d). */
-  users?: ReactNode
 }
 
-export default function ApplicationSettingsPanel({ isSuperAdmin = false, outsideTools, otherConfiguration, teams, siteFeedback, roleSets, users }: ApplicationSettingsPanelProps) {
+export default function ApplicationSettingsPanel({ isSuperAdmin = false, outsideTools, otherConfiguration, teams, siteFeedback, roleSets }: ApplicationSettingsPanelProps) {
   if (!isSuperAdmin) {
     return (
       <div className={LAYOUT_STYLES.notice} data-kr-id="ApplicationSettingsPanel">
@@ -78,7 +76,6 @@ export default function ApplicationSettingsPanel({ isSuperAdmin = false, outside
 
   const builtPages: Partial<Record<ApplicationSettingsPageId, ReactNode>> = {}
   if (outsideTools) builtPages['outside-tools'] = outsideTools
-  if (users) builtPages['user-management'] = users
   if (roleSets) builtPages['role-specifications'] = roleSets
   if (teams) builtPages['team-management'] = teams
   if (siteFeedback) builtPages['site-feedback'] = siteFeedback

@@ -1,7 +1,7 @@
 # API sign-in: settings, routes and cookies
 
-<small>Version 1.5</small><br>
-<small>Updated Nov 12, 2026 8:24am</small>
+<small>Version 1.7</small><br>
+<small>Updated Nov 12, 2026 5:48pm</small>
 
 How `krhomebase-api` signs people in. Code: `src/features/auth/` and `src/platform/`. Plan and history: `docs/03_Workers_And_Login_Plan.md`.
 
@@ -30,6 +30,9 @@ Plain settings are `vars` in `kr-api-wrangler.jsonc`. Secrets are set with `wran
 | `KR_GOOGLE_WORKSPACE_MAILER_CLIENT_EMAIL` | var | The mailer's service account (`src/platform/googleWorkspaceMailer.ts`). Public. |
 | `KR_GOOGLE_WORKSPACE_SENDER_EMAIL`, `_SENDER_NAME`, `_REPLY_TO` (and the `BILLING_` and `FIRM_` sets) | var | The mailbox the invitation (onboarding), billing and firm emails are sent as, its name and Reply-To. The sender must be a Workspace user, not a group. |
 | `KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY` | secret | The mailer's whole JSON key file (set Nov 12, 2026). Not in `.dev.vars` unless added by hand: without it a local invitation is saved and its link shown instead of emailed. |
+| `KR_PAYMENT_PROVIDER_KEK` | secret | Stripe Payment Configuration: the key (32 random bytes, base64) that encrypts the Stripe keys in `payment_provider`. Must be the same value the pay Worker (`kr-pay-worker-live`) holds, or stored keys show "saved with a different encryption key". Not set yet (Nov 12, 2026). |
+| `KR_GPT_WORKER_SECRET` | secret | GPT Model Gateway: the shared secret sent to the GPT models Worker (the same value as its `GPT_WORKER_SHARED_SECRET`). Not set yet; the Worker is not deployed (Nov 12, 2026). |
+| `EMPLOYEE_STORAGE` | R2 binding | Employee Documents: the bucket `kr-homebase-employee-storage` (the old app's). Not a secret; in `kr-api-wrangler.jsonc`. |
 | `KR_SUPER_ADMIN_EMAILS` | secret, optional | Comma list of emails allowed to become the first user. Only used while the database has no users. |
 
 If a required setting is missing or malformed, the login page names it in the alert (names only, never values).

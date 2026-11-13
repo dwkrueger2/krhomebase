@@ -1,27 +1,43 @@
+// file: workers/gpt-workers/gpt-models-worker.ts
 /**
  * @fileoverview Secure KR Homebase GPT provider and usage Worker.
  * @module gpt-workers/gpt-models-worker
  *
  * The Worker is deliberately the only component that stores provider
- * credentials for runtime use and accesses the GPT usage database. The
- * Homebase server sends a signed JWT beside a hybrid-encrypted command. After
- * the command is authenticated and decrypted, this Worker calls the selected
- * provider, persists normalized usage, and returns a hybrid-encrypted response
- * signed by the Worker key.
+ * credentials for runtime use and accesses the GPT usage database. After a
+ * command is authenticated, this Worker calls the selected provider, persists
+ * normalized usage, and returns the result.
+ *
+ * Changed from the old Worker (Nov 12, 2026, the requester's decision "service binding, simplify"):
+ *
+ *  - **Transport.** The Worker has no public address (`workers_dev` and `preview_urls` are off in
+ *    `gpt-models-worker.jsonc`). Its only caller is `krhomebase-api`, through the service binding `GPT_WORKER`
+ *    (`apps/api/src/platform/gptWorkerClient.ts`). The API sends the shared secret as `Authorization: Bearer <secret>`,
+ *    the same style the API uses for the Session Worker, and this Worker compares it with `GPT_WORKER_SHARED_SECRET`
+ *    in constant time. Commands and replies are plain JSON.
+ *  - **Removed:** the RS256 request JWT, the RSA-OAEP + AES-GCM sealed command, the signed and encrypted reply, and
+ *    the secrets `GPT_WORKER_PRIVATE_KEY` and `GPT_SERVER_PUBLIC_KEY` with the key ids `GPT_SERVER_KEY_ID` and
+ *    `GPT_WORKER_KEY_ID`.
+ *  - **Provider keys at rest** (`gpt_llm_credential."key"`) stay encrypted. They are now sealed by this Worker with
+ *    AES-256-GCM under the Worker secret `GPT_CREDENTIAL_ENCRYPTION_KEY` (32 random bytes, base64). The row's
+ *    provider, model and credential name are bound to the ciphertext as additional data, so a sealed key cannot be
+ *    moved to another row. The API sends the key value in the command once; it is never returned or logged.
+ *  - **Old rows** were sealed for the old Worker's RSA public key. They can still be read when the optional secret
+ *    `GPT_LEGACY_WORKER_PRIVATE_KEY` holds that old private key; otherwise reading one answers
+ *    `CREDENTIAL_LEGACY_KEY_UNAVAILABLE`, and the key must be saved again. Saving again always writes the new form.
+ *  - **Saving a connection by its row id** that no longer exists answers `MODEL_CONNECTION_NOT_FOUND` instead of
+ *    adding a new row.
+ *
+ * Everything else is unchanged: Gemini, OpenAI and Cloudflare AI Gateway calls, usage rows, approved application
+ * settings, model connections and readiness.
  */
 
-const REQUEST_ALGORITHM = 'RSA-OAEP-256+A256GCM' as const
-const REQUEST_ISSUER = 'kr-homebase-gpt-server'
-const REQUEST_AUDIENCE = 'gpt-models-worker'
-const REQUEST_SUBJECT = 'kr-homebase-gpt-server'
-const REQUEST_PURPOSE = 'gpt-models-worker-request'
-const RESPONSE_ISSUER = 'gpt-models-worker'
-const RESPONSE_AUDIENCE = 'kr-homebase-gpt-server'
-const RESPONSE_SUBJECT = 'gpt-models-worker'
-const RESPONSE_PURPOSE = 'gpt-models-worker-response'
+const STORED_KEY_ALGORITHM = 'A256GCM' as const
+const LEGACY_KEY_ALGORITHM = 'RSA-OAEP-256+A256GCM' as const
 const DEFAULT_APPLICATION_ID = 'krhomebase'
 const DEFAULT_MAX_OUTPUT_TOKENS = 1024
 const DEFAULT_READINESS_PROMPT = 'This is a test request to see if the model is listening. Respond with only a "YES" if you have received this'
+const COMMAND_ACTIONS = ['READINESS', 'SAVE_SETTINGS', 'SAVE_CREDENTIAL', 'REPORT_USAGE', 'SAVE_MODEL_CONNECTION', 'DELETE_MODEL_CONNECTION'] as const
 
 /** Provider adapters supported by this prototype Worker. */
 type GptProvider = 'cloudflare-ai-gateway' | 'gemini' | 'openai'
@@ -53,10 +69,10 @@ type GptRateSettings = {
   outputRatePerMillion?: number
 }
 
-/** Signed and encrypted command understood by this Worker. */
+/** JSON command understood by this Worker, sent by the Homebase API over the service binding. */
 type GptWorkerCommand = {
   requestId: string
-  action: 'READINESS' | 'SAVE_SETTINGS' | 'SAVE_CREDENTIAL' | 'REPORT_USAGE' | 'SAVE_MODEL_CONNECTION' | 'DELETE_MODEL_CONNECTION'
+  action: (typeof COMMAND_ACTIONS)[number]
   applicationId?: string
   approvedApiKey?: string
   moduleName: string
@@ -77,8 +93,8 @@ type GptWorkerCommand = {
     provider: GptProvider
     llmModel: string
     credential: string
-    encryptedKey?: string
-    isKeyEncrypted?: boolean
+    /** The provider key in plain text, only on SAVE_CREDENTIAL. Sealed before it is stored; never returned. */
+    key?: string
     config1?: string
     config2?: string
     config3?: string
@@ -91,32 +107,20 @@ type GptWorkerCommand = {
   limit?: number
 }
 
-/** Short-lived request JWT claims signed by the Homebase server. */
-type GptRequestJwt = {
-  iss: string
-  aud: string
-  sub: string
-  purpose: string
-  action: GptWorkerCommand['action']
-  resource: string
-  requestId: string
-  keyId: string
-  iat: number
-  exp: number
-}
-
-/** Encrypted hybrid payload shared with the Homebase server. */
-type EncryptedEnvelope = {
-  alg: typeof REQUEST_ALGORITHM
-  wrappedKeyB64: string
+/** A provider key sealed by this Worker (the current form of `gpt_llm_credential."key"`). */
+type StoredKeyEnvelope = {
+  alg: typeof STORED_KEY_ALGORITHM
+  v: 1
   ivB64: string
   ciphertextB64: string
 }
 
-/** Request body accepted at the Worker boundary. */
-type GptWorkerRequestBody = {
-  token: string
-  encryptedPayload: EncryptedEnvelope
+/** A provider key sealed for the old Worker's RSA public key (rows written before Nov 12, 2026). */
+type LegacyKeyEnvelope = {
+  alg: typeof LEGACY_KEY_ALGORITHM
+  wrappedKeyB64: string
+  ivB64: string
+  ciphertextB64: string
 }
 
 /** Normalized token counters from a provider response. */
@@ -162,11 +166,13 @@ type GptUsageRecord = GptUsageCounters & {
 /** Bindings and secrets configured by gpt-models-worker.jsonc. */
 type GptWorkerEnv = {
   GPT_USAGE_DB: D1Database
-  GPT_WORKER_PRIVATE_KEY: string
-  GPT_SERVER_PUBLIC_KEY: string
+  /** Shared secret the API sends as a bearer token. Required. */
+  GPT_WORKER_SHARED_SECRET?: string
+  /** Base64 of 32 random bytes: the AES-256-GCM key that seals provider keys at rest. Required to save or use a key. */
+  GPT_CREDENTIAL_ENCRYPTION_KEY?: string
+  /** Optional: the old Worker's RSA private key (PKCS#8 PEM), only to read rows sealed by the old scheme. */
+  GPT_LEGACY_WORKER_PRIVATE_KEY?: string
   GPT_APPLICATION_ID?: string
-  GPT_SERVER_KEY_ID?: string
-  GPT_WORKER_KEY_ID?: string
   GPT_OPENAI_ENDPOINT?: string
   GPT_GEMINI_ENDPOINT?: string
   GPT_GEMINI_PROJECT_ID?: string
@@ -196,7 +202,7 @@ function json(body: JsonResponseBody, status = 200): Response {
 }
 
 /** Converts standard or URL-safe base64 to bytes. */
-function base64ToBytes(value: string): Uint8Array {
+function base64ToBytes(value: string): Uint8Array<ArrayBuffer> {
   const normalized = value.replace(/-/g, '+').replace(/_/g, '/')
   const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')
   const binary = atob(padded)
@@ -212,192 +218,106 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary)
 }
 
-/** Converts bytes or text to URL-safe base64 without padding. */
-function base64Url(value: ArrayBuffer | Uint8Array | string): string {
-  const bytes = typeof value === 'string' ? new TextEncoder().encode(value) : new Uint8Array(value)
-  return bytesToBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
-}
-
 /** Converts a PEM key into DER bytes for WebCrypto. */
 function pemToDer(pem: string, kind: 'private' | 'public'): ArrayBuffer {
   const begin = kind === 'private' ? '-----BEGIN PRIVATE KEY-----' : '-----BEGIN PUBLIC KEY-----'
   const end = kind === 'private' ? '-----END PRIVATE KEY-----' : '-----END PUBLIC KEY-----'
-  const value = pem.replace(begin, '').replace(end, '').replace(/\s+/g, '')
+  const value = pem.replace(begin, '').replace(end, '').replace(/\\n/g, '').replace(/\s+/g, '')
   if (!value) throw new Error(`CONFIG_INVALID_${kind.toUpperCase()}_KEY`)
   return base64ToBytes(value).buffer
 }
 
-/** Parses a JSON value from a base64url JWT segment. */
-function parseJwtSegment<T>(segment: string): T {
-  const text = new TextDecoder().decode(base64ToBytes(segment))
-  return JSON.parse(text) as T
+/** Reads the bearer token from the Authorization header (the Session Worker's form). */
+function getBearerToken(request: Request): string | null {
+  const header = request.headers.get('authorization')
+  if (!header?.toLowerCase().startsWith('bearer ')) return null
+  return header.slice('bearer '.length).trim()
 }
 
-/** Imports the server public key used to verify request JWTs. */
-async function importServerPublicKey(pem: string): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    'spki',
-    pemToDer(pem, 'public'),
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['verify'],
-  )
+/** Compares two strings in time that does not depend on where they first differ (nor stops early on length). */
+function constantTimeEqual(a: string, b: string): boolean {
+  const left = new TextEncoder().encode(a)
+  const right = new TextEncoder().encode(b)
+  let diff = left.length ^ right.length
+  const length = Math.max(left.length, right.length)
+  for (let index = 0; index < length; index += 1) diff |= (left[index] ?? 0) ^ (right[index] ?? 0)
+  return diff === 0
 }
 
-/** Imports the Worker private key used to decrypt requests and sign responses. */
-async function importWorkerPrivateKey(pem: string, usages: KeyUsage[]): Promise<CryptoKey> {
-  const algorithm = usages.includes('decrypt')
-    ? { name: 'RSA-OAEP', hash: 'SHA-256' }
-    : { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }
-  return crypto.subtle.importKey(
-    'pkcs8',
-    pemToDer(pem, 'private'),
-    algorithm,
-    false,
-    usages,
-  )
-}
-
-/** Imports the Homebase public key used to encrypt Worker responses. */
-async function importHomebasePublicKey(pem: string): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    'spki',
-    pemToDer(pem, 'public'),
-    { name: 'RSA-OAEP', hash: 'SHA-256' },
-    false,
-    ['encrypt'],
-  )
-}
-
-/** Verifies and parses a Homebase server JWT. */
-async function verifyRequestToken(token: string, env: GptWorkerEnv): Promise<GptRequestJwt> {
-  const segments = token.split('.')
-  if (segments.length !== 3) throw new Error('AUTH_INVALID_TOKEN_FORMAT')
-
-  const [encodedHeader, encodedPayload, encodedSignature] = segments
-  const header = parseJwtSegment<{ alg?: string; typ?: string }>(encodedHeader)
-  const payload = parseJwtSegment<GptRequestJwt>(encodedPayload)
-  if (header.alg !== 'RS256' || header.typ !== 'JWT') throw new Error('AUTH_UNSUPPORTED_TOKEN_ALGORITHM')
-
-  const signature = base64ToBytes(encodedSignature)
-  const signingInput = new TextEncoder().encode(`${encodedHeader}.${encodedPayload}`)
-  const publicKey = await importServerPublicKey(env.GPT_SERVER_PUBLIC_KEY)
-  const valid = await crypto.subtle.verify(
-    { name: 'RSASSA-PKCS1-v1_5' },
-    publicKey,
-    signature,
-    signingInput,
-  )
-  if (!valid) throw new Error('AUTH_INVALID_TOKEN_SIGNATURE')
-
-  const now = Math.floor(Date.now() / 1000)
-  if (payload.iss !== REQUEST_ISSUER) throw new Error('AUTH_INVALID_ISSUER')
-  if (payload.aud !== REQUEST_AUDIENCE) throw new Error('AUTH_INVALID_AUDIENCE')
-  if (payload.sub !== REQUEST_SUBJECT) throw new Error('AUTH_INVALID_SUBJECT')
-  if (payload.purpose !== REQUEST_PURPOSE) throw new Error('AUTH_INVALID_PURPOSE')
-  if (!payload.requestId || !payload.keyId) throw new Error('AUTH_MISSING_REQUEST_ID_OR_KEY_ID')
-  if (!Number.isFinite(payload.iat) || !Number.isFinite(payload.exp) || payload.exp <= now || payload.iat > now + 30) {
-    throw new Error('AUTH_TOKEN_EXPIRED_OR_NOT_YET_VALID')
-  }
-
-  return payload
-}
-
-/** Decrypts a Worker-encrypted JSON payload with the Worker private key. */
-async function decryptPayload<T>(envelope: EncryptedEnvelope, env: GptWorkerEnv): Promise<T> {
-  if (envelope.alg !== REQUEST_ALGORITHM) throw new Error('ENCRYPTION_UNSUPPORTED_ALGORITHM')
-  const privateKey = await importWorkerPrivateKey(env.GPT_WORKER_PRIVATE_KEY, ['decrypt'])
-  const rawAesKey = await crypto.subtle.decrypt(
-    { name: 'RSA-OAEP' },
-    privateKey,
-    base64ToBytes(envelope.wrappedKeyB64),
-  )
-  const aesKey = await crypto.subtle.importKey('raw', rawAesKey, { name: 'AES-GCM' }, false, ['decrypt'])
-  const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: base64ToBytes(envelope.ivB64) },
-    aesKey,
-    base64ToBytes(envelope.ciphertextB64),
-  )
-  return JSON.parse(new TextDecoder().decode(plaintext)) as T
-}
-
-/** Decrypts the Homebase command with the Worker private key. */
-async function decryptCommand(envelope: EncryptedEnvelope, env: GptWorkerEnv): Promise<GptWorkerCommand> {
-  return decryptPayload<GptWorkerCommand>(envelope, env)
-}
-
-/** Decrypts a credential value stored in the database with the Worker private key. */
-async function decryptStoredCredentialKey(encryptedKey: string, env: GptWorkerEnv): Promise<string> {
-  let envelope: EncryptedEnvelope
+/** Imports the AES-256-GCM key that seals provider keys at rest. Throws a stable CONFIG_ code, never the key. */
+async function importCredentialKey(env: GptWorkerEnv): Promise<CryptoKey> {
+  const text = env.GPT_CREDENTIAL_ENCRYPTION_KEY?.trim()
+  if (!text) throw new Error('CONFIG_MISSING_GPT_CREDENTIAL_ENCRYPTION_KEY')
+  let raw: Uint8Array<ArrayBuffer>
   try {
-    envelope = JSON.parse(encryptedKey) as EncryptedEnvelope
+    raw = base64ToBytes(text)
+  } catch {
+    throw new Error('CONFIG_GPT_CREDENTIAL_ENCRYPTION_KEY_NOT_BASE64')
+  }
+  if (raw.length !== 32) throw new Error('CONFIG_GPT_CREDENTIAL_ENCRYPTION_KEY_NOT_32_BYTES')
+  return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt'])
+}
+
+/** The additional data bound to a sealed key: the row it belongs to. */
+function storedKeyAad(provider: string, llmModel: string, credential: string) {
+  return new TextEncoder().encode(`gpt_llm_credential|${provider}|${llmModel}|${credential}`)
+}
+
+/** Seals one provider key for storage in `gpt_llm_credential."key"`. */
+async function sealStoredCredentialKey(value: string, row: { provider: string; llmModel: string; credential: string }, env: GptWorkerEnv): Promise<string> {
+  const key = await importCredentialKey(env)
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv, additionalData: storedKeyAad(row.provider, row.llmModel, row.credential) },
+    key,
+    new TextEncoder().encode(JSON.stringify({ value })),
+  )
+  const envelope: StoredKeyEnvelope = { alg: STORED_KEY_ALGORITHM, v: 1, ivB64: bytesToBase64(iv), ciphertextB64: bytesToBase64(new Uint8Array(ciphertext)) }
+  return JSON.stringify(envelope)
+}
+
+/** Opens a key sealed by the old Worker's RSA public key, when the old private key is configured. */
+async function openLegacyStoredKey(envelope: LegacyKeyEnvelope, env: GptWorkerEnv): Promise<unknown> {
+  const pem = env.GPT_LEGACY_WORKER_PRIVATE_KEY?.trim()
+  if (!pem) throw new Error('CREDENTIAL_LEGACY_KEY_UNAVAILABLE')
+  const privateKey = await crypto.subtle.importKey('pkcs8', pemToDer(pem, 'private'), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt'])
+  const rawAesKey = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, privateKey, base64ToBytes(envelope.wrappedKeyB64))
+  const aesKey = await crypto.subtle.importKey('raw', rawAesKey, { name: 'AES-GCM' }, false, ['decrypt'])
+  const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: base64ToBytes(envelope.ivB64) }, aesKey, base64ToBytes(envelope.ciphertextB64))
+  return JSON.parse(new TextDecoder().decode(plaintext))
+}
+
+/** Decrypts a credential value stored in the database (current form, or the old form when the old key is set). */
+async function decryptStoredCredentialKey(encryptedKey: string, row: { provider: string; llmModel: string; credential: string }, env: GptWorkerEnv): Promise<string> {
+  let envelope: { alg?: string; wrappedKeyB64?: string; ivB64?: string; ciphertextB64?: string }
+  try {
+    envelope = JSON.parse(encryptedKey) as typeof envelope
   } catch {
     throw new Error('CREDENTIAL_ENVELOPE_INVALID')
   }
-  const payload = await decryptPayload<{ value?: unknown }>(envelope, env)
-  if (typeof payload.value !== 'string' || !payload.value) throw new Error('CREDENTIAL_VALUE_INVALID')
-  return payload.value
-}
-
-/** Encrypts a JSON response for the Homebase server public key. */
-async function encryptResponse(payload: JsonObject, env: GptWorkerEnv): Promise<EncryptedEnvelope> {
-  const aesKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt'])
-  const rawAesKey = await crypto.subtle.exportKey('raw', aesKey)
-  const iv = crypto.getRandomValues(new Uint8Array(12))
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    aesKey,
-    new TextEncoder().encode(JSON.stringify(payload)),
-  )
-  const serverPublicKey = await importHomebasePublicKey(env.GPT_SERVER_PUBLIC_KEY)
-  const wrappedKey = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, serverPublicKey, rawAesKey)
-
-  return {
-    alg: REQUEST_ALGORITHM,
-    wrappedKeyB64: bytesToBase64(new Uint8Array(wrappedKey)),
-    ivB64: bytesToBase64(iv),
-    ciphertextB64: bytesToBase64(new Uint8Array(ciphertext)),
+  let payload: unknown
+  try {
+    if (envelope.alg === STORED_KEY_ALGORITHM && envelope.ivB64 && envelope.ciphertextB64) {
+      const key = await importCredentialKey(env)
+      const plaintext = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: base64ToBytes(envelope.ivB64), additionalData: storedKeyAad(row.provider, row.llmModel, row.credential) },
+        key,
+        base64ToBytes(envelope.ciphertextB64),
+      )
+      payload = JSON.parse(new TextDecoder().decode(plaintext))
+    } else if (envelope.alg === LEGACY_KEY_ALGORITHM && envelope.wrappedKeyB64 && envelope.ivB64 && envelope.ciphertextB64) {
+      payload = await openLegacyStoredKey(envelope as LegacyKeyEnvelope, env)
+    } else {
+      throw new Error('CREDENTIAL_ENVELOPE_INVALID')
+    }
+  } catch (error) {
+    // Configuration and envelope codes pass through; a WebCrypto failure (wrong key, changed row) gets one safe code.
+    if (error instanceof Error && /^(CONFIG_|CREDENTIAL_)/.test(error.message)) throw error
+    throw new Error('CREDENTIAL_DECRYPT_FAILED')
   }
-}
-
-/** Signs the response metadata with the Worker private key. */
-async function signResponseToken(requestId: string, action: GptWorkerCommand['action'], env: GptWorkerEnv): Promise<string> {
-  const now = Math.floor(Date.now() / 1000)
-  const header = { alg: 'RS256', typ: 'JWT', kid: env.GPT_WORKER_KEY_ID || 'gpt-worker-key1.pub' }
-  const payload = {
-    iss: RESPONSE_ISSUER,
-    aud: RESPONSE_AUDIENCE,
-    sub: RESPONSE_SUBJECT,
-    purpose: RESPONSE_PURPOSE,
-    action,
-    resource: 'gpt-models-worker',
-    requestId,
-    keyId: header.kid,
-    iat: now,
-    exp: now + 60,
-  }
-  const encodedHeader = base64Url(JSON.stringify(header))
-  const encodedPayload = base64Url(JSON.stringify(payload))
-  const signingInput = `${encodedHeader}.${encodedPayload}`
-  const privateKey = await importWorkerPrivateKey(env.GPT_WORKER_PRIVATE_KEY, ['sign'])
-  const signature = await crypto.subtle.sign(
-    { name: 'RSASSA-PKCS1-v1_5' },
-    privateKey,
-    new TextEncoder().encode(signingInput),
-  )
-  return `${signingInput}.${base64Url(signature)}`
-}
-
-/** Produces an authenticated response envelope after the request is trusted. */
-async function secureResponse(
-  payload: JsonObject,
-  requestId: string,
-  action: GptWorkerCommand['action'],
-  env: GptWorkerEnv,
-): Promise<Response> {
-  const token = await signResponseToken(requestId, action, env)
-  const encryptedPayload = await encryptResponse(payload, env)
-  return json({ ok: true, token, encryptedPayload })
+  const value = payload && typeof payload === 'object' ? (payload as { value?: unknown }).value : undefined
+  if (typeof value !== 'string' || !value) throw new Error('CREDENTIAL_VALUE_INVALID')
+  return value
 }
 
 /** Returns whether an unknown value is a non-array object. */
@@ -405,12 +325,10 @@ function isRecord(value: unknown): value is JsonObject {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }
 
-/** Validates the command identity against the signed request claims. */
-function validateCommand(command: GptWorkerCommand, token: GptRequestJwt): void {
-  if (!command.requestId || command.requestId !== token.requestId) throw new Error('PAYLOAD_REQUEST_ID_MISMATCH')
-  if (command.action !== token.action) throw new Error('PAYLOAD_ACTION_MISMATCH')
-  if (!['READINESS', 'SAVE_SETTINGS', 'SAVE_CREDENTIAL', 'REPORT_USAGE', 'SAVE_MODEL_CONNECTION', 'DELETE_MODEL_CONNECTION'].includes(command.action)) throw new Error('VALIDATION_ACTION_NOT_ALLOWED')
-  if (token.resource !== 'gpt-models-worker') throw new Error('AUTH_INVALID_RESOURCE')
+/** Validates the command's shape and limits (the API checks them too; this Worker does not trust any caller blindly). */
+function validateCommand(command: GptWorkerCommand): void {
+  if (typeof command.requestId !== 'string' || !command.requestId.trim() || command.requestId.length > 128) throw new Error('PAYLOAD_REQUEST_ID_INVALID')
+  if (!(COMMAND_ACTIONS as readonly string[]).includes(command.action)) throw new Error('VALIDATION_ACTION_NOT_ALLOWED')
   if (typeof command.moduleName !== 'string' || !command.moduleName.trim() || command.moduleName.length > 120) throw new Error('VALIDATION_INVALID_MODULE_NAME')
   if (command.action === 'SAVE_MODEL_CONNECTION' || command.action === 'DELETE_MODEL_CONNECTION') {
     const connection = command.modelConnection
@@ -430,7 +348,7 @@ function validateCommand(command: GptWorkerCommand, token: GptRequestJwt): void 
     const credential = command.credential
     if (!credential || credential.provider !== command.model?.provider || credential.llmModel !== command.model?.model) throw new Error('VALIDATION_CREDENTIAL_MODEL_MISMATCH')
     if (!credential.credential || credential.credential.length > 120) throw new Error('VALIDATION_CREDENTIAL_TYPE_INVALID')
-    if (!credential.encryptedKey || credential.isKeyEncrypted !== true) throw new Error('VALIDATION_CREDENTIAL_MUST_BE_ENCRYPTED')
+    if (typeof credential.key !== 'string' || credential.key.trim().length < 2 || credential.key.length > 16000) throw new Error('VALIDATION_CREDENTIAL_KEY_REQUIRED')
   }
 }
 
@@ -538,7 +456,7 @@ async function loadCredential(
 
   const isKeyEncrypted = row.isKeyEncrypted === 1 || row.isKeyEncrypted === true
   const key = isKeyEncrypted
-    ? await decryptStoredCredentialKey(row.credentialKey, env)
+    ? await decryptStoredCredentialKey(row.credentialKey, { provider: model.provider, llmModel: model.model, credential: credentialName }, env)
     : row.credentialKey
   if (!key) throw new Error('CREDENTIAL_VALUE_INVALID')
   return {
@@ -761,13 +679,17 @@ async function writeUsageRecord(command: GptWorkerCommand, providerResult: GptPr
   return record
 }
 
-/** Stores one Worker-public-key-encrypted LLM credential in the GPT D1 database. */
+/**
+ * Stores one LLM credential in the GPT D1 database, sealed by this Worker (AES-256-GCM, `GPT_CREDENTIAL_ENCRYPTION_KEY`).
+ * Changed from the old Worker: the key arrives in plain text over the service binding and is sealed here; the old API
+ * sealed it for the Worker's RSA public key before sending.
+ */
 async function saveLlmCredential(command: GptWorkerCommand, env: GptWorkerEnv): Promise<JsonObject> {
   const credential = command.credential
-  if (!credential || !credential.encryptedKey || !credential.llmModel) {
+  if (!credential || typeof credential.key !== 'string' || !credential.key.trim() || !credential.llmModel) {
     throw new Error('VALIDATION_CREDENTIAL_REQUIRED')
   }
-  await decryptStoredCredentialKey(credential.encryptedKey, env)
+  const sealedKey = await sealStoredCredentialKey(credential.key.trim(), { provider: credential.provider, llmModel: credential.llmModel, credential: credential.credential }, env)
   const configValue = (value: string | undefined): string | null => typeof value === 'string' && value.trim() ? value.trim().slice(0, 2000) : null
   const now = new Date().toISOString()
   await env.GPT_USAGE_DB.prepare(`
@@ -786,7 +708,7 @@ async function saveLlmCredential(command: GptWorkerCommand, env: GptWorkerEnv): 
     credential.provider,
     credential.llmModel,
     credential.credential,
-    credential.encryptedKey,
+    sealedKey,
     configValue(credential.config1),
     configValue(credential.config2),
     configValue(credential.config3),
@@ -994,6 +916,8 @@ async function saveModelConnection(command: GptWorkerCommand, env: GptWorkerEnv)
       `).bind(applicationId, connection.id || null, connection.krGptConnectionId || null).first<JsonObject>()
       if (row) return { connection: modelConnectionRow(row) }
     }
+    // Changed from the old Worker: an explicit row id that matches nothing is a stale edit, not a new connection.
+    if (connection.id) throw new Error('MODEL_CONNECTION_NOT_FOUND')
   }
 
   const id = `gptmc_${crypto.randomUUID()}`
@@ -1112,6 +1036,11 @@ async function reportUsage(command: GptWorkerCommand, env: GptWorkerEnv): Promis
       credential,
       CASE WHEN length(trim("key")) > 0 THEN 1 ELSE 0 END AS hasKey,
       is_key_encrypted AS isKeyEncrypted,
+      CASE
+        WHEN is_key_encrypted = 0 THEN 'plain'
+        WHEN instr("key", '"alg":"A256GCM"') > 0 THEN 'current'
+        ELSE 'legacy'
+      END AS keyFormat,
       config1,
       config2,
       config3
@@ -1124,6 +1053,8 @@ async function reportUsage(command: GptWorkerCommand, env: GptWorkerEnv): Promis
     credential: row.credential,
     hasKey: row.hasKey === 1,
     isKeyEncrypted: row.isKeyEncrypted === 1,
+    // Added Nov 12, 2026: 'current' (sealed by this Worker), 'legacy' (old RSA form; save the key again) or 'plain'.
+    keyFormat: row.keyFormat === 'current' || row.keyFormat === 'legacy' ? row.keyFormat : 'plain',
     config1: typeof row.config1 === 'string' ? row.config1 : null,
     config2: typeof row.config2 === 'string' ? row.config2 : null,
     config3: typeof row.config3 === 'string' ? row.config3 : null,
@@ -1148,7 +1079,7 @@ async function reportUsage(command: GptWorkerCommand, env: GptWorkerEnv): Promis
   return { applicationId, rows, totals, credentials, savedSettings, connections }
 }
 
-/** Executes a decrypted command and writes usage when a provider was called. */
+/** Executes an authenticated command and writes usage when a provider was called. */
 async function executeCommand(command: GptWorkerCommand, env: GptWorkerEnv): Promise<JsonObject> {
   if (command.action === 'REPORT_USAGE') return reportUsage(command, env)
   if (command.action === 'SAVE_SETTINGS') return saveApprovedSettings(command, env)
@@ -1173,7 +1104,24 @@ async function executeCommand(command: GptWorkerCommand, env: GptWorkerEnv): Pro
   }
 }
 
-/** Handles Worker health, authentication, provider execution, and reporting. */
+/**
+ * Turns a thrown error into a reply code. Codes made in this file (CAPITALS_AND_UNDERSCORES) pass through; anything
+ * else (a database or network message) is logged here and answered with one fixed code, so no free text leaves.
+ */
+function safeErrorCode(error: unknown, fallback: string, requestId: string): string {
+  const message = error instanceof Error ? error.message : ''
+  if (/^[A-Z][A-Z0-9_]{1,80}$/.test(message)) return message
+  console.error(JSON.stringify({ area: 'GPT_MODELS_WORKER', requestId, message: message.slice(0, 300) }))
+  return fallback
+}
+
+/**
+ * Handles Worker health, authentication, provider execution, and reporting.
+ *
+ * Replies: `{ ok: true, requestId, action, data }`, or `{ ok: false, error }` with 401 (wrong or missing shared
+ * secret), 400 (unreadable or invalid command), 500 (the shared secret is not configured), or 200 with `ok: false`
+ * and a stable code when the command itself failed (provider, credential or database).
+ */
 async function handleRequest(request: Request, env: GptWorkerEnv): Promise<Response> {
   const url = new URL(request.url)
   if (request.method === 'GET' && url.pathname.endsWith('/health')) {
@@ -1181,51 +1129,34 @@ async function handleRequest(request: Request, env: GptWorkerEnv): Promise<Respo
   }
   if (request.method !== 'POST') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405)
 
-  let body: Partial<GptWorkerRequestBody>
-  try {
-    body = await request.json() as Partial<GptWorkerRequestBody>
-  } catch {
-    return json({ ok: false, error: 'REQUEST_PARSE_ERROR' }, 400)
-  }
-  if (typeof body.token !== 'string' || !isRecord(body.encryptedPayload)) {
-    return json({ ok: false, error: 'REQUEST_ENVELOPE_INVALID' }, 400)
-  }
-
-  let token: GptRequestJwt
-  try {
-    token = await verifyRequestToken(body.token, env)
-  } catch (error) {
-    return json({ ok: false, error: error instanceof Error ? error.message : 'AUTH_FAILED' }, 401)
+  // Shared secret from the API (service binding only; the Worker has no public address).
+  const configuredSecret = env.GPT_WORKER_SHARED_SECRET?.trim()
+  if (!configuredSecret) return json({ ok: false, error: 'CONFIG_MISSING_GPT_WORKER_SHARED_SECRET' }, 500)
+  const bearerToken = getBearerToken(request)
+  if (!bearerToken || !constantTimeEqual(bearerToken, configuredSecret)) {
+    return json({ ok: false, error: 'AUTH_FAILED_GPT_WORKER_SECRET' }, 401)
   }
 
   let command: GptWorkerCommand
   try {
-    command = await decryptCommand(body.encryptedPayload as EncryptedEnvelope, env)
-    validateCommand(command, token)
+    const body: unknown = await request.json()
+    if (!isRecord(body)) throw new Error('REQUEST_ENVELOPE_INVALID')
+    command = body as GptWorkerCommand
+    validateCommand(command)
   } catch (error) {
-    return json({ ok: false, error: error instanceof Error ? error.message : 'PAYLOAD_INVALID' }, 400)
+    return json({ ok: false, error: safeErrorCode(error, 'REQUEST_PARSE_ERROR', 'unknown') }, 400)
   }
 
   try {
     const data = await executeCommand(command, env)
-    return secureResponse({ ok: true, requestId: command.requestId, action: command.action, data }, command.requestId, command.action, env)
+    return json({ ok: true, requestId: command.requestId, action: command.action, data })
   } catch (error) {
-    return secureResponse(
-      {
-        ok: false,
-        requestId: command.requestId,
-        action: command.action,
-        error: error instanceof Error ? error.message : 'GPT_PROVIDER_REQUEST_FAILED',
-      },
-      command.requestId,
-      command.action,
-      env,
-    )
+    return json({ ok: false, requestId: command.requestId, action: command.action, error: safeErrorCode(error, 'GPT_PROVIDER_REQUEST_FAILED', command.requestId) })
   }
 }
 
 export default {
-  /** Routes health checks and encrypted GPT Gateway requests. */
+  /** Routes health checks and authenticated GPT Gateway commands. */
   async fetch(request: Request, env: GptWorkerEnv): Promise<Response> {
     return handleRequest(request, env)
   },

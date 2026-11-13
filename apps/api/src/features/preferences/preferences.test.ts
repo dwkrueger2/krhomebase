@@ -120,7 +120,7 @@ describe('Dashboard widget choices (stage 3)', () => {
 
 describe('personal theme (stage 2b)', () => {
   it('keeps only colors a person may change, under the theme key', async () => {
-    const personalTheme = { themeId: 'built-in', density: 'comfortable', light: { '--kr-theme-brand-primary': '#123456', '--kr-theme-danger': '#00ff00' }, dark: {} }
+    const personalTheme = { themeId: 'built-in', density: 'comfortable', light: { '--kr-theme-brand-primary': '#123456', '--kr-theme-panel-background': '#00ff00' }, dark: {} }
     const data = await preferencesOf(await send('PUT', { personalTheme }))
     expect(data.preferences.personalTheme).toEqual({ themeId: 'built-in', density: 'comfortable', light: { '--kr-theme-brand-primary': '#123456' }, dark: {} })
     expect(count(`SELECT COUNT(*) AS n FROM user_preference WHERE user_id = 'u-ann' AND preference_key = 'theme'`)).toBe(1)

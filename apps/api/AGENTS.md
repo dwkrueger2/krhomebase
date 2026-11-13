@@ -1,7 +1,7 @@
 # KR Homebase API Agent Guide
 
-<small>Version 1.22</small><br>
-<small>Updated Nov 12, 2026 8:24am</small>
+<small>Version 1.24</small><br>
+<small>Updated Nov 12, 2026 5:48pm</small>
 
 ## Purpose
 
@@ -162,6 +162,27 @@ Writes (stage 4a, super admin, through the write gate, each one batch with its `
 - **Invitation email** goes through `src/platform/googleWorkspaceMailer.ts` (ported from the old `krGoogleWorkspaceMailer.ts`, WebCrypto instead of `node:crypto`; tests pass a stand-in `fetch`). Sender settings are `vars` in `kr-api-wrangler.jsonc`; the key is the secret `KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY` (the whole JSON key file). Without the key the invitation is still saved and the reply carries the link (`inviteUrl`, only when no email went out). The rows are written first, then the email is sent, then its result is recorded (`sent_at`, provider, message id) with its own audit row.
 - **Reads write nothing:** a pending invitation past its end is shown as expired; the old GET rewrote it on every read.
 - Each write is one batch with its `audit_log` rows (resource `users`) and clears the permission cache.
+- **Stage 4d-2:** the same `PUT` also saves the professional title (`employee.job_title`), the attorney flag (`individual.is_attorney`) and the bar admissions (`employee_certification` rows whose `certification_type_lookup_id` is the lookup row `lk_employee_cert_law_license`); each is optional and left out means kept. A removed admission is kept as an inactive row with its details cleared (old rule), and only an explicit `isAttorney: false` clears them all. An account that stops being active has its open `kr_session` rows ended in the same batch (new). The list carries the person's names, primary phone and `user_sso_identity` rows (Security tab).
+
+## Firm Settings
+
+`src/features/firm/` (Settings plan, stage 5) replaces the old `kr-api-v1/firm-settings` and `/employee-policies`: `GET /v1/firm/profile` and `GET /v1/firm/employee-policies` (anyone signed in), `PUT` on both (super admin). Both are `lookup` settings rows (`lk_kr_firm_locations_profile`, `lk_kr_employee_policies`; see `docs/Schema_8.0/table_lookup.html`); the profile save also sets the firm entity's `legal_name` (`ent_krueger_richard_firm`, created as an active partnership when missing). The shapes, defaults, limits and the old error sentences are in `packages/contracts/src/firm.ts` (`firmProfileProblems`, `employeePoliciesProblems`, shared with the screens); a refused save answers 422 `FIRM_SETTINGS_INVALID` with the sentences in `details.problems`. Policies are read field by field, as Attendance reads the same row; the fixed PTO bands and holiday-pay tiers can change their numbers only. Each save is one batch with its `audit_log` row (resource `firm_details`).
+
+## Employee Documents
+
+`src/features/employee-documents/` (Settings plan, stage 5) replaces the old `api/employee-documents` routes: `GET /v1/employee-documents?employeeId=` (the employees the viewer may see and one employee's documents), `POST /v1/employee-documents` (multipart upload: `employeeId`, `category`, `title`, `receivedDate`, `notes`, `file`) and `GET /v1/employee-documents/{documentId}/file` (the file inline, `no-store`). Anyone signed in may call them; the scoped grant `employee_documents.read|create` (own, team, all; `features/permissions/rules.ts` `scopedGrantAllows`) decides whose documents. Files are in the R2 bucket `kr-homebase-employee-storage` (binding `EMPLOYEE_STORAGE`, the old app's bucket, the requester's choice of Nov 12, 2026; `"remote": true`, so a local upload is a real file), key `employees/<employeeId>/hr/<category>/<documentId>/<safe name>`. The file goes to R2 first, then `media_asset`, `document_record` and the audit row in one batch; a failed batch removes the file. The rows use the values the CHECK rules allow (`purpose 'employee_file'`, `storage_type 'r2_object'`, `source 'employee'`); the old route's values were refused, so it never stored a document. No delete route (hard delete stays off).
+
+## GPT Model Gateway
+
+`src/features/gpt/` (Settings plan, stage 7; super admin) replaces the old `kr-gpt` route: `GET /v1/gpt/gateway`, `POST /v1/gpt/connections`, `PUT` and `DELETE /v1/gpt/connections/{connectionId}`, `POST /v1/gpt/readiness`, `PUT /v1/gpt/settings`, `PUT /v1/gpt/credentials` (write-only: a key is never returned or logged) and `GET /v1/gpt/usage`. Every call goes to the GPT models Worker (`workers/gpt-workers/`) through `src/platform/gptWorkerClient.ts`: the service binding `GPT_WORKER` with `Authorization: Bearer <KR_GPT_WORKER_SECRET>` (the requester's choice of Nov 12, 2026, "simplify": the Worker trusts a shared secret instead of the old RSA signed and sealed commands). The Worker owns the GPT usage database and keeps provider keys sealed at rest. Until the Worker is deployed and the binding switched on in `kr-api-wrangler.jsonc`, every route answers 503 `GPT_GATEWAY_UNAVAILABLE`; a Worker refusal answers 502 `GPT_WORKER_REQUEST_FAILED` with its code in `details.workerError`. Writes add an `audit_log` row here (resource `gpt`).
+
+## Maintenance gate (Data Import)
+
+`src/features/maintenance/` (Settings plan, stage 8; super admin): `GET` and `PUT /v1/maintenance-gate` (`{ locked }`; lock reason "Contact import review"), one batch with its `audit_log` row. The feature is exempt from the write gate (`src/platform/writeGate.ts`), or a locked gate could never be unlocked. A missing table reads as unlocked. The Data Import screen creates contacts through the existing `POST /v1/contacts`, one at a time; there is no import route.
+
+## Stripe Payment Configuration
+
+`src/features/payment-providers/` (Settings plan, stage 6; super admin) replaces the old `payment-providers` and `stripe-dev-tests` routes: `GET /v1/payment-providers`, `PUT /v1/payment-providers/{environment}`, `DELETE /v1/payment-providers/{environment}/{providerId}` (body `confirmation: 'DELETE KEY'`), `POST /v1/payment-providers/{environment}/test-connection`, and the sandbox tests under `/v1/payment-providers/sandbox-tests/` (card and ACH payments, one payment, search). Keys are encrypted at rest in `payment_provider` with AES-256-GCM (`crypto.ts`), byte for byte the pay Worker's format, with the Worker secret `KR_PAYMENT_PROVIDER_KEK` (the same value the pay Worker holds); a missing or bad key answers 503 `PAYMENT_PROVIDER_KEK_NOT_CONFIGURED` / `_KEK_INVALID`. Secret keys are write-only: never returned or logged. Every Stripe call goes through `src/platform/stripeApi.ts`. "One enabled profile per environment" and the save are one batch with the audit row (resource `payment-providers`). Sandbox tests use only sandbox keys. The header of each file lists what changed from the old routes.
 
 ## Web Site Feedback
 

@@ -17,6 +17,11 @@
  *   must be active and assignable (422 `ROLE_SET_NOT_ASSIGNABLE`); the primary must be one of them; the Staff role set
  *   needs a staff code (422 `STAFF_CODE_REQUIRED`), up to 4 characters, unique (409 `STAFF_CODE_IN_USE`).
  * - Enrolling as an employee adds the employee row and the Staff role set, keeping every other role set.
+ * - Bar admissions (stage 4d-2) are `employee_certification` rows of the law-license type; they need an employee row
+ *   (422 `EMPLOYEE_REQUIRED_FOR_BAR_ADMISSIONS`); a removed one is kept as an inactive row with its details cleared,
+ *   and turning the attorney flag off clears them all. The professional title is `employee.job_title`.
+ *
+ * Also new in stage 4d-2: an account that stops being active has its open sessions ended (`kr_session`).
  *
  * Changed from the old routes:
  * - The choice on create is a role set (built in or custom), and the person gets an active `user_role_set` row for it
@@ -30,11 +35,11 @@
  * - Deleting an invitation is allowed only when it is no longer pending (409 `INVITE_STILL_PENDING`); cancel first.
  */
 
-import type { CreateUserBody, InvitationResult, RoleSet, UpdateUserBody, UserAccount, UserInvite, UserSavedData, UsersData } from '@krhomebase/contracts'
+import { BAR_ADMISSION_STATUSES, type BarAdmission, type CreateUserBody, type InvitationResult, type RoleSet, type UpdateUserBody, type UserAccount, type UserInvite, type UserSavedData, type UsersData } from '@krhomebase/contracts'
 import type { Mailer } from '../../platform/googleWorkspaceMailer.ts'
 import type { AuditEntry } from '../../platform/queries.ts'
 import { clearPermissionCache } from '../permissions/rules.ts'
-import type { AssignmentRow, EmployeeRow, InviteRow, UserQueries, UserRow, UserWrite } from './queries.ts'
+import type { AssignmentRow, CertificationFields, CertificationRow, EmployeeRow, InviteRow, UserQueries, UserRow, UserWrite } from './queries.ts'
 
 /** A refused change. */
 export class UserError extends Error {
@@ -103,9 +108,58 @@ function roleSetLabelOfInvite(roleSets: readonly RoleSet[], invite: InviteRow): 
   return roleSets.find((row) => row.id === notedId)?.label ?? roleSets.find((row) => row.roleKey === invite.role)?.label ?? null
 }
 
+const ADMISSION_STATUSES = new Set<string>(BAR_ADMISSION_STATUSES)
+
+/** An employee's bar admissions as shown: rows with neither a jurisdiction nor a number are cleared ones (old rule). */
+function shownAdmissions(rows: readonly CertificationRow[], employeeId: string): BarAdmission[] {
+  return rows
+    .filter((row) => row.employee_id === employeeId && (row.issuing_state?.trim() || row.registration_number?.trim()))
+    .map((row) => ({
+      id: row.id,
+      jurisdiction: row.issuing_state?.trim() ?? '',
+      registrationNumber: row.registration_number ?? '',
+      admittedOn: row.issue_date ?? '',
+      expiresOn: row.expiration_date ?? '',
+      status: (ADMISSION_STATUSES.has(row.status) ? row.status : 'active') as BarAdmission['status'],
+    }))
+}
+
+const admissionFields = (admission: BarAdmission): CertificationFields => ({
+  jurisdiction: admission.jurisdiction.trim(),
+  registrationNumber: admission.registrationNumber.trim() || null,
+  admittedOn: admission.admittedOn || null,
+  expiresOn: admission.expiresOn || null,
+  status: admission.status,
+})
+
+/**
+ * The operations that make an employee's bar admissions exactly `wanted`: a known id is updated when it changed,
+ * anything else is added, and stored admissions left out are cleared.
+ */
+function admissionOps(context: UserContext, employeeId: string, current: readonly BarAdmission[], wanted: readonly BarAdmission[]): UserWrite[] {
+  const id = context.newId ?? (() => crypto.randomUUID())
+  const known = new Map(current.map((row) => [row.id, row]))
+  const kept = new Set(wanted.map((row) => row.id).filter((rowId): rowId is string => Boolean(rowId && known.has(rowId))))
+  const ops: UserWrite[] = current.filter((row) => row.id && !kept.has(row.id)).map((row) => ({ kind: 'clearCertification' as const, id: row.id!, now: context.now }))
+  for (const admission of wanted) {
+    const fields = admissionFields(admission)
+    const stored = admission.id ? known.get(admission.id) : undefined
+    if (!stored) ops.push({ kind: 'insertCertification', id: `cert_${id()}`, employeeId, fields, now: context.now })
+    else if (JSON.stringify(admissionFields(stored)) !== JSON.stringify(fields)) ops.push({ kind: 'updateCertification', id: stored.id!, fields, now: context.now })
+  }
+  return ops
+}
+
 /** The Users and Invites screen's data. */
 export async function loadUsers(queries: UserQueries, roleSets: RoleSet[], viewerUserId: string, nowMs = Date.now()): Promise<UsersData> {
-  const [users, employees, assignments, invites] = await Promise.all([queries.users(), queries.employees(), queries.assignments(), queries.invites()])
+  const [users, employees, assignments, invites, certifications, identities] = await Promise.all([
+    queries.users(),
+    queries.employees(),
+    queries.assignments(),
+    queries.invites(),
+    queries.certifications(),
+    queries.ssoIdentities(),
+  ])
   const employeeOf = new Map(employees.map((row) => [row.user_id, row]))
   const unaccepted = invites.filter((row) => row.status !== 'accepted')
   const accounts: UserAccount[] = users.map((row) => {
@@ -117,6 +171,14 @@ export async function loadUsers(queries: UserQueries, roleSets: RoleSet[], viewe
       email: row.email,
       name: displayName(row),
       individualId: row.individual_id,
+      firstName: row.first_name,
+      lastName: row.last_name,
+      preferredName: row.preferred_name?.trim() || null,
+      phone: row.phone,
+      isAttorney: row.is_attorney === 1,
+      ssoIdentities: identities
+        .filter((identity) => identity.user_id === row.id)
+        .map((identity) => ({ provider: identity.provider, email: identity.email, lastLoginAt: identity.last_login_at })),
       icid: row.icid,
       role: row.role,
       accountStatus: status,
@@ -124,7 +186,15 @@ export async function loadUsers(queries: UserQueries, roleSets: RoleSet[], viewe
       roleSetIds: held.map((assignment) => assignment.role_set_id),
       primaryRoleSetId: held.find((assignment) => assignment.is_primary === 1)?.role_set_id ?? held[0]?.role_set_id ?? null,
       employee: employee
-        ? { id: employee.id, employeeNumber: employee.employee_number, staffCode: employee.staff_code, employmentStatus: employee.employment_status, isVendor: employee.is_1099_vendor === 1 }
+        ? {
+            id: employee.id,
+            employeeNumber: employee.employee_number,
+            staffCode: employee.staff_code,
+            employmentStatus: employee.employment_status,
+            isVendor: employee.is_1099_vendor === 1,
+            jobTitle: employee.job_title,
+            barAdmissions: shownAdmissions(certifications, employee.id),
+          }
         : null,
       inviteId: unaccepted.find((invite) => invite.email.toLowerCase() === row.email.toLowerCase())?.id ?? null,
     }
@@ -304,12 +374,40 @@ export async function updateUser(context: UserContext, userId: string, body: Upd
   if (wanted.includes(STAFF) && !(employee && staffCode)) throw new UserError('STAFF_CODE_REQUIRED', 'Staff Code is required for Staff users.', 422)
   if (staffCode && employees.some((row) => row.id !== employee?.id && row.staff_code?.toUpperCase() === staffCode)) throw new UserError('STAFF_CODE_IN_USE', 'Another employee already has that staff code.', 409)
 
+  // Stage 4d-2: professional title, attorney flag and bar admissions (each left out keeps what is stored).
+  const jobTitle = body.jobTitle === undefined ? undefined : body.jobTitle?.trim() || null
+  if (jobTitle && !employee) throw new UserError('USER_NOT_EMPLOYEE', 'Only an employee has a professional title. Enroll the user as an employee first.', 422)
+  if (body.isAttorney !== undefined && !user.individual_id) throw new UserError('USER_HAS_NO_PERSON', 'This account has no linked person record.', 422)
+  const isAttorney = body.isAttorney ?? user.is_attorney === 1
+  const storedAdmissions = employee ? shownAdmissions(await queries.certifications(), employee.id) : []
+  // Only an explicit "not an attorney" clears them, as in the old route; a save that leaves both out keeps them.
+  const wantedAdmissions = body.isAttorney === false ? [] : (body.barAdmissions ?? storedAdmissions)
+  if (wantedAdmissions.length && !employee) throw new UserError('EMPLOYEE_REQUIRED_FOR_BAR_ADMISSIONS', 'Enroll this user as an Employee before adding bar admissions.', 422)
+
   const ops: UserWrite[] = [
     { kind: 'updateUser', id: userId, role: storedRole(roleSets, wanted, primary), roleSetId: primary ?? UNASSIGNED, isActive: body.accountStatus === 'active' ? 1 : 0, accountStatus: body.accountStatus, now },
     ...assignmentOps(context, userId, assignments, wanted, primary),
   ]
-  if (employee && staffCode !== (employee.staff_code ?? null)) ops.push({ kind: 'updateEmployee', id: employee.id, staffCode, now })
-  await queries.write(ops, [audit(context, 'UPDATE', 'user', userId, { accountStatus: body.accountStatus, staffCode, roleSetIds: wanted, primaryRoleSetId: primary })])
+  const titleChanged = employee && jobTitle !== undefined && jobTitle !== (employee.job_title?.trim() || null)
+  if (employee && (staffCode !== (employee.staff_code ?? null) || titleChanged)) {
+    ops.push({ kind: 'updateEmployee', id: employee.id, staffCode, ...(titleChanged ? { jobTitle } : {}), now })
+  }
+  if (user.individual_id && isAttorney !== (user.is_attorney === 1)) ops.push({ kind: 'updateAttorney', individualId: user.individual_id, isAttorney: isAttorney ? 1 : 0, now })
+  if (employee) ops.push(...admissionOps(context, employee.id, storedAdmissions, wantedAdmissions))
+  // An account that stops being active is signed out everywhere (new: the old route left its sessions open).
+  const wasActive = user.account_status === 'active' || (user.account_status === null && user.is_active === 1)
+  if (wasActive && body.accountStatus !== 'active') ops.push({ kind: 'endSessions', userId, reason: `account_${body.accountStatus}`, now })
+  await queries.write(ops, [
+    audit(context, 'UPDATE', 'user', userId, {
+      accountStatus: body.accountStatus,
+      staffCode,
+      roleSetIds: wanted,
+      primaryRoleSetId: primary,
+      ...(jobTitle !== undefined ? { jobTitle } : {}),
+      isAttorney,
+      barAdmissions: wantedAdmissions.length,
+    }),
+  ])
   return saved(context, userId, null)
 }
 

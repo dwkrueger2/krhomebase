@@ -7,12 +7,13 @@
  *   POST   /api/v1/role-sets                create a custom role set
  *   PUT    /api/v1/role-sets/{roleSetId}    change a custom role set; the grant lists replace the current ones
  *   DELETE /api/v1/role-sets/{roleSetId}    retire a custom role set and end its assignments
+ *   GET    /api/v1/users                    the users, for the people who hold the chosen role set
  *
  * This site forwards them to the API Worker. Replies are checked against the shared contract; a failure throws
  * `RoleSetsApiError` with a plain sentence for the screen.
  */
 
-import { ErrorEnvelope, RoleSetSavedData, RoleSetsData, successEnvelope, type RoleSetBody } from '@krhomebase/contracts'
+import { ErrorEnvelope, RoleSetSavedData, RoleSetsData, successEnvelope, UsersData, type RoleSetBody, type UserAccount } from '@krhomebase/contracts'
 import type { z } from 'zod'
 import { L } from '@/lib/KRUtilities'
 
@@ -66,6 +67,14 @@ async function send<T extends z.ZodTypeAny>(schema: T, method: 'GET' | 'POST' | 
 /** Reads the active role sets. */
 export function fetchRoleSets(): Promise<RoleSetsData> {
   return send(RoleSetsData, 'GET', '/api/v1/role-sets')
+}
+
+/**
+ * Reads the users, for the list of people who hold the chosen role set (`GET /api/v1/users`, the same super admin
+ * read as Users; each account carries its `roleSetIds`). Only the accounts are returned.
+ */
+export async function fetchRoleSetHolders(): Promise<UserAccount[]> {
+  return (await send(UsersData, 'GET', '/api/v1/users')).users
 }
 
 /** Creates a custom role set (`roleSetId` null) or changes one. */

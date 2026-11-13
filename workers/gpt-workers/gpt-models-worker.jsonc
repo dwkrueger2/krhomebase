@@ -1,15 +1,21 @@
 // Changes from the copy: Cloudflare names and schema path. Database ids are NOT_SET_REVIEW_BEFORE_USE on purpose.
+// Changed Nov 12, 2026 (the requester: "service binding, simplify"): no public address (workers_dev and preview_urls
+// off); the only caller is krhomebase-api through its GPT_WORKER service binding, which sends the shared secret.
+// The RSA transport secrets (GPT_WORKER_PRIVATE_KEY, GPT_SERVER_PUBLIC_KEY) and key ids are gone. See README.md.
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "krhomebase-gpt-models-worker",
   "main": "./gpt-models-worker.ts",
   "compatibility_date": "2026-05-18",
-  "workers_dev": true,
+  "workers_dev": false,
   "preview_urls": false,
+  // GPT_WORKER_SHARED_SECRET: the same value as the API's KR_GPT_WORKER_SECRET.
+  // GPT_CREDENTIAL_ENCRYPTION_KEY: base64 of 32 random bytes; seals provider keys in gpt_llm_credential.
+  // Optional, not listed: GPT_LEGACY_WORKER_PRIVATE_KEY, the old Worker's RSA private key, only to read rows saved by the old Worker.
   "secrets": {
     "required": [
-      "GPT_WORKER_PRIVATE_KEY",
-      "GPT_SERVER_PUBLIC_KEY"
+      "GPT_WORKER_SHARED_SECRET",
+      "GPT_CREDENTIAL_ENCRYPTION_KEY"
     ]
   },
   "d1_databases": [
@@ -21,8 +27,6 @@
   ],
   "vars": {
     "GPT_APPLICATION_ID": "krhomebase",
-    "GPT_SERVER_KEY_ID": "kr-gpt-server-key1.pub",
-    "GPT_WORKER_KEY_ID": "gpt-worker-key1.pub",
     "GPT_GEMINI_PROJECT_ID": "",
     "GPT_GEMINI_ENDPOINT": "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
     "GPT_OPENAI_ENDPOINT": "https://api.openai.com/v1/chat/completions",
@@ -32,18 +36,16 @@
   "env": {
     "dev": {
       "name": "krhomebase-gpt-models-worker-dev",
-      "workers_dev": true,
+      "workers_dev": false,
       "preview_urls": false,
       "secrets": {
         "required": [
-          "GPT_WORKER_PRIVATE_KEY",
-          "GPT_SERVER_PUBLIC_KEY"
+          "GPT_WORKER_SHARED_SECRET",
+          "GPT_CREDENTIAL_ENCRYPTION_KEY"
         ]
       },
       "vars": {
         "GPT_APPLICATION_ID": "krhomebase",
-        "GPT_SERVER_KEY_ID": "kr-gpt-server-key1.pub",
-        "GPT_WORKER_KEY_ID": "gpt-worker-key1.pub",
         "GPT_GEMINI_PROJECT_ID": "",
         "GPT_GEMINI_ENDPOINT": "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
         "GPT_OPENAI_ENDPOINT": "https://api.openai.com/v1/chat/completions",

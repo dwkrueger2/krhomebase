@@ -1,3 +1,4 @@
 # Names of the settings this Worker reads when it runs locally. No values here, ever.
 # Real values are written to a git-ignored .dev.vars file by scripts/Write-DevVars.ps1.
+# See D:\Repos\krhomebase\docs\09_ENV_KeyMappings.md for past environment key mappings and bindings (which key file in private\dev-private-keys holds each value).
 CRUD_WORKER_PRIVATE_KEY=

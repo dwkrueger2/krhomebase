@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.11</small><br>
-<small>Updated Nov 12, 2026 8:02am</small>
+<small>Version 2.13</small><br>
+<small>Updated Nov 13, 2026 9:02am</small>
 
 ## Agent Guide Index
 
@@ -91,7 +91,7 @@ Impeccable (`.claude/skills/impeccable`, run as `/impeccable <command>`) is a de
 2. **Impeccable changes are ordinary code changes.** They follow the styling preflight above, `AGENTS_04` (keep descriptive comments, no rewrites of untouched code) and `AGENTS_05` (`STYLES` and `LAYOUT_STYLES` maps, class order, no new CSS file without an exception, `--kr-theme-*` tokens, no styling through `data-kr-*`), and they advance the version track as `AGENTS_01` requires.
 3. **Keep the target narrow.** Run refinement commands (`polish`, `layout`, `typeset`, `bolder`, `distill`, `quieter`, `overdrive` and the like) on a named component or screen, not on the whole app. A change outside the named target needs the requester's approval first.
 4. **Helper agents get the rules.** When Impeccable starts one of its own agents (for example the documenter, the finish reviewer or the live-mode edit applier), the instructions given to it name this section, `AGENTS_04` and `AGENTS_05`, and tell it to read them before editing.
-5. **Density words mean the Density Contract.** In KR Homebase, Impeccable's words for space ("generous separation", "breathing room", "comfortable", "airy") mean one step up the Density Contract's scale in `apps/web/DESIGN.md` (Layout), never more, and its density setting starts at 0.7 (`apps/web/PRODUCT.md`). A finding or a suggestion that asks for more space than the contract allows is reported, not applied.
+5. **Density words mean the Density Contract.** In KR Homebase, Impeccable's words for space ("generous separation", "breathing room", "comfortable", "airy") mean one step up the Density Contract's scale in `apps/web/DESIGN.md` (Layout), never more. "Usability", "readability" and "accessibility" are not reasons for more space either: in this project usability means dense (`apps/web/PRODUCT.md`, "Accessibility: usability first"), and its density setting starts at 0.7 (`apps/web/PRODUCT.md`). A finding or a suggestion that asks for more space than the contract allows is reported, not applied.
 6. **Design hook findings are advice.** Fix a finding only when it breaks an AGENTS rule or `DESIGN.md`. A finding against an intended pattern is suppressed with the narrowest `ignore-value`, with a reason that names the rule or `DESIGN.md` section, and reported. `ignore-file` and `ignore-rule` need the requester's approval.
 
 ## Current Project Shape
@@ -142,7 +142,9 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 | 3001 | Not used here. The old `apps/kr-homebase` runs on it. | | `pnpm stop:port:3001` |
 | 3000, 3002, 3003 | Not assigned in this repository. Kept from the old repository's scripts. | | `pnpm stop:port:3000`, `:3002`, `:3003` |
 
-- `pnpm stop:ports:all` stops every port in the table.
+- `pnpm stop:ports:all` first runs `stop:dev:servers`, then stops every port in the table.
+- `pnpm stop:dev:servers` (`scripts/stop-dev-servers.windows.ps1`) stops every `wrangler dev` and `vite dev` started from this repository's folder, listening or not. On Windows a server can outlive the terminal or pnpm run that started it; such an orphan starts a new workerd and takes port 8787 back, so the next `pnpm dev` says "Ready" but the API never answers, or vinext refuses to start ("Another vinext dev server is already running"). Run `pnpm stop:ports:all` before `pnpm dev` when either happens.
+- A `stop:port:<number>` script stops the whole dev server tree that owns the listener (the `wrangler dev` or `vite dev` above it), not only the listening process, because wrangler restarts a stopped workerd at once.
 - The stop scripts end whatever process is listening on the port, including a server from the old repository. The old `apps/kr-homebase` uses port 3001 and this repository's web app uses 3011, so both can run at the same time without clashing. `stop:port:3001` ends the old app.
 - Record every new development port in this table in the same change that adds it, with its own `stop:port:<number>` script in the root `package.json`.
 - The scripts call `scripts/stop-dev-port.windows.ps1` (Windows PowerShell). They report when nothing is listening and do not fail.

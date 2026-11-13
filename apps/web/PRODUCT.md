@@ -1,7 +1,7 @@
 # Product
 
-<small>Version 1.1</small><br>
-<small>Updated Nov 12, 2026 8:02am</small>
+<small>Version 1.3</small><br>
+<small>Updated Nov 12, 2026 6:09pm</small>
 
 <!-- impeccable:product-schema 1 -->
 
@@ -48,7 +48,7 @@ It is built for one firm and its own way of working, not as a general product. I
 - **Styling** is Tailwind 4 with component-local `STYLES` and `LAYOUT_STYLES` maps (`AGENTS_05_coding-style-tailwindcss.md`).
 - **Stack:** Next.js 16 on vinext, deployed as a Cloudflare Worker. React 19.
 - **Terms:** "client" is a contact marked as a client with a client number and a status that is not inactive. "Matter", "time and fees", "trust", "register" are the firm's own words; keep them.
-- **Open:** no accessibility standard has been set yet.
+- **Accessibility: usability first** (the requester, Nov 12, 2026). KR Homebase is designed for the people who use it every day, and usability is not the same as accessibility conformance. **Here "usability" means dense: more records and fields in view, less scrolling, fewer clicks, for people who work in the app all day. It never means more padding, more white space or taller rows.** Spacing is fixed by the Density Contract in `DESIGN.md`; a change made "for usability" or "for readability" that adds space must stay within that contract, or it is reported to the requester instead of made. There is no WCAG conformance target. What is kept because it makes the app easier to use: readable text contrast (the personal theme check), a label on every field, buttons and fields reachable by keyboard, and a visible focus ring. Click target sizes follow the Density Contract in `DESIGN.md` (20px icon buttons in rows and toolbars, larger only where a card holds little else), not WCAG 2.5.8. Impeccable's accessibility checks (its audit, its critique persona "Sam") are advice: a finding that asks for a WCAG size or rule against the Density Contract is reported, not applied.
 
 ## Brand Commitments
 

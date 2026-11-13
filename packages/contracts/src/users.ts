@@ -12,6 +12,9 @@
  *   POST   /v1/user-invites/{inviteId}/cancel      cancel a pending invitation (super admin)
  *   DELETE /v1/user-invites/{inviteId}             delete an invitation that is no longer pending (super admin)
  *
+ * Stage 4d-2: the same PUT also saves the professional title, the attorney flag and the bar admissions
+ * (`employee_certification`), and the list carries the person's names, phone and Google sign-in identities.
+ *
  * Old routes: `GET`/`POST`/`PATCH /krhomebase/api/kr-api-v1/users`, `GET`/`PATCH`/`DELETE /krhomebase/api/kr-api-v1/user-invites`
  * and `PUT /krhomebase/api/admin/users/{userId}/role-sets`.
  */
@@ -42,12 +45,37 @@ export const UserInvite = z.object({
 })
 export type UserInvite = z.infer<typeof UserInvite>
 
+export const BAR_ADMISSION_STATUSES = ['active', 'inactive', 'pending', 'expired', 'revoked'] as const
+
+const DateOrEmpty = z.string().trim().regex(/^(\d{4}-\d{2}-\d{2})?$/, 'Use YYYY-MM-DD.')
+
+/** One bar admission (an `employee_certification` row of type law license). */
+export const BarAdmission = z.object({
+  id: z.string().max(100).nullable().describe('Stored id (`cert_<uuid>`); empty for a new admission.'),
+  jurisdiction: z.string().trim().min(1).max(60).describe('Where the person is admitted, such as Texas.'),
+  registrationNumber: z.string().trim().max(60).describe('Bar or admission number; may be blank.'),
+  admittedOn: DateOrEmpty.describe('Admission date (YYYY-MM-DD) or blank.'),
+  expiresOn: DateOrEmpty.describe('Expiration date (YYYY-MM-DD) or blank.'),
+  status: z.enum(BAR_ADMISSION_STATUSES).describe('Active, inactive, pending, expired or revoked.'),
+})
+export type BarAdmission = z.infer<typeof BarAdmission>
+
+/** A sign-in identity linked to the account (Google today). */
+export const UserSsoIdentity = z.object({
+  provider: z.string().describe('google, microsoft, apple, saml or sso.'),
+  email: z.string().describe('The email the provider reports.'),
+  lastLoginAt: z.string().nullable().describe('Last sign-in through this identity.'),
+})
+export type UserSsoIdentity = z.infer<typeof UserSsoIdentity>
+
 export const UserEmployee = z.object({
   id: z.string().describe('Employee id.'),
   employeeNumber: z.string().nullable().describe('Employee number.'),
   staffCode: z.string().nullable().describe('Staff code (up to 4 characters); required while the person holds the Staff role set.'),
   employmentStatus: z.string().describe('Employment status as stored.'),
   isVendor: z.boolean().describe('Paid as a 1099 vendor.'),
+  jobTitle: z.string().nullable().describe('Professional title.'),
+  barAdmissions: z.array(BarAdmission).describe('Bar admissions on file (law licenses).'),
 })
 export type UserEmployee = z.infer<typeof UserEmployee>
 
@@ -56,6 +84,12 @@ export const UserAccount = z.object({
   email: z.string().describe('Sign-in email.'),
   name: z.string().describe('Display name: "First Last (Preferred)", else the email.'),
   individualId: z.string().nullable().describe('The person record, when linked.'),
+  firstName: z.string().nullable().describe('First name of the linked person.'),
+  lastName: z.string().nullable().describe('Last name of the linked person.'),
+  preferredName: z.string().nullable().describe('Preferred name of the linked person.'),
+  phone: z.string().nullable().describe("The person's primary phone, when on file."),
+  isAttorney: z.boolean().describe('The linked person is an attorney (shows Bar Admissions).'),
+  ssoIdentities: z.array(UserSsoIdentity).describe('Sign-in identities linked to the account.'),
   icid: z.string().nullable().describe("The person's ICID code, when set."),
   role: z.string().describe('The single stored role (`user.role`); the role sets below decide access.'),
   accountStatus: z.enum(ACCOUNT_STATUSES).describe('Active, pending (invited, not signed in yet) or deactivated.'),
@@ -108,6 +142,9 @@ export const UpdateUserBody = z.object({
   staffCode: z.string().trim().toUpperCase().max(4).nullable().describe('Staff code for the employee record (up to 4 characters); required with the Staff role set.'),
   roleSetIds: z.array(z.string().trim().min(1).max(100)).max(50).describe('Every role set the person should hold; the rest are ended.'),
   primaryRoleSetId: z.string().trim().min(1).max(100).nullable().describe('The primary role set; must be in the list (empty when the list is).'),
+  jobTitle: z.string().trim().max(120).nullable().optional().describe('Professional title on the employee record; left out keeps it.'),
+  isAttorney: z.boolean().optional().describe('Attorney flag on the person record; turning it off clears the bar admissions. Left out keeps it.'),
+  barAdmissions: z.array(BarAdmission).max(20).optional().describe('Every bar admission the person should have; the rest are cleared. Left out keeps them.'),
 })
 export type UpdateUserBody = z.infer<typeof UpdateUserBody>
 

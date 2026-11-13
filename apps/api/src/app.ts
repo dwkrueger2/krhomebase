@@ -19,6 +19,11 @@ import { registerPublishing } from './features/publishing/routes.ts'
 import { registerTeams } from './features/teams/routes.ts'
 import { registerRoleSets } from './features/role-sets/routes.ts'
 import { registerUsers } from './features/users/routes.ts'
+import { registerFirm } from './features/firm/routes.ts'
+import { registerEmployeeDocuments } from './features/employee-documents/routes.ts'
+import { registerPaymentProviders } from './features/payment-providers/routes.ts'
+import { registerMaintenance } from './features/maintenance/routes.ts'
+import { registerGpt } from './features/gpt/routes.ts'
 import { registerSiteFeedback } from './features/site-feedback/routes.ts'
 
 export const openApiInfo = {
@@ -70,6 +75,11 @@ export function createApp() {
   registerRoleSets(app)
   registerUsers(app)
   registerSiteFeedback(app)
+  registerFirm(app)
+  registerEmployeeDocuments(app)
+  registerPaymentProviders(app)
+  registerMaintenance(app)
+  registerGpt(app)
 
   app.doc31('/v1/openapi.json', openApiInfo)
 

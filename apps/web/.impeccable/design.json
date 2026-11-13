@@ -789,7 +789,7 @@
       },
       {
         "name": "The Density Contract",
-        "body": "Tight means dense, with little vertical padding (the requester, Nov 12, 2026). Spacing scale 1, 2, 3, 4, 6, 8 and 10px; 3px default gap-x; rows of data like the Client Accounting register (10pt, leading-tight, 1px cell padding, about 20px a row); fields 22px to 26px, buttons 24px to 28px; card padding 6px to 8px (10px at most). 'Generous' or 'comfortable' means one step up this scale, never more. Density setting 0.7. Full tables: DESIGN.md, Layout.",
+        "body": "Tight means dense, with little vertical padding (the requester, Nov 12, 2026). Spacing scale 1, 2, 3, 4, 6, 8 and 10px; 3px default gap-x; rows of data like the Client Accounting register (10pt, leading-tight, 1px cell padding, about 20px a row); fields 22px to 26px, buttons 24px to 28px; card padding 6px to 8px (10px at most). 'Generous' or 'comfortable' means one step up this scale, never more. Density setting 0.7. Full tables: DESIGN.md, Layout. \"Usability\", \"readability\" and \"accessibility\" do not license more space: in KR Homebase usability means dense (PRODUCT.md, \"Accessibility: usability first\").",
         "section": "layout"
       },
       {

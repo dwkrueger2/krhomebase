@@ -24,7 +24,6 @@ export type UserSettingsPageId = 'user-settings' | 'dashboard-settings' | 'time-
 
 /** Pages of Application Settings (`?applicationSettingsTab=`). */
 export type ApplicationSettingsPageId =
-  | 'user-management'
   | 'role-specifications'
   | 'team-management'
   | 'outside-tools'
@@ -36,6 +35,8 @@ export type FirmSettingsPageId =
   | 'profile'
   | 'employee-policies'
   | 'employee-documents'
+  | 'users'
+  | 'edit-user'
   | 'data-management'
   | 'gpt-model-gateway'
   | 'stripe-payment-configuration'
@@ -59,12 +60,14 @@ export const USER_SETTINGS_PAGES: readonly SettingsPageDefinition<UserSettingsPa
   { id: 'user-settings', label: 'Preferences', description: 'Theme (light or dark), starting page and auto logout.', stage: null },
   { id: 'dashboard-settings', label: 'Dashboard', description: 'Which widgets show on your Dashboard, and in what order.', stage: null },
   { id: 'time-card', label: 'Time Card', description: 'Opens Attendance on your own time card for the current pay period.', stage: null },
-  { id: 'employee-file', label: 'Employee File', description: 'Your own employee documents, read-only.', stage: 'after stage 5 (Employee Documents)' },
+  { id: 'employee-file', label: 'Employee File', description: 'Your own employee documents.', stage: null },
 ]
 
-/** Application Settings pages, in tab order. The whole area is for super admins. */
+/**
+ * Application Settings pages, in tab order. The whole area is for super admins. Users and Invites moved to Firm
+ * Settings → Users on Nov 12, 2026 (the requester, D7).
+ */
 export const APPLICATION_SETTINGS_PAGES: readonly SettingsPageDefinition<ApplicationSettingsPageId>[] = [
-  { id: 'user-management', label: 'Users and Invites', description: 'Who may sign in to KR Homebase, account status and invitations.', stage: null },
   { id: 'role-specifications', label: 'Role Sets', description: 'Role sets and the permissions each one grants.', stage: null },
   { id: 'team-management', label: 'Teams and Scope', description: 'Team leads and members; team-scoped permissions follow them.', stage: null },
   { id: 'outside-tools', label: 'Outside Tools', description: 'Outside tool servers registered with KR Homebase.', stage: null },
@@ -74,18 +77,27 @@ export const APPLICATION_SETTINGS_PAGES: readonly SettingsPageDefinition<Applica
 
 /** Firm Settings pages, in tab order: the ordinary pages first, then the three IT pages (super admin). */
 export const FIRM_SETTINGS_PAGES: readonly SettingsPageDefinition<FirmSettingsPageId>[] = [
-  { id: 'profile', label: 'Firm Profile', description: 'Firm identity, contact details, offices and matter numbering.', stage: 'stage 5' },
-  { id: 'employee-policies', label: 'Employee Policies', description: 'Clock edit windows, PTO accrual, holiday pay and the holiday calendar.', stage: 'stage 5' },
-  { id: 'employee-documents', label: 'Employee Documents', description: 'Private HR files for each employee (moved here from Application Settings).', stage: 'stage 5' },
-  { id: 'data-management', label: 'Data Import', description: 'Controlled data preparation and bulk contact staging.', stage: 'stage 8', superAdminOnly: true },
-  { id: 'gpt-model-gateway', label: 'GPT Model Gateway', description: 'Provider connections, readiness checks and token-usage reporting.', stage: 'stage 7', superAdminOnly: true },
-  { id: 'stripe-payment-configuration', label: 'Stripe Payment Configuration', description: 'Live and Sandbox Stripe keys (stored encrypted, write-only) and sandbox card/ACH tests.', stage: 'stage 6', superAdminOnly: true },
+  { id: 'profile', label: 'Firm Profile', description: 'Firm identity, contact details, offices and matter numbering.', stage: null },
+  { id: 'employee-policies', label: 'Employee Policies', description: 'Clock edit windows, PTO accrual, holiday pay and the holiday calendar.', stage: null },
+  { id: 'employee-documents', label: 'Employee Documents', description: 'Private HR files for each employee (moved here from Application Settings).', stage: null },
+  { id: 'users', label: 'Users', description: 'Who may sign in, their status, role sets, invitations and employee files (moved here from Application Settings).', stage: null, superAdminOnly: true },
+  { id: 'data-management', label: 'Data Import', description: 'Controlled data preparation and bulk contact staging.', stage: null, superAdminOnly: true },
+  { id: 'gpt-model-gateway', label: 'GPT Model Gateway', description: 'Provider connections, readiness checks and token-usage reporting.', stage: null, superAdminOnly: true },
+  { id: 'stripe-payment-configuration', label: 'Stripe Payment Configuration', description: 'Live and Sandbox Stripe keys (stored encrypted, write-only) and sandbox card/ACH tests.', stage: null, superAdminOnly: true },
 ]
+
+/**
+ * The Firm Settings tab that opens beside Users when a user's pencil is clicked; its label is "Edit Employee" or
+ * "Edit User" (`FirmSettingsPanel` adds it while one is open).
+ */
+export const EDIT_USER_PAGE: SettingsPageDefinition<FirmSettingsPageId> = { id: 'edit-user', label: 'Edit User', description: 'One user or employee.', stage: null, superAdminOnly: true }
 
 /** Old Firm Settings address values that now mean another page. */
 export const FIRM_SETTINGS_ALIASES: Readonly<Record<string, FirmSettingsPageId>> = {
   // The old app's earlier name for the Stripe page.
   'stripe-dev-tests': 'stripe-payment-configuration',
+  // Application Settings' old Users and Invites tab name.
+  'user-management': 'users',
 }
 
 /**

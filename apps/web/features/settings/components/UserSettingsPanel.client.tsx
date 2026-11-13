@@ -23,13 +23,16 @@ export interface UserSettingsPanelProps {
   preferencesPage?: ReactNode
   /** The finished Dashboard widgets page (`features/preferences`). */
   dashboardPage?: ReactNode
+  /** The Employee File page: the signed-in person's own employee documents (`features/employee-documents`). */
+  employeeFilePage?: ReactNode
 }
 
-export default function UserSettingsPanel({ preferencesPage, dashboardPage }: UserSettingsPanelProps) {
+export default function UserSettingsPanel({ preferencesPage, dashboardPage, employeeFilePage }: UserSettingsPanelProps) {
   const builtPages: Partial<Record<UserSettingsPageId, ReactNode>> = {
     ...(preferencesPage ? { 'user-settings': preferencesPage } : {}),
     ...(dashboardPage ? { 'dashboard-settings': dashboardPage } : {}),
     'time-card': <TimeCardPage />,
+    ...(employeeFilePage ? { 'employee-file': employeeFilePage } : {}),
   }
   return <SettingsAreaFrame ariaLabel="User Settings pages" builtPages={builtPages} krId="UserSettingsPanel" pages={USER_SETTINGS_PAGES} />
 }

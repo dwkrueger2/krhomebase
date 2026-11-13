@@ -1,7 +1,7 @@
 # Settings and Dashboard Port Plan
 
-<small>Version 1.6</small><br>
-<small>Updated Nov 12, 2026 8:24am</small>
+<small>Version 1.8</small><br>
+<small>Updated Nov 12, 2026 5:48pm</small>
 
 This plan covers the Settings tab (User, Application and Firm Settings) and the Dashboard with its widgets. It records what exists today, the requester's direction, a recommended structure, the stages, and the decisions that belong to the requester. Nothing in it is built yet. It follows the same pattern as `06_Contacts_Billing_Port_Plan.md` (roadmap phase D: Dashboard, Settings) and `07_Attendance_Port_Plan.md`.
 
@@ -287,3 +287,35 @@ Stage 4 is split so each part can be checked on its own: **4a** Other Configurat
 - **4d-2, not built yet:** the contact header and photo of the user editor, Bar Admissions (`employee_certification`), and the Security, Notifications and Danger zone tabs (placeholders in the old app).
 - **Checked in the browser (account 001), nothing saved:** Role Sets lists the 12 live role sets; the custom role set opens as an editor; rows measure 19.7px with 1px padding; nothing scrolls sideways at 1615px or 768px. Users and Invites lists the 3 live users; your own status is locked. No user, role set or invitation was created, changed or sent.
 - **Next:** 4d-2, then stage 5 (Firm Settings).
+
+## 20. Stages 4d-2, 5 and 6 results (Nov 12, 2026, API patch 21 and web patch 528)
+
+The requester asked for 4d-2 and stages 5 to 9 without a stop for each stage, and answered two decisions on Nov 12: Employee Documents binds the old app's R2 bucket `kr-homebase-employee-storage`; the GPT Worker is reached by a service binding and changed to trust a shared secret from the API instead of the RSA command envelope ("simplify").
+
+- **4d-2 user editor:** the old five tabs (Individual, Security, Roles, Notifications, Danger zone) under a header with the initials, names, phone and ICID; Edit User Contact Details opens the person under Clients & Contacts. Individual adds Professional title, the Attorney tick box and Bar Admissions (`employee_certification`, law license; register rows with fields in the cells). Security lists the real sign-in identities and keeps the MFA "Coming Soon!" box; Notifications stays the old placeholder; Deactivate works (it asks first, and the account's open sessions end). The photo waits for the media storage work.
+- **Stage 5 Firm Profile and Employee Policies:** `packages/contracts/src/firm.ts` (shapes, defaults, the old error sentences shared by the screen and the API), API `src/features/firm/` (`GET` for anyone signed in, `PUT` for a super admin, `lookup` rows `lk_kr_firm_locations_profile` and `lk_kr_employee_policies`, the firm entity's legal name), screens `features/firm/`. Policies are read field by field, as Attendance reads them; decimals can be typed; the holiday observation column is the current year.
+- **Stage 5 Employee Documents:** `packages/contracts/src/employeeDocuments.ts`, API `src/features/employee-documents/` (list, multipart upload, the file inline; scoped grant `employee_documents` own/team/all), screen `features/employee-documents/`, R2 binding `EMPLOYEE_STORAGE`. Found: the old route wrote `purpose 'employee_document'`, `storage_type 'r2'` and `source 'employee_documents'`, which the CHECK rules refuse, so the old app never stored a document; the port uses `employee_file`, `r2_object` and `employee`.
+- **Stage 6 Stripe Payment Configuration:** ported exactly (a stated variation) by `features/payment-providers/` on both sides; `src/platform/stripeApi.ts`; encryption byte-compatible with the pay Worker. Needs the API secret `KR_PAYMENT_PROVIDER_KEK` (the pay Worker's value).
+- **Stage 7 GPT Model Gateway:** `packages/contracts/src/gpt.ts`, API `src/features/gpt/` with `src/platform/gptWorkerClient.ts`, screens `features/gpt/`. The GPT models Worker (`workers/gpt-workers/`) was changed as the requester chose ("simplify"): it trusts the API's shared secret (`Authorization: Bearer`, `GPT_WORKER_SHARED_SECRET` / `KR_GPT_WORKER_SECRET`) instead of the RSA signed and sealed commands, has no public address, and seals provider keys at rest with `GPT_CREDENTIAL_ENCRYPTION_KEY` (old rows read only with the optional `GPT_LEGACY_WORKER_PRIVATE_KEY`). Not deployed: the database id is still to be chosen, and the API binding is a commented block in `kr-api-wrangler.jsonc`; until then the page says "GPT Model Gateway cannot be reached right now".
+- **Stage 8 Data Import:** `packages/contracts/src/maintenance.ts`, API `src/features/maintenance/` (`GET`/`PUT /v1/maintenance-gate`, exempt from the write gate), screens `features/data-import/` and the help document `docs/help-docs/001-contact-entity-trust-import-jsonc-instructions.md`. Contacts are created one at a time through `POST /v1/contacts`, which saves the identity, email and phone only (an entity's status, formation state and EIN in the file are checked but not saved, as before for addresses). Lead rows wait for the Leads port; the matter import stays disabled.
+- **Stage 9 Impeccable critique of Firm Settings (Firm Profile, Employee Policies, Employee Documents):** 23/40; two P1 (unsaved drafts lost on a tab switch, save results far from Save) and three P2 (locked fields for people who cannot edit, Density Contract misses, tables clipping on narrow screens). Saved at `.impeccable/critique/2026-11-12T21-33-27Z__irm-components-firmprofilecard-client-tsx-bcd55bfa.md`. The fixes are in section 21.
+
+## 21. The requester's decisions after the critique (Nov 12, 2026, API patch 21 and web patch 528)
+
+| # | Comment | Decision | Done |
+|---|---|---|---|
+| D1 | 20px icon buttons against the 24px accessibility target | 20px icon buttons by default; 24px where a card holds little else (a Settings choice card). Design for usability, which is not the same as accessibility; the requester asked where the accessibility guidance comes from (the Impeccable skill's audit and critique references, not a project rule). On the requester's yes, `apps/web/PRODUCT.md` 1.2 records "Accessibility: usability first": no WCAG target; Impeccable's accessibility findings are advice. | Recorded in DESIGN.md (Density Contract). |
+| D2 | DESIGN.md and the dialog button sizes | A decision dialog (Yes, No, OK, Cancel) is less dense, with bigger buttons; a dialog with many fields (the contact editor) stays dense. | DESIGN.md (Density Contract, Dialogs). |
+| D3 | Holidays in the order added | List holidays in the order they fall in the year. | `sortHolidays`; saves keep date order. |
+| D4 | Number columns | Center the heading over number values (usually money). | DESIGN.md; PTO, Holiday Pay, the users list's Employee # and the document sizes. |
+| D5 | Loading text and ellipses | Use the rainbow spinner, and write "..." | DESIGN.md; the Settings pages of this port (the Stripe page kept as ported). |
+| D6 | Holiday pay date | Holiday pay is paid in the pay period whose dates include the holiday's calendar date. | The Observation column shows the calendar date (unchanged). |
+| D7 | Employee Documents and users | Employee File in User Settings shows the person's own `IndividualSummaryDetails` card and their documents. Users moves from Application Settings to Firm Settings → Users: the dense list with a pencil per row; the pencil opens an "Edit Employee" or "Edit User" tab with the old `IndividualSummaryDetails` card, the account tabs, and the employee's documents in Employment details. | Built (web patch 528). |
+| D8 | Copying the firm's details | Anyone may copy the firm's phone, email and address; only a super admin may change them. | Read-only (not disabled) fields for others. |
+| D9 | Switching employee | (Explained: a slow reply for an earlier choice could replace a newer one.) | The card ignores stale replies and shows the spinner. |
+| D10 | Wording for people who rarely open Settings | Clarify while the user and employee paths are tested. | The documents note and empty sentences rewritten; the matter number pattern and Multiplier have tooltips. |
+
+Also from the requester: the Holiday Calendar's wastebasket asks first and a holiday change saves at once with the spinner (a removal only changed the draft before).
+
+Found while checking as the attorney test account: no role set grants `employee_documents` (own, team or all) except Super Admin, so Employee File and Employee Documents show "You do not have access" to everyone else until a role set grants it (Application Settings → Role Sets).
+

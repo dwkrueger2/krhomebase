@@ -12,7 +12,16 @@
  * API refuses that screen's calls from anyone else, so hiding it here is a convenience, not the protection.
  * For a super admin it also places Other Configuration's cards (the themes feature's `FirmThemeEditor`, given the firm
  * themes read here, and the publishing feature's `ArticlePromptCard`; stage 4a) and the teams feature's `TeamsCard` as
- * the Teams and Scope page (stage 4b), the role-sets feature's `RoleSetsCard` as Role Sets (stage 4c), the users feature's `UsersAndInvitesPage` as Users and Invites (stage 4d), and the feedback feature's `SiteFeedbackPage` as Web Site Feedback (stage 4e).
+ * the Teams and Scope page (stage 4b), the role-sets feature's `RoleSetsCard` as Role Sets (stage 4c) and the feedback feature's `SiteFeedbackPage` as Web Site Feedback (stage 4e).
+ * For everyone it places the firm feature's `FirmProfileCard` and `EmployeePoliciesCard` as Firm Settings' Firm Profile
+ * and Employee Policies pages, the employee-documents feature's `EmployeeDocumentsCard` (whose documents each person
+ * sees is the API's scoped grant) (stage 5; only a super admin may change them, which the API enforces), and for a super
+ * admin the payment-providers feature's `StripePaymentConfigurationPage` (stage 6), the gpt feature's
+ * `GptModelGatewayPage` (stage 7) and the data-import feature's `DataImportPage` (stage 8).
+ * Users moved to Firm Settings (Nov 12, 2026, D7): for a super admin, the users feature's `UsersAndInvitesPage` is the
+ * Users page and `UserEditPage` the Edit Employee / Edit User tab, given the contacts feature's `PersonSummaryCard`
+ * and an `EmployeeDocumentsCard` in employee mode as elements (they read whose records from the page's context).
+ * User Settings → Employee File is the person's own `PersonSummaryCard` (by the session's sign-in email) above `EmployeeDocumentsCard` in mine mode.
  * It reads the person's preferences (`features/preferences/preferences.server.ts`) and places `PreferencesProvider`
  * around the frame, so the first draw already has their theme, auto logout time and starting section, and passes the
  * Preferences page to User Settings.
@@ -51,11 +60,19 @@ import ArticlePromptCard from '@/features/publishing/components/ArticlePromptCar
 import TeamsCard from '@/features/teams/components/TeamsCard.client'
 import RoleSetsCard from '@/features/role-sets/components/RoleSetsCard.client'
 import UsersAndInvitesPage from '@/features/users/components/UsersAndInvitesPage.client'
+import UserEditPage from '@/features/users/components/UserEditPage.client'
+import PersonSummaryCard from '@/features/contacts/components/PersonSummaryCard.client'
 import SiteFeedbackPage from '@/features/feedback/components/SiteFeedbackPage.client'
 import FrontEndPublishingPanel from '@/features/publishing/components/FrontEndPublishingPanel.client'
 import ReportsPanel from '@/features/reports/components/ReportsPanel.client'
 import ApplicationSettingsPanel from '@/features/settings/components/ApplicationSettingsPanel.client'
 import FirmSettingsPanel from '@/features/settings/components/FirmSettingsPanel.client'
+import EmployeePoliciesCard from '@/features/firm/components/EmployeePoliciesCard.client'
+import FirmProfileCard from '@/features/firm/components/FirmProfileCard.client'
+import EmployeeDocumentsCard from '@/features/employee-documents/components/EmployeeDocumentsCard.client'
+import { StripePaymentConfigurationPage } from '@/features/payment-providers/components/StripePaymentConfigurationPage.client'
+import { GptModelGatewayPage } from '@/features/gpt/components/GptModelGatewayPage.client'
+import { DataImportPage } from '@/features/data-import/components/DataImportPage.client'
 import SettingsPanel from '@/features/settings/components/SettingsPanel.client'
 import UserSettingsPanel from '@/features/settings/components/UserSettingsPanel.client'
 import TasksPanel from '@/features/tasks/components/TasksPanel.client'
@@ -88,6 +105,11 @@ const PANELS: Record<BuiltInSectionId, ReactNode> = {
   'firm-settings': <FirmSettingsPanel />,
 }
 
+const LAYOUT_STYLES = {
+  /** User Settings → Employee File: the person's own card above their documents. */
+  employeeFile: 'gap-[8px] grid',
+} as const
+
 /** Version text under the product name, read from apps/web/package.json (for example `v1.1.5 p501`). */
 const VERSION_LABEL = `v${packageJson.version} p${packageJson.patchNum}`
 
@@ -114,7 +136,6 @@ export default async function HomePage() {
         outsideTools={isSuperAdmin ? <OutsideToolsAdmin /> : undefined}
         teams={isSuperAdmin ? <TeamsCard /> : undefined}
         roleSets={isSuperAdmin ? <RoleSetsCard /> : undefined}
-        users={isSuperAdmin ? <UsersAndInvitesPage /> : undefined}
         siteFeedback={isSuperAdmin ? <SiteFeedbackPage /> : undefined}
         otherConfiguration={
           isSuperAdmin ? (
@@ -126,11 +147,29 @@ export default async function HomePage() {
         }
       />
     ),
-    'firm-settings': <FirmSettingsPanel isSuperAdmin={isSuperAdmin} />,
+    'firm-settings': (
+      <FirmSettingsPanel
+        employeePolicies={<EmployeePoliciesCard />}
+        isSuperAdmin={isSuperAdmin}
+        profile={<FirmProfileCard />}
+        employeeDocuments={<EmployeeDocumentsCard />}
+        users={isSuperAdmin ? <UsersAndInvitesPage /> : undefined}
+        userEdit={isSuperAdmin ? <UserEditPage employeeDocuments={<EmployeeDocumentsCard mode="employee" />} personSummary={<PersonSummaryCard />} /> : undefined}
+        stripePaymentConfiguration={isSuperAdmin ? <StripePaymentConfigurationPage /> : undefined}
+        gptModelGateway={isSuperAdmin ? <GptModelGatewayPage /> : undefined}
+        dataManagement={isSuperAdmin ? <DataImportPage /> : undefined}
+      />
+    ),
     'user-settings': (
       <UserSettingsPanel
         preferencesPage={<PreferencesPage />}
         dashboardPage={<DashboardPreferencesPage widgets={DASHBOARD_WIDGETS.map((widget) => widget.definition)} />}
+        employeeFilePage={
+          <div className={LAYOUT_STYLES.employeeFile} data-kr-element="employee-file-page">
+            <PersonSummaryCard loginEmail={session.email} />
+            <EmployeeDocumentsCard mode="mine" />
+          </div>
+        }
       />
     ),
   }
