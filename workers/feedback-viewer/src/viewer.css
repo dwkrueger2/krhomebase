@@ -71,3 +71,27 @@ button:disabled { cursor: default; opacity: 0.6; }
 .notice { margin: 4px 0 8px; padding: 4px 8px; border: 1px solid var(--kr-theme-line, #d6dde6); border-radius: 3px; }
 .notice.bad { border-color: var(--kr-theme-danger, #b3261e); color: var(--kr-theme-danger, #b3261e); }
 .notice.good { border-color: var(--kr-theme-success, #1e7d32); color: var(--kr-theme-success, #1e7d32); }
+
+/*
+ * Busy signal: the KR Homebase rainbow ring (its RainbowBusySpinner), drawn with this tool's own CSS because an outside
+ * tool cannot use KR Homebase's components. A conic rainbow with a hole the color of the page, turning once a second.
+ */
+.busy { display: inline-flex; gap: 6px; align-items: center; color: var(--kr-theme-text-muted, #5f6368); }
+.busy-ring {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: conic-gradient(#ff0000, #ff9900, #ffff00, #00cc00, #0066ff, #6600cc, #ff0000);
+  animation: busy-turn 1s linear infinite;
+}
+.busy-ring::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--kr-theme-card-surface, #ffffff);
+}
+@keyframes busy-turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .busy-ring { animation-duration: 3s; } }

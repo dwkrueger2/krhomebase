@@ -29,6 +29,7 @@ import {
 const BASE = 'https://homebase.example.com/'
 
 const TOOL: ToolMenuItem = {
+  iconSvg: null,
   clientId: 'krt_TestToolTestToolTest',
   label: 'Intake Helper',
   description: 'Checks intake forms.',

@@ -12,7 +12,10 @@
  * outside, and the frame below it; (2) once the frame exists, start the host side of the bridge
  * (`attachToolHost`) on the window that holds the frame: the main window, or the pop-out window; (3) while
  * the tool says it has unsaved work, ask the browser to warn before that window closes or reloads, and tell
- * the parent through `onDirtyChange`.
+ * the parent through `onDirtyChange`; (4) at the same time, without holding up the frame, ask the API whether the
+ * tool answers its health address (`fetchToolHealth`; every tool must, per the tool kit). When it does not, the
+ * frame is replaced by a notice that names the problem, with Try again and Open anyway. A health check that could
+ * not be made (no answer from the API) or a local address (`not_checked`) leaves the frame in place.
  *
  * Each time the tool moves between the workspace and a pop-out, React draws a new frame, so the tool page
  * loads again. The tool kit's guide tells developers to save often for this reason.
@@ -21,7 +24,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DisplayMode } from '@krhomebase/tool-sdk/types'
 import { attachToolHost, collectTheme } from '@/components/shell/toolHost'
-import { relayToolRequest } from '@/lib/toolRelay'
+import type { ToolHealthData } from '@krhomebase/contracts'
+import { fetchToolHealth, relayToolRequest } from '@/lib/toolRelay'
 
 export interface ExternalToolFrameProps {
   /** The tool's client id, sent with every API call it makes. */
@@ -49,12 +53,22 @@ const LAYOUT_STYLES = {
   wrapperWindow: 'h-dvh',
   caption: 'h-[22px] gap-[6px] px-[8px] flex shrink-0 items-center',
   frame: 'min-h-0 w-full flex-1',
+  notice: 'gap-[6px] p-[8px] m-[8px] flex flex-col items-start',
+  noticeActions: 'gap-[6px] flex',
 } as const
 
 const STYLES = {
   caption: 'border-b border-(--kr-theme-line) bg-(--kr-theme-muted-surface) text-[length:var(--kr-theme-font-size-small)] text-(color:--kr-theme-text-muted)',
   captionOrigin: 'truncate font-semibold',
   frame: 'block border-0 bg-(--kr-theme-card-surface)',
+  notice: 'max-w-[640px] rounded-[3px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) text-[length:var(--kr-theme-font-size-base)] leading-tight text-(color:--kr-theme-text)',
+  noticeTitle: 'm-0 text-[13px] font-semibold',
+  noticeText: 'm-0 text-(color:--kr-theme-text-muted)',
+  noticeAddress: 'm-0 font-mono text-[11px] text-(color:--kr-theme-text-muted)',
+  button: 'px-[8px] py-[3px] rounded-[2px] border cursor-pointer text-[12px] font-semibold disabled:cursor-wait disabled:opacity-65',
+  buttonMain: 'border-(--kr-theme-button-primary-background) bg-(--kr-theme-button-primary-background) text-(color:--kr-theme-text-inverse)',
+  buttonQuiet: 'border-(--kr-theme-line) bg-transparent text-(color:--kr-theme-text)',
+  checking: 'text-(color:--kr-theme-text-muted)',
   // b1: ' border-red-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
   // b2: ' border-blue-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
 } as const
@@ -71,6 +85,13 @@ const STYLES = {
 export default function ExternalToolFrame({ clientId, label, origin, entryUrl, mode, fillWindow = false, onDirtyChange }: ExternalToolFrameProps) {
   const frameRef = useRef<HTMLIFrameElement>(null)
   const [dirty, setDirty] = useState(false)
+  // Stage 4: the health check. `health` is the last result; `checking` while one is on its way; `openAnyway` once
+  // the person chose to load a tool that failed.
+  const [health, setHealth] = useState<ToolHealthData | null>(null)
+  const [checking, setChecking] = useState(true)
+  const [openAnyway, setOpenAnyway] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+  const showNotice = health?.state === 'failed' && !openAnyway
   // Keeps the latest callback without restarting the bridge, which would make the tool reconnect.
   const onDirtyRef = useRef(onDirtyChange)
   useEffect(() => {
@@ -99,7 +120,22 @@ export default function ExternalToolFrame({ clientId, label, origin, entryUrl, m
       stop()
       onDirtyRef.current?.(false)
     }
-  }, [clientId, origin, mode])
+    // showNotice: the frame is removed while the notice shows, so the bridge starts again when it comes back.
+  }, [clientId, origin, mode, showNotice])
+
+  // Stage 4: ask whether the tool answers its health address, without waiting before drawing the frame.
+  useEffect(() => {
+    let current = true
+    setChecking(true)
+    void fetchToolHealth(clientId).then((result) => {
+      if (!current) return
+      setHealth(result)
+      setChecking(false)
+    })
+    return () => {
+      current = false
+    }
+  }, [clientId, attempt])
 
   // Stage 3: warn before the holding window closes or reloads while the tool has unsaved work.
   useEffect(() => {
@@ -121,9 +157,27 @@ export default function ExternalToolFrame({ clientId, label, origin, entryUrl, m
         <span>Outside tool from</span>
         <span className={STYLES.captionOrigin}>{origin}</span>
         {dirty && <span data-kr-element="external-tool-unsaved">(unsaved changes)</span>}
+        {checking && <span className={STYLES.checking} data-kr-element="external-tool-health-checking">checking...</span>}
       </div>
 
-      {/* Tool frame: the tool's own page, sealed off from this one */}
+      {showNotice ? (
+        /* Health notice: the tool did not answer its health address, so it is not loaded */
+        <div className={`${LAYOUT_STYLES.notice} ${STYLES.notice}`} role="alert" data-kr-element="external-tool-health-notice">
+          <p className={STYLES.noticeTitle}>{label} is not answering</p>
+          <p className={STYLES.noticeText}>{health?.problem ?? 'The tool did not answer its health address.'} Tell the developer of the tool, or try again later.</p>
+          <p className={STYLES.noticeAddress}>{health?.address}</p>
+          {/* Notice actions */}
+          <div className={LAYOUT_STYLES.noticeActions}>
+            <button type="button" className={`${STYLES.button} ${STYLES.buttonMain}`} disabled={checking} onClick={() => setAttempt((value) => value + 1)}>
+              Try again
+            </button>
+            <button type="button" className={`${STYLES.button} ${STYLES.buttonQuiet}`} onClick={() => setOpenAnyway(true)}>
+              Open anyway
+            </button>
+          </div>
+        </div>
+      ) : (
+      /* Tool frame: the tool's own page, sealed off from this one */
       <iframe
         ref={frameRef}
         className={`${LAYOUT_STYLES.frame} ${STYLES.frame}`}
@@ -134,6 +188,7 @@ export default function ExternalToolFrame({ clientId, label, origin, entryUrl, m
         referrerPolicy="no-referrer"
         data-kr-element="external-tool-frame"
       />
+      )}
     </div>
   )
 }

@@ -1,0 +1,43 @@
+# file: scripts/Deploy-Krhomebase-ps1-ignore.txt
+#
+# Uncommitted files that do not stop scripts/Deploy-Krhomebase.ps1 (pnpm deploy:hot, deploy:warn). These files are not
+# part of what the deploy builds (the API in apps/api and the web app in apps/web, with packages/contracts and
+# packages/tool-sdk), so a change to them cannot make the deployed build differ from the last commit.
+#
+# Rules:
+#  - One pattern per line. Lines starting with # and empty lines are skipped.
+#  - Paths are relative to the repository root, with forward slashes, as `git status` writes them.
+#  - PowerShell -like wildcards, not case sensitive: * is any run of characters, including /, so docs/* covers every
+#    file under docs, and *.md covers every Markdown file in every folder. ? is one character.
+#  - Add a pattern only when no build reads those files. When in doubt, leave it out: the script then stops, and
+#    -AllowDirty is still there for a deliberate deploy of uncommitted code.
+
+# Documents and guides (no build imports Markdown; checked Nov 14, 2026)
+*.md
+docs/*
+
+# Agent, editor and design-tool settings
+.claude/*
+.idea/*
+.vscode/*
+*/.impeccable/*
+
+# Tests (vitest only; not bundled into either Worker)
+*.test.ts
+*.test.tsx
+apps/api/test/*
+
+# The generated API reference file (the API serves GET /v1/openapi.json from its route declarations, not from this file;
+# only the contract test reads it)
+apps/api/openapi/*
+
+# Helper scripts, including this deploy script and this list (run on this computer, not deployed)
+scripts/*
+
+# Workers deployed on their own commands (pnpm deploy:feedback-viewer, deploy:pay, deploy:public-article and so on)
+workers/*
+
+# Local data and deploy state (normally git-ignored as well)
+feedback-cache/*
+deploy-state/*
+snapshots/*

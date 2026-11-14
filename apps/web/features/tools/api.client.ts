@@ -11,6 +11,7 @@ import {
   ToolAuditData,
   ToolCreatedData,
   ToolDeletedData,
+  ToolHealthData,
   ToolListData,
   ToolRegistrationData,
   ToolSecretData,
@@ -76,3 +77,7 @@ export const rotateToolSecret = (toolId: string, keepPreviousForHours: number) =
   callTools(`/v1/tools/registrations/${encodeURIComponent(toolId)}/secret`, ToolSecretData, { method: 'POST', body: { keepPreviousForHours } })
 
 export const fetchToolAudit = (toolId: string) => callTools(`/v1/tools/registrations/${encodeURIComponent(toolId)}/audit`, ToolAuditData)
+
+/** Reads a tool address's health route (`GET <origin>/health-check`) and icon route (`/tool-icon.svg`) through the API, with the raw answer. */
+export const checkToolAddressHealth = (entryUrl: string, name?: string) =>
+  callTools('/v1/tools/registrations/health-check', ToolHealthData, { method: 'POST', body: { entryUrl, ...(name ? { name } : {}) } })

@@ -8,6 +8,11 @@
  * asks (KR Homebase `docs/05_Outside_Tools.md`, section 3, point 6). `http://localhost:3011` is a KR Homebase
  * developer's local copy; the deployed page refuses to be framed there (`public/_headers`), so it matters only while
  * testing with `pnpm --dir workers/feedback-viewer run dev`.
+ *
+ * Every tool answers its health route, `<origin>/health-check` (kit: `healthDocument`, `TOOL_HEALTH_PATH`), and serves
+ * its icon at `<origin>/tool-icon.svg` (`TOOL_ICON_PATH`). This tool serves both as static files, `public/health-check`
+ * and `public/tool-icon.svg`; `src/tool.test.ts` checks the first equals `healthDocument(tool)` and the second passes
+ * `checkToolIcon`.
  */
 
 import { defineTool } from '@krhomebase/tool-sdk/manifest'
@@ -16,9 +21,13 @@ export const tool = defineTool({
   name: 'homebase-feedback-viewer',
   label: 'Feedback Viewer',
   description: 'Lists the numbered Homebase Feedback requests (FB-0012) for Internal Developers: read, triage, add notes, copy for Claude.',
-  icon: 'communications',
+  // The tool's own icon is the file public/tool-icon.svg, served at /tool-icon.svg (the kit's rules); KR Homebase
+  // reads it when the tool is saved. No built-in fallback is named, so KR Homebase's default (the orange diamond) is it.
+  version: '1.1.0',
   entryUrl: 'https://krhomebase-feedback-viewer.dankrueger.workers.dev/',
   hostOrigins: ['https://krhomebase.com', 'http://localhost:3011'],
   scopes: ['homebase-feedback:read', 'homebase-feedback:write'],
+  // A person holding any one of these roles sees the tool; the Internal Developer role set is the real limit.
+  roles: ['super_admin', 'attorney', 'paralegal', 'staff'],
   serverAccess: false,
 })

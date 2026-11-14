@@ -13,6 +13,10 @@
  *
  * This component owns all the screen's state. Menu changes appear for other people when they next load KR
  * Homebase; the tool list in the menu is read once per page load.
+ *
+ * Tightened to the Density Contract (DESIGN.md, Nov 14, 2026, web patch 544): one-line header (the guide reference
+ * moved into the title's tooltip), 8px card padding, register rows with 1px cell padding and 12px text, an uppercase
+ * heading row, 20px row buttons. The Tool column shows the menu icon (the tool's own SVG icon when it has one).
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -23,6 +27,8 @@ import { createTool, deleteTool, fetchToolAudit, listTools, rotateToolSecret, up
 import ToolAuditList from '@/features/tools/components/ToolAuditList.client'
 import ToolRegistrationForm from '@/features/tools/components/ToolRegistrationForm.client'
 import ToolSecretNotice from '@/features/tools/components/ToolSecretNotice.client'
+import KRHomebaseIcon from '@/components/ui/KRHomebaseIcon.client'
+import ToolSvgIcon from '@/components/ui/ToolSvgIcon.client'
 
 /** A secret to show once. */
 interface SecretToShow {
@@ -36,26 +42,30 @@ interface SecretToShow {
 type PendingConfirm = { kind: 'delete'; tool: ToolRegistration } | { kind: 'rotate'; tool: ToolRegistration }
 
 const LAYOUT_STYLES = {
-  screen: 'mx-[8px] my-[12px] lg:mx-auto md:my-[16px] max-w-[1100px] gap-[8px] flex flex-col',
-  head: 'gap-[8px] flex flex-wrap items-center justify-between',
-  scroller: 'overflow-x-auto',
-  cell: 'px-[6px] py-[5px]',
-  actions: 'gap-[4px] flex flex-wrap',
+  screen: 'mx-[8px] my-[6px] lg:mx-auto max-w-[1100px] gap-[6px] flex flex-col',
+  head: 'gap-[6px] px-[8px] py-[4px] flex items-center justify-between',
+  scroller: 'p-[8px] overflow-x-auto',
+  cell: 'px-[6px] py-[1px]',
+  headCell: 'px-[6px] py-[3px]',
+  toolCell: 'gap-[6px] flex items-center',
+  actions: 'gap-[3px] flex flex-wrap',
   overlap: 'mt-[6px] gap-[6px] flex items-center',
 } as const
 
 const STYLES = {
-  card: 'rounded-[3px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) p-[10px]',
-  title: 'm-0 text-[length:var(--kr-theme-font-size-bigger)] font-semibold text-(color:--kr-theme-text)',
-  text: 'm-0 text-[length:var(--kr-theme-font-size-base)] text-(color:--kr-theme-text-muted)',
-  error: 'm-0 text-[length:var(--kr-theme-font-size-base)] text-(color:--kr-theme-danger)',
-  table: 'w-full border-collapse text-[12.5px]',
-  th: 'text-left font-semibold bg-(--kr-theme-table-heading-light) border-b border-(--kr-theme-line)',
-  td: 'border-b border-(--kr-theme-line) align-top',
-  mono: 'font-mono text-[11.5px]',
-  badgeOn: 'px-[6px] py-[1px] rounded-[2px] bg-(--kr-theme-success)/15 text-(color:--kr-theme-success) font-semibold',
-  badgeOff: 'px-[6px] py-[1px] rounded-[2px] bg-(--kr-theme-muted-surface) text-(color:--kr-theme-text-muted) font-semibold',
-  button: 'px-[8px] py-[4px] rounded-[3px] border cursor-pointer text-[12px] disabled:cursor-wait disabled:opacity-65',
+  card: 'rounded-[3px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface)',
+  title: 'm-0 text-[14px] leading-tight font-semibold text-(color:--kr-theme-text)',
+  text: 'm-0 text-[12px] leading-tight text-(color:--kr-theme-text-muted)',
+  error: 'm-0 text-[12px] leading-tight text-(color:--kr-theme-danger)',
+  table: 'w-full border-collapse text-[12px] leading-tight',
+  th: 'text-left text-[10.5px] font-semibold uppercase tracking-[0.045em] text-(color:--kr-theme-text-muted) bg-(--kr-theme-table-heading-light) border-b border-(--kr-theme-line)',
+  td: 'border-b border-(--kr-theme-line) align-middle',
+  toolIcon: 'size-[18px] shrink-0 text-(color:--kr-theme-text)',
+  mono: 'font-mono text-[11px]',
+  badgeOn: 'px-[5px] rounded-[2px] bg-(--kr-theme-success)/15 text-[11px] text-(color:--kr-theme-success) font-semibold',
+  badgeOff: 'px-[5px] rounded-[2px] bg-(--kr-theme-muted-surface) text-[11px] text-(color:--kr-theme-text-muted) font-semibold',
+  headButton: 'h-[24px] px-[8px] rounded-[2px] border cursor-pointer text-[12px] font-semibold leading-tight disabled:cursor-wait disabled:opacity-65',
+  button: 'h-[20px] px-[6px] rounded-[2px] border cursor-pointer text-[11px] font-semibold leading-tight disabled:cursor-wait disabled:opacity-65',
   plain: 'border-(--kr-theme-line) bg-transparent text-(color:--kr-theme-text)',
   primary: 'border-(--kr-theme-button-primary-background) bg-(--kr-theme-button-primary-background) text-(color:--kr-theme-text-inverse)',
   danger: 'border-(--kr-theme-danger) bg-transparent text-(color:--kr-theme-danger)',
@@ -145,12 +155,11 @@ export default function OutsideToolsAdmin() {
   return (
     <section className={LAYOUT_STYLES.screen} data-kr-id="OutsideToolsAdmin">
       {/* Screen heading: what this is, where the developer guide is, and the register button */}
-      <div className={`${LAYOUT_STYLES.head} ${STYLES.card}`}>
-        <div>
-          <h2 className={STYLES.title}>Outside tools</h2>
-          <p className={STYLES.text}>Tools other developers build for the left menu. Send developers the tool kit file and its guide (packages/tool-sdk/README.md).</p>
-        </div>
-        <button type="button" className={`${STYLES.button} ${STYLES.primary}`} onClick={() => { setFormError(''); setEditing(null) }} disabled={editing !== undefined}>
+      <div className={`${LAYOUT_STYLES.head} ${STYLES.card}`} data-kr-element="outside-tools-header">
+        <h2 className={STYLES.title} title="Tools other developers build for the left menu. Send developers the tool kit file and its guide (packages/tool-sdk/README.md).">
+          Outside tools
+        </h2>
+        <button type="button" className={`${STYLES.headButton} ${STYLES.primary}`} onClick={() => { setFormError(''); setEditing(null) }} disabled={editing !== undefined}>
           Register tool
         </button>
       </div>
@@ -173,7 +182,7 @@ export default function OutsideToolsAdmin() {
             <thead>
               <tr>
                 {['Tool', 'Address', 'Roles', 'Permissions', 'Status', 'Server', ''].map((name) => (
-                  <th key={name || 'actions'} className={`${LAYOUT_STYLES.cell} ${STYLES.th}`}>{name}</th>
+                  <th key={name || 'actions'} className={`${LAYOUT_STYLES.headCell} ${STYLES.th}`}>{name}</th>
                 ))}
               </tr>
             </thead>
@@ -181,11 +190,21 @@ export default function OutsideToolsAdmin() {
               {tools.map((tool) => (
                 <tr key={tool.id} data-kr-element="outside-tool-row">
                   <td className={`${LAYOUT_STYLES.cell} ${STYLES.td}`}>
-                    <div className="font-semibold">{tool.label}</div>
-                    <div className={STYLES.mono}>{tool.clientId}</div>
+                    {/* Tool: its menu icon (own SVG, else built-in), label and client id */}
+                    <div className={LAYOUT_STYLES.toolCell}>
+                      {tool.iconSvg ? (
+                        <ToolSvgIcon svg={tool.iconSvg} className={STYLES.toolIcon} fallback={<KRHomebaseIcon name={tool.icon} className={STYLES.toolIcon} />} />
+                      ) : (
+                        <KRHomebaseIcon name={tool.icon} className={STYLES.toolIcon} />
+                      )}
+                      <div>
+                        <div className="font-semibold">{tool.label}</div>
+                        <div className={STYLES.mono}>{tool.clientId}</div>
+                      </div>
+                    </div>
                   </td>
                   <td className={`${LAYOUT_STYLES.cell} ${STYLES.td} ${STYLES.mono}`}>{tool.origin}</td>
-                  <td className={`${LAYOUT_STYLES.cell} ${STYLES.td}`}>{tool.allowedRoles.join(', ')}</td>
+                  <td className={`${LAYOUT_STYLES.cell} ${STYLES.td}`} title="Anyone holding any one of these roles sees the tool">{tool.allowedRoles.join(', ')}</td>
                   <td className={`${LAYOUT_STYLES.cell} ${STYLES.td}`}>{tool.scopes.length ? tool.scopes.join(', ') : 'none'}</td>
                   <td className={`${LAYOUT_STYLES.cell} ${STYLES.td}`}>
                     <span className={tool.status === 'active' ? STYLES.badgeOn : STYLES.badgeOff}>{tool.status}</span>

@@ -10,7 +10,7 @@
  * Redirects are not followed: a tool has no business being sent to the login page; it gets the status instead.
  */
 
-import { TOOL_ID_HEADER } from '@krhomebase/contracts'
+import { successEnvelope, TOOL_ID_HEADER, ToolHealthData } from '@krhomebase/contracts'
 import type { HttpMethod } from '@krhomebase/tool-sdk/types'
 
 /** One call a tool asked for, already checked by the bridge (method and `/v1/` path). */
@@ -54,5 +54,23 @@ export async function relayToolRequest(request: ToolRelayRequest): Promise<ToolR
     return { status: response.status, body }
   } catch {
     return { status: 0, body: { ok: false, error: { code: 'API_UNREACHABLE', message: 'KR Homebase could not reach its API.' }, requestId: '' } }
+  }
+}
+
+/**
+ * Asks the API whether an outside tool answers its health address (`GET /v1/tools/menu/{clientId}/health`; the API
+ * reads `<tool origin>/health-check`, which the browser may not). `ExternalToolFrame` calls it each time a tool
+ * is opened, without waiting for it before drawing the frame.
+ *
+ * @param clientId - The tool's client id.
+ * @returns The result, or null when the API could not be asked or answered something else (the frame then stays).
+ */
+export async function fetchToolHealth(clientId: string): Promise<ToolHealthData | null> {
+  try {
+    const response = await fetch(`/api/v1/tools/menu/${encodeURIComponent(clientId)}/health`, { credentials: 'same-origin', headers: { accept: 'application/json' } })
+    const parsed = successEnvelope(ToolHealthData).safeParse(await response.json().catch(() => null))
+    return response.ok && parsed.success ? parsed.data.data : null
+  } catch {
+    return null
   }
 }

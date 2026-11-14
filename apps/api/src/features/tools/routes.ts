@@ -11,9 +11,20 @@
  *   DELETE /v1/tools/registrations/{toolId}            remove a tool and its tokens (audit rows stay)
  *   POST   /v1/tools/registrations/{toolId}/secret     make a new client secret (shown once)
  *   GET    /v1/tools/registrations/{toolId}/audit      the most recent calls and changes
+ *   POST   /v1/tools/registrations/health-check        read a tool address's health route and icon route (before or after saving)
  *
  *  Any signed-in person:
- *   GET    /v1/tools/menu                              active tools this person's role may use
+ *   GET    /v1/tools/menu                              active tools this person's role may use (any one of the tool's roles)
+ *   GET    /v1/tools/menu/{clientId}/health            read the health route of a tool this person may open
+ *
+ * Icons: a tool has a built-in fallback icon name (default `tool`, the orange diamond) and, optionally, its own SVG
+ * icon, which the tool serves at `GET <origin>/tool-icon.svg` (the kit's rules; not typed by the super admin). The API
+ * reads it each time a registration is saved (`fetchToolIcon`) and stores its standard form beside the name in the
+ * one `icon` column, as `<name>` or `<name> <svg ...>` (`storedIcon` / `iconParts`), so no migration is needed.
+ *
+ * Health: every tool answers `GET <origin>/health-check` with `{ status, version }` (`platform/toolHealth.ts`). The
+ * menu does not wait for it; the frame asks when a person opens the tool and shows a notice in place of the tool
+ * when it fails. The super admin's check also returns the raw answer and the icon it found.
  *
  *  Outside tools:
  *   POST   /v1/tools/token                             server path: client id + secret for a 15-minute token
@@ -29,6 +40,7 @@ import {
   ToolCreateBody,
   ToolCreatedData,
   ToolDeletedData,
+  ToolIconNames,
   ToolIdParams,
   ToolListData,
   ToolMenuData,
@@ -42,6 +54,10 @@ import {
   TOOL_GATEWAY_HEADER,
   TOOL_GATEWAY_VALUE,
   successEnvelope,
+  ToolHealthCheckBody,
+  ToolHealthData,
+  ToolHealthParams,
+  checkToolIcon,
   type ToolRegistration,
 } from '@krhomebase/contracts'
 import type { OpenAPIHono } from '@hono/zod-openapi'
@@ -50,6 +66,7 @@ import { clientIp } from '../../platform/authGuard.ts'
 import { defineRoute } from '../../platform/defineRoute.ts'
 import { failure } from '../../platform/envelope.ts'
 import { logLine } from '../../platform/log.ts'
+import { checkToolHealth, fetchToolIcon } from '../../platform/toolHealth.ts'
 import type { AppEnv } from '../../platform/types.ts'
 import { toolQueriesFor, type ToolChanges, type ToolQueries } from './queries.ts'
 import {
@@ -64,6 +81,7 @@ import {
   secretMatches,
   tokenScopes,
   toolUsableBy,
+  withSuperAdmin,
   type ToolRecord,
 } from './rules.ts'
 
@@ -93,7 +111,7 @@ export const createToolRoute = defineRoute({
   summary: 'Register an outside tool and, when server access is on, make its client secret.',
   access: SUPER_ADMIN,
   errors: ['TOOL_ENTRY_URL_REFUSED', 'TOOLS_UNAVAILABLE'],
-  sideEffects: ['Writes workspace_tool', 'Writes workspace_tool_audit'],
+  sideEffects: ['Calls the icon route of the tool (<origin>/tool-icon.svg)', 'Writes workspace_tool', 'Writes workspace_tool_audit'],
   request: { body: { required: true, content: json(ToolCreateBody) } },
   responses: {
     201: { description: 'Registered. The client secret is in this reply only.', content: json(successEnvelope(ToolCreatedData)) },
@@ -126,6 +144,7 @@ export const updateToolRoute = defineRoute({
   access: SUPER_ADMIN,
   errors: ['TOOL_NOT_FOUND', 'TOOL_ENTRY_URL_REFUSED', 'TOOLS_UNAVAILABLE'],
   sideEffects: [
+    'Calls the icon route of the tool (<origin>/tool-icon.svg)',
     'Writes workspace_tool',
     'Deletes workspace_tool_token rows when the tool is turned off, server access is turned off or permissions change',
     'Writes workspace_tool_audit',
@@ -187,6 +206,21 @@ export const toolAuditRoute = defineRoute({
   },
 })
 
+export const toolHealthCheckRoute = defineRoute({
+  method: 'post',
+  path: '/v1/tools/registrations/health-check',
+  feature: 'tools',
+  summary: 'Read the health route (GET <origin>/health-check) and the icon route (GET <origin>/tool-icon.svg) of a tool address and say whether they answer as the tool kit asks, with the raw answer, for the super admin.',
+  access: SUPER_ADMIN,
+  errors: ['TOOL_ENTRY_URL_REFUSED'],
+  sideEffects: ['Calls the health route and the icon route of the tool (https, no redirects, 5 seconds)'],
+  request: { body: { required: true, content: json(ToolHealthCheckBody) } },
+  responses: {
+    200: { description: 'The result: ok, failed (with the problem) or not_checked (a local address).', content: json(successEnvelope(ToolHealthData)) },
+    400: errorBody('The tool address is not allowed (TOOL_ENTRY_URL_REFUSED).'),
+  },
+})
+
 export const toolMenuRoute = defineRoute({
   method: 'get',
   path: '/v1/tools/menu',
@@ -197,6 +231,22 @@ export const toolMenuRoute = defineRoute({
   sideEffects: ['None'],
   responses: {
     200: { description: 'The tools for this person. Empty when the tools tables cannot be reached.', content: json(successEnvelope(ToolMenuData)) },
+  },
+})
+
+export const toolMenuHealthRoute = defineRoute({
+  method: 'get',
+  path: '/v1/tools/menu/{clientId}/health',
+  feature: 'tools',
+  summary: 'Read the health route of an outside tool the signed-in person may open, so the frame can show a notice when the tool does not answer.',
+  access: 'signed-in',
+  errors: ['TOOL_NOT_FOUND', 'TOOLS_UNAVAILABLE'],
+  sideEffects: ['Calls the health route of the tool (https, no redirects, 5 seconds; a good answer is reused for 60 seconds)'],
+  request: { params: ToolHealthParams },
+  responses: {
+    200: { description: 'The result: ok, failed (with the problem) or not_checked (a local address).', content: json(successEnvelope(ToolHealthData)) },
+    404: errorBody('No active tool with that client id that this person may use (TOOL_NOT_FOUND).'),
+    503: errorBody('The tools tables cannot be reached (TOOLS_UNAVAILABLE).'),
   },
 })
 
@@ -233,6 +283,26 @@ export const toolContextRoute = defineRoute({
   },
 })
 
+/**
+ * The built-in icon name and the SVG icon held in the one `icon` column (`<name>` or `<name> <svg ...>`). An unknown
+ * name reads as `documents`; an SVG that no longer passes `checkToolIcon` is dropped.
+ */
+export function iconParts(stored: string): { icon: ToolRegistration['icon']; iconSvg: string | null } {
+  const at = stored.indexOf('<svg')
+  const name = (at >= 0 ? stored.slice(0, at) : stored).trim()
+  const icon = (ToolIconNames as readonly string[]).includes(name) ? (name as ToolRegistration['icon']) : 'documents'
+  if (at < 0) return { icon, iconSvg: null }
+  const svg = checkToolIcon(stored.slice(at))
+  return { icon, iconSvg: svg.ok ? svg.svg : null }
+}
+
+/** What goes in the `icon` column for a name and an optional SVG icon (written in its standard form). */
+export function storedIcon(icon: string, iconSvg: string | null): string {
+  if (!iconSvg) return icon
+  const svg = checkToolIcon(iconSvg)
+  return svg.ok ? `${icon} ${svg.svg}` : icon
+}
+
 /** The registration as the super admin sees it: no secret hashes. */
 export function toRegistration(tool: ToolRecord): ToolRegistration {
   return {
@@ -240,7 +310,7 @@ export function toRegistration(tool: ToolRecord): ToolRegistration {
     clientId: tool.clientId,
     label: tool.label,
     description: tool.description,
-    icon: tool.icon as ToolRegistration['icon'],
+    ...iconParts(tool.icon),
     menuOrder: tool.menuOrder,
     origin: tool.origin,
     entryUrl: tool.entryUrl,
@@ -301,11 +371,11 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
       clientId: newClientId(),
       label: body.label,
       description: body.description,
-      icon: body.icon,
+      icon: storedIcon(body.icon, (await fetchToolIcon(place.origin)).svg),
       menuOrder: body.menuOrder,
       origin: place.origin,
       entryUrl: place.entryUrl,
-      allowedRoles: [...new Set(body.allowedRoles)],
+      allowedRoles: withSuperAdmin(body.allowedRoles),
       scopes: [...new Set(body.scopes)],
       status: 'active',
       serverAccessEnabled: body.serverAccessEnabled,
@@ -342,9 +412,8 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
     const changes: ToolChanges = {
       label: body.label,
       description: body.description,
-      icon: body.icon,
       menuOrder: body.menuOrder,
-      allowedRoles: body.allowedRoles ? [...new Set(body.allowedRoles)] : undefined,
+      allowedRoles: body.allowedRoles ? withSuperAdmin(body.allowedRoles) : undefined,
       scopes: body.scopes ? [...new Set(body.scopes)] : undefined,
       status: body.status,
       serverAccessEnabled: body.serverAccessEnabled,
@@ -356,6 +425,9 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
       changes.origin = place.origin
       changes.entryUrl = place.entryUrl
     }
+    // Every save reads the tool's own icon again (`<origin>/tool-icon.svg`); the column holds it beside the name.
+    const iconRead = await fetchToolIcon(changes.origin ?? tool.origin)
+    changes.icon = storedIcon(body.icon ?? iconParts(tool.icon).icon, iconRead.svg)
     await queries.updateTool(toolId, changes, c.get('session')?.userId ?? '', new Date().toISOString())
 
     // Tokens carry the permissions they were issued with, so any narrowing ends them at once.
@@ -407,6 +479,28 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
     return c.json({ ok: true as const, data: { entries }, requestId: c.get('requestId') }, 200)
   })
 
+  app.openapi(toolHealthCheckRoute, async (c) => {
+    const body = c.req.valid('json')
+    const place = parseToolEntryUrl(body.entryUrl, c.env?.KR_APP_BASE_URL?.trim() || null)
+    if (!place.ok) return failure(c, 400, 'TOOL_ENTRY_URL_REFUSED', 'This tool address is not allowed.', { reason: place.reason })
+    // The super admin check returns the raw answer (detail) and the icon the tool serves, read side by side.
+    const [result, icon] = await Promise.all([checkToolHealth(place.origin, { detail: true }), fetchToolIcon(place.origin)])
+    logLine('TOOLS_HEALTH:checked', c.get('requestId'), { origin: place.origin, state: result.state, icon: Boolean(icon.svg) })
+    return c.json({ ok: true as const, data: { ...result, icon }, requestId: c.get('requestId') }, 200)
+  })
+
+  app.openapi(toolMenuHealthRoute, async (c) => {
+    const session = c.get('session')
+    const queries = toolQueriesFor(c.env)
+    if (!queries) return unavailable(c)
+    const tool = await queries.findToolByClientId(c.req.valid('param').clientId)
+    // A tool this person may not open answers as if it did not exist.
+    if (!tool || !session || !toolUsableBy(tool, session)) return failure(c, 404, 'TOOL_NOT_FOUND', 'No such tool.')
+    const result = await checkToolHealth(tool.origin)
+    if (result.state === 'failed') logLine('TOOLS_HEALTH:failed', c.get('requestId'), { clientId: tool.clientId, problem: result.problem ?? '' })
+    return c.json({ ok: true as const, data: result, requestId: c.get('requestId') }, 200)
+  })
+
   app.openapi(toolMenuRoute, async (c) => {
     const session = c.get('session')
     const queries = toolQueriesFor(c.env)
@@ -423,7 +517,7 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
       clientId: tool.clientId,
       label: tool.label,
       description: tool.description,
-      icon: tool.icon as ToolRegistration['icon'],
+      ...iconParts(tool.icon),
       menuOrder: tool.menuOrder,
       origin: tool.origin,
       entryUrl: tool.entryUrl,

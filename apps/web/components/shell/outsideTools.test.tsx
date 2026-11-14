@@ -15,6 +15,7 @@ import type { ToolRelayReply } from '@/lib/toolRelay'
 import { buildBreadcrumbs, buildNavItems, findNavItem, isShellSectionId, isToolSectionId, SHELL_NAV_ITEMS, type ShellSectionId } from '@/components/shell/navigation'
 
 const TOOL: ToolMenuItem = {
+  iconSvg: null,
   clientId: 'krt_TestToolTestToolTest',
   label: 'Intake Helper',
   description: 'Checks intake forms.',

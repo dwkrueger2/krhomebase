@@ -43,8 +43,13 @@ export const TOOL_ICONS = [
   'reports',
   'settings',
   'attendance',
+  'tool',
 ] as const
 export type ToolIconName = (typeof TOOL_ICONS)[number]
+
+/** The KR Homebase roles (as stored on a person's account) a tool can be shown to. A person holds one of them. */
+export const TOOL_ROLES = ['super_admin', 'attorney', 'paralegal', 'staff', 'billing', 'client', 'external_cpa'] as const
+export type ToolRoleName = (typeof TOOL_ROLES)[number]
 
 /** HTTP methods a tool may use. */
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
@@ -113,3 +118,30 @@ export interface WidgetDefinition {
   /** Optional: how often the widget refreshes its data, in seconds (15 to 3600). */
   refreshSeconds?: number
 }
+
+/**
+ * The route every tool must answer, on its own origin: `GET <tool origin>/health-check`. KR Homebase reads it (from its
+ * server, not the browser) when a super admin checks a registration and each time a person opens the tool; when it
+ * does not answer as `ToolHealthDocument`, KR Homebase shows a notice in place of the tool. A static file is enough.
+ * `healthDocument(tool)` (`@krhomebase/tool-sdk/manifest`) writes its contents.
+ */
+export const TOOL_HEALTH_PATH = '/health-check'
+
+/**
+ * The route where every tool serves its own menu icon: `GET <tool origin>/tool-icon.svg`, an SVG of the "tool icon"
+ * type (`checkToolIcon`). KR Homebase reads it when the tool is registered or changed and when a super admin checks
+ * health. A tool without one, or with one that does not pass, gets KR Homebase's default tool icon.
+ */
+export const TOOL_ICON_PATH = '/tool-icon.svg'
+
+/** What `GET <tool origin>/health-check` answers, as JSON. */
+export interface ToolHealthDocument {
+  /** Always `ok` while the tool can be used. Anything else makes KR Homebase show the notice. */
+  status: 'ok'
+  /** The tool's own version (`version` in `defineTool`), for example `1.2.0`. */
+  version: string
+  /** Optional: the bridge protocol version the tool speaks (`PROTOCOL_VERSION`, now 1). When given, it must match. */
+  protocol?: number
+}
+
+export type ToolHealthState = 'ok' | 'failed' | 'not_checked'

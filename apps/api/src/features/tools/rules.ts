@@ -5,7 +5,8 @@
  *  - Where a tool may be hosted (`parseToolEntryUrl`): https only, except http://localhost and
  *    http://127.0.0.1 for a developer's own computer, and never the app's own origin. A frame from the app's
  *    own origin would escape the sandbox, because the frame is given `allow-scripts allow-same-origin`.
- *  - Who may use a tool (`toolUsableBy`): the tool is active and the person's role is on its list.
+ *  - Who may use a tool (`toolUsableBy`): the tool is active and the person's role is on its list (any one of
+ *    them); `super_admin` is always on it (`withSuperAdmin`, the requester, Nov 14, 2026).
  *  - What a call may do (`scopeAllows`): the route's `toolAccess` is `'any'`, or it names a permission the
  *    tool (or token) was granted. A route without `toolAccess` is closed to every tool.
  *  - Secrets and tokens: made from 32 random bytes, stored only as SHA-256 hashes, compared in constant time.
@@ -92,9 +93,20 @@ export function parseToolEntryUrl(entryUrl: string, appBaseUrl: string | null): 
   return { ok: true, origin: url.origin, entryUrl: url.toString() }
 }
 
-/** True when the tool is active and the person's role is on the tool's list. No implicit super admin. */
+/**
+ * The role every tool's list always holds (the requester, Nov 14, 2026): a super admin always sees every active tool.
+ * `withSuperAdmin` adds it to every saved list; `toolUsableBy` also honours it for rows saved before that rule.
+ */
+export const ALWAYS_ALLOWED_ROLE = 'super_admin'
+
+/** A role list with `super_admin` first and no repeats, as it is stored. */
+export function withSuperAdmin<T extends string>(roles: readonly T[]): (T | typeof ALWAYS_ALLOWED_ROLE)[] {
+  return [...new Set([ALWAYS_ALLOWED_ROLE, ...roles])] as (T | typeof ALWAYS_ALLOWED_ROLE)[]
+}
+
+/** True when the tool is active and the person is a super admin or holds any one role on the tool's list. */
 export function toolUsableBy(tool: Pick<ToolRecord, 'status' | 'allowedRoles'>, session: Pick<SessionUser, 'role'>): boolean {
-  return tool.status === 'active' && tool.allowedRoles.includes(session.role)
+  return tool.status === 'active' && (session.role === ALWAYS_ALLOWED_ROLE || tool.allowedRoles.includes(session.role))
 }
 
 /**

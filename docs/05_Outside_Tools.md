@@ -1,7 +1,7 @@
 # Outside Tools: Design, Security and Operation
 
-<small>Version 1.2</small><br>
-<small>Updated Nov 14, 2026 1:32pm</small>
+<small>Version 1.3</small><br>
+<small>Updated Nov 14, 2026 3:56pm</small>
 
 **Headline:** other developers can add a tool to the left menu without a redeploy. A super admin registers the tool's address and grants it permissions. KR Homebase shows the tool in a sealed frame, in the workspace or popped out. The tool reaches data only through KR Homebase, and only within its grant.
 
@@ -50,6 +50,12 @@ Path B: tool server (client secret)
 ## 3. Security model
 
 **Who may register.** Only `super_admin`. The registration routes declare `access: { roles: ['super_admin'] }`, and the API refuses everyone else (403). The screen is shown only to a super admin, but the API is the protection. No registration route has `toolAccess`, so a tool can never change its own grant.
+
+**Who sees a tool.** The super admin ticks roles from the fixed list of roles an account can hold (`ToolRoleNames` in contracts, the `user.role` CHECK list). A person sees the tool when their role is **any one** of them (`toolUsableBy`). `super_admin` is always on the list (the requester, Nov 14, 2026): the API adds it to every saved list (`withSuperAdmin`), `toolUsableBy` honours it for rows saved earlier, and the form shows it ticked, grey and locked. A frame call still needs the person's own permission for each route.
+
+**The tool's own icon.** A tool serves its own menu icon at `/tool-icon.svg` as SVG text of the "tool icon" type (`checkToolIcon`, written out in both `packages/tool-sdk/src/toolIcon.ts` and `packages/contracts/src/toolIcon.ts`, kept equal by the kit's sync test): `viewBox="0 0 24 24"`, only shape elements, only drawing attributes, `fill` and `stroke` `none` or `currentColor`, no text, styles, scripts, links, images, comments or entities, at most 4000 characters. The API reads and checks it on every registration save and stores the standard form beside the fallback icon name (default `tool`, KR Homebase's orange diamond) in the `icon` column (`<name> <svg ...>`; no migration). The web app checks it again and draws it from the checked elements with React (`components/ui/ToolSvgIcon.client.tsx`), never as HTML; a refused icon falls back to the built-in one.
+
+**The health route and the icon route.** Every tool must answer `GET <origin>/health-check` with `{ "status": "ok", "version": "<tool version>" }` and may add `"protocol": 1` (the kit's `healthDocument`), and should serve its menu icon at `GET <origin>/tool-icon.svg`. The API reads both (`apps/api/src/platform/toolHealth.ts`), never the browser: only those fixed paths on the registered origin, `https` only, no redirects, no cookies, 5 seconds and 4096 bytes at most; a good health answer is reused for 60 seconds per Worker instance, a failure never; a `localhost` origin is not read (`not_checked`). Routes: `POST /v1/tools/registrations/health-check` (super admin, the form's **Check health**, with the raw answer for its **Details** dialog and the icon found; it does not block saving) and `GET /v1/tools/menu/{clientId}/health` (a person who may open the tool). The menu does not wait for it: `ExternalToolFrame` draws the frame at once and asks in the background; when the answer is `failed`, it replaces the frame with a notice (the problem, **Try again**, **Open anyway**). The icon is read again on every registration save and stored; the super admin never types it.
 
 **Where a tool may be hosted.** The super admin enters the tool's address (the entry URL). The API keeps its origin. The address must be `https`, except `http://localhost` or `http://127.0.0.1` for testing. It must have no user name or password in it, and must not be this app's own origin (`KR_APP_BASE_URL`). That last rule matters: the frame is given `allow-scripts allow-same-origin`, which is safe only when the tool's origin differs from the app's.
 
@@ -157,4 +163,5 @@ Added with Settings and Dashboard stage 3 (`docs/08_Settings_Dashboard_Plan.md`,
 - **Schema documentation:** add the three tables to `docs/Schema_8.0` once the migration is applied (that folder is generated from the live database).
 - **Built-in tools as packages:** each built-in menu item becomes its own `packages/tools/<name>` package declared with `defineTool` (agreed in principle; not started).
 - **Kit delivery:** the kit is a `.tgz` file. A private registry can replace it later.
+- **Health in the tools list:** the Outside tools screen checks a tool only on request (the form's Check health). A health column filled in the background, or a recorded last result, could follow.
 - **Outside Dashboard widgets:** store a tool's widget list at registration, return it with the menu, and draw each in a sandboxed widget frame on the Dashboard, honoring `krh:set-height` (section 7a).

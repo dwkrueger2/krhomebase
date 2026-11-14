@@ -1,7 +1,7 @@
 # KR Homebase API Agent Guide
 
-<small>Version 1.35</small><br>
-<small>Updated Nov 14, 2026 1:32pm</small>
+<small>Version 1.36</small><br>
+<small>Updated Nov 14, 2026 3:56pm</small>
 
 ## Purpose
 
@@ -258,6 +258,7 @@ The design and security model are in `docs/05_Outside_Tools.md`. In this folder:
 
 - `src/features/tools/` holds the registration (super admin only), menu, token and context routes. Its `queries.ts` reads and writes the `workspace_tool*` tables directly through the `krhomebase` D1 binding.
 - `src/platform/authGuard.ts` applies the tool checks on every request: frame calls (`x-kr-tool-id`, with a session) and server calls (bearer token, only with `x-kr-gateway: external-api`).
+- **Health and icons (API patch 33):** `src/platform/toolHealth.ts` reads a tool's `<origin>/health-check` (`checkToolHealth`: `{ status: 'ok', version }`, optional `protocol`) and `<origin>/tool-icon.svg` (`fetchToolIcon`: a "tool icon" SVG, contracts `checkToolIcon`); https only, no redirects, 5 seconds, 4096 bytes, good health answers reused 60 seconds. Routes `POST /v1/tools/registrations/health-check` (super admin; returns the raw answer and the icon found) and `GET /v1/tools/menu/{clientId}/health` (a person who may open the tool). Every registration save reads the icon route again and stores the icon in its standard form beside the fallback name in the `icon` column (`iconParts`, `storedIcon` in `routes.ts`); the super admin never types an icon. The default fallback is `tool` (the orange diamond). `allowedRoles` accepts only `ToolRoleNames`, and `super_admin` is always added (`withSuperAdmin` in `rules.ts`; `toolUsableBy` lets a super admin use every active tool, also rows saved before). Tests: `toolHealthAndIcons.test.ts`; `tools.test.ts` stands in for the tool server (saves read the icon route).
 - **Opening a route to tools is a decision.** Add `toolAccess` only when the requester agrees, and choose the narrowest permission. On the server path there is no person, so `toolAccess` is the only gate there: `access` roles do not apply.
 - The tests use `test/fakes.ts`: a stand-in Session Worker and an in-memory D1 built from the real migration file with Node's `node:sqlite` (Node 22.13 or later).
 

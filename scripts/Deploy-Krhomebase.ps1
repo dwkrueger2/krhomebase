@@ -11,8 +11,9 @@
 #
 # Options (after the command): -Only api|web (one Worker), -Restart (a new warn deploy restarts the countdown),
 # -Force (a hot deploy while a warn deploy is pending: cancels the warning first), -AllowDirty (deploy with
-# uncommitted files; the build takes the working folder as it is), -Verbose (also list the uncommitted files when the
-# script stops for them; PowerShell's own common parameter).
+# uncommitted files; the build takes the working folder as it is), -Verbose (also list the uncommitted files; PowerShell's
+# own common parameter). Uncommitted files matching scripts\Deploy-Krhomebase-ps1-ignore.txt (documents, tests, scripts,
+# other Workers) never stop a deploy; they are not part of the build.
 #
 # How it works:
 #  1. Upload: `wrangler versions upload` (API) and `vinext-cloudflare deploy --no-promote` (web) build and upload a new
@@ -66,6 +67,8 @@ $Config   = "kr-api-wrangler.jsonc"
 $State    = Join-Path $Repo "deploy-state"
 $Pending  = Join-Path $State "pending.json"
 $Last     = Join-Path $State "last.json"
+# Uncommitted files that do not stop a deploy (not part of the build): one pattern per line, reasons in the file.
+$IgnoreFile = Join-Path $PSScriptRoot "Deploy-Krhomebase-ps1-ignore.txt"
 $Database = "krhomebase"
 $ApiName  = "krhomebase-api"
 $WebName  = "krhomebase-web"
@@ -223,22 +226,58 @@ function Save-Pending($Data) {
     $Data | ConvertTo-Json -Depth 5 | Set-Content -Path $Pending -Encoding UTF8
 }
 
-<# Stops when the working folder has uncommitted changes (unless -AllowDirty), and returns "<short hash> <subject>". #>
+<# The patterns of Deploy-Krhomebase-ps1-ignore.txt (comments and empty lines skipped). A missing file ignores nothing. #>
+function Get-IgnorePatterns {
+    if (-not (Test-Path $IgnoreFile)) { return @() }
+    return @(Get-Content $IgnoreFile | ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith("#") })
+}
+
+<# The repository path of one `git status --porcelain` line: the new name of a rename, without quotes, with forward slashes. #>
+function Get-PorcelainPath([string]$Line) {
+    $path = $Line.Substring(3)
+    if ($path -match " -> ") { $path = ($path -split " -> ")[-1] }
+    if ($path.Length -ge 2 -and $path.StartsWith('"') -and $path.EndsWith('"')) { $path = $path.Substring(1, $path.Length - 2) }
+    return $path -replace "\\", "/"
+}
+
+<# True when the path matches one of the ignore patterns (PowerShell -like, not case sensitive). #>
+function Test-IgnoredPath([string]$Path, [string[]]$Patterns) {
+    foreach ($pattern in $Patterns) { if ($Path -like $pattern) { return $true } }
+    return $false
+}
+
+<#
+Stops when the working folder has uncommitted changes that can change the build (unless -AllowDirty), and returns
+"<short hash> <subject>". Changes to files matching Deploy-Krhomebase-ps1-ignore.txt (documents, tests, scripts, other
+Workers; the reasons are in that file) do not stop it (Nov 14, 2026): they are counted on one grey line. -Verbose lists
+both kinds.
+#>
 function Get-CommitLabel {
     Push-Location $Repo
     try {
-        $dirty = (& git status --porcelain) -join "`n"
+        # Every untracked file on its own line (not just its folder), so each is checked against the patterns.
+        $lines = @(& git status --porcelain --untracked-files=all | Where-Object { $_ })
         $label = (& git log -1 --format="%h %s") -join " "
     } finally { Pop-Location }
-    if ($dirty -and -not $AllowDirty) {
-        # A short message, without the file list or PowerShell's error details (Nov 14, 2026): most deploys start from
-        # an IDE whose own Git view already shows the files. -Verbose lists them (git status --porcelain).
-        $count = @($dirty -split "`n" | Where-Object { $_ }).Count
-        Write-Host "Not deployed: the working folder has $count uncommitted change(s). Commit first (the build takes the folder as it is), or add -AllowDirty. Add -Verbose to list them." -ForegroundColor Red
-        Write-Verbose "Uncommitted changes:`n$dirty"
+    $patterns = Get-IgnorePatterns
+    $counted = @()
+    $ignored = @()
+    foreach ($line in $lines) {
+        if (Test-IgnoredPath (Get-PorcelainPath $line) $patterns) { $ignored += $line } else { $counted += $line }
+    }
+    if ($ignored.Count) {
+        Write-Host "$($ignored.Count) uncommitted change(s) skipped: they match scripts\Deploy-Krhomebase-ps1-ignore.txt (not part of the build)." -ForegroundColor DarkGray
+        Write-Verbose ("Skipped (not part of the build):`n" + ($ignored -join "`n"))
+    }
+    if ($counted.Count -and -not $AllowDirty) {
+        # A short message, without the file list or PowerShell's error details: most deploys start from an IDE whose own
+        # Git view already shows the files. -Verbose lists them.
+        Write-Host "Not deployed: the working folder has $($counted.Count) uncommitted change(s) to code that is built. Commit first (the build takes the folder as it is), or add -AllowDirty. Add -Verbose to list them." -ForegroundColor Red
+        Write-Verbose ("Uncommitted changes that stop the deploy:`n" + ($counted -join "`n"))
         exit 1
     }
-    if ($dirty) { $label = "$label (with uncommitted changes)" }
+    if ($counted.Count) { $label = "$label (with uncommitted changes)" }
+    elseif ($ignored.Count) { $label = "$label (uncommitted non-build files only)" }
     # Only plain characters go to wrangler's --message (it passes through cmd.exe in pnpm.cmd).
     $label = ($label -replace '[^A-Za-z0-9 ._:,()/-]', ' ') -replace '\s+', ' '
     if ($label.Length -gt 90) { $label = $label.Substring(0, 90) }

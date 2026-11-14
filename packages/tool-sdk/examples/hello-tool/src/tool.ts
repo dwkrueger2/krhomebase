@@ -7,6 +7,7 @@ export const tool = defineTool({
   label: 'Hello Tool',
   description: 'Shows who is using it. A starting point for a new tool.',
   icon: 'documents',
+  version: '1.0.0',
   // While testing on your own computer. Use your real https address once it is hosted.
   entryUrl: 'http://localhost:5173/',
   // The KR Homebase addresses this tool trusts. localhost:3011 is a KR Homebase developer's local copy.

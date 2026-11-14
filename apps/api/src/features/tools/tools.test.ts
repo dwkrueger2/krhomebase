@@ -9,7 +9,7 @@
  */
 
 import { TOOL_GATEWAY_HEADER, TOOL_GATEWAY_VALUE, TOOL_ID_HEADER } from '@krhomebase/contracts'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../app.ts'
 import { clearSessionCache } from '../../platform/sessionClient.ts'
 import { createTestD1, signedInEnv } from '../../../test/fakes.ts'
@@ -23,6 +23,7 @@ import {
   secretMatches,
   tokenScopes,
   toolUsableBy,
+  withSuperAdmin,
 } from './rules.ts'
 
 type Json = Record<string, any>
@@ -41,10 +42,13 @@ describe('tool rules', () => {
     expect(parseToolEntryUrl('not a url', APP_BASE)).toEqual({ ok: false, reason: 'entry_url_invalid' })
   })
 
-  it('lets only listed roles use an active tool, with no implicit super admin', () => {
+  it('lets listed roles and always the super admin use an active tool', () => {
     expect(toolUsableBy({ status: 'active', allowedRoles: ['staff'] }, { role: 'staff' })).toBe(true)
-    expect(toolUsableBy({ status: 'active', allowedRoles: ['staff'] }, { role: 'super_admin' })).toBe(false)
-    expect(toolUsableBy({ status: 'disabled', allowedRoles: ['staff'] }, { role: 'staff' })).toBe(false)
+    expect(toolUsableBy({ status: 'active', allowedRoles: ['staff'] }, { role: 'billing' })).toBe(false)
+    // A row saved before the super admin became automatic still shows to a super admin.
+    expect(toolUsableBy({ status: 'active', allowedRoles: ['staff'] }, { role: 'super_admin' })).toBe(true)
+    expect(toolUsableBy({ status: 'disabled', allowedRoles: ['staff'] }, { role: 'super_admin' })).toBe(false)
+    expect(withSuperAdmin(['staff', 'super_admin', 'staff'])).toEqual(['super_admin', 'staff'])
   })
 
   it('opens a route only through toolAccess and a granted permission', () => {
@@ -90,7 +94,10 @@ describe('outside tools through the API', () => {
   beforeEach(() => {
     clearSessionCache()
     d1 = createTestD1()
+    // Saving a registration reads the tool's icon route; these tools serve none (a stand-in, never the network).
+    vi.stubGlobal('fetch', async () => new Response('not found', { status: 404 }))
   })
+  afterEach(() => vi.unstubAllGlobals())
 
   /** Bindings for a person with `role`, with the in-memory database and the app address. */
   const envFor = (role: string) => signedInEnv(role, { krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE })
@@ -187,7 +194,8 @@ describe('outside tools through the API', () => {
       const { tool } = await register({ label: 'For admins', allowedRoles: ['super_admin'] })
       expect((await call('staff', 'GET', '/v1/tools/menu')).body.data.tools.map((t: Json) => t.label)).toEqual(['For staff'])
       await call('super_admin', 'PATCH', `/v1/tools/registrations/${tool.id}`, { status: 'disabled' })
-      expect((await call('super_admin', 'GET', '/v1/tools/menu')).body.data.tools).toEqual([])
+      // The super admin always sees every active tool, but never a disabled one.
+      expect((await call('super_admin', 'GET', '/v1/tools/menu')).body.data.tools.map((t: Json) => t.label)).toEqual(['For staff'])
     })
 
     it('still answers, with no tools, when the database is missing', async () => {

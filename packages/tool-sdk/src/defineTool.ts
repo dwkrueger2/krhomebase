@@ -20,9 +20,11 @@
  */
 
 import { defineWidget } from './defineWidget.ts'
-import { TOOL_ICONS, TOOL_SCOPES, type ToolIconName, type ToolScopeName, type WidgetDefinition } from './types.ts'
+import { PROTOCOL_VERSION } from './protocol.ts'
+import { TOOL_HEALTH_PATH, TOOL_ICON_PATH, TOOL_ICONS, TOOL_ROLES, TOOL_SCOPES, type ToolHealthDocument, type ToolIconName, type ToolRoleName, type ToolScopeName, type WidgetDefinition } from './types.ts'
 
 export { defineWidget } from './defineWidget.ts'
+export { checkToolIcon, TOOL_ICON_ELEMENTS, TOOL_ICON_MAX_ELEMENTS, TOOL_ICON_MAX_LENGTH, TOOL_ICON_VIEW_BOX, type ToolIconCheck, type ToolIconNode } from './toolIcon.ts'
 
 export interface ToolManifest {
   /** Short id for the tool's own use, lowercase with dashes, for example `intake-helper`. */
@@ -31,14 +33,24 @@ export interface ToolManifest {
   label: string
   /** One-line purpose, shown as the menu tooltip (up to 200 characters). */
   description: string
-  /** Menu icon. */
-  icon: ToolIconName
+  /**
+   * Optional: a built-in KR Homebase icon shown when the tool's own icon (`GET <origin>/tool-icon.svg`,
+   * `TOOL_ICON_PATH`) is missing or refused. Left out, KR Homebase uses its default tool icon (`tool`).
+   */
+  icon?: ToolIconName
+  /** The tool's own version, for example `1.2.0`. The health route reports it (`healthDocument`). */
+  version: string
   /** Full address of the tool screen. https, or http://localhost while testing. */
   entryUrl: string
   /** KR Homebase addresses the tool trusts; passed to `connectToHost`. */
   hostOrigins: string[]
   /** Permissions the tool needs. Ask for the fewest that work. */
   scopes: ToolScopeName[]
+  /**
+   * The KR Homebase roles the tool is meant for. A person holding any one of them sees the tool. The super admin
+   * chooses the final list at registration; this is the developer's suggestion, printed on the registration sheet.
+   */
+  roles?: ToolRoleName[]
   /** True when the tool's own server will call KR Homebase (path B) and needs a client secret. */
   serverAccess: boolean
   /** Optional: the addresses the tool server calls from, when server access is on. */
@@ -64,7 +76,11 @@ export function defineTool(manifest: ToolManifest): Readonly<ToolManifest> {
   if (!/^[a-z][a-z0-9-]{1,47}$/.test(manifest.name)) throw new Error('defineTool: name is lowercase letters, digits and dashes, 2 to 48 characters.')
   if (!manifest.label.trim() || manifest.label.length > 40) throw new Error('defineTool: label is 1 to 40 characters.')
   if (manifest.description.length > 200) throw new Error('defineTool: description is at most 200 characters.')
-  if (!(TOOL_ICONS as readonly string[]).includes(manifest.icon)) throw new Error(`defineTool: icon must be one of ${TOOL_ICONS.join(', ')}.`)
+  if (manifest.icon !== undefined && !(TOOL_ICONS as readonly string[]).includes(manifest.icon)) throw new Error(`defineTool: icon must be one of ${TOOL_ICONS.join(', ')}.`)
+  if (!/^\S{1,40}$/.test(manifest.version ?? '')) throw new Error('defineTool: version is 1 to 40 characters without spaces, for example 1.2.0.')
+  for (const role of manifest.roles ?? []) {
+    if (!(TOOL_ROLES as readonly string[]).includes(role)) throw new Error(`defineTool: unknown role "${role}". Roles: ${TOOL_ROLES.join(', ')}.`)
+  }
   let entry: URL
   try {
     entry = new URL(manifest.entryUrl)
@@ -92,6 +108,7 @@ export function defineTool(manifest: ToolManifest): Readonly<ToolManifest> {
     ...manifest,
     hostOrigins: [...manifest.hostOrigins],
     scopes: [...manifest.scopes],
+    ...(manifest.roles ? { roles: [...new Set(manifest.roles)] } : {}),
     ...(manifest.widgets ? { widgets } : {}),
   })
 }
@@ -107,11 +124,28 @@ export function registrationSheet(manifest: Readonly<ToolManifest>): string {
   return [
     `Tool: ${manifest.label}`,
     `Description: ${manifest.description}`,
-    `Icon: ${manifest.icon}`,
+    `Version: ${manifest.version}`,
+    `Built-in fallback icon: ${manifest.icon ?? 'tool (KR Homebase default)'}`,
     `Address (entry URL): ${manifest.entryUrl}`,
+    `Health route: ${new URL(TOOL_HEALTH_PATH, manifest.entryUrl).href}`,
+    `Icon route: ${new URL(TOOL_ICON_PATH, manifest.entryUrl).href}`,
+    `Roles (any one of them sees the tool): ${manifest.roles?.length ? manifest.roles.join(', ') : 'not suggested'}`,
     `Permissions requested: ${manifest.scopes.length ? manifest.scopes.join(', ') : 'none (reads only who is using it)'}`,
     `Server access (client secret): ${manifest.serverAccess ? 'yes' : 'no'}`,
     ...(manifest.serverAccess && manifest.serverIpAllowlist?.length ? [`Server addresses: ${manifest.serverIpAllowlist.join(', ')}`] : []),
     ...(manifest.widgets?.length ? [`Dashboard widgets: ${manifest.widgets.map((widget) => `${widget.title} (${widget.id}, ${widget.size})`).join('; ')}`] : []),
   ].join('\n')
+}
+
+/**
+ * The answer of the tool's health route, `GET <tool origin>/health-check` (`TOOL_HEALTH_PATH`). Every tool must answer
+ * it: KR Homebase reads it when a super admin checks the registration and each time a person opens the tool, and
+ * shows a notice in place of the tool when the answer is missing or different. Serve it as JSON, from the same origin
+ * as `entryUrl`; a static file written at build time is enough.
+ *
+ * @param manifest - A value returned by `defineTool`.
+ * @returns `{ status: 'ok', version, protocol }`.
+ */
+export function healthDocument(manifest: Readonly<ToolManifest>): ToolHealthDocument {
+  return { status: 'ok', version: manifest.version, protocol: PROTOCOL_VERSION }
 }

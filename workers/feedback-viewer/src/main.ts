@@ -15,7 +15,7 @@ import { feedbackApi, problemText, type FeedbackApi, type ListFilter } from './f
 import { FEEDBACK_PRIORITIES, FEEDBACK_STATUSES, type FeedbackDetail, type FeedbackPriority, type FeedbackStatus } from './feedbackTypes.ts'
 import { listHash, parseRoute } from './route.ts'
 import { tool } from './tool.ts'
-import { detailView, listView, messageView, type Notice, type PendingChange } from './views.ts'
+import { busyHtml, detailView, listView, loadingView, messageView, type Notice, type PendingChange } from './views.ts'
 import './viewer.css'
 
 const app = document.getElementById('app') as HTMLElement
@@ -56,7 +56,7 @@ async function render(): Promise<void> {
   if (route.view === 'list') {
     lastListFilter = route.filter
     current = null
-    show(messageView('Requests', 'Loading...', false))
+    show(loadingView('Requests'))
     const reply = await api.list(route.filter)
     if (!reply.ok) {
       show(messageView('Requests', problemText(reply.error, reply.requestId), false))
@@ -68,7 +68,7 @@ async function render(): Promise<void> {
     updateDirty()
     return
   }
-  show(messageView('Request', 'Loading...'))
+  show(loadingView('Request'))
   if (canTriage === null) {
     const who = await api.viewer()
     canTriage = who.ok ? who.data.viewer.canTriage : false
@@ -111,6 +111,9 @@ async function save(send: (api: FeedbackApi, item: FeedbackDetail) => ReturnType
   if (!api || !current || busy) return
   busy = true
   for (const control of Array.from(app.querySelectorAll('button, textarea, select'))) (control as HTMLButtonElement).disabled = true
+  // The rainbow ring beside the button that was pressed (or at the top), while the save is on its way.
+  const place = app.querySelector('[data-action="confirm-change"], form[data-action="note"] button') ?? app.firstElementChild
+  place?.insertAdjacentHTML('afterend', ` ${busyHtml('Saving...')}`)
   const reply = await send(api, current)
   busy = false
   if (reply.ok) {

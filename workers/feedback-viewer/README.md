@@ -1,7 +1,7 @@
 # Homebase Feedback Viewer (an outside tool built with the tool kit)
 
-<small>Version 2.0</small><br>
-<small>Updated Nov 14, 2026 1:32pm</small>
+<small>Version 2.2</small><br>
+<small>Updated Nov 14, 2026 3:56pm</small>
 
 ## Read this first: this tool is a test of the KR Homebase tool kit
 
@@ -70,13 +70,19 @@ The super admin enters these values in **Settings → Application Settings → O
 ```text
 Tool: Feedback Viewer
 Description: Lists the numbered Homebase Feedback requests (FB-0012) for Internal Developers: read, triage, add notes, copy for Claude.
-Icon: communications
+Version: 1.1.0
+Built-in fallback icon: tool (KR Homebase default)
 Address (entry URL): https://krhomebase-feedback-viewer.dankrueger.workers.dev/
+Health route: https://krhomebase-feedback-viewer.dankrueger.workers.dev/health-check
+Icon route: https://krhomebase-feedback-viewer.dankrueger.workers.dev/tool-icon.svg
+Roles (any one of them sees the tool): super_admin, attorney, paralegal, staff
 Permissions requested: homebase-feedback:read, homebase-feedback:write
 Server access (client secret): no
 ```
 
-The sheet does not ask for a **role list**, but the registration form does. Choose the main roles of the people who will use it, for example `super_admin` plus the roles the developers hold. The real limit is the Internal Developer role set (check 4.5 above), so a person with a listed role but without that role set is still refused.
+- **Roles:** a person sees the tool when their account's role is any one of the ticked roles. Super admin is always ticked and locked (KR Homebase adds it to every tool). The real limit is the Internal Developer role set (check 4.5 above): a person with a listed role but without that role set is refused.
+- **Icon route:** the tool serves its own menu icon at `/tool-icon.svg` (`public/tool-icon.svg`): a speech bubble behind a magnifying glass with "FB" drawn in its lens, so it does not read as a search icon. KR Homebase reads it each time the registration is saved; nothing is pasted. The fallback is KR Homebase's default tool icon (the orange diamond). `src/tool.test.ts` checks the file passes `checkToolIcon`.
+- **Health route:** every tool must answer `/health-check` (kit guide). This tool serves `public/health-check`, `{ "status": "ok", "version": "1.1.0", "protocol": 1 }`; `src/tool.test.ts` checks it equals `healthDocument(tool)`. **Check health** on the registration form reads it (and the icon route), and **Details** shows the raw answer. When a person opens the tool and it does not answer, KR Homebase shows a notice in place of the tool, with Try again and Open anyway.
 
 ## Files
 
@@ -91,6 +97,7 @@ The sheet does not ask for a **role list**, but the registration form does. Choo
 | `src/viewer.css` | Styles, using the KR Homebase theme values the kit applies (`--kr-theme-*`). A plain CSS file: this tool has no Tailwind build, as an outside tool would not. |
 | `index.html`, `vite.config.ts` | The page and its build (`vite build` writes `dist/`). |
 | `public/_headers` | Security headers for every file (copied into `dist/`). |
+| `public/health-check`, `public/tool-icon.svg` | The health route and the icon route every tool serves (kit guide, sections 5.1 and 5.3). |
 | `feedback-viewer.jsonc` | The Worker: static files from `dist/`, the `workers.dev` address, no bindings. |
 | `src/*.test.ts` | Tests, run by `pnpm check`. |
 
@@ -130,9 +137,9 @@ Opening that address directly shows only "This is a KR Homebase tool. Open it fr
 ### 3. Register the tool (super admin, in KR Homebase)
 
 1. **Settings → Application Settings → Outside tools → Register tool.**
-2. Enter the values from the registration sheet above: the menu label, description, icon and tool address.
+2. Enter the values from the registration sheet above: the menu label, description and tool address (leave the fallback icon at `tool (default)`). Press **Check health**: it must say "Answers, version 1.1.0", and the preview beside the fallback icon shows the FB icon.
 3. Tick both permissions, `homebase-feedback:read` and `homebase-feedback:write`.
-4. Choose the roles. Leave server access off.
+4. Tick the roles from the sheet (any one of them sees the tool; add your own role if it is not there). Leave server access off.
 5. Save. KR Homebase gives the tool a client id (`krt_...`). The tool does not need it in its code, because KR Homebase sends it when the frame connects.
 
 ### 4. Give the developers the role set
@@ -178,7 +185,7 @@ Opening that address directly shows only "This is a KR Homebase tool. Open it fr
 The kit was enough to build the whole tool. These points made it harder than it should be, and are worth fixing before the kit is published:
 
 1. **No list of permissions per area beyond the guide's text.** Adding a permission for a new area (here `homebase-feedback:*`) needs a change to both the API and the kit (`src/types.ts`), plus a kit release. The guide should say that a new permission arrives with a new kit version.
-2. **The registration sheet has no role list.** The registration form asks for one. `defineTool` could take the roles the developer expects, so the sheet would carry them.
+2. ~~**The registration sheet has no role list.**~~ Fixed Nov 14, 2026: `defineTool` takes `roles`, and the sheet prints them. The registration form ticks roles from the fixed list. Also added then: the tool's own icon served at `/tool-icon.svg` (`TOOL_ICON_PATH`, checked by `checkToolIcon`), the required health route `/health-check` (`TOOL_HEALTH_PATH`, `healthDocument`: status and version) and `version` in `defineTool`.
 3. **The theme values are not listed.** The guide names three examples. A developer cannot know the other `--kr-theme-*` names (`text-muted`, `line`, `card-surface`, `danger`, `success` and so on) without opening `host.theme` at run time. The guide should list the stable ones.
 4. **The clipboard may be blocked.** The frame's `allow=""` lets browsers refuse `navigator.clipboard`. The guide did not say so (added to its "What the frame allows" in version 1.2); KR Homebase could also allow `clipboard-write`. This tool falls back to selecting the text.
 5. **Only JSON travels the bridge.** The KR Homebase side reads every reply as JSON, so a tool cannot fetch an image or a file (needed here for stage F3's screenshots). Either the bridge carries binary replies, or such routes return a short-lived address.

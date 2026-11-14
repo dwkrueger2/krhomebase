@@ -218,7 +218,20 @@ ${noteForm}
 </div>`
 }
 
-/** A plain message in place of a screen (not connected, refused, loading). */
+/** A plain message in place of a screen (not connected, refused). */
 export function messageView(title: string, text: string, withListLink = true): string {
   return `<h2>${escapeHtml(title)}</h2><p>${escapeHtml(text)}</p>${withListLink ? `<p><a href="#/">All requests</a></p>` : ''}`
+}
+
+/**
+ * The busy signal: the rainbow ring KR Homebase uses for loading and saving (its `RainbowBusySpinner`, drawn here
+ * with this tool's own CSS, `.busy` in `viewer.css`), with the words beside it for screen readers too.
+ */
+export function busyHtml(text: string): string {
+  return `<span class="busy" role="status" aria-live="polite"><span class="busy-ring" aria-hidden="true"></span><span>${escapeHtml(text)}</span></span>`
+}
+
+/** A screen that is loading: its title and the busy signal. */
+export function loadingView(title: string): string {
+  return `<h2>${escapeHtml(title)}</h2><p>${busyHtml('Loading...')}</p>`
 }

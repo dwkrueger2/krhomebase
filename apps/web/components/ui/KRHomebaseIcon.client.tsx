@@ -38,6 +38,7 @@ export type KRHomebaseIconName =
   | 'reports'
   | 'settings'
   | 'attendance'
+  | 'tool'
 
 export interface KRHomebaseIconProps {
   /**
@@ -64,6 +65,9 @@ const iconPaths: Record<Exclude<KRHomebaseIconName, KRHomebaseStatusIconName>, s
   accounts: ['M3 10h18', 'M5 10v9', 'M9 10v9', 'M15 10v9', 'M19 10v9', 'M4 21h16', 'M12 3 4 8h16l-8-5Z'],
   documents: ['M4 6h6l2 2h8v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z', 'M4 10h16'],
   communications: ['M4 5h16v10H8l-4 4V5Z', 'M8 9h8', 'M8 12h5'],
+  // The default icon of an outside tool that serves none of its own (docs/05_Outside_Tools.md): a diamond, drawn
+  // filled in Signal Orange (--kr-theme-orange) so outside tools stand apart in the menu (the requester, Nov 14, 2026).
+  tool: ['M12 2.5 21.5 12 12 21.5 2.5 12 12 2.5Z'],
   send: ['M7 8.5l10 3.5', 'M7 15.5l10-3.5'],
   download: ['M12 3v11', 'M7 10l5 5 5-5', 'M5 20h14'],
   check: ['M5 12.5 9.5 17 19 7'],
@@ -164,16 +168,18 @@ export default function KRHomebaseIcon({ name, className, title }: KRHomebaseIco
   if (!paths) return renderMissingIcon(name, className)
 
   const strokeWidth = name === 'send' ? 2.6 : 1.8
+  // The default tool icon is a filled orange diamond; every other icon is a stroke in the row's color.
+  const isTool = name === 'tool'
 
   return (
     <svg
       aria-hidden={title ? undefined : true}
       aria-label={title ? title : name ? 'icon-' + name : 'icon'}
       className={className}
-      fill="none"
+      fill={isTool ? 'var(--kr-theme-orange, #e45e25)' : 'none'}
       focusable="false"
       role={title ? 'img' : undefined}
-      stroke="currentColor"
+      stroke={isTool ? 'var(--kr-theme-orange, #e45e25)' : 'currentColor'}
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={strokeWidth}

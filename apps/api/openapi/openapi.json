@@ -1176,9 +1176,17 @@
                                   "communications",
                                   "reports",
                                   "settings",
-                                  "attendance"
+                                  "attendance",
+                                  "tool"
                                 ],
                                 "description": "Icon drawn beside the tool in the left menu."
+                              },
+                              "iconSvg": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The icon the tool serves at /tool-icon.svg, as read and checked at its last save; null when it has none (the built-in icon is shown)."
                               },
                               "menuOrder": {
                                 "type": "integer",
@@ -1280,6 +1288,7 @@
                               "label",
                               "description",
                               "icon",
+                              "iconSvg",
                               "menuOrder",
                               "origin",
                               "entryUrl",
@@ -1487,7 +1496,7 @@
       },
       "post": {
         "summary": "Register an outside tool and, when server access is on, make its client secret.",
-        "description": "Roles: super_admin.\n\nSide effects: Writes workspace_tool; Writes workspace_tool_audit.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TOOL_ENTRY_URL_REFUSED, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin.\n\nSide effects: Calls the icon route of the tool (<origin>/tool-icon.svg); Writes workspace_tool; Writes workspace_tool_audit.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TOOL_ENTRY_URL_REFUSED, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "tools"
         ],
@@ -1524,10 +1533,11 @@
                       "communications",
                       "reports",
                       "settings",
-                      "attendance"
+                      "attendance",
+                      "tool"
                     ],
-                    "default": "documents",
-                    "description": "Icon drawn beside the tool in the left menu."
+                    "default": "tool",
+                    "description": "Built-in icon shown when the tool serves no icon of its own at /tool-icon.svg."
                   },
                   "menuOrder": {
                     "type": "integer",
@@ -1546,14 +1556,20 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "minLength": 1,
-                      "maxLength": 64,
-                      "pattern": "^[a-z][a-z0-9_]*$",
+                      "enum": [
+                        "super_admin",
+                        "attorney",
+                        "paralegal",
+                        "staff",
+                        "billing",
+                        "client",
+                        "external_cpa"
+                      ],
                       "description": "A role name as stored on user accounts, for example staff or super_admin."
                     },
                     "minItems": 1,
                     "maxItems": 20,
-                    "description": "Roles that see and may use the tool. At least one."
+                    "description": "Roles that see and may use the tool (any one of them). The API always adds super_admin."
                   },
                   "scopes": {
                     "type": "array",
@@ -1665,9 +1681,17 @@
                                 "communications",
                                 "reports",
                                 "settings",
-                                "attendance"
+                                "attendance",
+                                "tool"
                               ],
                               "description": "Icon drawn beside the tool in the left menu."
+                            },
+                            "iconSvg": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "The icon the tool serves at /tool-icon.svg, as read and checked at its last save; null when it has none (the built-in icon is shown)."
                             },
                             "menuOrder": {
                               "type": "integer",
@@ -1769,6 +1793,7 @@
                             "label",
                             "description",
                             "icon",
+                            "iconSvg",
                             "menuOrder",
                             "origin",
                             "entryUrl",
@@ -2138,9 +2163,17 @@
                                 "communications",
                                 "reports",
                                 "settings",
-                                "attendance"
+                                "attendance",
+                                "tool"
                               ],
                               "description": "Icon drawn beside the tool in the left menu."
+                            },
+                            "iconSvg": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "The icon the tool serves at /tool-icon.svg, as read and checked at its last save; null when it has none (the built-in icon is shown)."
                             },
                             "menuOrder": {
                               "type": "integer",
@@ -2242,6 +2275,7 @@
                             "label",
                             "description",
                             "icon",
+                            "iconSvg",
                             "menuOrder",
                             "origin",
                             "entryUrl",
@@ -2532,7 +2566,7 @@
       },
       "patch": {
         "summary": "Change an outside tool: menu text, address, roles, permissions, status or server access.",
-        "description": "Roles: super_admin.\n\nSide effects: Writes workspace_tool; Deletes workspace_tool_token rows when the tool is turned off, server access is turned off or permissions change; Writes workspace_tool_audit.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TOOL_NOT_FOUND, TOOL_ENTRY_URL_REFUSED, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin.\n\nSide effects: Calls the icon route of the tool (<origin>/tool-icon.svg); Writes workspace_tool; Deletes workspace_tool_token rows when the tool is turned off, server access is turned off or permissions change; Writes workspace_tool_audit.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TOOL_NOT_FOUND, TOOL_ENTRY_URL_REFUSED, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "tools"
         ],
@@ -2582,7 +2616,8 @@
                       "communications",
                       "reports",
                       "settings",
-                      "attendance"
+                      "attendance",
+                      "tool"
                     ],
                     "description": "Icon drawn beside the tool in the left menu."
                   },
@@ -2602,14 +2637,20 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "minLength": 1,
-                      "maxLength": 64,
-                      "pattern": "^[a-z][a-z0-9_]*$",
+                      "enum": [
+                        "super_admin",
+                        "attorney",
+                        "paralegal",
+                        "staff",
+                        "billing",
+                        "client",
+                        "external_cpa"
+                      ],
                       "description": "A role name as stored on user accounts, for example staff or super_admin."
                     },
                     "minItems": 1,
                     "maxItems": 20,
-                    "description": "New list of roles."
+                    "description": "New list of roles (any one of them sees the tool). The API always adds super_admin."
                   },
                   "scopes": {
                     "type": "array",
@@ -2721,9 +2762,17 @@
                                 "communications",
                                 "reports",
                                 "settings",
-                                "attendance"
+                                "attendance",
+                                "tool"
                               ],
                               "description": "Icon drawn beside the tool in the left menu."
+                            },
+                            "iconSvg": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "The icon the tool serves at /tool-icon.svg, as read and checked at its last save; null when it has none (the built-in icon is shown)."
                             },
                             "menuOrder": {
                               "type": "integer",
@@ -2825,6 +2874,7 @@
                             "label",
                             "description",
                             "icon",
+                            "iconSvg",
                             "menuOrder",
                             "origin",
                             "entryUrl",
@@ -4184,6 +4234,784 @@
         }
       }
     },
+    "/v1/tools/registrations/health-check": {
+      "post": {
+        "summary": "Read the health route (GET <origin>/health-check) and the icon route (GET <origin>/tool-icon.svg) of a tool address and say whether they answer as the tool kit asks, with the raw answer, for the super admin.",
+        "description": "Roles: super_admin.\n\nSide effects: Calls the health route and the icon route of the tool (https, no redirects, 5 seconds).\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TOOL_ENTRY_URL_REFUSED, INTERNAL_ERROR.",
+        "tags": [
+          "tools"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "entryUrl": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "format": "uri",
+                    "description": "Full address of the tool screen, for example https://intake-tool.example.com/app. Its origin is the only place the frame may load from."
+                  }
+                },
+                "required": [
+                  "entryUrl"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The result: ok, failed (with the problem) or not_checked (a local address).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "ok",
+                            "failed",
+                            "not_checked"
+                          ],
+                          "description": "ok: the tool answered its health address. failed: it did not, or not as the kit asks. not_checked: a local address (localhost) the API cannot reach."
+                        },
+                        "address": {
+                          "type": "string",
+                          "description": "The health route that was read."
+                        },
+                        "problem": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "What was wrong, in plain words; null when the state is ok."
+                        },
+                        "version": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The version the tool reported, or null."
+                        },
+                        "checkedAt": {
+                          "type": "string",
+                          "description": "When it was read (ISO time)."
+                        },
+                        "response": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "status": {
+                              "type": "integer",
+                              "description": "HTTP status of the answer."
+                            },
+                            "contentType": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Its Content-Type header."
+                            },
+                            "body": {
+                              "description": "The answer: the parsed JSON, or its first 4096 characters as text when it is not JSON."
+                            }
+                          },
+                          "required": [
+                            "status",
+                            "contentType"
+                          ],
+                          "description": "The raw answer (super admin check only; null on the menu route or when nothing answered)."
+                        },
+                        "icon": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "address": {
+                              "type": "string",
+                              "description": "The icon route that was read (<origin>/tool-icon.svg)."
+                            },
+                            "svg": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "The icon in its standard form when it passed the \"tool icon\" check, else null."
+                            },
+                            "problem": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Why there is no icon, in plain words; null when it passed."
+                            }
+                          },
+                          "required": [
+                            "address",
+                            "svg",
+                            "problem"
+                          ],
+                          "description": "The tool icon as read with the super admin check; null on the menu route."
+                        }
+                      },
+                      "required": [
+                        "state",
+                        "address",
+                        "problem",
+                        "version",
+                        "checkedAt",
+                        "response",
+                        "icon"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The tool address is not allowed (TOOL_ENTRY_URL_REFUSED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tools/menu/{clientId}/health": {
+      "get": {
+        "summary": "Read the health route of an outside tool the signed-in person may open, so the frame can show a notice when the tool does not answer.",
+        "description": "Any signed-in user.\n\nSide effects: Calls the health route of the tool (https, no redirects, 5 seconds; a good answer is reused for 60 seconds).\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TOOL_NOT_FOUND, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "tools"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^krt_[A-Za-z0-9_-]{16,64}$",
+              "description": "The tool client id given at registration, for example krt_Ab12Cd34Ef56Gh78Ij90Kl12. Public, not a secret."
+            },
+            "required": true,
+            "description": "The tool client id given at registration, for example krt_Ab12Cd34Ef56Gh78Ij90Kl12. Public, not a secret.",
+            "name": "clientId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The result: ok, failed (with the problem) or not_checked (a local address).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "ok",
+                            "failed",
+                            "not_checked"
+                          ],
+                          "description": "ok: the tool answered its health address. failed: it did not, or not as the kit asks. not_checked: a local address (localhost) the API cannot reach."
+                        },
+                        "address": {
+                          "type": "string",
+                          "description": "The health route that was read."
+                        },
+                        "problem": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "What was wrong, in plain words; null when the state is ok."
+                        },
+                        "version": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The version the tool reported, or null."
+                        },
+                        "checkedAt": {
+                          "type": "string",
+                          "description": "When it was read (ISO time)."
+                        },
+                        "response": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "status": {
+                              "type": "integer",
+                              "description": "HTTP status of the answer."
+                            },
+                            "contentType": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Its Content-Type header."
+                            },
+                            "body": {
+                              "description": "The answer: the parsed JSON, or its first 4096 characters as text when it is not JSON."
+                            }
+                          },
+                          "required": [
+                            "status",
+                            "contentType"
+                          ],
+                          "description": "The raw answer (super admin check only; null on the menu route or when nothing answered)."
+                        },
+                        "icon": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "address": {
+                              "type": "string",
+                              "description": "The icon route that was read (<origin>/tool-icon.svg)."
+                            },
+                            "svg": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "The icon in its standard form when it passed the \"tool icon\" check, else null."
+                            },
+                            "problem": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Why there is no icon, in plain words; null when it passed."
+                            }
+                          },
+                          "required": [
+                            "address",
+                            "svg",
+                            "problem"
+                          ],
+                          "description": "The tool icon as read with the super admin check; null on the menu route."
+                        }
+                      },
+                      "required": [
+                        "state",
+                        "address",
+                        "problem",
+                        "version",
+                        "checkedAt",
+                        "response",
+                        "icon"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No active tool with that client id that this person may use (TOOL_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The tools tables cannot be reached (TOOLS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/tools/menu": {
       "get": {
         "summary": "List the active outside tools the signed-in person may use, for the left menu.",
@@ -4240,9 +5068,17 @@
                                   "communications",
                                   "reports",
                                   "settings",
-                                  "attendance"
+                                  "attendance",
+                                  "tool"
                                 ],
                                 "description": "Icon drawn beside the tool in the left menu."
+                              },
+                              "iconSvg": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The icon the tool serves at /tool-icon.svg (checked), or null for the built-in icon."
                               },
                               "menuOrder": {
                                 "type": "integer",
@@ -4291,6 +5127,7 @@
                               "label",
                               "description",
                               "icon",
+                              "iconSvg",
                               "menuOrder",
                               "origin",
                               "entryUrl",

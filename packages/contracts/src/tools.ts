@@ -1,5 +1,6 @@
 // file: packages/contracts/src/tools.ts
 import { z } from 'zod'
+import { checkToolIcon } from './toolIcon.ts'
 
 /**
  * Outside tools: programs written by other developers that appear as items in the left menu and draw
@@ -62,6 +63,8 @@ export const ToolIconNames = [
   'reports',
   'settings',
   'attendance',
+  // KR Homebase's default tool icon (an orange diamond): used when a tool serves no icon of its own.
+  'tool',
 ] as const
 export const ToolIcon = z.enum(ToolIconNames).describe('Icon drawn beside the tool in the left menu.')
 export type ToolIcon = z.infer<typeof ToolIcon>
@@ -106,8 +109,35 @@ export const ToolClientId = z
   .regex(/^krt_[A-Za-z0-9_-]{16,64}$/)
   .describe('The tool client id given at registration, for example krt_Ab12Cd34Ef56Gh78Ij90Kl12. Public, not a secret.')
 
+/**
+ * The roles a tool can be shown to: the values `user.role` may hold (its CHECK list in docs/Schema_8.0). A person
+ * holds one; a tool is shown to anyone whose role is on its list (any one of them). `super_admin` is always on the
+ * list: the API adds it to every saved list (the requester, Nov 14, 2026).
+ */
+export const ToolRoleNames = ['super_admin', 'attorney', 'paralegal', 'staff', 'billing', 'client', 'external_cpa'] as const
+
 /** Role names, as stored on the user account (for example `super_admin`, `staff`). */
-const RoleName = z.string().trim().min(1).max(64).regex(/^[a-z][a-z0-9_]*$/).describe('A role name as stored on user accounts, for example staff or super_admin.')
+const RoleName = z.enum(ToolRoleNames).describe('A role name as stored on user accounts, for example staff or super_admin.')
+
+/**
+ * A tool's own menu icon: SVG text of the "tool icon" type (`checkToolIcon` in `toolIcon.ts`: viewBox 0 0 24 24,
+ * shapes only, fill and stroke none or currentColor, at most 4000 characters). Stored as the standard text
+ * `checkToolIcon` writes.
+ */
+export const ToolIconSvg = z
+  .string()
+  .max(4000)
+  .superRefine((value, context) => {
+    const icon = checkToolIcon(value)
+    if (!icon.ok) context.addIssue({ code: 'custom', message: icon.problem })
+  })
+  .describe('The menu icon of the tool: an SVG with viewBox="0 0 24 24", only g, path, circle, ellipse, rect, line, polyline and polygon, fill and stroke none or currentColor.')
+
+/** The route every tool must answer on its own origin (the kit's `TOOL_HEALTH_PATH`): `{ status, version }`. */
+export const TOOL_HEALTH_PATH = '/health-check'
+
+/** The route where every tool serves its own menu icon (the kit's `TOOL_ICON_PATH`), a "tool icon" SVG. */
+export const TOOL_ICON_PATH = '/tool-icon.svg'
 
 /** An IPv4 or IPv6 address the tool server calls from. Ranges are not supported. */
 const IpAddress = z
@@ -137,6 +167,7 @@ export const ToolRegistration = z.object({
   label: z.string().describe('Words shown in the left menu.'),
   description: z.string().describe('One-line purpose, shown as the menu tooltip.'),
   icon: ToolIcon,
+  iconSvg: z.string().nullable().describe('The icon the tool serves at /tool-icon.svg, as read and checked at its last save; null when it has none (the built-in icon is shown).'),
   menuOrder: z.number().int().describe('Position among the outside tools in the menu; lower comes first.'),
   origin: z.string().describe('Origin of the tool screen (scheme, host and port), taken from entryUrl.'),
   entryUrl: z.string().describe('Full address of the tool screen.'),
@@ -162,10 +193,10 @@ export type ToolIdParams = z.infer<typeof ToolIdParams>
 export const ToolCreateBody = z.object({
   label: z.string().trim().min(1).max(40).describe('Words shown in the left menu (up to 40 characters).'),
   description: z.string().trim().max(200).default('').describe('One-line purpose, shown as the menu tooltip.'),
-  icon: ToolIcon.default('documents'),
+  icon: ToolIcon.default('tool').describe('Built-in icon shown when the tool serves no icon of its own at /tool-icon.svg.'),
   menuOrder: z.number().int().min(0).max(9999).default(100).describe('Position among the outside tools; lower comes first.'),
   entryUrl: ToolEntryUrl,
-  allowedRoles: z.array(RoleName).min(1).max(20).describe('Roles that see and may use the tool. At least one.'),
+  allowedRoles: z.array(RoleName).min(1).max(20).describe('Roles that see and may use the tool (any one of them). The API always adds super_admin.'),
   scopes: z.array(ToolScope).max(ToolScopes.length).default([]).describe('Permissions to grant. Empty means the tool can learn only who is using it.'),
   serverAccessEnabled: z.boolean().default(false).describe('True to let the tool server get access tokens (path B). A client secret is made and shown once.'),
   serverIpAllowlist: z.array(IpAddress).max(20).default([]).describe('Optional: the only addresses the tool server may call from.'),
@@ -179,7 +210,7 @@ export const ToolUpdateBody = z.object({
   icon: ToolIcon.optional(),
   menuOrder: z.number().int().min(0).max(9999).optional().describe('New menu position.'),
   entryUrl: ToolEntryUrl.optional(),
-  allowedRoles: z.array(RoleName).min(1).max(20).optional().describe('New list of roles.'),
+  allowedRoles: z.array(RoleName).min(1).max(20).optional().describe('New list of roles (any one of them sees the tool). The API always adds super_admin.'),
   scopes: z.array(ToolScope).max(ToolScopes.length).optional().describe('New list of permissions. Replaces the old list.'),
   status: ToolStatus.optional(),
   serverAccessEnabled: z.boolean().optional().describe('Turn the server path on or off. Turning it off ends every access token at once.'),
@@ -245,6 +276,7 @@ export const ToolMenuItem = z.object({
   label: z.string().describe('Words shown in the left menu.'),
   description: z.string().describe('Tooltip text.'),
   icon: ToolIcon,
+  iconSvg: z.string().nullable().describe('The icon the tool serves at /tool-icon.svg (checked), or null for the built-in icon.'),
   menuOrder: z.number().int().describe('Position among the outside tools.'),
   origin: z.string().describe('The only origin the frame may load from and whose messages the host accepts.'),
   entryUrl: z.string().describe('Address loaded in the frame.'),
@@ -297,6 +329,50 @@ export const ToolContextData = z.object({
     .describe('The signed-in person for frame calls; null for server calls.'),
 })
 export type ToolContextData = z.infer<typeof ToolContextData>
+
+/** How KR Homebase found a tool's health address. */
+export const ToolHealthStates = ['ok', 'failed', 'not_checked'] as const
+export const ToolHealthState = z
+  .enum(ToolHealthStates)
+  .describe('ok: the tool answered its health address. failed: it did not, or not as the kit asks. not_checked: a local address (localhost) the API cannot reach.')
+
+/** The tool's raw answer, for the super admin's detail view. Never stored. */
+export const ToolHealthResponse = z.object({
+  status: z.number().int().describe('HTTP status of the answer.'),
+  contentType: z.string().nullable().describe('Its Content-Type header.'),
+  body: z.unknown().describe('The answer: the parsed JSON, or its first 4096 characters as text when it is not JSON.'),
+})
+export type ToolHealthResponse = z.infer<typeof ToolHealthResponse>
+
+/** The result of reading a tool's health route (`GET <origin>/health-check`). */
+export const ToolHealthData = z.object({
+  state: ToolHealthState,
+  address: z.string().describe('The health route that was read.'),
+  problem: z.string().nullable().describe('What was wrong, in plain words; null when the state is ok.'),
+  version: z.string().nullable().describe('The version the tool reported, or null.'),
+  checkedAt: z.string().describe('When it was read (ISO time).'),
+  response: ToolHealthResponse.nullable().describe('The raw answer (super admin check only; null on the menu route or when nothing answered).'),
+  icon: z
+    .object({
+      address: z.string().describe('The icon route that was read (<origin>/tool-icon.svg).'),
+      svg: z.string().nullable().describe('The icon in its standard form when it passed the "tool icon" check, else null.'),
+      problem: z.string().nullable().describe('Why there is no icon, in plain words; null when it passed.'),
+    })
+    .nullable()
+    .describe('The tool icon as read with the super admin check; null on the menu route.'),
+})
+export type ToolHealthData = z.infer<typeof ToolHealthData>
+
+/** A health check before or after saving a registration: the tool address to check. */
+export const ToolHealthCheckBody = z.object({
+  entryUrl: ToolEntryUrl,
+})
+export type ToolHealthCheckBody = z.infer<typeof ToolHealthCheckBody>
+
+export const ToolHealthParams = z.object({
+  clientId: ToolClientId,
+})
+export type ToolHealthParams = z.infer<typeof ToolHealthParams>
 
 /** Error codes the tool checks can return. `details.reason` says which check failed. */
 export const ToolErrorCodes = ['TOOL_FORBIDDEN', 'TOOL_TOKEN_INVALID', 'TOOLS_UNAVAILABLE', 'TOOL_CALLER_REQUIRED', 'TOOL_GATEWAY_REQUIRED'] as const

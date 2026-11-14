@@ -5,7 +5,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { registrationSheet } from '@krhomebase/tool-sdk/manifest'
+import { checkToolIcon, healthDocument, registrationSheet } from '@krhomebase/tool-sdk/manifest'
 import { describe, expect, it } from 'vitest'
 import { tool } from './tool.ts'
 
@@ -17,6 +17,17 @@ describe('the tool description', () => {
     expect(tool.scopes).toEqual(['homebase-feedback:read', 'homebase-feedback:write'])
     expect(tool.serverAccess).toBe(false)
     expect(new URL(tool.entryUrl).hostname.endsWith('krhomebase.com')).toBe(false)
+  })
+
+  it('serves the health route the kit writes, at /health-check', () => {
+    const served = JSON.parse(readFileSync(join(here, '..', 'public', 'health-check'), 'utf8'))
+    expect(served).toEqual(healthDocument(tool))
+  })
+
+  it('serves its own icon at /tool-icon.svg, in the standard form of the tool icon rules', () => {
+    const served = readFileSync(join(here, '..', 'public', 'tool-icon.svg'), 'utf8').trim()
+    const icon = checkToolIcon(served)
+    expect(icon.ok && icon.svg).toBe(served)
   })
 
   it('matches the registration sheet in README.md', () => {

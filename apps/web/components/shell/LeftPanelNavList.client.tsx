@@ -21,6 +21,7 @@
 
 import { Fragment, useEffect, useRef } from 'react'
 import KRHomebaseIcon from '@/components/ui/KRHomebaseIcon.client'
+import ToolSvgIcon from '@/components/ui/ToolSvgIcon.client'
 import {
   openItemSectionId,
   parseOpenItemSectionId,
@@ -186,7 +187,16 @@ export default function LeftPanelNavList({
                 onClick={() => onSelectSection(item.id)}
                 title={collapsed ? item.label : item.description}
               >
-                <KRHomebaseIcon name={item.icon} className={item.isSubItem ? LAYOUT_STYLES.subIcon : LAYOUT_STYLES.icon} />
+                {/* An outside tool may bring its own SVG icon; its built-in icon is the fallback */}
+                {item.iconSvg ? (
+                  <ToolSvgIcon
+                    svg={item.iconSvg}
+                    className={item.isSubItem ? LAYOUT_STYLES.subIcon : LAYOUT_STYLES.icon}
+                    fallback={<KRHomebaseIcon name={item.icon} className={item.isSubItem ? LAYOUT_STYLES.subIcon : LAYOUT_STYLES.icon} />}
+                  />
+                ) : (
+                  <KRHomebaseIcon name={item.icon} className={item.isSubItem ? LAYOUT_STYLES.subIcon : LAYOUT_STYLES.icon} />
+                )}
                 <span className={`${item.isSubItem ? STYLES.subLabel : ''} ${collapsed ? 'md:hidden' : ''}`} data-kr-element={`left-nav-label-${navLabelMarker(item.id)}`}>
                   {item.label}
                 </span>

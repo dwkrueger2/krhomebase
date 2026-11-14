@@ -1,7 +1,7 @@
 # KR Homebase Tool Kit: Developer Guide
 
-<small>Version 1.2</small><br>
-<small>Updated Nov 14, 2026 1:32pm</small>
+<small>Version 1.4</small><br>
+<small>Updated Nov 14, 2026 3:56pm</small>
 
 **Who this is for:** a developer building an outside tool for KR Homebase without access to the KR Homebase code.
 
@@ -31,7 +31,7 @@ Most tools need only the frame path.
 | Server path only: client secret | `krts_...` | **Yes.** Shown once. |
 | Server path only: external API address | `https://<address the super admin gives you>` | No |
 
-The super admin needs from you: the label, description, icon, your page's address (the entry URL), the permissions you need, and whether you need the server path. `registrationSheet()` (section 5) prints this list.
+The super admin needs from you: the label, description, version, your page's address (the entry URL), the roles it is for, the permissions you need, and whether you need the server path. `registrationSheet()` (section 5) prints this list, with your health and icon routes.
 
 ## 3. Install
 
@@ -47,7 +47,7 @@ pnpm add ./krhomebase-tool-sdk-1.0.0.tgz
 |---|---|
 | `@krhomebase/tool-sdk/frame` | `connectToHost`: your page in the browser |
 | `@krhomebase/tool-sdk/server` | `createServerClient`: your server |
-| `@krhomebase/tool-sdk/manifest` | `defineTool`, `registrationSheet` |
+| `@krhomebase/tool-sdk/manifest` | `defineTool`, `registrationSheet`, `healthDocument`, `checkToolIcon` |
 | `@krhomebase/tool-sdk/types` | Shared types and the lists of permissions and icons |
 
 ## 4. Your page in the frame (path A)
@@ -108,10 +108,12 @@ export const tool = defineTool({
   name: 'intake-helper',
   label: 'Intake Helper',
   description: 'Checks new intake forms for missing answers.',
-  icon: 'documents',
+  version: '1.0.0',                  // reported by your health route (section 5.3)
   entryUrl: 'https://intake-helper.example.com/app',
   hostOrigins: ['https://krhomebase.com'],
   scopes: ['contacts:read'],
+  roles: ['staff', 'paralegal'],     // optional suggestion (section 5.2)
+  icon: 'documents',                 // optional built-in fallback (section 5.1); left out: the default tool icon
   serverAccess: false,
 })
 
@@ -121,6 +123,49 @@ console.log(registrationSheet(tool)) // send this text to the super admin
 `defineTool` checks the values and throws on the first problem. It grants nothing. Only the super admin grants permissions, and KR Homebase checks them on every call.
 
 **Your address (entry URL)** must be `https`. `http://localhost` and `http://127.0.0.1` are allowed while testing. Your page may be loaded only from that address's origin (scheme, host and port), and KR Homebase listens only to messages from that origin. If the address changes, the super admin must change it in KR Homebase.
+
+**Every tool serves two fixed routes on its origin** (static files are enough):
+
+| Route | Serves | Section |
+|---|---|---|
+| `GET /health-check` (`TOOL_HEALTH_PATH`) | JSON `{ "status": "ok", "version": "1.0.0" }` (required) | 5.3 |
+| `GET /tool-icon.svg` (`TOOL_ICON_PATH`) | The tool's menu icon, a "tool icon" SVG (recommended) | 5.1 |
+
+### 5.1 Your menu icon: `/tool-icon.svg`
+
+Serve your tool's own menu icon at `GET <your origin>/tool-icon.svg`. KR Homebase reads it each time the super admin saves your registration (and shows it when they press **Check health**); nobody pastes it. Without one, or when it breaks the rules below, KR Homebase shows your `icon` fallback, or its default tool icon (an orange diamond) when you name none.
+
+The icon must be of the **tool icon** type, which `checkToolIcon` (in `@krhomebase/tool-sdk/manifest`) checks; run it on your file in a test:
+
+| Rule | Value |
+|---|---|
+| Root | One `<svg>` with `viewBox="0 0 24 24"`. `xmlns` may be given; `width` and `height` are dropped. |
+| Elements | Only `g`, `path`, `circle`, `ellipse`, `rect`, `line`, `polyline`, `polygon`; at most 48. |
+| Attributes | Shape positions (`d`, `cx`, `cy`, `r`, `rx`, `ry`, `x`, `y`, `width`, `height`, `x1`, `y1`, `x2`, `y2`, `points`) and `fill`, `stroke`, `stroke-width` (0 to 6), `stroke-linecap`, `stroke-linejoin`, `fill-rule`, `clip-rule`, `opacity`. |
+| Colors | `fill` and `stroke` are `none` or `currentColor` only, so the icon takes the menu's colors (light, dark, selected). |
+| Not allowed | Text (draw letters as strokes), `style`, `class`, `id`, scripts, event attributes, links, images, comments, entities (`&...;`), single quotes. |
+| Size | At most 4000 characters (and 4096 bytes as served). |
+
+Draw like the KR Homebase menu icons: a 24 by 24 grid, strokes of about 1.8, round caps and joins, about 2px clear at the edges. The example tool's `public/tool-icon.svg` is one.
+
+### 5.2 Roles
+
+Every KR Homebase account holds one role: `super_admin`, `attorney`, `paralegal`, `staff`, `billing`, `client` or `external_cpa` (`TOOL_ROLES` in `@krhomebase/tool-sdk/types`). The super admin ticks the roles your tool is for; a person holding **any one** of them sees it in the menu. `super_admin` is always included. `roles` in `defineTool` is your suggestion and is printed on the registration sheet. A frame call still needs the person's own permission for each route, whatever their role.
+
+### 5.3 The health route: `/health-check` (required)
+
+Every tool must answer `GET <your origin>/health-check` (`TOOL_HEALTH_PATH`) with JSON, no redirect, within 5 seconds and in at most 4096 bytes:
+
+```json
+{ "status": "ok", "version": "1.0.0", "protocol": 1 }
+```
+
+`status` must be `ok` and `version` (1 to 40 characters) is your tool's version. `protocol` is optional; when given, it must be the bridge version KR Homebase speaks (1). `healthDocument(tool)` (`@krhomebase/tool-sdk/manifest`) returns exactly this from your `defineTool` values; write it to a static file at build time, or answer it from your server. KR Homebase reads it from its own server (so no CORS header is needed):
+
+- when the super admin presses **Check health** while registering (it must say "Answers, version ..."; **Details** shows your raw answer);
+- each time a person opens your tool. The menu does not wait for it. If the answer is missing or different, KR Homebase shows a notice in place of your tool ("<label> is not answering", the problem, **Try again** and **Open anyway**). A good answer is reused for about a minute.
+
+A `localhost` address is not read (the KR Homebase server cannot reach your computer); it counts as "not checked" and your tool loads.
 
 ## 6. Permissions
 
@@ -187,12 +232,13 @@ pnpm install
 pnpm dev        # serves http://localhost:5173
 ```
 
-Then register `http://localhost:5173/` (section 9). `server-sync.mjs` shows the server path (`pnpm run sync`, with the three settings named at its top).
+Then register `http://localhost:5173/` (section 9). Its health route and icon are `public/health-check` and `public/tool-icon.svg` (sections 5.3 and 5.1). `server-sync.mjs` shows the server path (`pnpm run sync`, with the three settings named at its top).
 
 ## 11. Rules for every tool
 
 1. Ask for the fewest permissions that work.
-2. Keep the client secret on your server only.
-3. Show the person what your tool will change before it changes it.
-4. Do not copy KR Homebase data elsewhere unless the firm has agreed to it in writing.
-5. Save often. Your page restarts whenever it is popped out or back in.
+2. Answer the health route (section 5.3) whenever the tool can be used, and serve your icon (section 5.1).
+3. Keep the client secret on your server only.
+4. Show the person what your tool will change before it changes it.
+5. Do not copy KR Homebase data elsewhere unless the firm has agreed to it in writing.
+6. Save often. Your page restarts whenever it is popped out or back in.

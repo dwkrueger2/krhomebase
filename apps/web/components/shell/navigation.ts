@@ -73,8 +73,10 @@ export interface ShellNavItem {
   id: ShellSectionId
   /** Words shown in the menu, the title bar and the pop-out title bar. */
   label: string
-  /** Icon drawn beside the label. */
+  /** Icon drawn beside the label. For an outside tool with its own icon, the fallback for `iconSvg`. */
   icon: KRHomebaseIconName
+  /** An outside tool's own SVG icon (the kit's "tool icon" type), drawn by `ToolSvgIcon` in place of `icon`. */
+  iconSvg?: string
   /** Parent row when this row is a child of `settings`. */
   parentId?: ShellSectionId
   /** True for rows drawn smaller and indented under their parent. */
@@ -237,6 +239,7 @@ export function buildNavItems(tools: readonly ToolMenuItem[]): ShellNavItem[] {
       label: tool.label,
       // Every tool icon is a menu icon; the typecheck fails here if the two lists drift apart.
       icon: tool.icon,
+      ...(tool.iconSvg ? { iconSvg: tool.iconSvg } : {}),
       description: tool.description || `${tool.label} (outside tool)`,
       outsideTool: { clientId: tool.clientId, origin: tool.origin, entryUrl: tool.entryUrl, scopes: tool.scopes },
     }))

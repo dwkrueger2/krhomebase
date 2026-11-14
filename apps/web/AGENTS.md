@@ -1,7 +1,7 @@
 # KR Homebase Web Agent Guide
 
-<small>Version 3.25</small><br>
-<small>Updated Nov 14, 2026 4:10am</small>
+<small>Version 3.26</small><br>
+<small>Updated Nov 14, 2026 3:56pm</small>
 
 ## Purpose
 
@@ -119,6 +119,7 @@ Design and security model: `docs/05_Outside_Tools.md`. Guide for outside develop
 - `app/page.tsx` reads the tools for the menu (`features/tools/tools.server.ts`) and passes them to the shell. For a super admin only, it places `OutsideToolsAdmin` as the Outside Tools page of Application Settings (`?section=application-settings&applicationSettingsTab=outside-tools`). The API refuses that screen's calls from anyone else.
 - The shell draws a tool itself: `components/shell/ExternalToolFrame.client.tsx` (the sandboxed frame), `components/shell/toolHost.ts` (the host side of the bridge) and `lib/toolRelay.ts` (the one browser door to the API for tools, which adds `x-kr-tool-id`). Tool section ids are `tool:<clientId>` (`components/shell/navigation.ts`).
 - The bridge's message shapes come from `@krhomebase/tool-sdk/protocol`, the same file the tools use. Do not write a second copy.
+- **Own icons and health (web patch 544):** a tool's `iconSvg` is drawn only by `components/ui/ToolSvgIcon.client.tsx` (checked again with `checkToolIcon`, built from the checked elements with React, never `dangerouslySetInnerHTML`; the built-in icon is the fallback), in the left menu and on the Outside tools screen. `ExternalToolFrame` asks `fetchToolHealth` (`lib/toolRelay.ts`, `GET /api/v1/tools/menu/{clientId}/health`) each time a tool opens, without waiting, and shows a notice in place of the frame when the tool does not answer its health route (`/health-check`). The registration form ticks roles from `ToolRoleNames` (any one sees the tool; Super admin is always ticked, grey and locked), shows beside the fallback icon (default `tool`, the orange diamond in `KRHomebaseIcon`) the icon the tool serves at `/tool-icon.svg` (read by the API; never typed), separates Roles, Permissions and Server access with thin rules, and has Check health with a **Details** dialog (`ToolHealthDetailDialog`, the raw answer as colored JSON).
 - `TOOL_FRAME_SANDBOX` in `ExternalToolFrame.client.tsx` is a security setting. Adding a permission to it (for example `allow-top-navigation` or `allow-modals`) needs the requester's approval and an update to `docs/05_Outside_Tools.md` and the kit's README.
 - `app/api/[...path]/route.ts` removes `x-kr-gateway` from every browser request. Keep it that way.
 
