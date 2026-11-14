@@ -1,7 +1,7 @@
 # Environment Key Mappings
 
-<small>Version 1.1</small><br>
-<small>Updated Nov 14, 2026 1:35am</small>
+<small>Version 1.2</small><br>
+<small>Updated Nov 14, 2026 4:45am</small>
 
 ## What this is
 
@@ -34,7 +34,7 @@ This page maps each environment key (secret or setting) to the key file that hol
 | `KR_SESSION_WORKER_SECRET` | `session-symmetric-hashkey.key` | Yes | API secret, and the same value on `krhomebase-session-worker`. Shared HMAC key for the session calls. |
 | `KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY` | `krhomebase-google-workspace-mailer-key.json` | No (old folder only) | API secret: the whole service-account JSON file. Invitation and billing email. Set on the deployed API on Nov 12, 2026; not in `.dev.vars` unless added by hand. |
 | `KR_PAYMENT_PROVIDER_KEK` | `payment-provider-kek.key` | Yes | API secret, and the same value on `kr-pay-worker-live`. Encrypts the Stripe keys in `payment_provider`. It is not the Stripe webhook secret (`whsec_...`), which is entered on the Stripe Payment Configuration page. |
-| `KR_GPT_WORKER_SECRET` | `gpt-worker-shared-secret.txt` (made Nov 14, 2026; `workers/gpt-workers/README.md`) | — | API secret, and the same value as `GPT_WORKER_SHARED_SECRET` on the GPT models Worker. Not set; the Worker is not deployed. |
+| `KR_GPT_WORKER_SECRET` | `gpt-worker-shared-secret.txt` (made Nov 14, 2026; `workers/gpt-workers/README.md`) | — | API secret, and the same value as `GPT_WORKER_SHARED_SECRET` on the GPT models Worker. Set on the deployed API by the requester on Nov 14, 2026 (piped from the file; `workers/gpt-workers/README.md` step 6). |
 | `KR_APP_BASE_URL` | none (a setting) | — | `http://localhost:3011` in `.dev.vars`; the deployed address in the wrangler file. |
 | `KR_SUPER_ADMIN_EMAILS` | none (a setting) | — | Optional, only while the database has no users. |
 | `krhomebase` | none (binding) | — | D1 database binding (`remote: true` under `pnpm dev`). |

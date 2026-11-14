@@ -53,6 +53,11 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+# wrangler and vite write UTF-8 (the cloud, the box lines, the check marks). Windows PowerShell 5.1 reads a program's
+# output in the console's old code page unless told otherwise, which turned them into stray Greek letters (Nov 14, 2026).
+# This file stays plain ASCII: Windows PowerShell 5.1 reads a script without a byte-order mark in that old code page too.
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 $Repo     = Split-Path -Parent $PSScriptRoot
 $Api      = Join-Path $Repo "apps\api"
 $Web      = Join-Path $Repo "apps\web"
@@ -126,7 +131,16 @@ function Send-Version([string]$Worker, [string]$Message) {
         $out = Invoke-Pnpm $Api @("exec", "wrangler", "versions", "upload", "--config", $Config, "--message", $Message)
         if ($out -match 'Worker Version ID:\s*([0-9a-f-]{36})') { return $Matches[1] }
     } else {
-        Invoke-Pnpm $Web @("exec", "vinext-cloudflare", "deploy", "--no-promote") | Out-Null
+        # vinext-cloudflare 1.4 uploads through the `cf` tool and then reads the new id from its output. On Nov 14,
+        # 2026 the upload worked (a new version was listed) but vinext stopped with "Could not detect Worker version ID".
+        # The id is read from `wrangler versions list` below either way, so that one failure is let through when a new
+        # version exists; any other failure stops the deploy.
+        try {
+            Invoke-Pnpm $Web @("exec", "vinext-cloudflare", "deploy", "--no-promote") | Out-Null
+        } catch {
+            if ($_.Exception.Message -notmatch 'Could not detect Worker version ID') { throw }
+            Write-Host "vinext could not read the new version id from its own output; reading it from the version list instead." -ForegroundColor Yellow
+        }
     }
     $after = Get-NewestVersionId $Worker
     if (-not $after -or $after -eq $before) { throw "No new version of $Worker was found after the upload." }

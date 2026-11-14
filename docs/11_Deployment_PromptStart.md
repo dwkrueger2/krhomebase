@@ -100,8 +100,8 @@ Repository patches 27 to 33, API 26 to 30, web 536 to 542. Task lists: `docs\pat
 | R2 binding `ARTICLES` on the API | Buckets `kr-homebase-articles` (deployed) and `kr-homebase-articles-dev` (`pnpm dev`) both exist |
 | Feedback bucket | None needed: `kr-homebase-feedback` belongs to stage F3, not built |
 | Service binding `GPT_WORKER` on the API | Target `krhomebase-gpt-models-worker` is deployed (section 4) |
-| New API secret `KR_GPT_WORKER_SECRET` | **Missing** on the deployed API (the seven other secrets are listed). The requester sets it before the deploy (6.3, step 1). Without it the Gateway page says "GPT Model Gateway cannot be reached right now"; nothing else is affected. |
-| Migration 034 (deploy window on `kr_maintenance_gate`, repository patch 34) | **Not applied** (the deploy script's status reads no columns). Needed by `pnpm deploy:warn` only; apply it in 6.3, step 2 |
+| New API secret `KR_GPT_WORKER_SECRET` | **Set** by the requester Nov 14, 2026 (API version `6d25e9b5`, patch 25 code with the secret; the rollback target). Was missing at the 3:35am check. The requester sets it before the deploy (6.3, step 1). Without it the Gateway page says "GPT Model Gateway cannot be reached right now"; nothing else is affected. |
+| Migration 034 (deploy window on `kr_maintenance_gate`, repository patch 34) | **Applied** by the requester Nov 14, 2026 (the five `deploy_*` columns listed read-only, window empty). Needed by `pnpm deploy:warn` only |
 | `krhomebase-public-article-worker` | New Worker; deploy after the API (D24). Needs no secret. Binds D1 `krhomebase` and R2 `kr-homebase-articles` (both exist) |
 
 ---
