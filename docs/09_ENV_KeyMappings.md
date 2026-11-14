@@ -1,7 +1,7 @@
 # Environment Key Mappings
 
-<small>Version 1.0</small><br>
-<small>Updated Nov 13, 2026 9:27am</small>
+<small>Version 1.1</small><br>
+<small>Updated Nov 14, 2026 1:35am</small>
 
 ## What this is
 
@@ -34,13 +34,13 @@ This page maps each environment key (secret or setting) to the key file that hol
 | `KR_SESSION_WORKER_SECRET` | `session-symmetric-hashkey.key` | Yes | API secret, and the same value on `krhomebase-session-worker`. Shared HMAC key for the session calls. |
 | `KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY` | `krhomebase-google-workspace-mailer-key.json` | No (old folder only) | API secret: the whole service-account JSON file. Invitation and billing email. Set on the deployed API on Nov 12, 2026; not in `.dev.vars` unless added by hand. |
 | `KR_PAYMENT_PROVIDER_KEK` | `payment-provider-kek.key` | Yes | API secret, and the same value on `kr-pay-worker-live`. Encrypts the Stripe keys in `payment_provider`. It is not the Stripe webhook secret (`whsec_...`), which is entered on the Stripe Payment Configuration page. |
-| `KR_GPT_WORKER_SECRET` | none yet (a new random secret) | — | API secret, and the same value as `GPT_WORKER_SHARED_SECRET` on the GPT models Worker. Not set; the Worker is not deployed. |
+| `KR_GPT_WORKER_SECRET` | `gpt-worker-shared-secret.txt` (made Nov 14, 2026; `workers/gpt-workers/README.md`) | — | API secret, and the same value as `GPT_WORKER_SHARED_SECRET` on the GPT models Worker. Not set; the Worker is not deployed. |
 | `KR_APP_BASE_URL` | none (a setting) | — | `http://localhost:3011` in `.dev.vars`; the deployed address in the wrangler file. |
 | `KR_SUPER_ADMIN_EMAILS` | none (a setting) | — | Optional, only while the database has no users. |
 | `krhomebase` | none (binding) | — | D1 database binding (`remote: true` under `pnpm dev`). |
 | `EMPLOYEE_STORAGE` | none (binding) | — | R2 bucket `kr-homebase-employee-storage` (`remote: true`). |
 | `CRUD_WORKER`, `SESSION_WORKER`, `PUBLIC_INQUIRY_WORKER` | none (bindings) | — | Service bindings to `krhomebase-crud-worker`, `krhomebase-session-worker` and `krhomebase-crud-worker-pub-inquiry`. |
-| `GPT_WORKER` | none (binding) | — | Service binding to `krhomebase-gpt-models-worker`; a commented block until that Worker is deployed. |
+| `GPT_WORKER` | none (binding) | — | Service binding to `krhomebase-gpt-models-worker` (deployed Nov 14, 2026); on in `kr-api-wrangler.jsonc`. |
 
 ## Workers in `workers/`
 
@@ -51,8 +51,8 @@ This page maps each environment key (secret or setting) to the key file that hol
 | `CRUD_WORKER_PUB_INQUIRY_PRIVATE_KEY` | not mapped by a `_PATH` setting; check the old folder's `public-inquiry\` before setting it | No | Secret on `krhomebase-crud-worker-pub-inquiry` (`crud-worker-pub-inquiry.jsonc`). The old folder's `public-inquiry\kr-public-inquiry-ip-hash.secret` and `kr-public-inquiry-rate-limit.secret` belong to the public inquiry site. |
 | `KR_PAYMENT_PROVIDER_KEK` | `payment-provider-kek.key` | Yes | Secret on `kr-pay-worker-live` (`workers/d1-workers/kr-pay-worker/kr-pay-worker.jsonc`); the same value as the API's. |
 | `KR_HOMEBASE_PAY_WEBHOOK_URL` | none (a setting) | — | Optional `kr-pay-worker-live` secret; unset until the new pay-link-paid route exists. |
-| `GPT_WORKER_SHARED_SECRET` | none yet (a new random secret) | — | Secret on `krhomebase-gpt-models-worker`; the same value as the API's `KR_GPT_WORKER_SECRET`. |
-| `GPT_CREDENTIAL_ENCRYPTION_KEY` | none yet (32 random bytes, base64) | — | Secret on `krhomebase-gpt-models-worker`; seals provider keys in `gpt_llm_credential`. |
+| `GPT_WORKER_SHARED_SECRET` | `gpt-worker-shared-secret.txt` | — | Secret on `krhomebase-gpt-models-worker`; the same value as the API's `KR_GPT_WORKER_SECRET`. |
+| `GPT_CREDENTIAL_ENCRYPTION_KEY` | `gpt-credential-encryption-key.txt` (32 random bytes, base64) | — | Secret on `krhomebase-gpt-models-worker`; seals provider keys in `gpt_llm_credential`. |
 | `GPT_LEGACY_WORKER_PRIVATE_KEY` | `gpt-worker-key1.pem` | No (old folder only) | Optional, on `krhomebase-gpt-models-worker`, only to read keys stored by the old GPT Worker. |
 | `KR_R2_ARTICLES_WORKER_TOKEN` | `cloudflare-s3\kr-r2-articles-worker-token.secret` | No (old folder only) | Secret for the articles R2 Worker (Front End Publishing). Not wired in this repository yet. |
 

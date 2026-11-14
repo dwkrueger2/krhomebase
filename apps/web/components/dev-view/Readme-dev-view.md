@@ -1,13 +1,19 @@
 # Readme: Dev View
 
-<small>Version 1.7</small><br>
-<small>Updated Nov 13, 2026 6:05pm</small>
+<small>Version 1.8</small><br>
+<small>Updated Nov 13, 2026 10:55pm</small>
 
 Ported from the old `README - Dev Overlay.md` (v1.3, krueger-richard-website, `apps/kr-homebase/src/hb-components/dev-view`). Version continues from it.
 
 ## The panel window
 
 Since Nov 13, 2026 (the requester) the Dev View button opens the control panel in a browser window of its own (`DevViewPanelWindow.client.tsx`), so it no longer covers the page. The overlays stay on the inspected page; hovering, selecting and Pick in the panel window act on it. Closing the window keeps the overlays; the Dev View button then opens the panel again, and a click with the panel open switches Dev View off. If the browser blocks the window, the panel draws in a corner of the page as before.
+
+## Driving the main window's Dev View from a pop-out
+
+Since Nov 13, 2026 (the requester), a pop-out that is about the main window's page can show a Dev View button that drives the **main window's** Dev View instead of inspecting itself. The Feedback pop-out does this (`PopOutBrowserWindow` with `devViewFor="opener"`): its round Dev View button switches the overlays and the panel on and off over the page the request is about. Other pop-outs keep their own Dev View.
+
+How: `DevViewLoader` with `controlWindow` loads `DevViewRemote.client.tsx` (the button only). The button and the main window's Dev View talk through two DOM events on the main window (`devViewRemote.ts`): `kr-dev-view:command` (`toggle` does what Dev View's own button does; `report` asks for the state) and `kr-dev-view:state` (`enabled`, announced after every change). The panel's own window is opened from the main window, which did not receive the click, so the browser may block it; the panel then draws in the main page, as when any panel window is blocked. Development only, like the rest of Dev View.
 
 ## Purpose
 

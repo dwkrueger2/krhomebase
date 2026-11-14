@@ -91,17 +91,29 @@ describe('sourcePage', () => {
 describe('MarkerChipRow', () => {
   const markers = findFeedbackMarkers('data-kr-id="TopTitleBar" data-kr-element="gone-list"')
 
+  const none = new Set<string>()
+  const noop = () => undefined
+
   it('draws live chips as buttons and missing ones grey and disabled', () => {
-    const html = renderToStaticMarkup(<MarkerChipRow markers={markers} presence={{ [markerKey(markers[0]!)]: true }} onHighlight={() => undefined} emptyHint="none" />)
+    const html = renderToStaticMarkup(<MarkerChipRow markers={markers} presence={{ [markerKey(markers[0]!)]: true }} selected={none} onToggle={noop} onToggleAll={noop} emptyHint="none" />)
     expect(html).toContain('data-kr-marker="data-kr-id=&quot;TopTitleBar&quot;"')
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*data-kr-marker="data-kr-element=&quot;gone-list&quot;"/)
     expect(html).toContain('Outline all 1 marker on the page')
+    expect(html).not.toContain('aria-pressed="true"')
+  })
+
+  it('marks a selected chip pressed with the orange border, and All pressed when every live chip is selected', () => {
+    const live = new Set([markerKey(markers[0]!)])
+    const html = renderToStaticMarkup(<MarkerChipRow markers={markers} presence={live.size ? { [markerKey(markers[0]!)]: true } : {}} selected={live} onToggle={noop} onToggleAll={noop} emptyHint="none" />)
+    expect(html).toMatch(/aria-pressed="true"[^>]*data-kr-action="highlight-all-markers"/)
+    expect(html).toMatch(/outline-\(--kr-theme-orange\)[^>]*aria-pressed="true"[^>]*data-kr-marker="data-kr-id=&quot;TopTitleBar&quot;"/)
+    expect(html).toContain('Clear the outline of data-kr-id=&quot;TopTitleBar&quot;')
   })
 
   it('turns All off when no marker is on the page, and shows the hint when the text names none', () => {
-    const none = renderToStaticMarkup(<MarkerChipRow markers={markers} presence={{}} onHighlight={() => undefined} emptyHint="none" />)
-    expect(none).toMatch(/<button[^>]*disabled=""[^>]*data-kr-action="highlight-all-markers"/)
-    expect(renderToStaticMarkup(<MarkerChipRow markers={[]} presence={{}} onHighlight={() => undefined} emptyHint="Paste a marker." />)).toContain('Paste a marker.')
+    const off = renderToStaticMarkup(<MarkerChipRow markers={markers} presence={{}} selected={none} onToggle={noop} onToggleAll={noop} emptyHint="none" />)
+    expect(off).toMatch(/<button[^>]*disabled=""[^>]*data-kr-action="highlight-all-markers"/)
+    expect(renderToStaticMarkup(<MarkerChipRow markers={[]} presence={{}} selected={none} onToggle={noop} onToggleAll={noop} emptyHint="Paste a marker." />)).toContain('Paste a marker.')
   })
 })
 

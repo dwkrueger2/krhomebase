@@ -18,7 +18,9 @@
  * in-page `PopOutWindow` instead.
  *
  * Development only: the window also gets its own Dev View (`DevViewLoader` with `targetWindow`), because the main
- * window's Dev View cannot see into another window. A production build renders nothing for it.
+ * window's Dev View cannot see into another window. A production build renders nothing for it. A window about the main
+ * window's page (the Feedback pop-out) passes `devViewFor="opener"`: its Dev View button then drives the main window's
+ * Dev View instead (`DevViewLoader` with `controlWindow`; the requester, Nov 13, 2026).
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
@@ -36,26 +38,74 @@ const CASCADE_STEP_PX = 32
 /** How often, in milliseconds, to check whether the person closed the window. */
 const CLOSED_CHECK_INTERVAL_MS = 500
 
+/** Where and how big a pop-out opens. Every field is optional; the defaults are the centered 1000 by 720 window. */
+export interface PopoutPlacement {
+  /** Width in pixels. */
+  width?: number
+  /** Height in pixels; `match` takes the main window's height. */
+  height?: number | 'match'
+  /**
+   * `center` (default): centered on the main window. `beside`: against the main window's right edge when the screen
+   * has room there, else against its left edge, else at the screen's right edge (the requester, Nov 14, 2026, for the
+   * Feedback pop-out, so it does not cover the page it describes).
+   */
+  side?: 'center' | 'beside'
+}
+
+/** The screen's usable area; `availLeft` and `availTop` are Chrome's names for where it starts on a second monitor. */
+function availableScreen(): { left: number; top: number; width: number; height: number } {
+  const screen = window.screen as Screen & { availLeft?: number; availTop?: number }
+  return { left: screen.availLeft ?? 0, top: screen.availTop ?? 0, width: screen.availWidth, height: screen.availHeight }
+}
+
 /**
- * Opens an empty browser window, centered on the main window.
+ * Where a pop-out goes: centered on the main window, or beside it. Pure arithmetic, so it is tested on its own.
+ *
+ * @param main - The main window's position and outer size, in screen pixels.
+ * @param area - The screen's usable area.
+ * @param size - The pop-out's size.
+ * @param side - `center` or `beside`.
+ * @param offset - The cascade offset for centered pop-outs.
+ */
+export function popoutPosition(
+  main: { x: number; y: number; width: number; height: number },
+  area: { left: number; top: number; width: number; height: number },
+  size: { width: number; height: number },
+  side: 'center' | 'beside',
+  offset = 0,
+): { left: number; top: number } {
+  if (side === 'center') {
+    return {
+      left: Math.max(0, Math.round(main.x + (main.width - size.width) / 2) + offset),
+      top: Math.max(0, Math.round(main.y + (main.height - size.height) / 2) + offset),
+    }
+  }
+  const right = area.left + area.width
+  const top = Math.max(area.top, Math.min(main.y, area.top + area.height - size.height))
+  if (right - (main.x + main.width) >= size.width) return { left: main.x + main.width, top }
+  if (main.x - area.left >= size.width) return { left: main.x - size.width, top }
+  return { left: Math.max(area.left, right - size.width), top }
+}
+
+/**
+ * Opens an empty browser window, centered on the main window (or beside it, `placement.side`).
  *
  * Call this directly from a click handler. Browsers block a pop-up opened later (for example from a
  * timer or after an `await`).
  *
  * @param cascadeIndex - How many pop-outs are already open. Each one is moved down and right by
  * `CASCADE_STEP_PX` so a new window does not hide the one before it.
+ * @param placement - Optional size and side (the Feedback pop-out opens beside the main window).
  * @returns The new window, or null when the browser blocked it.
  */
-export function openPopoutBrowserWindow(cascadeIndex = 0): Window | null {
-  const offset = (cascadeIndex % 6) * CASCADE_STEP_PX
-  const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - POPOUT_WIDTH_PX) / 2) + offset)
-  const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - POPOUT_HEIGHT_PX) / 2) + offset)
+export function openPopoutBrowserWindow(cascadeIndex = 0, placement: PopoutPlacement = {}): Window | null {
+  const area = availableScreen()
+  const width = Math.min(placement.width ?? POPOUT_WIDTH_PX, area.width)
+  const height = Math.min(placement.height === 'match' ? window.outerHeight : (placement.height ?? POPOUT_HEIGHT_PX), area.height)
+  const main = { x: window.screenX, y: window.screenY, width: window.outerWidth, height: window.outerHeight }
+  const { left, top } = popoutPosition(main, area, { width, height }, placement.side ?? 'center', (cascadeIndex % 6) * CASCADE_STEP_PX)
   // A new name each time, so an old pop-out is never reused by mistake.
-  const popup = window.open(
-    '',
-    `krh-popout-${Date.now()}`,
-    `popup=yes,width=${POPOUT_WIDTH_PX},height=${POPOUT_HEIGHT_PX},left=${left},top=${top}`,
-  )
+  const popup = window.open('', `krh-popout-${Date.now()}`, `popup=yes,width=${width},height=${height},left=${left},top=${top}`)
   return popup && !popup.closed ? popup : null
 }
 
@@ -68,6 +118,11 @@ export interface PopOutBrowserWindowProps {
   onClose: () => void
   /** The panel to show. */
   children: ReactNode
+  /**
+   * Which page this window's Dev View button inspects: `popout` (default) this window's own page; `opener` the main
+   * window's page, through the main window's Dev View. Development only.
+   */
+  devViewFor?: 'popout' | 'opener'
 }
 
 const LAYOUT_STYLES = {
@@ -99,7 +154,7 @@ const STYLES = {
  * @param props - The open window, the title, the close callback and the panel.
  * @returns A portal into the pop-out window, or nothing until its container exists.
  */
-export default function PopOutBrowserWindow({ popupWindow, title, onClose, children }: PopOutBrowserWindowProps) {
+export default function PopOutBrowserWindow({ popupWindow, title, onClose, children, devViewFor = 'popout' }: PopOutBrowserWindowProps) {
   const [container, setContainer] = useState<HTMLElement | null>(null)
   // The person's theme (Settings plan, stage 2): on this window's root and its <html>, as in the main window.
   const { theme } = useShellPreferences()
@@ -159,8 +214,12 @@ export default function PopOutBrowserWindow({ popupWindow, title, onClose, child
       {themeCss ? <style data-kr-element="user-theme-style">{themeCss}</style> : null}
       {/* Pop-out body: the same panel the workspace would show */}
       {children}
-      {/* Dev View for this window: development only; renders nothing in a production build */}
-      <DevViewLoader targetWindow={popupWindow as Window & typeof globalThis} />
+      {/* Dev View for this window, or a remote button for the main window's: development only; nothing in a production build */}
+      {devViewFor === 'opener' ? (
+        <DevViewLoader controlWindow={window as Window & typeof globalThis} />
+      ) : (
+        <DevViewLoader targetWindow={popupWindow as Window & typeof globalThis} />
+      )}
     </div>,
     container,
   )

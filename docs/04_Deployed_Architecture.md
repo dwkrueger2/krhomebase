@@ -1,7 +1,7 @@
 # Deployed Architecture
 
-<small>Version 1.9</small><br>
-<small>Updated Nov 13, 2026 7:15pm</small>
+<small>Version 2.0</small><br>
+<small>Updated Nov 14, 2026 1:55am</small>
 
 **Status:** live since Nov 6, 2026. Read this file before any work that touches a Worker, a binding, a web address, a secret or a deploy command. Update it in the same change as any of those.
 
@@ -21,6 +21,7 @@
 | `krhomebase-session-worker` (checks a session cookie) | `workers/d1-workers/session-worker` | `session-worker.jsonc` in that folder | Same | None |
 | `kr-pay-worker-live` (public pay-link pages and Stripe webhooks; live since Nov 9, 2026) | `workers/d1-workers/kr-pay-worker` | `kr-pay-worker.jsonc` in that folder | `pnpm deploy:pay` | `pay.krhomebase.com` |
 | `krhomebase-crud-worker-pub-inquiry` (the public inquiry database's reader and writer; Web Site Feedback) | `workers/d1-workers/crud-worker-pub-inquiry` | `crud-worker-pub-inquiry.jsonc` in that folder | Wrangler with `--config` | None |
+| `krhomebase-gpt-models-worker` (the GPT Model Gateway's provider, key and usage boundary; deployed by the requester Nov 14, 2026, version `e4fa8c9a-35b6-435b-8b16-60e7739de93a`) | `workers/gpt-workers` | `gpt-models-worker.jsonc` in that folder | Wrangler with `--config` (`workers/gpt-workers/README.md`; the first deploy carried its secrets with `--secrets-file`) | None (`workers_dev` and `preview_urls` off; reached only through the API's `GPT_WORKER` binding, so it has no address to call directly) |
 | `krhomebase-external-api` (the door for outside tool servers; deployed Nov 9, 2026, version `96d3e0a4-51f0-4345-9cfd-913d658838b6`) | `apps/external-api` | `apps/external-api/kr-external-api-wrangler.jsonc` | `pnpm deploy:external` | None recorded yet (see section 7) |
 
 - `pnpm deploy:web` runs `vinext-cloudflare deploy`, which builds the app and deploys it as `krhomebase-web` using `cloudflare.config.ts`. It does not create another Worker. The static files go up with the same Worker.
@@ -65,6 +66,8 @@ Sign-in sequence: Turnstile check, then Google, then the API creates the user an
 | `krhomebase-api` | `SESSION_WORKER` | Worker `krhomebase-session-worker` | Same |
 | `krhomebase-api` | `PUBLIC_INQUIRY_WORKER` | Worker `krhomebase-crud-worker-pub-inquiry` | Same |
 | `krhomebase-api` | `EMPLOYEE_STORAGE` | R2 bucket `kr-homebase-employee-storage` | Same |
+| `krhomebase-api` | `GPT_WORKER` | Worker `krhomebase-gpt-models-worker` (switched on in the file Nov 14, 2026; live with the next API deploy, which also needs the secret `KR_GPT_WORKER_SECRET`) | Same |
+| `krhomebase-gpt-models-worker` | `GPT_USAGE_DB` | D1 `krhomebase_gpt_usage_dev` (shared with the old app's GPT Worker) | `gpt-models-worker.jsonc` |
 | `krhomebase-crud-worker` | `CRUD_WORKER_ASSIGNED_D1` | D1 `krhomebase` | `crud-worker.jsonc` |
 | `krhomebase-crud-worker` | `PUBLIC_KEYS` | KV `krhomebase-public-keys` | Same |
 | `krhomebase-session-worker` | `SESSION_WORKER_ASSIGNED_D1` | D1 `krhomebase` | `session-worker.jsonc` |
@@ -112,5 +115,5 @@ When an item goes live, move its line into sections 1 to 4.
 | Item | State | To go live |
 |---|---|---|
 | Custom Domain for `krhomebase-external-api` | The Worker is deployed (Nov 9, 2026); no domain is recorded here. The `workspace_tool*` tables exist (checked Nov 13, 2026) and the tool routes are in the deployed API. | The requester chooses a domain, adds it in the dashboard, and records it in section 2. |
-| GPT models Worker (`workers/gpt-workers/`) and the API's `GPT_WORKER` binding | Not deployed; the binding is a comment in `kr-api-wrangler.jsonc`. | The go-live steps in the API task lists (database, secrets, deploy, binding). |
+| The API's `GPT_WORKER` binding and secret | The GPT models Worker is deployed (section 1) and the binding is on in `kr-api-wrangler.jsonc` (local runs use it), but the deployed API (patch 25) has neither the binding nor `KR_GPT_WORKER_SECRET`. | At the next API deploy: `wrangler secret put KR_GPT_WORKER_SECRET` (step 6 of `workers/gpt-workers/README.md`), then `pnpm deploy:api`. |
 | `krhomebase-public-article-worker` (`workers/r2-workers/public-article-worker/`; published Articles and Answers and their images for the public site) | Copied Nov 13, 2026 (plan 10, decision D24). Not deployed. Binds D1 `krhomebase` (`KRHOMEBASE_DB`) and R2 `kr-homebase-articles` (`ARTICLE_BUCKET`); `workers_dev` on, no domain. Until it is live, the public site reads the old `kr-r2-public-article-worker`, which reads the old database, so nothing published from this app appears there. | Stage 9: `pnpm deploy:public-article`, then point the public site's `KR_R2_PUBLIC_ARTICLE_WORKER_URL` at its `workers.dev` address (`Readme-public-article-worker.md` in that folder). |

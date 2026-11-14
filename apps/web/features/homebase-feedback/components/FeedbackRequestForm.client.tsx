@@ -6,7 +6,8 @@
  *
  * - The text is scanned for markers on every change (`findFeedbackMarkers`, the same reader the API uses); each one
  *   becomes a chip. Whether each is on the source window's page is read again whenever that page changes
- *   (`useSourcePageWatch`), so chips turn grey or live as screens change. A chip click outlines its elements there.
+ *   (`useSourcePageWatch`), so chips turn grey or live as screens change. A chip click selects it (an orange border)
+ *   and keeps its elements outlined there until it is clicked again (`useMarkerSelection`).
  * - The captured page is read from the source window on the same changes and shown read-only. Send reads it once more,
  *   with where each marker is, and sends it all (`sendHomebaseFeedback`). The sender comes from the session (API).
  * - Clear asks first in `U6ConfirmationDialog` when there is text. A sent request shows its number (`FB-0012`) and
@@ -20,7 +21,6 @@ import {
   findFeedbackMarkers,
   HOMEBASE_FEEDBACK_KIND_LABELS,
   HOMEBASE_FEEDBACK_KINDS,
-  type FeedbackMarkerReference,
   type HomebaseFeedbackDetail,
   type HomebaseFeedbackKind,
 } from '@krhomebase/contracts'
@@ -29,8 +29,8 @@ import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
 import { L } from '@/lib/KRUtilities'
 import { HomebaseFeedbackApiError, sendHomebaseFeedback } from '../api.client'
-import { highlightMarkers } from '../markerHighlight'
 import { captureSourceContext, markerCaptures, markerPresence } from '../sourcePage'
+import { useMarkerSelection } from '../useMarkerSelection.client'
 import { useSourcePageWatch } from '../useSourcePageWatch.client'
 import CapturedContextCard from './CapturedContextCard.client'
 import MarkerChipRow from './MarkerChipRow.client'
@@ -100,12 +100,9 @@ export default function FeedbackRequestForm({ sourceWindow, disabledReason, onSe
   const markers = useMemo(() => findFeedbackMarkers(body), [body])
   const presence = useMemo(() => markerPresence(sourceWindow.document, markers), [sourceWindow, markers, pageVersion])
   const context = useMemo(() => captureSourceContext(sourceWindow), [sourceWindow, pageVersion])
+  // Selected chips and their lasting outlines in the source window.
+  const selection = useMarkerSelection(sourceWindow, markers, presence, pageVersion)
   const canSend = !disabledReason && !sending && Boolean(title.trim()) && Boolean(body.trim())
-
-  function highlight(chosen: readonly FeedbackMarkerReference[]): void {
-    const count = highlightMarkers(sourceWindow, chosen)
-    L(`[HOMEBASE_FEEDBACK_FORM:104] outlined markers=${chosen.length} elements=${count}`)
-  }
 
   function startOver(): void {
     setTitle('')
@@ -179,7 +176,14 @@ export default function FeedbackRequestForm({ sourceWindow, disabledReason, onSe
         </div>
 
         {/* Marker chips: one per marker the text names, live or grey by the source page */}
-        <MarkerChipRow markers={markers} presence={presence} onHighlight={highlight} emptyHint='None yet. Paste data-kr-id="..." or data-kr-element="..." into the text.' />
+        <MarkerChipRow
+          markers={markers}
+          presence={presence}
+          selected={selection.selected}
+          onToggle={selection.toggle}
+          onToggleAll={selection.toggleAll}
+          emptyHint='None yet. Paste data-kr-id="..." or data-kr-element="..." into the text.'
+        />
 
         {/* The request text: a tall field, so its label is the placeholder and the chips above */}
         <textarea

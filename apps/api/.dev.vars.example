@@ -3,6 +3,8 @@
 # See D:\Repos\krhomebase\docs\09_ENV_KeyMappings.md for past environment key mappings and bindings (which key file in private\dev-private-keys holds each value).
 # The plain settings (client id, firm name, Turnstile site key) are in kr-api-wrangler.jsonc.
 KR_APP_BASE_URL=
+# Local session cookie name: krh_dev_session, so the old app on localhost:3001 (which writes kr_session) cannot replace it.
+KR_SESSION_COOKIE_NAME=
 KR_GOOGLE_CLIENT_SECRET=
 KR_TURNSTILE_SECRET_KEY=
 KR_WORKER_JWT_PRIVATE_KEY=

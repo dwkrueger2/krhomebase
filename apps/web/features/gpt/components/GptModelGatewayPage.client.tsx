@@ -19,7 +19,11 @@
  * Changed from the old page: the transport badge says "Service binding / API and gpt-models-worker" (the old text
  * "Signed + encrypted / Server ↔ gpt-models-worker" no longer describes the transport); the empty-state id is
  * `gpt-model-connections-empty` (the old `p29-` prefix was a prototype number, which the web guide forbids); the
- * old `apiBaseUrl` prop is gone (calls go to the same host); spacing follows the shared scale (see `gptPanelStyles.ts`).
+ * old `apiBaseUrl` prop is gone (calls go to the same host).
+ *
+ * Exact old look, a stated exception (the requester, Nov 14, 2026: 'make exception for the style of this feature and
+ * bring it over exactly as it is implemented in the old project'); see DESIGN.md Feature variations. The values are in
+ * `gptPanelStyles.ts`; the empty card repeats `GptModelConnectionsCard.module.css` (22px title, 7px table cells).
  *
  * @param props.initialData - Gateway data for the first draw (tests); the page reads it itself when left out.
  * @returns The workspace (`data-kr-id="gpt-model-gateway-workspace"`).
@@ -37,11 +41,16 @@ import GptUsageReport from '@/features/gpt/components/GptUsageReport.client'
 import { LAYOUT_STYLES, STYLES } from '@/features/gpt/components/gptPanelStyles'
 import { useGptGateway, type GptGatewayState } from '@/features/gpt/useGptGateway.client'
 
-/** The empty card's table (old `.table` of GptModelConnectionsCard), in the register's density. */
+/**
+ * The empty card's table (old `.tableWrap`, `.table`, `.table th, .table td`, `.table th`, `.table tbody tr`,
+ * `.table tbody tr:hover` and `.empty` of `GptModelConnectionsCard.module.css`), value for value.
+ */
 const EMPTY_TABLE = {
-  table: 'w-full border-collapse text-[10pt] leading-tight',
-  th: 'p-[1px] border-b border-[var(--kr-theme-table-border,#b8c3cd)] bg-[var(--kr-theme-table-header-background,#f4f6f8)] text-left text-[10pt] font-semibold uppercase tracking-[0.04em] text-[var(--kr-theme-text-muted,#526172)]',
-  td: 'p-[1px] border-b border-[var(--kr-theme-table-border,#d7dee5)] text-[var(--kr-theme-text-muted,#526172)]',
+  viewport: 'overflow-x-auto',
+  table: 'min-w-[560px] w-full border-collapse text-[11px]',
+  th: 'p-[7px] border-b border-[var(--kr-theme-line,#d7dee5)] text-left text-[10px] uppercase tracking-[.05em] text-[var(--kr-theme-text-muted,#526172)]',
+  row: 'cursor-pointer hover:bg-[color-mix(in_srgb,var(--kr-theme-orange,#e45e25)_8%,var(--kr-theme-card-surface,#fff))]',
+  td: 'p-[7px] border-b border-[var(--kr-theme-line,#d7dee5)] text-left text-[12px] leading-[1.45] text-[var(--kr-theme-text-muted,#526172)]',
 } as const
 
 /** The Add connection button (old trigger variant of `GptModelConnectionsCard`). */
@@ -84,9 +93,9 @@ function SelectedEditor({ state }: { state: GptGatewayState }) {
 export function GptUnavailableNotice({ unavailable, detail, onRetry }: { unavailable: boolean; detail: string; onRetry: () => void }) {
   return (
     <section className={`${LAYOUT_STYLES.unavailable} ${STYLES.leftBar}`} data-kr-element="gpt-model-gateway-unavailable" data-kr-id="gpt-model-gateway-unavailable" role="alert">
-      <p className={STYLES.eyebrow}>Super Admin · GPT Gateway</p>
-      <h2 className={STYLES.editorTitle}>{unavailable ? GPT_UNAVAILABLE_SENTENCE : 'The GPT Model Gateway could not be loaded.'}</h2>
-      <p className={STYLES.muted}>{unavailable ? 'The GPT models Worker is not deployed or not connected to the API yet. No connection, key or usage can be shown or changed until it is.' : detail}</p>
+      <p className={`${LAYOUT_STYLES.eyebrow} ${STYLES.eyebrow}`}>Super Admin · GPT Gateway</p>
+      <h2 className={`${LAYOUT_STYLES.heading} ${STYLES.editorTitle}`}>{unavailable ? GPT_UNAVAILABLE_SENTENCE : 'The GPT Model Gateway could not be loaded.'}</h2>
+      <p className={`${LAYOUT_STYLES.muted} ${STYLES.muted}`}>{unavailable ? 'The GPT models Worker is not deployed or not connected to the API yet. No connection, key or usage can be shown or changed until it is.' : detail}</p>
       <div className={LAYOUT_STYLES.actions}>
         <button className={`${STYLES.button} ${STYLES.ghost}`} onClick={onRetry} type="button">Try again</button>
       </div>
@@ -111,18 +120,21 @@ export function GptModelGatewayPage({ initialData }: { initialData?: GptGatewayD
   } else if (gateway.connections.length === 0) {
     // No saved connections: the old card variant of GptModelConnectionsCard.
     body = (
-      <div className={LAYOUT_STYLES.workspace} data-kr-element="gpt-model-connections-empty-state" data-kr-id="gpt-model-connections-empty">
+      <div className={LAYOUT_STYLES.emptyState} data-kr-element="gpt-model-connections-empty-state" data-kr-id="gpt-model-connections-empty">
         <section className={`${LAYOUT_STYLES.shell} ${STYLES.shell}`} data-kr-component="GptModelConnectionsCard" data-kr-element="gpt-model-connections-card">
           <header className={LAYOUT_STYLES.intro}>
             <div>
-              <p className={STYLES.eyebrow}>MODEL CONNECTIONS</p>
-              <h2 className={STYLES.title}>Add Model Connection</h2>
-              <p className={STYLES.muted}>Save the connection company and exact provider model identifier. New rows remain unconfigured until a successful test response is obtained.</p>
+              <p className={`${LAYOUT_STYLES.eyebrow} ${STYLES.eyebrow}`}>MODEL CONNECTIONS</p>
+              <h2 className={`${LAYOUT_STYLES.heading} ${STYLES.cardTitle}`}>Add Model Connection</h2>
+              <p className={`${LAYOUT_STYLES.muted} ${STYLES.cardDescription}`}>Save the connection company and exact provider model identifier. New rows remain unconfigured until a successful test response is obtained.</p>
             </div>
-            <AddConnectionButton state={state} />
+            {/* Header actions (old `.headerActions`): Add connection */}
+            <div className={LAYOUT_STYLES.cardActions}>
+              <AddConnectionButton state={state} />
+            </div>
           </header>
           {/* The old card's table: Connection, Provider model, State (empty here by definition) */}
-          <div className={`${LAYOUT_STYLES.ledgerBoundary} ${STYLES.card}`}>
+          <div className={EMPTY_TABLE.viewport}>
             <table className={EMPTY_TABLE.table}>
               <thead>
                 <tr>
@@ -132,7 +144,7 @@ export function GptModelGatewayPage({ initialData }: { initialData?: GptGatewayD
                 </tr>
               </thead>
               <tbody data-kr-element="rows-container">
-                <tr>
+                <tr className={EMPTY_TABLE.row}>
                   <td className={EMPTY_TABLE.td} colSpan={3}>No model connections saved yet.</td>
                 </tr>
               </tbody>
@@ -148,9 +160,9 @@ export function GptModelGatewayPage({ initialData }: { initialData?: GptGatewayD
         {/* Intro: title and description, Add connection, transport badge */}
         <div className={LAYOUT_STYLES.intro} data-kr-element="gpt-models-intro">
           <div>
-            <p className={STYLES.eyebrow}>Super Admin · GPT Gateway</p>
-            <h2 className={STYLES.title}>Model connections</h2>
-            <p className={STYLES.muted}>Select a provider connection, adjust its provider-neutral controls, save the approved application settings, or send the readiness prompt through the secure Worker boundary.</p>
+            <p className={`${LAYOUT_STYLES.eyebrow} ${STYLES.eyebrow}`}>Super Admin · GPT Gateway</p>
+            <h2 className={`${LAYOUT_STYLES.heading} ${STYLES.title}`}>Model connections</h2>
+            <p className={`${LAYOUT_STYLES.muted} ${STYLES.muted}`}>Select a provider connection, adjust its provider-neutral controls, save the approved application settings, or send the readiness prompt through the secure Worker boundary.</p>
           </div>
           <div className={LAYOUT_STYLES.introActions}>
             <AddConnectionButton state={state} />

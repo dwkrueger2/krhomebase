@@ -1,7 +1,7 @@
 # 11_Deployment_PromptStart
 
-<small>Version 1.0</small><br>
-<small>Updated Nov 13, 2026 9:50pm</small>
+<small>Version 1.1</small><br>
+<small>Updated Nov 14, 2026 1:55am</small>
 
 **Purpose:** Drop this file into a new chat to start a **deployment session** for the `krhomebase` repository. It holds the project summary, the rules, what is live now, what is waiting to go live, and the deploy process in order. Read it first, then follow section 9.
 
@@ -169,5 +169,6 @@ pnpm.cmd deploy:public-article
 - One matter has no client party in `matter_party`; a repair statement is still owed.
 - `docs\Schema_8.0` is not regenerated since migrations 026 and 031.
 - `www.krhomebase.com` is a CNAME only (no Custom Domain).
-- `krhomebase-external-api` has no domain; the GPT models Worker is not deployed.
+- `krhomebase-external-api` has no domain.
+- The GPT models Worker `krhomebase-gpt-models-worker` was deployed on Nov 14, 2026 and the API's `GPT_WORKER` binding is on in `kr-api-wrangler.jsonc`. Before `pnpm deploy:api`, set the API secret `KR_GPT_WORKER_SECRET` (step 6 of `workers/gpt-workers/README.md`), or the deployed GPT Model Gateway answers "cannot be reached".
 - Old copy `workers\r2-workers\kr-r2-public-article-worker\` is replaced by `public-article-worker\` and may be deleted.

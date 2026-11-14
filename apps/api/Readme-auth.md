@@ -1,7 +1,7 @@
 # API sign-in: settings, routes and cookies
 
-<small>Version 1.7</small><br>
-<small>Updated Nov 12, 2026 5:48pm</small>
+<small>Version 1.8</small><br>
+<small>Updated Nov 14, 2026 12:15am</small>
 
 How `krhomebase-api` signs people in. Code: `src/features/auth/` and `src/platform/`. Plan and history: `docs/03_Workers_And_Login_Plan.md`.
 
@@ -16,7 +16,7 @@ Plain settings are `vars` in `kr-api-wrangler.jsonc`. Secrets are set with `wran
 | `KR_GOOGLE_CLIENT_ID` | var | Google OAuth client `krhomebase-team`. Public. |
 | `KR_APP_BASE_URL` | var (local `.dev.vars` overrides) | `https://krhomebase.com` live, `http://localhost:3011` local. Google returns to `<this>/api/v1/auth/google/callback`. The cookie is `Secure` when this is https. |
 | `KR_FIRM_NAME` | var | Name on the login card. |
-| `KR_SESSION_COOKIE_NAME` | var | Session cookie name, `kr_session`. |
+| `KR_SESSION_COOKIE_NAME` | var (local `.dev.vars` overrides) | Session cookie name: `kr_session` live, `krh_dev_session` local (Nov 14, 2026). Browsers share `localhost` cookies across ports, and the old app on `localhost:3001` writes `kr_session`; with the same name it replaced this app's cookie and every call answered 401 `session_not_found`. `scripts/Write-DevVars.ps1` writes the local name. |
 | `KR_WORKER_JWT_KEY_ID` | var | Name of the app's public key in the KV store `krhomebase-public-keys`. |
 | `KR_TURNSTILE_REQUIRED` | var | `true` makes the human check mandatory. |
 | `KR_TURNSTILE_SITE_KEY` | var | Public key of the Turnstile widget `krhomebase-ts-widget` (live). |

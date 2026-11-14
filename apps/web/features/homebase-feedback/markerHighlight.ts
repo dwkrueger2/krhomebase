@@ -1,13 +1,15 @@
 // file: apps/web/features/homebase-feedback/markerHighlight.ts
 /**
  * Outlines in the source window for Homebase Feedback's marker chips (plan 12, stage F2, point 3). A chip's click
- * outlines every element with that marker; "All" outlines every marker the text names. The first element is scrolled
- * into view.
+ * outlines every element with that marker; "All" outlines every marker the text names. Since Nov 14, 2026 (the
+ * requester) a chip click selects or clears its marker (`useMarkerSelection.client.ts`), and the selected markers stay
+ * outlined (`persist`) until they are cleared; the panel draws them again after each page change (`scroll: false`).
  *
  * The outlines live in one layer added to the source window's `<body>` (`data-kr-id="HomebaseFeedbackHighlight"`,
  * `pointer-events: none`, so the page under it still works). The layer carries `data-kr-theme-scope="krhomebase"` so
  * the `--kr-theme-*` tokens reach it, as a portal's root does. Each box follows its element while the page scrolls or
- * resizes; the layer is removed after `HIGHLIGHT_MS`, on the next highlight, or by `clearMarkerHighlight`.
+ * resizes; the layer is removed on the next highlight, by `clearMarkerHighlight`, or (without `persist`) after
+ * `HIGHLIGHT_MS`.
  * The box geometry is set as inline `top`, `left`, `width` and `height` (it is measured from the element); every
  * other look is in the style maps below.
  *
@@ -18,7 +20,7 @@
 import type { FeedbackMarkerReference } from '@krhomebase/contracts'
 import { FEEDBACK_HIGHLIGHT_ID, findMarkerElements } from './sourcePage'
 
-/** How long the outlines stay, in milliseconds. */
+/** How long the outlines stay without `persist`, in milliseconds. */
 export const HIGHLIGHT_MS = 8000
 /** The most elements outlined at once, so a marker on every row cannot cover the page. */
 const MAX_BOXES = 40
@@ -67,9 +69,11 @@ export function clearMarkerHighlight(source: Window): void {
  *
  * @param source - The window the Feedback pop-out was opened from.
  * @param markers - The markers to outline (one chip, or every chip for "All").
+ * @param options.persist - Keep the outlines until they are cleared (no time limit).
+ * @param options.scroll - Scroll the first element into view (default true).
  * @returns How many elements were outlined (0 when none of the markers is on the page).
  */
-export function highlightMarkers(source: Window, markers: readonly FeedbackMarkerReference[]): number {
+export function highlightMarkers(source: Window, markers: readonly FeedbackMarkerReference[], options: { persist?: boolean; scroll?: boolean } = {}): number {
   clearMarkerHighlight(source)
   const doc = source.document
   const targets: Array<{ element: Element; label: string }> = []
@@ -118,16 +122,16 @@ export function highlightMarkers(source: Window, markers: readonly FeedbackMarke
   place()
   source.addEventListener('scroll', schedule, true)
   source.addEventListener('resize', schedule)
-  const timer = source.setTimeout(() => clearMarkerHighlight(source), HIGHLIGHT_MS)
+  const timer = options.persist ? 0 : source.setTimeout(() => clearMarkerHighlight(source), HIGHLIGHT_MS)
   drawn.set(source, {
     layer,
     stop: () => {
       source.removeEventListener('scroll', schedule, true)
       source.removeEventListener('resize', schedule)
-      source.clearTimeout(timer)
+      if (timer) source.clearTimeout(timer)
       if (frame) source.cancelAnimationFrame(frame)
     },
   })
-  targets[0]!.element.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  if (options.scroll !== false) targets[0]!.element.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   return targets.length
 }

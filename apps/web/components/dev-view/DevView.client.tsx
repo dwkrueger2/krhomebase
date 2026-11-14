@@ -13,6 +13,9 @@
  *   (`pickedElements`), not as marker keys, so a marker shared by many elements does not light them all.
  * - New: the button and panel can sit in any of the four corners (`corner.ts`); the choice is remembered.
  * - Page reads after a change are batched into one per animation frame (the old file re-read on every mutation).
+ * - New (Nov 13, 2026): a remote button in another window can drive this Dev View (`devViewRemote.ts`). It listens for
+ *   `kr-dev-view:command` on its own window (`toggle` does what its button does) and announces `kr-dev-view:state`
+ *   after every change, so the Feedback pop-out's button switches the overlays on the page it was opened from.
  *
  * Stages:
  * 1. Read the page's markers on mount and whenever the page changes (outside Dev View itself). The first read
@@ -30,6 +33,7 @@
 import { type MouseEvent, useEffect, useMemo, useRef, useState } from 'react'
 import DevViewPanelWindow, { openDevViewPanelWindow } from './DevViewPanelWindow.client'
 import { CORNER_LAYOUT_STYLES, DEFAULT_DEV_VIEW_CORNER, readStoredCorner, storeCorner, type DevViewCorner } from './corner'
+import { announceDevViewState, DEV_VIEW_COMMAND_EVENT, readDevViewCommand } from './devViewRemote'
 import DevOverlay, { type DevOverlayData } from './DevOverlay.client'
 import DevPickHighlight from './DevPickHighlight.client'
 import DevViewPanel, { type HoverMetadata } from './DevViewPanel.client'
@@ -251,6 +255,28 @@ export default function DevView({ targetWindow }: DevViewProps = {}) {
     if (panelWindow && !panelWindow.closed) panelWindow.close()
     setPanelWindow(null)
   }
+
+  // Remote control (`devViewRemote.ts`): a remote button in another window sends commands to this window. The refs
+  // keep the latest button action and state, so the listener is added once per window.
+  const toggleRef = useRef(toggleEnabled)
+  toggleRef.current = toggleEnabled
+  const enabledRef = useRef(enabled)
+  enabledRef.current = enabled
+  useEffect(() => {
+    const win = targetWindow ?? window
+    const onCommand = (event: Event) => {
+      const command = readDevViewCommand(event)
+      if (command?.action === 'toggle') toggleRef.current()
+      else if (command?.action === 'report') announceDevViewState(win, { enabled: enabledRef.current })
+    }
+    win.addEventListener(DEV_VIEW_COMMAND_EVENT, onCommand)
+    return () => win.removeEventListener(DEV_VIEW_COMMAND_EVENT, onCommand)
+  }, [targetWindow])
+
+  // Tell any remote button whether Dev View is on, after every change.
+  useEffect(() => {
+    announceDevViewState(targetWindow ?? window, { enabled })
+  }, [enabled, targetWindow])
 
   /** Enter in the search field: the overlays become exactly the markers the search lists. */
   function showOnlySearchResults(): void {

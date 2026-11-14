@@ -34,14 +34,14 @@
       "remote": true
     }
     // The GPT models Worker (Settings plan, stage 7): the only door to the GPT usage database and the provider keys.
-    // No public address; the API sends the secret KR_GPT_WORKER_SECRET. NOT DEPLOYED YET (Nov 12, 2026): switch this
-    // block on (remove the // marks; the leading comma belongs to the block) after `krhomebase-gpt-models-worker`
-    // is deployed (workers/gpt-workers/README.md). Until then GPT Model Gateway shows "cannot be reached right now".
-    // ,{
-    //   "binding": "GPT_WORKER",
-    //   "service": "krhomebase-gpt-models-worker",
-    //   "remote": true
-    // }
+    // No public address; the API sends the secret KR_GPT_WORKER_SECRET (local: apps/api/.dev.vars, written by
+    // scripts/Write-DevVars.ps1; deployed: `wrangler secret put` at the next API deploy). Deployed by the requester on
+    // Nov 14, 2026 (version e4fa8c9a), so the binding is on; "remote": true makes `pnpm dev:api` call the deployed Worker.
+    ,{
+      "binding": "GPT_WORKER",
+      "service": "krhomebase-gpt-models-worker",
+      "remote": true
+    }
   ],
   // Plain (non-secret) settings for the live site. On this computer, apps/api/.dev.vars overrides them
   // (KR_APP_BASE_URL becomes http://localhost:3011). The secrets are not here: they are set with

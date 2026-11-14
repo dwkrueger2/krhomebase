@@ -12,8 +12,12 @@
  * Config 1 to 3, the future content storage switch; the actions; the readiness spinner and result. Old texts and
  * `data-kr-*` kept.
  *
- * Changed from the old card: labels sit beside their fields (Density Contract); the readiness status line with Copy
- * shows here too; "Credential type" edits the key name the page keeps (the old card kept two copies of it).
+ * Exact old look, a stated exception (the requester, Nov 14, 2026: 'make exception for the style of this feature and
+ * bring it over exactly as it is implemented in the old project'); see DESIGN.md Feature variations. Labels and help
+ * flow around their fields as the old `.field` did.
+ *
+ * Changed from the old card: the readiness status line with Copy shows here too; "Credential type" edits the key name
+ * the page keeps (the old card kept two copies of it).
  */
 
 import { GptEditorActions, GptEditorIdLines, GptEnabledSwitch, GptField, GptReadinessPanel, type GptEditorProps } from '@/features/gpt/components/GptEditorParts.client'
@@ -48,10 +52,10 @@ export default function GptConnectionEditor(props: GptConnectionEditorProps) {
       {/* Editor header: model, provider, connection id, credential status, Enabled switch */}
       <div className={LAYOUT_STYLES.sectionHeader}>
         <div>
-          <p className={STYLES.eyebrow}>Selected connection</p>
-          <h3 className={STYLES.editorTitle}>{model.displayName}</h3>
-          <p className={STYLES.muted}>
-            {PROVIDER_LABELS[providerKind]} · <code className={STYLES.code}>{model.model}</code>
+          <p className={`${LAYOUT_STYLES.eyebrow} ${STYLES.eyebrow}`}>Selected connection</p>
+          <h3 className={`${LAYOUT_STYLES.heading} ${STYLES.editorTitle}`}>{model.displayName}</h3>
+          <p className={`${LAYOUT_STYLES.muted} ${STYLES.muted}`}>
+            {PROVIDER_LABELS[providerKind]} · <code>{model.model}</code>
           </p>
           <GptEditorIdLines credentialStatus={credentialStatus} model={model} />
         </div>
@@ -90,10 +94,9 @@ export default function GptConnectionEditor(props: GptConnectionEditorProps) {
         <GptField label="Output rate / 1M tokens">
           <input className={STYLES.input} min={0} onChange={numberSetting('outputRatePerMillion', 0)} step={0.01} type="number" value={numericInput(settings.outputRatePerMillion)} />
         </GptField>
-        <label className={`${LAYOUT_STYLES.fieldStack} ${LAYOUT_STYLES.wide}`} data-kr-element="gpt-system-instruction-row">
-          <span className={STYLES.fieldLabel}>System instruction</span>
+        <GptField className={LAYOUT_STYLES.wide} element="gpt-system-instruction-row" label="System instruction">
           <textarea className={STYLES.input} onChange={(event) => updateSetting('systemInstruction', event.target.value)} placeholder="Optional provider-side instruction" rows={3} value={settings.systemInstruction} />
-        </label>
+        </GptField>
         <GptField label="Config 1">
           <input className={STYLES.input} onChange={(event) => updateCredential('config1', event.target.value)} placeholder="Gemini Google Cloud project ID" value={credential.config1} />
         </GptField>
@@ -103,7 +106,7 @@ export default function GptConnectionEditor(props: GptConnectionEditorProps) {
         <GptField label="Config 3">
           <input className={STYLES.input} onChange={(event) => updateCredential('config3', event.target.value)} placeholder="Optional provider setting" value={credential.config3} />
         </GptField>
-        <label className={`${STYLES.switchField} ${LAYOUT_STYLES.full}`}>
+        <label className={`${LAYOUT_STYLES.wide} ${STYLES.switchField}`}>
           <input checked={settings.storePromptAndResponse} className={STYLES.check} onChange={(event) => updateSetting('storePromptAndResponse', event.target.checked)} type="checkbox" />
           <span>Allow future prompt/response content storage (not enabled by the usage schema)</span>
         </label>

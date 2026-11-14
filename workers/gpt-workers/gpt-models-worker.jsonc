@@ -1,4 +1,5 @@
-// Changes from the copy: Cloudflare names and schema path. Database ids are NOT_SET_REVIEW_BEFORE_USE on purpose.
+// Changes from the copy: Cloudflare names and schema path. Database: krhomebase_gpt_usage_dev, the old Worker's database
+// (the requester's choice, Nov 14, 2026: it holds the gemini-3.7-flash connection and its saved settings).
 // Changed Nov 12, 2026 (the requester: "service binding, simplify"): no public address (workers_dev and preview_urls
 // off); the only caller is krhomebase-api through its GPT_WORKER service binding, which sends the shared secret.
 // The RSA transport secrets (GPT_WORKER_PRIVATE_KEY, GPT_SERVER_PUBLIC_KEY) and key ids are gone. See README.md.
@@ -22,7 +23,7 @@
     {
       "binding": "GPT_USAGE_DB",
       "database_name": "krhomebase_gpt_usage_dev",
-      "database_id": "NOT_SET_REVIEW_BEFORE_USE"
+      "database_id": "07ead470-24b3-4ad4-b5e6-6f2a90cc8d24"
     }
   ],
   "vars": {
@@ -56,7 +57,7 @@
         {
           "binding": "GPT_USAGE_DB",
           "database_name": "krhomebase_gpt_usage_dev",
-          "database_id": "NOT_SET_REVIEW_BEFORE_USE"
+          "database_id": "07ead470-24b3-4ad4-b5e6-6f2a90cc8d24"
         }
       ]
     }

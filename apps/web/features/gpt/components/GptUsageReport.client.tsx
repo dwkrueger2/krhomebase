@@ -7,24 +7,29 @@
  * Kept: "Worker reporting", "Usage report · {applicationId}", the header total "{tokens} tokens · ${cost}", and the
  * columns Model (provider beneath), Requests, IT, CT, OT, Total, Cost (six decimals), numbers right-aligned.
  *
- * Changed from the old report: rows use the register's density (10pt, 1px cell padding; DESIGN.md "Density Contract")
- * and the headings carry their full names as a tooltip (IT input, CT cached, OT output tokens). An empty report says so.
+ * Exact old look, a stated exception (the requester, Nov 14, 2026: 'make exception for the style of this feature and
+ * bring it over exactly as it is implemented in the old project'); see DESIGN.md Feature variations. The table repeats
+ * the old `.reportTable` values (11px, 5px by 7px cells, 10px uppercase headings, 9px provider line).
+ *
+ * Changed from the old report: the headings carry their full names as a tooltip (IT input, CT cached, OT output
+ * tokens), the report shows before the first refresh, and an empty report says so.
  */
 
 import type { GptUsageData } from '@krhomebase/contracts'
 import { LAYOUT_STYLES as PANEL_LAYOUT, STYLES as PANEL } from '@/features/gpt/components/gptPanelStyles'
 import { providerLabel } from '@/features/gpt/gptGatewayRows'
 
+/** Old `.reportTableWrap`. */
 const LAYOUT_STYLES = {
   viewport: 'overflow-x-auto',
 } as const
 
+/** Old `.reportTable`, its `th, td`, `:first-child`, `th` and `td small` rules. */
 const STYLES = {
-  table: 'min-w-[640px] w-full border-collapse text-[10pt] leading-tight',
-  th: 'p-[1px] border-b border-[var(--kr-theme-table-border,#b8c3cd)] bg-[var(--kr-theme-table-header-background,#f4f6f8)] text-right text-[10pt] font-semibold uppercase tracking-[0.04em] text-[var(--kr-theme-text-muted,#526172)] first:text-left',
-  td: 'p-[1px] border-b border-[var(--kr-theme-table-border,#d7dee5)] text-right tabular-nums first:text-left',
+  table: 'min-w-[640px] w-full border-collapse text-[11px]',
+  th: 'py-[5px] px-[7px] border-b border-[var(--kr-theme-line,#d7dee5)] text-right text-[10px] uppercase tracking-[.05em] text-[var(--kr-theme-text-muted,#526172)] first:text-left',
+  td: 'py-[5px] px-[7px] border-b border-[var(--kr-theme-line,#d7dee5)] text-right first:text-left',
   provider: 'block text-[9px] text-[var(--kr-theme-text-muted,#526172)]',
-  total: 'text-[12px] font-bold text-[var(--kr-theme-brand-primary,#21394f)]',
   // b1: ' border-red-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
   // b2: ' border-blue-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
   // b3: ' border-green-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
@@ -52,10 +57,11 @@ export default function GptUsageReport({ report }: { report: GptUsageData }) {
       {/* Report header: title and totals */}
       <div className={PANEL_LAYOUT.sectionHeader}>
         <div>
-          <p className={PANEL.eyebrow}>Worker reporting</p>
-          <h3 className={PANEL.editorTitle}>Usage report · {report.applicationId}</h3>
+          <p className={`${PANEL_LAYOUT.eyebrow} ${PANEL.eyebrow}`}>Worker reporting</p>
+          <h3 className={`${PANEL_LAYOUT.heading} ${PANEL.editorTitle}`}>Usage report · {report.applicationId}</h3>
         </div>
-        <strong className={STYLES.total}>
+        {/* The old total had no class of its own: bold, in the panel's text color and size. */}
+        <strong>
           {report.totals.totalTokens} tokens · ${Number(report.totals.totalCost || 0).toFixed(6)}
         </strong>
       </div>

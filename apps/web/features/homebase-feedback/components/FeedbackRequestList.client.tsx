@@ -24,8 +24,8 @@ import {
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import { fetchHomebaseFeedback, HomebaseFeedbackApiError } from '../api.client'
-import { highlightMarkers } from '../markerHighlight'
 import { markerPresence } from '../sourcePage'
+import { useMarkerSelection } from '../useMarkerSelection.client'
 import { useSourcePageWatch } from '../useSourcePageWatch.client'
 import CapturedContextCard from './CapturedContextCard.client'
 import MarkerChipRow from './MarkerChipRow.client'
@@ -140,6 +140,7 @@ function RequestDetail({ feedback, sourceWindow }: { feedback: HomebaseFeedbackD
   const pageVersion = useSourcePageWatch(sourceWindow)
   const markers: FeedbackMarkerReference[] = useMemo(() => feedback.markers.map(({ attribute, value, pattern }) => ({ attribute, value, pattern })), [feedback])
   const presence = useMemo(() => markerPresence(sourceWindow.document, markers), [sourceWindow, markers, pageVersion])
+  const selection = useMarkerSelection(sourceWindow, markers, presence, pageVersion)
   return (
     <section className={`${LAYOUT_STYLES.detail} ${STYLES.detail}`} data-kr-element="feedback-request-detail" aria-label={`${feedback.code} ${feedback.title}`}>
       {/* Detail header: number, title, kind, status and a copy of the Claude request */}
@@ -152,7 +153,14 @@ function RequestDetail({ feedback, sourceWindow }: { feedback: HomebaseFeedbackD
         <CopyForClaudeButton code={feedback.code} />
       </div>
       {/* Marker chips of the saved text, checked against the page now */}
-      <MarkerChipRow markers={markers} presence={presence} onHighlight={(chosen) => highlightMarkers(sourceWindow, chosen)} emptyHint="The text names no marker." />
+      <MarkerChipRow
+        markers={markers}
+        presence={presence}
+        selected={selection.selected}
+        onToggle={selection.toggle}
+        onToggleAll={selection.toggleAll}
+        emptyHint="The text names no marker."
+      />
       {/* The request text as sent */}
       <pre className={`${LAYOUT_STYLES.body} ${STYLES.body}`}>{feedback.body}</pre>
       {/* The page it was sent from */}

@@ -8,14 +8,15 @@
  * Changed from the old badge: the "i" is `KRHomebaseIcons.InfoLetter` instead of a text glyph.
  *
  * @param props.label - The help text, read by screen readers and shown as the tooltip.
+ * @param props.panel - True beside an editor label: the old panel's tooltip was 240px wide (the dialog's is 220px).
  */
 
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import styles from './GptInfoTip.module.css'
 
-export default function GptInfoTip({ label }: { label: string }) {
+export default function GptInfoTip({ label, panel = false }: { label: string; panel?: boolean }) {
   return (
-    <span aria-label={label} className={styles.info} data-kr-element="gpt-info-tip" role="img" tabIndex={0}>
+    <span aria-label={label} className={panel ? `${styles.info} ${styles.infoPanel}` : styles.info} data-kr-element="gpt-info-tip" role="img" tabIndex={0}>
       <KRHomebaseIcons.InfoLetter className="h-[11px] w-[11px]" />
     </span>
   )

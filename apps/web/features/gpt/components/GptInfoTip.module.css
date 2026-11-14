@@ -9,7 +9,8 @@
  *
  * Changed from the old rules: the "i" is now `KRHomebaseIcons.InfoLetter` (an SVG) instead of a Georgia text glyph,
  * and the white is `--kr-theme-text-inverse` so the dark theme keeps its contrast. The old panel's copy used a
- * 240px minimum width and the dialog's 220px; one 220px rule serves both.
+ * 240px minimum width and the dialog's 220px; `.infoPanel` restores the panel's 240px (exact old look, a stated
+ * exception: the requester, Nov 14, 2026; see DESIGN.md Feature variations).
  */
 
 /** The navy 15px circle that holds the icon; `position: relative` anchors the tooltip. */
@@ -46,4 +47,10 @@
   text-transform: none;
   white-space: normal;
   z-index: 2;
+}
+
+/** The editor panel's badges (`GptInfoTip panel`): the old `GptModelsPanel.module.css` tooltip was 240px wide. */
+.infoPanel:hover::after,
+.infoPanel:focus-visible::after {
+  min-width: 240px;
 }

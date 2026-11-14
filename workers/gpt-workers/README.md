@@ -1,9 +1,9 @@
 # GPT Models Worker
 
-<small>Version 1.2</small><br>
-<small>Updated Nov 12, 2026 3:33pm</small>
+<small>Version 1.3</small><br>
+<small>Updated Nov 14, 2026 1:35am</small>
 
-> **Copied from the old repository on Nov 4, 2026; transport changed on Nov 12, 2026** (the requester's decision "service binding, simplify", Settings plan stage 7). The Cloudflare name in this repository is `krhomebase-gpt-models-worker`. It is **not deployed**, and its database id is `NOT_SET_REVIEW_BEFORE_USE`: the requester chooses the database before any deploy.
+> **Copied from the old repository on Nov 4, 2026; transport changed on Nov 12, 2026** (the requester's decision "service binding, simplify", Settings plan stage 7). The Cloudflare name in this repository is `krhomebase-gpt-models-worker`. It was **deployed by the requester on Nov 14, 2026** (version `e4fa8c9a-35b6-435b-8b16-60e7739de93a`, with its three secrets), and the API's `GPT_WORKER` binding is on. It has no address of its own and no health address to call: only the API reaches it, so its check is the GPT Model Gateway page (`GET /v1/gpt/gateway`). Its database is `krhomebase_gpt_usage_dev` (`07ead470-24b3-4ad4-b5e6-6f2a90cc8d24`), the old Worker's database, chosen by the requester on Nov 14, 2026: it already holds the `gemini-3.7-flash` connection (state configured) and its key, which the old Worker sealed in its RSA form (checked read-only that day).
 
 The `gpt-models-worker` is the controlled provider, credential and usage boundary for the KR Homebase GPT Model Gateway (Firm Settings → GPT Model Gateway, super admin only). It is the only code that holds provider keys for use and the only code that reads or writes the GPT usage database (`docs/Schema_GPT_Usage_1.1`).
 
@@ -42,61 +42,78 @@ A key saved by the old Worker is sealed for the old Worker's RSA public key. The
 | `KR_GPT_WORKER_SECRET` | `krhomebase-api` (secret) | The same value as above. |
 | `GPT_CREDENTIAL_ENCRYPTION_KEY` | this Worker (secret) | Base64 of 32 random bytes. Losing it makes every saved provider key unreadable (save them again). Changing it does the same. |
 | `GPT_LEGACY_WORKER_PRIVATE_KEY` | this Worker (secret, optional) | The old Worker's RSA private key, only to read rows saved by the old Worker. |
-| `GPT_USAGE_DB` | `gpt-models-worker.jsonc` | D1 binding. Database id `NOT_SET_REVIEW_BEFORE_USE` until the requester chooses it. |
+| `GPT_USAGE_DB` | `gpt-models-worker.jsonc` | D1 binding to `krhomebase_gpt_usage_dev` (shared with the old Worker while the old app runs). |
 | `GPT_GEMINI_PROJECT_ID`, `GPT_GEMINI_ENDPOINT`, `GPT_OPENAI_ENDPOINT`, `GPT_CLOUDFLARE_GATEWAY_URL` | `vars` | Unchanged. |
 
 For Gemini Direct, set Config1 on the `api-key` credential to the Google Cloud project used for the Generative Language API request, or use the optional `GPT_GEMINI_PROJECT_ID` Worker variable. Cloudflare AI Gateway requires a full OpenAI-compatible chat-completions URL in `GPT_CLOUDFLARE_GATEWAY_URL`; its optional gateway authorization token can be stored as a second credential with the type `gateway-auth-token`.
 
 ## Putting it live (the requester runs these; Claude does not)
 
-Run from the repository root in PowerShell, in this order. Make the two random values once and keep them in `private\` (never in a tracked file). The commands print no secret.
+Run from the repository root in PowerShell, in this order (revised Nov 14, 2026). The commands print no secret. The secret files live in the git-ignored `private\dev-private-keys` folder, beside the other key files, so `scripts\Write-DevVars.ps1` can also give the shared secret to the API on this computer.
 
-1. **Choose the database.** Replace both `NOT_SET_REVIEW_BEFORE_USE` ids in `gpt-models-worker.jsonc`. For a new database, apply `docs/Schema_GPT_Usage_1.1/Schema_GPT_Usage_1.1.sql` to it (AGENTS_06).
-2. **Set the Worker secrets:**
+A Worker that does not exist yet cannot receive secrets with `wrangler secret put`, and this Worker's configuration lists two required secrets, so wrangler refuses a first deploy without them. The first deploy therefore carries its secrets in a file (`--secrets-file`, JSON, which also holds the multi-line legacy key). Later secret changes can use `wrangler secret put`.
 
-   ```powershell
-   $Repo   = "D:\Repos\krhomebase"
-   $Config = "workers/gpt-workers/gpt-models-worker.jsonc"
-   $Secret = Join-Path $Repo "private\gpt-worker\gpt-worker-shared-secret.txt"
-   $AesKey = Join-Path $Repo "private\gpt-worker\gpt-credential-encryption-key.txt"
-   Set-Location $Repo
-   (Get-Content $Secret -Raw).Trim() | pnpm exec wrangler secret put GPT_WORKER_SHARED_SECRET --config $Config
-   (Get-Content $AesKey -Raw).Trim() | pnpm exec wrangler secret put GPT_CREDENTIAL_ENCRYPTION_KEY --config $Config
-   ```
+1. **The database** is chosen: `krhomebase_gpt_usage_dev` (both ids set in `gpt-models-worker.jsonc`). Its tables exist, so no schema file is applied.
 
-   One way to make the two files (32 random bytes each, base64):
+2. **Make the two random values** (32 random bytes each, base64), once:
 
    ```powershell
    $Repo = "D:\Repos\krhomebase"
-   $Dir  = Join-Path $Repo "private\gpt-worker"
-   New-Item -ItemType Directory -Force $Dir | Out-Null
+   $Keys = Join-Path $Repo "private\dev-private-keys"
+   Set-Location $Repo
    foreach ($Name in "gpt-worker-shared-secret.txt", "gpt-credential-encryption-key.txt") {
+     $Path = Join-Path $Keys $Name
+     if (Test-Path $Path) { Write-Host "$Name already exists; kept." ; continue }
      $Bytes = New-Object byte[] 32
      [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($Bytes)
-     [Convert]::ToBase64String($Bytes) | Set-Content -NoNewline -Encoding ascii (Join-Path $Dir $Name)
+     [Convert]::ToBase64String($Bytes) | Set-Content -NoNewline -Encoding ascii $Path
+     Write-Host "$Name written."
    }
    ```
 
-3. **Deploy the Worker:**
+   Keep `gpt-credential-encryption-key.txt` safe: losing or changing it makes every key the Worker saved unreadable.
+
+3. **Write the first-deploy secrets file** (JSON, in the private folder). It includes the old Worker's private key, so the Gemini key it saved keeps working; leave that line out to paste the Gemini key again on the page instead.
+
+   ```powershell
+   $Repo    = "D:\Repos\krhomebase"
+   $Keys    = Join-Path $Repo "private\dev-private-keys"
+   $OldKey  = "D:\Repos\krueger-richard-website\private\dev-private-keys\gpt-worker-key1.pem"
+   $Secrets = Join-Path $Keys "gpt-worker-first-deploy-secrets.json"
+   Set-Location $Repo
+   # The Worker reads only a PKCS#8 key ("BEGIN PRIVATE KEY"); the check prints no key text.
+   if (-not (Get-Content $OldKey -Raw).TrimStart().StartsWith("-----BEGIN PRIVATE KEY-----")) { throw "gpt-worker-key1.pem is not PKCS#8; convert a copy: openssl pkcs8 -topk8 -nocrypt -in old.pem -out new.pem" }
+   [ordered]@{
+     GPT_WORKER_SHARED_SECRET       = (Get-Content (Join-Path $Keys "gpt-worker-shared-secret.txt") -Raw).Trim()
+     GPT_CREDENTIAL_ENCRYPTION_KEY  = (Get-Content (Join-Path $Keys "gpt-credential-encryption-key.txt") -Raw).Trim()
+     GPT_LEGACY_WORKER_PRIVATE_KEY  = (Get-Content $OldKey -Raw).Trim()
+   } | ConvertTo-Json | Set-Content -Encoding ascii $Secrets
+   Write-Host "Secrets file written (values not shown)."
+   ```
+
+4. **Deploy the Worker with its secrets,** then delete the secrets file (the two `.txt` files stay):
+
+   ```powershell
+   $Repo    = "D:\Repos\krhomebase"
+   $Config  = "workers/gpt-workers/gpt-models-worker.jsonc"
+   $Secrets = Join-Path $Repo "private\dev-private-keys\gpt-worker-first-deploy-secrets.json"
+   Set-Location $Repo
+   pnpm.cmd exec wrangler deploy --config $Config --secrets-file $Secrets
+   pnpm.cmd exec wrangler secret list --config $Config
+   Remove-Item $Secrets
+   ```
+
+   `secret list` must name the three secrets (names only).
+
+5. **Local runs (`pnpm dev`):** run `scripts\Write-DevVars.ps1` again; it now adds `KR_GPT_WORKER_SECRET` to `apps/api/.dev.vars` from `gpt-worker-shared-secret.txt`. Claude switches on the `GPT_WORKER` block in `apps/api/kr-api-wrangler.jsonc` (`remote: true`, so `pnpm dev:api` calls the deployed Worker). Restart `pnpm dev`.
+
+6. **At the next API deploy** (`docs/11_Deployment_PromptStart.md`): give the deployed API the same shared secret, then deploy the API and the web app.
 
    ```powershell
    $Repo   = "D:\Repos\krhomebase"
-   $Config = "workers/gpt-workers/gpt-models-worker.jsonc"
+   $Secret = Join-Path $Repo "private\dev-private-keys\gpt-worker-shared-secret.txt"
    Set-Location $Repo
-   pnpm exec wrangler deploy --config $Config
-   pnpm exec wrangler deployments list --name krhomebase-gpt-models-worker
+   (Get-Content $Secret -Raw).Trim() | pnpm.cmd exec wrangler secret put KR_GPT_WORKER_SECRET --config apps/api/kr-api-wrangler.jsonc
    ```
-
-4. **Give the API the same shared secret,** then deploy the API (its `GPT_WORKER` binding names this Worker, so the Worker must exist first):
-
-   ```powershell
-   $Repo   = "D:\Repos\krhomebase"
-   $Secret = Join-Path $Repo "private\gpt-worker\gpt-worker-shared-secret.txt"
-   Set-Location $Repo
-   (Get-Content $Secret -Raw).Trim() | pnpm exec wrangler secret put KR_GPT_WORKER_SECRET --config apps/api/kr-api-wrangler.jsonc
-   pnpm deploy:api
-   ```
-
-5. Deploy the web app (`pnpm deploy:web`) for the GPT Model Gateway page.
 
 Until the Worker is deployed and the API has the binding and the secret, the page says "GPT Model Gateway cannot be reached right now".

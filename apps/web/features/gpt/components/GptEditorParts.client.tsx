@@ -3,8 +3,12 @@
 /**
  * Pieces both GPT connection editors draw (the Gemini editor and the shared OpenAI / Cloudflare editor), moved out of
  * the old `M0_GeminiEditSettingsCard` and `GptSelectedConnectionCard`, which repeated them: the editor props, a
- * label-beside-field row, the connection id line with Copy, the credential status line, the Enabled switch, the action
- * row, and the readiness status, spinner and result well.
+ * field (the old `.field` label: label text, then the field, then any help, flowing inline), the connection id line
+ * with Copy, the credential status line, the Enabled switch, the action row, and the readiness status, spinner and
+ * result well.
+ *
+ * Exact old look, a stated exception (the requester, Nov 14, 2026: 'make exception for the style of this feature and
+ * bring it over exactly as it is implemented in the old project'); see DESIGN.md Feature variations.
  *
  * Changed from the old editors: the readiness status line with Copy shows in both editors (the old shared card did
  * not show it); the copy button is the shared `KRCopyButton`.
@@ -42,16 +46,20 @@ export interface GptEditorProps {
   onDelete: () => void
 }
 
-/** One label-beside-field row of an editor grid, with optional help text under the field and a help badge. */
+/**
+ * One field of an editor grid (old `<label className={styles.field}>`): the label text (with a space and the help
+ * badge when `info` is given), then the field, then optional help text. The old `.field` is a block, so the three flow
+ * inline and the field wraps under its label when the column is too narrow for both.
+ */
 export function GptField({ label, info, help, children, className = '', element }: { label: string; info?: string; help?: ReactNode; children: ReactNode; className?: string; element?: string }) {
   return (
     <label className={`${LAYOUT_STYLES.field} ${className}`} data-kr-element={element}>
       <span className={STYLES.fieldLabel}>
         {label}
-        {info ? <GptInfoTip label={info} /> : null}
+        {info ? <>{' '}<GptInfoTip label={info} panel /></> : null}
       </span>
       {children}
-      {help ? <small className={`${LAYOUT_STYLES.helpSpan} ${STYLES.help}`}>{help}</small> : null}
+      {help ? <small className={STYLES.help}>{help}</small> : null}
     </label>
   )
 }
@@ -67,7 +75,7 @@ export function GptEditorIdLines({ model, credentialStatus }: Pick<GptEditorProp
           <KRCopyButton label="kr-gpt-connection-id" title="Copy kr-gpt-connection-id" value={model.krGptConnectionId} />
         </div>
       ) : null}
-      <p className={STYLES.muted} data-kr-element="gpt-credential-status">Credential status: {credentialStatusText(credentialStatus)}</p>
+      <p className={`${LAYOUT_STYLES.muted} ${STYLES.muted}`} data-kr-element="gpt-credential-status">Credential status: {credentialStatusText(credentialStatus)}</p>
     </>
   )
 }
@@ -121,13 +129,13 @@ export function GptReadinessPanel({ busy, model, readiness, readinessStatus, cop
     <>
       {readinessStatus ? (
         <div aria-live="polite" className={`${LAYOUT_STYLES.readinessStatus} ${STYLES.readinessStatus}`} data-kr-element="gpt-readiness-status">
-          <span>{readinessStatus}</span>
+          <span className={STYLES.readinessText}>{readinessStatus}</span>
           <button className={STYLES.copyButton} onClick={copyReadiness} type="button">Copy</button>
         </div>
       ) : null}
       {/* Readiness feedback: show progress in the same result well that later receives the response. */}
       {busy === 'readiness' ? (
-        <div aria-live="polite" className={`${LAYOUT_STYLES.result} ${STYLES.result}`} data-kr-element="gpt-readiness-spinner">
+        <div aria-live="polite" className={`${LAYOUT_STYLES.result} ${LAYOUT_STYLES.resultSpinner} ${STYLES.result}`} data-kr-element="gpt-readiness-spinner">
           <RainbowBusySpinner busy hideWhenIdle={false} label={`Checking ${model.displayName} readiness...`} size={18} />
         </div>
       ) : readiness ? (

@@ -5,11 +5,12 @@
  * in may send feedback). `app/page.tsx` passes it to the frame as `topBarFeedback`, so `components/shell` stays free
  * of feature code; the top bar only gives it a place before the sync light.
  *
- * A click opens the Feedback pop-out: its own browser window, opened inside the click (`openPopoutBrowserWindow`, or
- * the browser blocks it) and drawn by this window's React (`PopOutBrowserWindow`), so the panel can read and outline
+ * A click opens the Feedback pop-out: its own browser window beside the main window, opened inside the click
+ * (`openPopoutBrowserWindow`, or the browser blocks it) and drawn by this window's React (`PopOutBrowserWindow`), so the panel can read and outline
  * this window's page. A second click while it is open brings it to the front. When the browser blocks pop-ups, the
  * panel opens in the in-page `PopOutWindow` instead. Closing the window ends it; the main window closing or
- * reloading closes it too (`PopOutBrowserWindow`).
+ * reloading closes it too (`PopOutBrowserWindow`). In development the pop-out's Dev View button drives the main
+ * window's Dev View (`devViewFor="opener"`), so the overlays appear on the page the request is about.
  */
 
 import { useState } from 'react'
@@ -19,6 +20,12 @@ import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import { L } from '@/lib/KRUtilities'
 import { clearMarkerHighlight } from '../markerHighlight'
 import HomebaseFeedbackPanel from './HomebaseFeedbackPanel.client'
+
+/**
+ * The Feedback window opens beside the main window (the requester, Nov 14, 2026), as tall as it and 640px wide, so it
+ * does not cover the page it describes (`openPopoutBrowserWindow`, `side: 'beside'`).
+ */
+const FEEDBACK_PLACEMENT = { width: 640, height: 'match', side: 'beside' } as const
 
 /** Where the panel is open: its own browser window, inside this page (pop-ups blocked), or nowhere. */
 type FeedbackPlace = { kind: 'window'; popup: Window } | { kind: 'in-page' } | null
@@ -60,7 +67,7 @@ export default function HomebaseFeedbackButton() {
       return
     }
     if (place?.kind === 'in-page') return
-    const popup = openPopoutBrowserWindow(0)
+    const popup = openPopoutBrowserWindow(0, FEEDBACK_PLACEMENT)
     L(`[HOMEBASE_FEEDBACK_BUTTON:62] open place=${popup ? 'window' : 'in-page'}`)
     setPlace(popup ? { kind: 'window', popup } : { kind: 'in-page' })
   }
@@ -91,7 +98,7 @@ export default function HomebaseFeedbackButton() {
 
       {/* The Feedback pop-out: its own window, or inside this page when pop-ups are blocked */}
       {place?.kind === 'window' ? (
-        <PopOutBrowserWindow popupWindow={place.popup} title="Feedback" onClose={close}>
+        <PopOutBrowserWindow popupWindow={place.popup} title="Feedback" onClose={close} devViewFor="opener">
           {panel}
         </PopOutBrowserWindow>
       ) : null}

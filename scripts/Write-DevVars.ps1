@@ -14,6 +14,9 @@
         KR_SESSION_WORKER_SECRET  from session-symmetric-hashkey.key
     apps\api\.dev.vars   (the API's sign-in settings when it runs on this computer)
         KR_APP_BASE_URL               http://localhost:3011 (this computer's address for the web app)
+        KR_SESSION_COOKIE_NAME        krh_dev_session (added Nov 14, 2026): browsers share localhost cookies across
+                                      ports, and the old app on port 3001 also writes `kr_session`, which replaced
+                                      this app's sign-in ("Your session has ended"). The deployed name stays kr_session.
         KR_TURNSTILE_SITE_KEY         Cloudflare's always-pass test site key (public). Matches the test secret below, so
                                       localhost sign-in works without the live widget.
         KR_GOOGLE_CLIENT_SECRET       from google-krhombase-team-client-secret.pem
@@ -22,6 +25,8 @@
         KR_CRUD_WORKER_PUBLIC_KEY     from public-worker-crud-operations-2.pem
         KR_SESSION_WORKER_SECRET      from session-symmetric-hashkey.key
         KR_PAYMENT_PROVIDER_KEK       from payment-provider-kek.key (Stripe Payment Configuration; added Nov 13, 2026)
+        KR_GPT_WORKER_SECRET          from gpt-worker-shared-secret.txt, only when that file exists (GPT Model Gateway;
+                                      added Nov 14, 2026; the same value as the GPT models Worker's GPT_WORKER_SHARED_SECRET)
         KR_SUPER_ADMIN_EMAILS         only when -SuperAdminEmails is given
 
   The script prints setting names and character counts only. It never prints a value.
@@ -108,6 +113,8 @@ $sessionSettings = [ordered]@{
 }
 $apiSettings = [ordered]@{
   KR_APP_BASE_URL           = 'http://localhost:3011'
+  # Not kr_session: the old app on localhost:3001 writes a cookie of that name, and localhost cookies are shared by every port.
+  KR_SESSION_COOKIE_NAME    = 'krh_dev_session'
   KR_TURNSTILE_SITE_KEY     = '1x00000000000000000000AA'
   KR_GOOGLE_CLIENT_SECRET   = (Read-KeyValue -FileName 'google-krhombase-team-client-secret.pem' -Kind Secret)
   KR_TURNSTILE_SECRET_KEY   = (Read-KeyValue -FileName 'turnstile-keys\dev-turnstile-always-valid-key.private' -Kind Secret)
@@ -116,6 +123,11 @@ $apiSettings = [ordered]@{
   KR_SESSION_WORKER_SECRET  = $sessionSettings.KR_SESSION_WORKER_SECRET
   # Stripe Payment Configuration: the key that encrypts the Stripe keys in payment_provider (same value as the pay Worker).
   KR_PAYMENT_PROVIDER_KEK   = (Read-KeyValue -FileName 'payment-provider-kek.key' -Kind Secret)
+}
+# GPT Model Gateway (Nov 14, 2026): the shared secret of krhomebase-gpt-models-worker, when its file has been made
+# (workers/gpt-workers/README.md, "Putting it live"). Without the file the API answers GPT_GATEWAY_UNAVAILABLE, as before.
+if (Test-Path -LiteralPath (Join-Path $KeysFolder 'gpt-worker-shared-secret.txt')) {
+  $apiSettings['KR_GPT_WORKER_SECRET'] = (Read-KeyValue -FileName 'gpt-worker-shared-secret.txt' -Kind Secret)
 }
 if (-not [string]::IsNullOrWhiteSpace($SuperAdminEmails)) {
   if ($SuperAdminEmails -match '["$`\s]') { throw 'SuperAdminEmails: use plain addresses separated by commas, with no spaces or quotes.' }
