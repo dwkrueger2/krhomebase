@@ -1,0 +1,73 @@
+/*
+ * file: workers/feedback-viewer/src/viewer.css
+ *
+ * Styles of the Feedback Viewer tool page. A plain CSS file, not Tailwind: this tool is built like an outside
+ * developer's tool and has no access to the KR Homebase style build (AGENTS_05 applies to apps/web). It is bundled
+ * by Vite into one file under assets/, so the Content-Security-Policy can allow styles from the tool's own address
+ * only (public/_headers).
+ *
+ * Colors and fonts are the KR Homebase theme values the tool kit applies to the page root (`--kr-theme-*`, tool kit
+ * guide section 4), with fallbacks for the page opened on its own. Dense, as KR Homebase is.
+ */
+
+/* Page */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 6px 10px;
+  font-family: var(--kr-theme-font-body, system-ui, -apple-system, "Segoe UI", sans-serif);
+  font-size: var(--kr-theme-font-size-base, 13px);
+  line-height: 1.35;
+  color: var(--kr-theme-text, #1b2330);
+  background: var(--kr-theme-card-surface, #ffffff);
+}
+a { color: var(--kr-theme-brand-primary, #1f5fbf); }
+h2 { margin: 2px 0 6px; font-size: 15px; }
+h3 { margin: 10px 0 4px; font-size: 13px; }
+code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+.meta { color: var(--kr-theme-text-muted, #5f6368); }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 3px 6px; border-bottom: 1px solid var(--kr-theme-line, #d6dde6); text-align: left; vertical-align: top; }
+th { color: var(--kr-theme-text-muted, #5f6368); font-weight: 600; }
+td.num { text-align: right; }
+tbody tr:hover { background: var(--kr-theme-table-row-hover, transparent); }
+
+/* Forms */
+form.inline { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 8px; }
+.form-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+label.block { display: block; }
+select, input[type="text"], textarea, button {
+  padding: 2px 6px;
+  border: 1px solid var(--kr-theme-line, #d6dde6);
+  border-radius: 3px;
+  font: inherit;
+  color: inherit;
+  background: var(--kr-theme-card-surface, #ffffff);
+}
+textarea { width: 100%; min-height: 54px; }
+button { cursor: pointer; background: var(--kr-theme-muted-surface, #f4f5f7); }
+button:disabled { cursor: default; opacity: 0.6; }
+
+/* Request parts */
+.body {
+  padding: 6px 8px;
+  border: 1px solid var(--kr-theme-line, #d6dde6);
+  border-radius: 3px;
+  white-space: pre-wrap;
+  background: var(--kr-theme-muted-surface, #f4f5f7);
+}
+.grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+.copy { display: flex; gap: 6px; align-items: center; margin: 6px 0; }
+.copy input { width: 12em; font-family: ui-monospace, Consolas, monospace; }
+.note { padding: 4px 0; border-bottom: 1px solid var(--kr-theme-line, #d6dde6); }
+.confirm { padding: 6px 8px; border: 1px solid var(--kr-theme-brand-primary, #1f5fbf); border-radius: 3px; }
+.confirm p { margin: 0 0 6px; }
+.paging { margin: 6px 0; }
+
+/* Notices */
+.notice { margin: 4px 0 8px; padding: 4px 8px; border: 1px solid var(--kr-theme-line, #d6dde6); border-radius: 3px; }
+.notice.bad { border-color: var(--kr-theme-danger, #b3261e); color: var(--kr-theme-danger, #b3261e); }
+.notice.good { border-color: var(--kr-theme-success, #1e7d32); color: var(--kr-theme-success, #1e7d32); }

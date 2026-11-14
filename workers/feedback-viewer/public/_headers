@@ -1,0 +1,11 @@
+# Response headers for every file of the Feedback Viewer (Cloudflare Workers static assets read this file).
+# - frame-ancestors: only KR Homebase may show this page in a frame.
+# - script-src and style-src 'self': only the bundled files under /assets; no inline scripts or styles.
+# - connect-src 'none': the page calls nothing itself; every API call goes through KR Homebase (the tool kit bridge).
+# - no-store: KR Homebase data is never cached by the browser.
+/*
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors https://krhomebase.com
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-store

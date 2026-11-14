@@ -1,7 +1,7 @@
 # Workers
 
-<small>Version 1.9</small><br>
-<small>Updated Nov 13, 2026 7:15pm</small>
+<small>Version 2.0</small><br>
+<small>Updated Nov 14, 2026 1:32pm</small>
 
 The Cloudflare Workers copied from the old repository (`apps\shared`). Plan and reasons: `docs/03_Workers_And_Login_Plan.md`.
 
@@ -33,6 +33,7 @@ workers/
     article-read-worker/  article-publish-worker/
     kr-homebase-mcp-worker/       first scaffold of an MCP server
     d1-workers-info.jsonc         inventory of the OLD live Workers (a record)
+  feedback-viewer/                Homebase Feedback viewer, an outside tool built with the tool kit (new, not copied; README.md in the folder)
   gpt-workers/                    AI gateway Worker
   r2-workers/                     Workers that use R2 storage, plus r2-workers-info.jsonc
   redirect-workers/               old firm domain redirect, plus redirect-workers-info.jsonc
@@ -53,6 +54,7 @@ Cloudflare names now start with `krhomebase-`, like `krhomebase-api` and `krhome
 | `d1-workers/article-read-worker` | `krhomebase-article-read-worker` | not set | No |
 | `d1-workers/article-publish-worker` | `krhomebase-article-publish-worker` | not set | No |
 | `d1-workers/kr-homebase-mcp-worker` | `krhomebase-mcp-worker` | none needed | No |
+| `feedback-viewer` | `krhomebase-feedback-viewer` (written Nov 14, 2026 for plan 12 stage F5, not copied; an outside tool on the frame path, static files on its `workers.dev` address; see its `README.md`) | none: no bindings; every call goes through the KR Homebase page with the person's session | No; the requester deploys it with `pnpm deploy:feedback-viewer`, then registers it, after the steps in its `README.md` |
 | `gpt-workers` | `krhomebase-gpt-models-worker` (no public address; changed Nov 12, 2026 to trust the API's shared secret, see `gpt-workers/README.md`) | `krhomebase_gpt_usage_dev`, id not set | No |
 | `r2-workers/front-end-assets` | `krhomebase-public-site-front-end-assets` | none | No |
 | `r2-workers/kr-r2-crud-articles-worker` | `krhomebase-r2-crud-articles-worker` | none | No |
@@ -215,6 +217,6 @@ Both Workers share one local database folder (`workers/.wrangler/shared-state`, 
 
 ## Left for later
 
-- **Type check.** `workers/` is not part of `pnpm check` yet. It needs its own `tsconfig` and the generated binding types. Until then these files are not type checked.
+- **Type check.** `workers/` is not part of `pnpm check` yet, except `feedback-viewer` (a workspace package with its own `tsconfig` and tests). The others need their own `tsconfig` and the generated binding types. Until then they are not type checked.
 - **Folder names `shared` and `util`** are generic. Renaming them means editing imports, so it waits until a Worker is changed for another reason.
 - **Real databases and buckets** for the Workers marked "not set".

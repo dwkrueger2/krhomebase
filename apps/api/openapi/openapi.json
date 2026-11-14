@@ -1220,7 +1220,9 @@
                                     "matters:write",
                                     "documents:read",
                                     "documents:write",
-                                    "reports:read"
+                                    "reports:read",
+                                    "homebase-feedback:read",
+                                    "homebase-feedback:write"
                                   ],
                                   "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                                 },
@@ -1574,11 +1576,13 @@
                         "matters:write",
                         "documents:read",
                         "documents:write",
-                        "reports:read"
+                        "reports:read",
+                        "homebase-feedback:read",
+                        "homebase-feedback:write"
                       ],
                       "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                     },
-                    "maxItems": 17,
+                    "maxItems": 19,
                     "default": [],
                     "description": "Permissions to grant. Empty means the tool can learn only who is using it."
                   },
@@ -1705,7 +1709,9 @@
                                   "matters:write",
                                   "documents:read",
                                   "documents:write",
-                                  "reports:read"
+                                  "reports:read",
+                                  "homebase-feedback:read",
+                                  "homebase-feedback:write"
                                 ],
                                 "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                               },
@@ -2176,7 +2182,9 @@
                                   "matters:write",
                                   "documents:read",
                                   "documents:write",
-                                  "reports:read"
+                                  "reports:read",
+                                  "homebase-feedback:read",
+                                  "homebase-feedback:write"
                                 ],
                                 "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                               },
@@ -2624,11 +2632,13 @@
                         "matters:write",
                         "documents:read",
                         "documents:write",
-                        "reports:read"
+                        "reports:read",
+                        "homebase-feedback:read",
+                        "homebase-feedback:write"
                       ],
                       "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                     },
-                    "maxItems": 17,
+                    "maxItems": 19,
                     "description": "New list of permissions. Replaces the old list."
                   },
                   "status": {
@@ -2755,7 +2765,9 @@
                                   "matters:write",
                                   "documents:read",
                                   "documents:write",
-                                  "reports:read"
+                                  "reports:read",
+                                  "homebase-feedback:read",
+                                  "homebase-feedback:write"
                                 ],
                                 "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                               },
@@ -4265,7 +4277,9 @@
                                     "matters:write",
                                     "documents:read",
                                     "documents:write",
-                                    "reports:read"
+                                    "reports:read",
+                                    "homebase-feedback:read",
+                                    "homebase-feedback:write"
                                   ],
                                   "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                                 },
@@ -4485,11 +4499,13 @@
                         "matters:write",
                         "documents:read",
                         "documents:write",
-                        "reports:read"
+                        "reports:read",
+                        "homebase-feedback:read",
+                        "homebase-feedback:write"
                       ],
                       "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                     },
-                    "maxItems": 17,
+                    "maxItems": 19,
                     "description": "Optional: ask for fewer permissions than were granted. Left out, the token carries every granted permission."
                   }
                 },
@@ -4555,7 +4571,9 @@
                               "matters:write",
                               "documents:read",
                               "documents:write",
-                              "reports:read"
+                              "reports:read",
+                              "homebase-feedback:read",
+                              "homebase-feedback:write"
                             ],
                             "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                           },
@@ -4852,7 +4870,9 @@
                                   "matters:write",
                                   "documents:read",
                                   "documents:write",
-                                  "reports:read"
+                                  "reports:read",
+                                  "homebase-feedback:read",
+                                  "homebase-feedback:write"
                                 ],
                                 "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                               },
@@ -70587,7 +70607,7 @@
       },
       "get": {
         "summary": "Every feedback request, newest first, by status and kind, one page at a time (Internal Developers).",
-        "description": "Any signed-in user.\n\nPermission: developer_tools.read.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, HOMEBASE_FEEDBACK_STATUS_INVALID, HOMEBASE_FEEDBACK_CURSOR_INVALID, HOMEBASE_FEEDBACK_UNAVAILABLE, HOMEBASE_FEEDBACK_MIGRATION_REQUIRED, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nPermission: developer_tools.read.\n\nSide effects: None.\n\nOutside tools: tools granted homebase-feedback:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, HOMEBASE_FEEDBACK_STATUS_INVALID, HOMEBASE_FEEDBACK_CURSOR_INVALID, HOMEBASE_FEEDBACK_UNAVAILABLE, HOMEBASE_FEEDBACK_MIGRATION_REQUIRED, INTERNAL_ERROR.",
         "tags": [
           "homebase-feedback"
         ],
@@ -71439,7 +71459,7 @@
     "/v1/homebase-feedback/{number}": {
       "get": {
         "summary": "One feedback request with its markers, images and notes; an Internal Developer may read any request, anyone else only their own, without the notes.",
-        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, HOMEBASE_FEEDBACK_NOT_FOUND, HOMEBASE_FEEDBACK_UNAVAILABLE, HOMEBASE_FEEDBACK_MIGRATION_REQUIRED, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: tools granted homebase-feedback:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, HOMEBASE_FEEDBACK_NOT_FOUND, HOMEBASE_FEEDBACK_UNAVAILABLE, HOMEBASE_FEEDBACK_MIGRATION_REQUIRED, INTERNAL_ERROR.",
         "tags": [
           "homebase-feedback"
         ],
@@ -72136,7 +72156,7 @@
       },
       "patch": {
         "summary": "Changes a feedback request's status or priority; each change is recorded as a note, with the optional note text.",
-        "description": "Any signed-in user.\n\nPermission: developer_tools.update.\n\nSide effects: Writes homebase_feedback; Writes homebase_feedback_note; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, HOMEBASE_FEEDBACK_NOT_FOUND, HOMEBASE_FEEDBACK_UNAVAILABLE, HOMEBASE_FEEDBACK_MIGRATION_REQUIRED, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nPermission: developer_tools.update.\n\nSide effects: Writes homebase_feedback; Writes homebase_feedback_note; Writes audit_log.\n\nOutside tools: tools granted homebase-feedback:write.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, HOMEBASE_FEEDBACK_NOT_FOUND, HOMEBASE_FEEDBACK_UNAVAILABLE, HOMEBASE_FEEDBACK_MIGRATION_REQUIRED, INTERNAL_ERROR.",
         "tags": [
           "homebase-feedback"
         ],
@@ -72874,7 +72894,7 @@
     "/v1/homebase-feedback/{number}/notes": {
       "post": {
         "summary": "Adds a developer note to a feedback request.",
-        "description": "Any signed-in user.\n\nPermission: developer_tools.update.\n\nSide effects: Writes homebase_feedback_note; Writes homebase_feedback; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, HOMEBASE_FEEDBACK_NOT_FOUND, HOMEBASE_FEEDBACK_UNAVAILABLE, HOMEBASE_FEEDBACK_MIGRATION_REQUIRED, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nPermission: developer_tools.update.\n\nSide effects: Writes homebase_feedback_note; Writes homebase_feedback; Writes audit_log.\n\nOutside tools: tools granted homebase-feedback:write.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, HOMEBASE_FEEDBACK_NOT_FOUND, HOMEBASE_FEEDBACK_UNAVAILABLE, HOMEBASE_FEEDBACK_MIGRATION_REQUIRED, INTERNAL_ERROR.",
         "tags": [
           "homebase-feedback"
         ],

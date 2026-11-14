@@ -12,7 +12,12 @@
  *
  * The image upload (`POST .../{number}/images`) comes with stage F3. `/mine` is registered before `{number}`.
  * Until migration 033 is applied every route answers 503 `HOMEBASE_FEEDBACK_MIGRATION_REQUIRED`. Rules: `rules.ts`.
- * Writes pass the write gate and are audited (resource `homebase-feedback`). Outside tools: closed.
+ * Writes pass the write gate and are audited (resource `homebase-feedback`).
+ *
+ * Outside tools (frame path only in practice; the requester's choice of Nov 14, 2026): the list and one request need
+ * `homebase-feedback:read`, the change and the note `homebase-feedback:write`. The person's own checks still apply
+ * on a frame call (session, role, `developer_tools`), so a tool never sees more than the person using it. The
+ * Homebase Feedback viewer (`workers/feedback-viewer`) is the first tool that uses them. `POST` and `/mine` stay closed.
  */
 
 import {
@@ -79,6 +84,7 @@ export const homebaseFeedbackListRoute = defineRoute({
   summary: 'Every feedback request, newest first, by status and kind, one page at a time (Internal Developers).',
   access: 'signed-in',
   permission: { resource: DEVELOPER_RESOURCE, action: 'read' },
+  toolAccess: 'homebase-feedback:read',
   errors: ['HOMEBASE_FEEDBACK_STATUS_INVALID', 'HOMEBASE_FEEDBACK_CURSOR_INVALID', ...UNAVAILABLE_CODES],
   sideEffects: ['None'],
   request: { query: HomebaseFeedbackListQuery },
@@ -95,6 +101,7 @@ export const homebaseFeedbackRoute = defineRoute({
   feature: 'homebase-feedback',
   summary: 'One feedback request with its markers, images and notes; an Internal Developer may read any request, anyone else only their own, without the notes.',
   access: 'signed-in',
+  toolAccess: 'homebase-feedback:read',
   errors: ['HOMEBASE_FEEDBACK_NOT_FOUND', ...UNAVAILABLE_CODES],
   sideEffects: ['None'],
   request: { params: HomebaseFeedbackParams },
@@ -108,6 +115,7 @@ export const updateHomebaseFeedbackRoute = defineRoute({
   summary: "Changes a feedback request's status or priority; each change is recorded as a note, with the optional note text.",
   access: 'signed-in',
   permission: { resource: DEVELOPER_RESOURCE, action: 'update' },
+  toolAccess: 'homebase-feedback:write',
   errors: ['HOMEBASE_FEEDBACK_NOT_FOUND', ...UNAVAILABLE_CODES],
   sideEffects: ['Writes homebase_feedback', 'Writes homebase_feedback_note', 'Writes audit_log'],
   request: { params: HomebaseFeedbackParams, body: { content: json(HomebaseFeedbackUpdateBody), required: true } },
@@ -121,6 +129,7 @@ export const homebaseFeedbackNoteRoute = defineRoute({
   summary: 'Adds a developer note to a feedback request.',
   access: 'signed-in',
   permission: { resource: DEVELOPER_RESOURCE, action: 'update' },
+  toolAccess: 'homebase-feedback:write',
   errors: ['HOMEBASE_FEEDBACK_NOT_FOUND', ...UNAVAILABLE_CODES],
   sideEffects: ['Writes homebase_feedback_note', 'Writes homebase_feedback', 'Writes audit_log'],
   request: { params: HomebaseFeedbackParams, body: { content: json(HomebaseFeedbackNoteBody), required: true } },

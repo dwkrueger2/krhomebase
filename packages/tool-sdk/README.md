@@ -1,7 +1,7 @@
 # KR Homebase Tool Kit: Developer Guide
 
-<small>Version 1.1</small><br>
-<small>Updated Nov 11, 2026 10:59pm</small>
+<small>Version 1.2</small><br>
+<small>Updated Nov 14, 2026 1:32pm</small>
 
 **Who this is for:** a developer building an outside tool for KR Homebase without access to the KR Homebase code.
 
@@ -76,7 +76,7 @@ The person can pop your tool out into its own window and close it again. Each ti
 
 ### What the frame allows
 
-Your page runs from its own address, sealed off from KR Homebase. It may run scripts, use forms, open new tabs, download files and use its own cookies and storage. It may **not** change the KR Homebase page's address, show `alert`, `confirm` or `prompt` boxes (draw your own dialogs), or use the camera, microphone or location. It never sees the KR Homebase session.
+Your page runs from its own address, sealed off from KR Homebase. It may run scripts, use forms, open new tabs, download files and use its own cookies and storage. It may **not** change the KR Homebase page's address, show `alert`, `confirm` or `prompt` boxes (draw your own dialogs), or use the camera, microphone or location. Do not count on the clipboard: browsers may refuse `navigator.clipboard` in the frame, so also select the text so the person can press Ctrl+C. It never sees the KR Homebase session.
 
 ### Dashboard widgets
 
@@ -126,10 +126,10 @@ console.log(registrationSheet(tool)) // send this text to the super admin
 
 A permission is `<area>:read` (look) or `<area>:write` (create, change, delete). Ask for the fewest that work.
 
-`contacts`, `leads`, `communications`, `tasks`, `timekeeping`, `billing`, `matters`, `documents` (each `:read` and `:write`), and `reports:read`.
+`contacts`, `leads`, `communications`, `tasks`, `timekeeping`, `billing`, `matters`, `documents`, `homebase-feedback` (each `:read` and `:write`), and `reports:read`. A new permission comes with a new version of this kit.
 
 - A route accepts tools only when KR Homebase opened it to them. In the API reference (the OpenAPI file the super admin can send you), each route's description has a line `Outside tools: ...` naming the permission it needs, or `not allowed`.
-- **Today the only route open to tools is `GET /v1/tools/context`.** Routes for clients, tasks and the other areas open to tools as KR Homebase builds them. A permission with no route yet grants nothing.
+- **Routes open to tools today:** `GET /v1/tools/context` (any tool), and the Homebase Feedback routes for developers: `GET /v1/homebase-feedback`, `GET /v1/homebase-feedback/{number}` (`homebase-feedback:read`), `PATCH /v1/homebase-feedback/{number}` and `POST /v1/homebase-feedback/{number}/notes` (`homebase-feedback:write`). Routes for clients, tasks and the other areas open to tools as KR Homebase builds them. A permission with no route yet grants nothing.
 - A frame call also needs the person to be allowed: KR Homebase applies both your permissions and the person's role.
 
 ## 7. Your server (path B)

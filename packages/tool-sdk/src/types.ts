@@ -24,6 +24,8 @@ export const TOOL_SCOPES = [
   'documents:read',
   'documents:write',
   'reports:read',
+  'homebase-feedback:read',
+  'homebase-feedback:write',
 ] as const
 export type ToolScopeName = (typeof TOOL_SCOPES)[number]
 

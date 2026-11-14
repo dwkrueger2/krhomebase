@@ -1,7 +1,7 @@
 # Deployed Architecture
 
-<small>Version 2.1</small><br>
-<small>Updated Nov 14, 2026 4:10am</small>
+<small>Version 2.2</small><br>
+<small>Updated Nov 14, 2026 1:32pm</small>
 
 **Status:** live since Nov 6, 2026. Read this file before any work that touches a Worker, a binding, a web address, a secret or a deploy command. Update it in the same change as any of those.
 
@@ -118,4 +118,5 @@ When an item goes live, move its line into sections 1 to 4.
 |---|---|---|
 | Custom Domain for `krhomebase-external-api` | The Worker is deployed (Nov 9, 2026); no domain is recorded here. The `workspace_tool*` tables exist (checked Nov 13, 2026) and the tool routes are in the deployed API. | The requester chooses a domain, adds it in the dashboard, and records it in section 2. |
 | The API's `GPT_WORKER` binding and secret | The GPT models Worker is deployed (section 1) and the binding is on in `kr-api-wrangler.jsonc` (local runs use it), but the deployed API (patch 25) has neither the binding nor `KR_GPT_WORKER_SECRET`. | At the next API deploy: `wrangler secret put KR_GPT_WORKER_SECRET` (step 6 of `workers/gpt-workers/README.md`), then `pnpm deploy:api`. |
+| `krhomebase-feedback-viewer` (`workers/feedback-viewer/`; the Homebase Feedback viewer, plan 12 stage F5) | Built Nov 14, 2026 (repository patch 37, API patch 32). Not deployed, not registered. An outside tool on the frame path (path A), built with only the tool kit as a test of it. Static files (`vite build` into `dist/`) on `https://krhomebase-feedback-viewer.dankrueger.workers.dev` (`workers_dev` on, preview addresses off, no route or Custom Domain); no bindings, no secrets. `public/_headers` allows framing by `https://krhomebase.com` only. Every call goes through the KR Homebase page with the person's session and `x-kr-tool-id`; the API applies the tool checks (`homebase-feedback:read` / `:write`, opened on the four developer feedback routes) and the person's `developer_tools` permission. | `pnpm deploy:hot` (the API with the new tool permissions and the web app with their boxes), `pnpm deploy:feedback-viewer`, then register it in Settings → Application Settings → Outside tools: the steps in order are in `workers/feedback-viewer/README.md`. Then move this line into sections 1 to 5. |
 | `krhomebase-public-article-worker` (`workers/r2-workers/public-article-worker/`; published Articles and Answers and their images for the public site) | Copied Nov 13, 2026 (plan 10, decision D24). Not deployed. Binds D1 `krhomebase` (`KRHOMEBASE_DB`) and R2 `kr-homebase-articles` (`ARTICLE_BUCKET`); `workers_dev` on, no domain. Until it is live, the public site reads the old `kr-r2-public-article-worker`, which reads the old database, so nothing published from this app appears there. | Stage 9: `pnpm deploy:public-article`, then point the public site's `KR_R2_PUBLIC_ARTICLE_WORKER_URL` at its `workers.dev` address (`Readme-public-article-worker.md` in that folder). |

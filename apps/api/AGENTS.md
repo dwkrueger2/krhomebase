@@ -1,7 +1,7 @@
 # KR Homebase API Agent Guide
 
-<small>Version 1.34</small><br>
-<small>Updated Nov 14, 2026 4:10am</small>
+<small>Version 1.35</small><br>
+<small>Updated Nov 14, 2026 1:32pm</small>
 
 ## Purpose
 
@@ -249,6 +249,7 @@ Articles and answers (plan 10, stage 6; old `api/front-end-publishing` and its `
 - **Numbers:** the highest plus one, tried again on a clash of the UNIQUE `number` (eight tries, then 409 `HOMEBASE_FEEDBACK_NUMBER_EXHAUSTED`).
 - **Markers** are read again from the saved text with `findFeedbackMarkers` (contracts); the browser's list only says whether each was on the page and where (its box). A marker the text does not name is ignored.
 - **Writes** are one batch with the `audit_log` row (resource `homebase-feedback`; `CREATE`, `UPDATE`, `NOTE`), which names the request and never carries its text. A status or priority change is recorded as a note row (from, to); a note sent with no real change is kept as a plain note.
+- **Outside tools (stage F5, the requester's choice of Nov 14, 2026):** the list and one request have `toolAccess: 'homebase-feedback:read'`, the `PATCH` and the note route `'homebase-feedback:write'` (`ToolScopes` in contracts). On a frame call the person's own checks still run (session, role, `developer_tools`), so a tool sees no more than its user. The first tool is the Homebase Feedback viewer (`workers/feedback-viewer`), built with only the tool kit. `POST` and `/mine` stay closed to tools.
 - **Claude's read path** is the read-only `scripts/Get-Feedback.ps1` (root script `feedback:get`; root `AGENTS.md`, "Homebase Feedback: asking Claude").
 
 ## Outside tools

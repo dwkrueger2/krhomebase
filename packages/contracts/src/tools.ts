@@ -41,6 +41,9 @@ export const ToolScopes = [
   'documents:read',
   'documents:write',
   'reports:read',
+  // Homebase Feedback (requests about KR Homebase itself, plan 12): the developer list, one request, status and notes.
+  'homebase-feedback:read',
+  'homebase-feedback:write',
 ] as const
 export const ToolScope = z.enum(ToolScopes).describe('A permission granted to an outside tool, in the form <area>:<read|write>.')
 export type ToolScope = z.infer<typeof ToolScope>

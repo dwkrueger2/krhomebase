@@ -1,7 +1,7 @@
 # Outside Tools: Design, Security and Operation
 
-<small>Version 1.1</small><br>
-<small>Updated Nov 11, 2026 10:59pm</small>
+<small>Version 1.2</small><br>
+<small>Updated Nov 14, 2026 1:32pm</small>
 
 **Headline:** other developers can add a tool to the left menu without a redeploy. A super admin registers the tool's address and grants it permissions. KR Homebase shows the tool in a sealed frame, in the workspace or popped out. The tool reaches data only through KR Homebase, and only within its grant.
 
@@ -87,7 +87,10 @@ Path B: tool server (client secret)
 
 ## 4. What is open to tools today
 
-Only `GET /v1/tools/context` (`toolAccess: 'any'`). It tells the tool who is calling. Each business area opens its routes when it is built, by adding `toolAccess: '<area>:read'` or `'<area>:write'` to `defineRoute()`. The generated `apps/api/openapi/openapi.json` says, for every route, `Outside tools: ...` or `Outside tools: not allowed.`
+- `GET /v1/tools/context` (`toolAccess: 'any'`). It tells the tool who is calling.
+- Homebase Feedback (Nov 14, 2026, the requester's choice): `GET /v1/homebase-feedback` and `GET /v1/homebase-feedback/{number}` (`homebase-feedback:read`), `PATCH /v1/homebase-feedback/{number}` and `POST /v1/homebase-feedback/{number}/notes` (`homebase-feedback:write`). The person's own permission (`developer_tools`) still applies on the frame path. The first tool to use them is `workers/feedback-viewer`, built with only the kit as a test of it; what it found about the kit is in its `README.md`.
+
+Each business area opens its routes when it is built, by adding `toolAccess: '<area>:read'` or `'<area>:write'` to `defineRoute()`. A new permission is added to `ToolScopes` (contracts) and the kit's `TOOL_SCOPES` together, so outside developers need the new kit file for it. The generated `apps/api/openapi/openapi.json` says, for every route, `Outside tools: ...` or `Outside tools: not allowed.`
 
 ## 5. Where the code is
 

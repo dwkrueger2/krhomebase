@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The Homebase Feedback viewer, built as a KR Homebase outside tool (frame path, path A) with only the tool kit
+  // (plan docs/12_Homebase_Feedback_Plan.md, stage F5; decision 3 changed Nov 14, 2026). Static files only: no script,
+  // no bindings, no secrets. Every call to KR Homebase goes through the KR Homebase page around the frame, with the
+  // signed-in person's own session. Guide and go-live steps: README.md in this folder.
+  "name": "krhomebase-feedback-viewer",
+  "compatibility_date": "2026-10-30",
+  // dist/ is written by `vite build` (the deploy script runs it first). public/_headers sets the
+  // Content-Security-Policy, including frame-ancestors https://krhomebase.com.
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  },
+  // The tool's address is the workers.dev address, a different site from krhomebase.com, as the outside tools
+  // design asks (docs/05_Outside_Tools.md, section 3, point 6). No preview addresses.
+  "workers_dev": true,
+  "preview_urls": false
+}

@@ -1,9 +1,9 @@
 # Homebase Feedback Plan (feature requests and issues for the app itself)
 
-<small>Version 1.1</small><br>
-<small>Updated Nov 13, 2026 10:10pm</small>
+<small>Version 1.2</small><br>
+<small>Updated Nov 14, 2026 1:32pm</small>
 
-**Status:** decided (section 7.1, Nov 13, 2026). Stages F1, F2 and F6 are built (repository patch 33, API patch 30, web patch 542); F3, F4 and F5 come after the Billing audit. Written from the requester's brief of Nov 13, 2026 ("FEED BACK FEATURE").
+**Status:** decided (section 7.1, Nov 13, 2026). Stages F1, F2 and F6 are built (repository patch 33, API patch 30, web patch 542); F5, the viewer (an outside tool, decision 3 changed), is built and not deployed (repository patch 37, API patch 32, Nov 14, 2026); F3 and F4 wait. Written from the requester's brief of Nov 13, 2026 ("FEED BACK FEATURE").
 
 **Headline:** people inside KR Homebase can send a numbered request (`FB-0012`) from a pop-out window: text with clickable `data-kr-*` markers, an annotated screenshot, and the page's address and deployed version, all captured automatically. A separate viewer Worker lists and works them. Claude Code reads a request by its number with a read-only script and answers with a plan. Nearly everything asked for is workable; four points need a change of rule or a choice (section 3).
 
@@ -133,7 +133,7 @@ The requester's instruction: "follow recommendations in the decisions section 7"
 |---|---|---|
 | 1 | Dev View in the deployed app | **Yes**, for Internal Developers only, as a separate chunk loaded on demand after the API says the person has the developer permission. This changes the "Dev View never ships" rule in the root `AGENTS.md` and `apps/web/AGENTS.md`; the rule text changes with stage F4, which builds it. |
 | 2 | Internal Developer | **A permission and a role set**, not a new `user.role` value: the resource `developer_tools` in `PERMISSION_RESOURCES` and a built-in role set "Internal Developer" (`role_internal_developer`) granting `developer_tools` read and update, added to people beside their main role set. The API answers `viewer.isDeveloper`. |
-| 3 | Viewer access | **Cloudflare Access** in front of `feedback.krhomebase.com` (option A). |
+| 3 | Viewer access | ~~Cloudflare Access in front of `feedback.krhomebase.com` (option A).~~ **Changed Nov 14, 2026:** a registered outside tool on the frame path, with the normal KR Homebase sign-in and no second email list (see "What F5 built"). |
 | 4 | Who may send feedback | **Every signed-in person**; developers get the extra tools (the full list now; Dev View and Pick with F4). |
 | 5 | Screenshot method | **In-page drawing** with a small new web dependency (for example `modern-screenshot`), added with F3. |
 | 6 | Numbering | **`FB-0001`**, separate from Task (`Task #ABC1234`) and WorkStream codes. |
@@ -145,4 +145,13 @@ What F1, F2 and F6 built (Nov 13, 2026):
 - **F2:** the Feedback button in the top bar and the Feedback pop-out (`apps/web/features/homebase-feedback/`): kind, title, text with marker chips, the captured context, Send, My requests, and the full list for developers.
 - **F6:** `scripts/Get-Feedback.ps1 -Number <n>` (root script `feedback:get`) writes `feedback-cache/FB-000n/FB-000n.md`; how to ask Claude is in the root `AGENTS.md` ("Homebase Feedback: asking Claude").
 
-Left for later: F3 (screenshot, annotation editor, marker map, the image upload route, the R2 bucket `kr-homebase-feedback`), F4 (Dev View for developers in the deployed app, Pick into the text, the guide rule change), F5 (the viewer Worker behind Cloudflare Access).
+What F5 built (Nov 14, 2026; repository patch 37, API patch 32):
+
+- **Decision 3 changed (the requester, Nov 14, 2026):** no Cloudflare Access and no second email list. The viewer is a **registered outside tool on the frame path** (path A, `docs/05_Outside_Tools.md`): the person is already signed in to KR Homebase, and the API checks their session, role and `developer_tools` permission plus the tool's registration and permissions on every call. A first build behind Cloudflare Access (a shared secret and a special path in the API's sign-in guard) was replaced before it was committed.
+- **Built as an outside developer would build it**, as a test of the tool kit: only the kit's public entry points, the reply shapes written from `openapi.json`, no `@krhomebase/contracts`. What the test found about the kit is listed in `workers/feedback-viewer/README.md`.
+- **The viewer** `krhomebase-feedback-viewer` in `workers/feedback-viewer/`: static files on its `workers.dev` address (a different site from `krhomebase.com`), no bindings. The list (status and kind filters, newest first), one request (text, markers, page context, images listed until F3, notes), status and priority changes (shown for confirmation first) with a note, notes, and a "Copy for Claude" box with `plan FB-0012`.
+- **API:** two new tool permissions, `homebase-feedback:read` and `homebase-feedback:write` (`ToolScopes` in contracts and the kit's `TOOL_SCOPES`), and `toolAccess` on `GET /v1/homebase-feedback`, `GET` and `PATCH .../{number}` and `POST .../{number}/notes`. No new routes.
+- **Go-live** (the requester): `pnpm deploy:hot`, `pnpm deploy:feedback-viewer`, register the tool, give developers the Internal Developer role set; the steps are in `workers/feedback-viewer/README.md`.
+- **Not in F5:** a person filter on the list (the API list has none), showing images (F3; the tool bridge carries only JSON today), and the "Copy plan" box of 3.6; "Copy for Claude" holds the words `plan FB-0012`, not the script's Markdown.
+
+Left for later: F3 (screenshot, annotation editor, marker map, the image upload route, the R2 bucket `kr-homebase-feedback`; the viewer then shows the images, through an API route), F4 (Dev View for developers in the deployed app, Pick into the text, the guide rule change).

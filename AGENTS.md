@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.18</small><br>
-<small>Updated Nov 14, 2026 4:10am</small>
+<small>Version 2.19</small><br>
+<small>Updated Nov 14, 2026 1:32pm</small>
 
 ## Agent Guide Index
 
@@ -108,6 +108,7 @@ apps/external-api/   krhomebase-external-api Worker: the public door for outside
 packages/contracts/  zod descriptions of every request, response and error. Shared by api, external-api and web.
 packages/tool-sdk/   Kit for outside tools (docs/05_Outside_Tools.md). Its README.md is the outside developers' guide.
 workers/             Cloudflare Workers copied from the old repository. Not part of the apps. Rules: "Workers" below and workers/Readme-workers.md.
+                     workers/feedback-viewer is new (not copied): the Homebase Feedback viewer, an outside tool built with only the tool kit (a test of the kit), checked by pnpm check.
 docs/                Documentation: schema spaces, architecture, API notes, patch notes, help documents.
 scripts/             Helper scripts: snapshot tools, the stop-port scripts and Get-Feedback.ps1. Replaces the old repo-utilities folder.
 snapshots/           Git-ignored database dumps. Never read.
@@ -141,6 +142,7 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 | 8792 | `workers/d1-workers/session-worker` (wrangler dev) | `pnpm dev:session` | `pnpm stop:port:8792` |
 | 9341 | `session-worker` debugger | started with it | `pnpm stop:port:9341` |
 | 8793 | `apps/external-api` (wrangler dev) | `pnpm dev:external` | `pnpm stop:port:8793` |
+| 5174 | `workers/feedback-viewer` (vite dev; the Feedback Viewer tool page) | `pnpm dev:feedback-viewer` | `pnpm stop:port:5174` |
 | 9342 | `external-api` debugger | started with it | `pnpm stop:port:9342` |
 | 3001 | Not used here. The old `apps/kr-homebase` runs on it. | | `pnpm stop:port:3001` |
 | 3000, 3002, 3003 | Not assigned in this repository. Kept from the old repository's scripts. | | `pnpm stop:port:3000`, `:3002`, `:3003` |
@@ -159,7 +161,8 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 - The text `NOT_SET_REVIEW_BEFORE_USE` in a database id or bucket name means the Worker has no real target yet. Do not guess one. The requester chooses it before any deploy.
 - `crud-worker` and `session-worker` go live first, with no public address (see `workers/Readme-workers.md`). Their key store is `krhomebase-public-keys` (id `f70c0ff65aa148a59bd1d598236ce1de`), owned by this repository. They are live, and `krhomebase-api` calls them through the service bindings `CRUD_WORKER` and `SESSION_WORKER` (`remote: true`, so `pnpm dev:api` uses the deployed copies). Running them locally (ports 8791 and 8792) is optional; their `.dev.vars` files are written by `scripts/Write-DevVars.ps1`. Read and write nothing in those files.
 - Do not run `wrangler deploy` or `wrangler secret put`. Give the command to the requester (hard rule 4).
-- `workers/` is not type checked by `pnpm check` yet. Say so when reporting a check result that touched it.
+- `workers/` is not type checked by `pnpm check` yet, except `workers/feedback-viewer`. Say so when reporting a check result that touched another Worker there.
+- `workers/feedback-viewer` (`krhomebase-feedback-viewer`, plan 12 stage F5) is written for this repository, not copied. It is a registered outside tool (path A, the frame; `docs/05_Outside_Tools.md`), built **as a separate developer would build one**: it may import only the tool kit's public entry points (`@krhomebase/tool-sdk/frame`, `/manifest`, `/types`), never `@krhomebase/contracts` or `apps/`, and it knows the API only from `openapi.json` (`src/tool.test.ts` checks the imports). Gaps found in the kit go in its `README.md`, "What this test found about the kit", not into workarounds. Static files on its `workers.dev` address, no bindings or secrets; the API's tool checks plus the person's `developer_tools` permission decide what it may do. It is a workspace package (`pnpm-workspace.yaml`) so that `pnpm check` type checks and tests it. Go-live steps: its `README.md`.
 
 ## Important Documentation
 
@@ -168,7 +171,7 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 - `docs/Schema_GPT_Usage_1.1` is the canonical GPT gateway schema documentation (database `krhomebase_gpt_usage_dev`).
 - `docs/06_Contacts_Billing_Port_Plan.md` is the plan and the requester's decisions for porting Contacts Manager and Billing, including the open single-database question.
 - `docs/10_WorkStream_Leads_Publishing_Plan.md` is the next port plan (Projects & Matters, WorkStream, Leads, Tasks, Front End Publishing, the Billing and Stripe checks, deploy). `docs/08_Settings_Dashboard_Plan.md` is the finished Settings port.
-- `docs/11_Deployment_PromptStart.md` starts a deployment session in a new chat: the project summary, what is live, what is waiting, and the deploy process in order. `docs/12_Homebase_Feedback_Plan.md` is the plan for feedback about KR Homebase itself, with the requester's decisions (section 7.1, Nov 13, 2026); stages F1, F2 and F6 are built, F3 to F5 wait until after the Billing audit. How to ask Claude about a request: "Homebase Feedback: asking Claude" below.
+- `docs/11_Deployment_PromptStart.md` starts a deployment session in a new chat: the project summary, what is live, what is waiting, and the deploy process in order. `docs/12_Homebase_Feedback_Plan.md` is the plan for feedback about KR Homebase itself, with the requester's decisions (section 7.1, Nov 13, 2026; decision 3 changed Nov 14, 2026); stages F1, F2, F5 (the viewer, an outside tool, not deployed) and F6 are built, F3 and F4 wait. How to ask Claude about a request: "Homebase Feedback: asking Claude" below.
 - `docs/09_ENV_KeyMappings.md` maps each environment key to its key file in `private\dev-private-keys` (file names only) and to its binding. The `.dev.vars.example` files point to it.
 - `docs/05_Outside_Tools.md` is the design, security model and go-live steps for outside tools. The guide for outside developers is `packages/tool-sdk/README.md`; do not repeat it elsewhere.
 - `docs/04_Deployed_Architecture.md` states what is deployed now: the four Workers, addresses, bindings, settings and deploy commands. Update it whenever one of those changes.
@@ -208,6 +211,7 @@ pnpm dev              # api (port 8787) and web (port 3011) together
 pnpm dev:crud         # crud-worker on port 8791 (optional local run; see workers/Readme-workers.md)
 pnpm dev:session      # session-worker on port 8792
 pnpm dev:external     # external-api on port 8793 (calls the deployed API)
+pnpm dev:feedback-viewer  # the Feedback Viewer tool page on port 5174 (open it from a local KR Homebase menu)
 pnpm check            # type check + all tests; must pass before the requester commits
 pnpm openapi          # rewrite apps/api/openapi/openapi.json after changing any route
 pnpm build:web        # build the web app (apps/web)
@@ -218,6 +222,7 @@ pnpm deploy:api       # deploy the API Worker (apps/api); the requester runs it
 pnpm deploy:web       # deploy the web Worker (apps/web); needs the cf sign-in
 pnpm deploy:external  # deploy the external-api Worker; the requester runs it, after deploy:api
 pnpm deploy:pay       # deploy kr-pay-worker-live (pay.krhomebase.com); the requester runs it (workers/d1-workers/kr-pay-worker/README.md)
+pnpm deploy:feedback-viewer  # build and deploy krhomebase-feedback-viewer (an outside tool on its workers.dev address); the requester runs it (workers/feedback-viewer/README.md)
 pnpm deploy:public-article  # deploy krhomebase-public-article-worker (the public site's article reader, bound to krhomebase); the requester runs it (workers/r2-workers/public-article-worker)
 pnpm pack:tool-sdk    # build dist\tool-sdk\krhomebase-tool-sdk-1.0.0.tgz for outside developers
 pnpm feedback:get -Number 12  # read-only: write feedback-cache\FB-0012\FB-0012.md from the live database
@@ -236,8 +241,8 @@ pnpm listScripts      # show the root scripts
 |---|---|---|
 | `dev` | root | `dev:api` and `dev:web`, together |
 | `build` | root | `build:web` |
-| `typecheck` | `packages/contracts`, `packages/tool-sdk`, `apps/api`, `apps/external-api`, `apps/web` | `typecheck` in each, in that order, joined by `&&` |
-| `test` | `packages/contracts`, `packages/tool-sdk`, `apps/api`, `apps/external-api`, `apps/web` | `test` in each, in that order, joined by `&&` |
+| `typecheck` | `packages/contracts`, `packages/tool-sdk`, `apps/api`, `apps/external-api`, `workers/feedback-viewer`, `apps/web` | `typecheck` in each, in that order, joined by `&&` |
+| `test` | `packages/contracts`, `packages/tool-sdk`, `apps/api`, `apps/external-api`, `workers/feedback-viewer`, `apps/web` | `test` in each, in that order, joined by `&&` |
 | `check` | root | `typecheck`, then `test` |
 | `types:cf` | `apps/api` | `wrangler types --config kr-api-wrangler.jsonc` |
 | `dev:api` | `apps/api` | `wrangler dev --port 8787 --inspector-port 9339` |
@@ -248,6 +253,8 @@ pnpm listScripts      # show the root scripts
 | `dev:external` | `apps/external-api` | `wrangler dev --port 8793 --inspector-port 9342` |
 | `deploy:external` | `apps/external-api` | `wrangler deploy` |
 | `deploy:pay` | `workers/d1-workers/kr-pay-worker` | `wrangler deploy --config kr-pay-worker.jsonc` |
+| `dev:feedback-viewer` | `workers/feedback-viewer` | `vite dev --port 5174 --strictPort` |
+| `deploy:feedback-viewer` | `workers/feedback-viewer` | `vite build`, then `wrangler deploy --config feedback-viewer.jsonc` |
 | `deploy:public-article` | root | `wrangler deploy --config workers/r2-workers/public-article-worker/public-article-worker.jsonc` |
 | `deploy:hot`, `deploy:warn`, `deploy:status`, `deploy:finish`, `deploy:cancel` | root | `scripts/Deploy-Krhomebase.ps1 -Mode <mode>` (`hot`, `warn`, `status`, `finish` or `cancel`): Worker versions uploaded (`wrangler versions upload`, `vinext-cloudflare deploy --no-promote`), then made live (`wrangler versions deploy`), API first; `warn` writes and clears the deploy window on `kr_maintenance_gate` (repository patch 34). Pending and last deploy in the git-ignored `deploy-state/`. |
 | `pack:tool-sdk` | `packages/tool-sdk` | build, then `pnpm pack` into `dist/tool-sdk` |

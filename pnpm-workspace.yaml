@@ -1,6 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "workers/feedback-viewer"
 
 allowBuilds:
   esbuild: true
