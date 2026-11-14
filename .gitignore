@@ -12,6 +12,9 @@ private/
 # database dumps (real client data)
 snapshots/
 
+# Homebase Feedback requests read by scripts/Get-Feedback.ps1 (may hold client details; plan 12, stage F6)
+feedback-cache/
+
 # build output and caches
 dist/
 .next/

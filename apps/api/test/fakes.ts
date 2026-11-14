@@ -28,6 +28,8 @@ export const WORKSPACE_TOOLS_MIGRATION = join(here, '..', '..', '..', 'docs', 'p
 export const USER_PREFERENCE_MIGRATION = join(here, '..', '..', '..', 'docs', 'patch-notes', 'repository', 'Migration_Patch026_11_11_user_preference.sql')
 /** The image license columns of `content_asset` (Front End Publishing, D25). Added only with the full schema. */
 export const CONTENT_ASSET_LICENSE_MIGRATION = join(here, '..', '..', '..', 'docs', 'patch-notes', 'repository', 'Migration_Patch031_11_13_content_asset_license.sql')
+/** The Homebase Feedback tables and the Internal Developer role set (plan 12, stage F1). Added only with the full schema. */
+export const HOMEBASE_FEEDBACK_MIGRATION = join(here, '..', '..', '..', 'docs', 'patch-notes', 'repository', 'Migration_Patch033_11_13_homebase_feedback.sql')
 
 /** Headers that make the sign-in middleware ask the Session Worker. */
 export const SIGNED_IN_HEADERS = { cookie: 'kr_session=test-session-token' } as const
@@ -99,18 +101,20 @@ class TestStatement {
 /**
  * Makes an in-memory D1 database with the outside-tool tables, from the real migration file. With
  * `{ fullSchema: true }` it first builds every table of `docs/Schema_8.0/schema_d1_v8_0.sql`, then the
- * `user_preference` table and the `content_asset` license columns from their migration files. Pass
- * `withoutLicenseMigration: true` to leave the license columns out (a database before migration 031).
+ * `user_preference` table, the `content_asset` license columns and the Homebase Feedback tables from their migration
+ * files. Pass `withoutLicenseMigration: true` to leave the license columns out (a database before migration 031), and
+ * `withoutFeedbackMigration: true` to leave the feedback tables out (a database before migration 033).
  *
  * @returns `db` (pass it as the `krhomebase` binding) and `sqlite` (to look at rows directly in a test).
  */
-export function createTestD1(options: { fullSchema?: boolean; withoutLicenseMigration?: boolean } = {}) {
+export function createTestD1(options: { fullSchema?: boolean; withoutLicenseMigration?: boolean; withoutFeedbackMigration?: boolean } = {}) {
   const sqlite = new DatabaseSync(':memory:')
   sqlite.exec('PRAGMA foreign_keys = ON;')
   // fullSchema: every table of Schema 8.0, for areas that read the firm's records (contacts, permissions).
   if (options.fullSchema) sqlite.exec(readFileSync(SCHEMA_8_0, 'utf8'))
   if (options.fullSchema) sqlite.exec(readFileSync(USER_PREFERENCE_MIGRATION, 'utf8'))
   if (options.fullSchema && !options.withoutLicenseMigration) sqlite.exec(readFileSync(CONTENT_ASSET_LICENSE_MIGRATION, 'utf8'))
+  if (options.fullSchema && !options.withoutFeedbackMigration) sqlite.exec(readFileSync(HOMEBASE_FEEDBACK_MIGRATION, 'utf8'))
   sqlite.exec(readFileSync(WORKSPACE_TOOLS_MIGRATION, 'utf8'))
   const db = {
     prepare: (sql: string) => new TestStatement(sqlite, sql),

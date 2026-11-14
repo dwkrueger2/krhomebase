@@ -29,6 +29,7 @@ import { registerWorkstream } from './features/workstream/routes.ts'
 import { registerLeads } from './features/leads/routes.ts'
 import { registerTasks } from './features/tasks/routes.ts'
 import { registerSiteFeedback } from './features/site-feedback/routes.ts'
+import { registerHomebaseFeedback } from './features/homebase-feedback/routes.ts'
 
 export const openApiInfo = {
   openapi: '3.1.0',
@@ -88,6 +89,7 @@ export function createApp() {
   registerWorkstream(app)
   registerLeads(app)
   registerTasks(app)
+  registerHomebaseFeedback(app)
 
   app.doc31('/v1/openapi.json', openApiInfo)
 

@@ -53,6 +53,10 @@ export const PERMISSION_RESOURCES: readonly PermissionResource[] = [
   { id: 'time_entries', label: 'Time Entries', description: 'Timekeeper entries, review, and billing readiness.', group: 'billing' },
   { id: 'front_end_publishing', label: 'Front End Publishing', description: 'Public-site Articles and Answers, publication state, and R2 publication history.', group: 'application', deleteRestricted: true },
   { id: 'data_management', label: 'Data Management', description: 'Super Admin data preparation, import staging, and controlled bulk record maintenance.', group: 'application', deleteRestricted: true },
+  // Homebase Feedback (docs/12_Homebase_Feedback_Plan.md, decision 2, Nov 13, 2026): read makes a person an Internal
+  // Developer (every feedback request, `viewer.isDeveloper`); update lets them change status and priority and add notes.
+  // Granted by the built-in role set "Internal Developer" (`role_internal_developer`).
+  { id: 'developer_tools', label: 'Developer Tools', description: 'Internal Developer tools: every Homebase Feedback request, its triage and notes, and (stage F4) Dev View in the deployed app.', group: 'application' },
 ]
 
 /** Resources a custom role set can never grant (old `KR_CUSTOM_ROLE_PROTECTED_RESOURCES`). */

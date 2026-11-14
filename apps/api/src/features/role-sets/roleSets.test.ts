@@ -63,7 +63,8 @@ describe('GET /v1/role-sets', () => {
     const res = await call('GET', '/v1/role-sets')
     expect(res.status).toBe(200)
     const data = RoleSetsData.parse(((await res.json()) as { data: unknown }).data)
-    expect(data.roleSets.map((row) => row.id)).toEqual(['role_super_admin', 'role_staff', 'role_custom_002'])
+    // role_internal_developer (sort 90) is the built-in role set migration 033 adds (Homebase Feedback, plan 12).
+    expect(data.roleSets.map((row) => row.id)).toEqual(['role_super_admin', 'role_staff', 'role_internal_developer', 'role_custom_002'])
     const staff = data.roleSets.find((row) => row.id === 'role_staff')!
     expect(staff).toMatchObject({ isSystem: true, permissions: ['contacts.read', 'contacts.update'], holderCount: 1 })
     expect(data.roleSets.find((row) => row.id === 'role_custom_002')).toMatchObject({ isSystem: false, scopedPermissions: ['attendance.read.own'], holderCount: 2 })

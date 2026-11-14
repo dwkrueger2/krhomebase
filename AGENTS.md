@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.15</small><br>
-<small>Updated Nov 13, 2026 7:25pm</small>
+<small>Version 2.17</small><br>
+<small>Updated Nov 13, 2026 10:10pm</small>
 
 ## Agent Guide Index
 
@@ -47,6 +47,7 @@ This replaces the old `Location:` and `Branch:` wording. `docs/00_PromptMemorySt
 - Do not read, search, summarize, copy, or modify the files in `./private`, `.dev.vars*`, or any key or secret file. `.env*` files may be read (rule 2) but not modified.
 - Prefer project metadata, docs, source files, and package files for orientation.
 - Files under `snapshots/` are never read. Their names may be listed.
+- `feedback-cache/` (git-ignored) holds Homebase Feedback requests written by `scripts/Get-Feedback.ps1`. They can hold client details: read one only when the requester names its number, and never commit, copy or quote it outside the answer to that request.
 
 ## General Logging Procedures
 
@@ -108,8 +109,9 @@ packages/contracts/  zod descriptions of every request, response and error. Shar
 packages/tool-sdk/   Kit for outside tools (docs/05_Outside_Tools.md). Its README.md is the outside developers' guide.
 workers/             Cloudflare Workers copied from the old repository. Not part of the apps. Rules: "Workers" below and workers/Readme-workers.md.
 docs/                Documentation: schema spaces, architecture, API notes, patch notes, help documents.
-scripts/             Helper scripts: snapshot tools and the stop-port script. Replaces the old repo-utilities folder.
+scripts/             Helper scripts: snapshot tools, the stop-port scripts and Get-Feedback.ps1. Replaces the old repo-utilities folder.
 snapshots/           Git-ignored database dumps. Never read.
+feedback-cache/      Git-ignored Homebase Feedback requests (Get-Feedback.ps1). Read only the number the requester names.
 ```
 
 Planned, not yet created: `packages/api-client` (generated typed client), `packages/db` (migrations, generated row types), `packages/config`, `packages/tools/<name>` (built-in tools as packages), `apps/public-inquiry`, `apps/gpt-gateway`. The public website (`apps/kr-website-public`) is not part of this repository.
@@ -165,6 +167,7 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 - `docs/Schema_GPT_Usage_1.1` is the canonical GPT gateway schema documentation (database `krhomebase_gpt_usage_dev`).
 - `docs/06_Contacts_Billing_Port_Plan.md` is the plan and the requester's decisions for porting Contacts Manager and Billing, including the open single-database question.
 - `docs/10_WorkStream_Leads_Publishing_Plan.md` is the next port plan (Projects & Matters, WorkStream, Leads, Tasks, Front End Publishing, the Billing and Stripe checks, deploy). `docs/08_Settings_Dashboard_Plan.md` is the finished Settings port.
+- `docs/11_Deployment_PromptStart.md` starts a deployment session in a new chat: the project summary, what is live, what is waiting, and the deploy process in order. `docs/12_Homebase_Feedback_Plan.md` is the plan for feedback about KR Homebase itself, with the requester's decisions (section 7.1, Nov 13, 2026); stages F1, F2 and F6 are built, F3 to F5 wait until after the Billing audit. How to ask Claude about a request: "Homebase Feedback: asking Claude" below.
 - `docs/09_ENV_KeyMappings.md` maps each environment key to its key file in `private\dev-private-keys` (file names only) and to its binding. The `.dev.vars.example` files point to it.
 - `docs/05_Outside_Tools.md` is the design, security model and go-live steps for outside tools. The guide for outside developers is `packages/tool-sdk/README.md`; do not repeat it elsewhere.
 - `docs/04_Deployed_Architecture.md` states what is deployed now: the four Workers, addresses, bindings, settings and deploy commands. Update it whenever one of those changes.
@@ -213,6 +216,7 @@ pnpm deploy:external  # deploy the external-api Worker; the requester runs it, a
 pnpm deploy:pay       # deploy kr-pay-worker-live (pay.krhomebase.com); the requester runs it (workers/d1-workers/kr-pay-worker/README.md)
 pnpm deploy:public-article  # deploy krhomebase-public-article-worker (the public site's article reader, bound to krhomebase); the requester runs it (workers/r2-workers/public-article-worker)
 pnpm pack:tool-sdk    # build dist\tool-sdk\krhomebase-tool-sdk-1.0.0.tgz for outside developers
+pnpm feedback:get -Number 12  # read-only: write feedback-cache\FB-0012\FB-0012.md from the live database
 pnpm stop:ports:all   # stop every development server started by this repository
 pnpm listScripts      # show the root scripts
 ```
@@ -243,7 +247,30 @@ pnpm listScripts      # show the root scripts
 | `deploy:public-article` | root | `wrangler deploy --config workers/r2-workers/public-article-worker/public-article-worker.jsonc` |
 | `pack:tool-sdk` | `packages/tool-sdk` | build, then `pnpm pack` into `dist/tool-sdk` |
 | `openapi` | `apps/api` | `tsx scripts/write-openapi.ts` |
+| `feedback:get` | root | `scripts/Get-Feedback.ps1 -Number <n>`: read-only `wrangler d1 execute` SELECTs on `krhomebase` (config `apps/api/kr-api-wrangler.jsonc`), then writes `feedback-cache/FB-000n/FB-000n.md` |
 | `dev:crud`, `dev:session` | `workers/d1-workers/...` | `wrangler dev` with that Worker's config |
+
+## Homebase Feedback: asking Claude
+
+People send numbered requests about KR Homebase itself (`FB-0012`) with the Feedback button in the top bar (plan `docs/12_Homebase_Feedback_Plan.md`). To get a plan for one, the requester writes in a Claude Code chat:
+
+```text
+plan FB-0012
+```
+
+A request's detail in the Feedback pop-out has a "Copy for Claude" button that copies those words. Claude then:
+
+1. Runs the read-only script (allowed under hard rule 4: it only SELECTs):
+
+   ```powershell
+   $Repo = "D:\Repos\krhomebase"
+   Set-Location $Repo
+   pnpm feedback:get -Number 12
+   ```
+
+2. Reads `feedback-cache\FB-0012\FB-0012.md`: the text, the markers it names (on the page or not when sent, and where), the captured page (address, section, open item, `kr-web-version`, deployment id and time, window size, theme) and the developer notes. Images are only listed until stage F3 adds their download.
+3. Finds each marker in the code (`rg -F 'data-kr-element="related-contacts-list"' apps/web`), compares the web version with `git log` and `docs/04_Deployed_Architecture.md`, and answers with a plan that follows the guides for the files it would change.
+4. Does not change the request's status or add notes (a database write); the requester does that (in the viewer, stage F5).
 
 ## Collaboration Notes
 

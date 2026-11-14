@@ -1,7 +1,7 @@
 # KR Homebase API Agent Guide
 
-<small>Version 1.32</small><br>
-<small>Updated Nov 13, 2026 7:40pm</small>
+<small>Version 1.33</small><br>
+<small>Updated Nov 13, 2026 10:10pm</small>
 
 ## Purpose
 
@@ -237,6 +237,17 @@ Articles and answers (plan 10, stage 6; old `api/front-end-publishing` and its `
 ## Web Site Feedback
 
 `src/features/site-feedback/` (Settings plan, stage 4e) replaces the old `kr-api-v1/site-feedback` route. The rows live in table `site_feedback` of the quarantined public inquiry database (`kr_public_inquiry_06_2026`, `docs/Schema_Public_Inquiry_v2.0`), which this API never binds directly: every read and write goes through the public inquiry CRUD Worker (`krhomebase-crud-worker-pub-inquiry`, service binding `PUBLIC_INQUIRY_WORKER`, `"remote": true` since the requester deployed the Worker on Nov 12, 2026, so `pnpm dev:api` changes the live public inquiry database) with `src/platform/publicInquiryClient.ts` (the same signed pass and sealed command as `crudClient.ts`, with that Worker's fixed issuer, audience, subject and purpose). Routes: `GET /v1/site-feedback` (newest 100), `PUT` and `DELETE /v1/site-feedback/{feedbackId}`, `POST /v1/site-feedback/bulk-update` and `/bulk-delete` (super admin), `POST /v1/site-feedback/{feedbackId}/vote` (the old internal staff roles; once each, a super admin any number of times). The assignee and votes stay JSON after the old marker line in `internal_notes`; the reader also finds the marker at the very start, where the old app put it when the notes were empty. Each change writes an `audit_log` row in `krhomebase` after the Worker answers (resource `site-feedback`). A missing binding or key, or any Worker failure, answers 503 `SITE_FEEDBACK_UNAVAILABLE`; the Worker's error text is logged, never returned. The list never carries the bot-check and network columns.
+
+## Homebase Feedback
+
+`src/features/homebase-feedback/` (plan `docs/12_Homebase_Feedback_Plan.md`, stage F1; the requester's decisions in its section 7.1, Nov 13, 2026) keeps numbered requests about KR Homebase itself, `FB-0001` upwards (decision 6). Not Web Site Feedback (above), which is about the public website. Routes: `POST /v1/homebase-feedback` and `GET /v1/homebase-feedback/mine` (anyone signed in, decision 4), `GET /v1/homebase-feedback` (permission `developer_tools.read`), `GET /v1/homebase-feedback/{number}` (a developer any request; the sender their own, without notes; anyone else 404), `PATCH /v1/homebase-feedback/{number}` (status, priority, optional note) and `POST .../{number}/notes` (permission `developer_tools.update`). `{number}` takes `FB-0012` or `12`; `/mine` is registered before it. The image upload route waits for stage F3.
+
+- **Internal Developer (decision 2):** the permission resource `developer_tools` (`PERMISSION_RESOURCES` in contracts), granted read and update by the built-in role set `role_internal_developer` ("Internal Developer", added by migration 033), held beside a person's main role set; not a `user.role` value. Every reply of the lists carries `viewer` (`isDeveloper` = `developer_tools.read`, `canTriage` = `developer_tools.update`, worked out with `isAuthorized`; the built-in Super Admin holds both). When the permissions cannot be read the answer is no and it is logged.
+- **Tables** (migration `docs/patch-notes/repository/Migration_Patch033_11_13_homebase_feedback.sql`): `homebase_feedback`, `homebase_feedback_marker`, `homebase_feedback_image` (written from F3) and `homebase_feedback_note`. Until it is applied every route answers 503 `HOMEBASE_FEEDBACK_MIGRATION_REQUIRED` (a "no such table" failure); other database failures answer 503 `HOMEBASE_FEEDBACK_UNAVAILABLE`. The test database builds them with `fullSchema` (`withoutFeedbackMigration` leaves them out).
+- **Numbers:** the highest plus one, tried again on a clash of the UNIQUE `number` (eight tries, then 409 `HOMEBASE_FEEDBACK_NUMBER_EXHAUSTED`).
+- **Markers** are read again from the saved text with `findFeedbackMarkers` (contracts); the browser's list only says whether each was on the page and where (its box). A marker the text does not name is ignored.
+- **Writes** are one batch with the `audit_log` row (resource `homebase-feedback`; `CREATE`, `UPDATE`, `NOTE`), which names the request and never carries its text. A status or priority change is recorded as a note row (from, to); a note sent with no real change is kept as a plain note.
+- **Claude's read path** is the read-only `scripts/Get-Feedback.ps1` (root script `feedback:get`; root `AGENTS.md`, "Homebase Feedback: asking Claude").
 
 ## Outside tools
 

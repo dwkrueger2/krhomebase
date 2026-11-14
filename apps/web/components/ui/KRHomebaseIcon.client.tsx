@@ -480,6 +480,30 @@ function ProgressIcon(props: KRHomebaseUtilityIconProps) {
   )
 }
 
+/** A speech bubble with an exclamation mark: send Homebase Feedback (the top bar's Feedback button, plan 12). */
+function FeedbackIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props}>
+      <path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8l-5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+      <path d="M12 7.5v4" />
+      <path d="M12 14.2v.1" />
+    </UtilitySvg>
+  )
+}
+
+/** A square of corner marks around a dot: outline an element on the page (Homebase Feedback marker chips, plan 12). */
+function OutlineTargetIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <UtilitySvg {...props}>
+      <path d="M4 9V4h5" />
+      <path d="M15 4h5v5" />
+      <path d="M20 15v5h-5" />
+      <path d="M9 20H4v-5" />
+      <circle cx="12" cy="12" r="2" />
+    </UtilitySvg>
+  )
+}
+
 /** A turning arrow: reply to a communication entry (Communications; replaces the old `↩` text glyph). */
 function ReplyIcon(props: KRHomebaseUtilityIconProps) {
   return (
@@ -606,6 +630,7 @@ export const KRHomebaseIcons = {
   Download: DownloadIcon,
   ExternalLink: ExternalLinkIcon,
   Eye: EyeIcon,
+  Feedback: FeedbackIcon,
   InfoLetter: InfoLetterIcon,
   InfoDark: (props: KRHomebaseUtilityIconProps) => <KRHomebaseIcon name="info-dark" {...props} />,
   InfoSquare: InfoSquareIcon,
@@ -613,6 +638,7 @@ export const KRHomebaseIcons = {
   Mail: MailIcon,
   MapPin: MapPinIcon,
   Note: NoteIcon,
+  OutlineTarget: OutlineTargetIcon,
   Pencil: PencilIcon,
   Phone: PhoneIcon,
   Print: PrintIcon,

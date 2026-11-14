@@ -30,6 +30,8 @@
  * It also names the screen for each kind of open item (`openItemPanels`: an open contact under Clients & Contacts
  * is drawn by `ContactDetailPanel`, an open client under Billing by `BillingClientPanel`), and passes the user id so
  * the frame saves the open items per person.
+ * For everyone it places the homebase-feedback feature's `HomebaseFeedbackButton` in the top bar (`topBarFeedback`;
+ * plan 12, stage F2), which opens the Feedback pop-out; the API decides who is an Internal Developer.
  * Keeping the list here, and not inside `components/shell`, is what lets the shell stay free of any
  * feature import (dependency rule in apps/web/AGENTS.md).
  */
@@ -64,6 +66,7 @@ import UserEditPage from '@/features/users/components/UserEditPage.client'
 import PersonSummaryCard from '@/features/contacts/components/PersonSummaryCard.client'
 import SiteFeedbackPage from '@/features/feedback/components/SiteFeedbackPage.client'
 import FrontEndPublishingPanel from '@/features/publishing/components/FrontEndPublishingPanel.client'
+import HomebaseFeedbackButton from '@/features/homebase-feedback/components/HomebaseFeedbackButton.client'
 import ReportsPanel from '@/features/reports/components/ReportsPanel.client'
 import ApplicationSettingsPanel from '@/features/settings/components/ApplicationSettingsPanel.client'
 import FirmSettingsPanel from '@/features/settings/components/FirmSettingsPanel.client'
@@ -191,6 +194,7 @@ export default async function HomePage() {
         versionLabel={VERSION_LABEL}
         topBarSearch={<ApplicationSearch />}
         topBarStatus={<DataSyncIndicator />}
+        topBarFeedback={<HomebaseFeedbackButton />}
         openItemPanels={{ contacts: <ContactDetailPanel viewer={viewer} />, billing: <BillingClientPanel /> }}
         storageScope={session.userId}
       />

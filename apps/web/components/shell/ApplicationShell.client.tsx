@@ -133,6 +133,8 @@ export interface ApplicationShellProps {
   topBarSearch?: ReactNode
   /** A status mark in the top bar, before the bell (the data sync indicator). */
   topBarStatus?: ReactNode
+  /** The Feedback button in the top bar, before the status mark (Homebase Feedback, plan 12). When absent, none. */
+  topBarFeedback?: ReactNode
   /** One screen per parent row that lists open items (Clients & Contacts: the contact detail). */
   openItemPanels?: Partial<Record<OpenItemParentId, ReactNode>>
   /** The signed-in person's user id. Open and recent items are saved under it; empty: they are not saved. */
@@ -195,6 +197,7 @@ export default function ApplicationShell({
   outsideTools,
   topBarSearch,
   topBarStatus,
+  topBarFeedback,
   openItemPanels,
   storageScope = '',
 }: ApplicationShellProps) {
@@ -601,6 +604,7 @@ export default function ApplicationShell({
             userDisplayName={user.displayName}
             search={topBarSearch}
             status={topBarStatus}
+            feedback={topBarFeedback}
             recentItems={recentItems}
             onSelectRecent={(item) => openItemWithCheck(item)}
           />

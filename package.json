@@ -1,7 +1,7 @@
 {
   "name": "krhomebase",
   "version": "1.0.0",
-  "patchNum": "31",
+  "patchNum": "33",
   "patchDate": "11-13",
   "private": true,
   "description": "KR Homebase: web (Next.js on vinext) and api (Hono on Cloudflare Workers).",
@@ -27,6 +27,7 @@
     "types:cf": "pnpm --dir apps/api run types:cf",
     "pack:tool-sdk": "pnpm --dir packages/tool-sdk run pack",
     "snapshot:order": "node scripts/snapshot/order-data.mjs",
+    "feedback:get": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Get-Feedback.ps1",
     "stop:port:3000": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stop-dev-port.windows.ps1 -Port 3000",
     "stop:port:3001": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stop-dev-port.windows.ps1 -Port 3001",
     "stop:port:3011": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stop-dev-port.windows.ps1 -Port 3011",

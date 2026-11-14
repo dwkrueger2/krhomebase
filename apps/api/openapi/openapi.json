@@ -69684,6 +69684,3861 @@
           }
         }
       }
+    },
+    "/v1/homebase-feedback": {
+      "post": {
+        "summary": "Sends a feedback request about KR Homebase with the next number (FB-0001 upwards), the markers its text names and the page it was sent from.",
+        "description": "Any signed-in user.\n\nSide effects: Writes homebase_feedback; Writes homebase_feedback_marker; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, HOMEBASE_FEEDBACK_NUMBER_EXHAUSTED, HOMEBASE_FEEDBACK_UNAVAILABLE, HOMEBASE_FEEDBACK_MIGRATION_REQUIRED, INTERNAL_ERROR.",
+        "tags": [
+          "homebase-feedback"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "feature",
+                      "issue",
+                      "question"
+                    ],
+                    "description": "Feature (a change or addition), issue (something wrong) or question."
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "A short title."
+                  },
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 20000,
+                    "description": "The request. May name markers as `data-kr-id=\"...\"` or `data-kr-element=\"...\"`."
+                  },
+                  "context": {
+                    "type": "object",
+                    "properties": {
+                      "pageAddress": {
+                        "type": "string",
+                        "maxLength": 2000,
+                        "description": "The full address of the source window."
+                      },
+                      "sectionId": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "description": "The open section (`?section=`), for example `contacts`."
+                      },
+                      "openItem": {
+                        "type": "string",
+                        "maxLength": 300,
+                        "description": "The open item, when one is open (`contact:<id>`, `billing:<clientId>`), with its label when known."
+                      },
+                      "pageTitle": {
+                        "type": "string",
+                        "maxLength": 500,
+                        "description": "The page title and breadcrumb as shown in the top bar."
+                      },
+                      "webVersion": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "description": "The `kr-web-version` tag, for example `1.1.5 p542 (11-13)`."
+                      },
+                      "deploymentId": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "description": "The `kr-deployment-id` tag (`local` under `pnpm dev`)."
+                      },
+                      "deploymentTime": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "description": "The `kr-deployment-time` tag (`local` under `pnpm dev`)."
+                      },
+                      "windowWidth": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "description": "Width of the source window, in CSS pixels."
+                      },
+                      "windowHeight": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "description": "Height of the source window, in CSS pixels."
+                      },
+                      "theme": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "description": "The theme in use: `light` or `dark`."
+                      }
+                    },
+                    "default": {},
+                    "description": "The page the request was sent from."
+                  },
+                  "markers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "attribute": {
+                          "type": "string",
+                          "enum": [
+                            "data-kr-id",
+                            "data-kr-element"
+                          ],
+                          "description": "The marker attribute named."
+                        },
+                        "value": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200,
+                          "description": "The marker value."
+                        },
+                        "found": {
+                          "type": "boolean",
+                          "description": "True when the source window had an element with this marker."
+                        },
+                        "box": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "x": {
+                              "type": "number",
+                              "description": "Left edge, in CSS pixels from the left of the window."
+                            },
+                            "y": {
+                              "type": "number",
+                              "description": "Top edge, in CSS pixels from the top of the window."
+                            },
+                            "width": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "Width in CSS pixels."
+                            },
+                            "height": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "Height in CSS pixels."
+                            }
+                          },
+                          "required": [
+                            "x",
+                            "y",
+                            "width",
+                            "height"
+                          ],
+                          "description": "Where the first such element was, when found."
+                        }
+                      },
+                      "required": [
+                        "attribute",
+                        "value",
+                        "found"
+                      ]
+                    },
+                    "maxItems": 50,
+                    "default": [],
+                    "description": "What the screen found for each marker in the text. Markers not in the text are ignored; a marker in the text but not here is saved as not found."
+                  }
+                },
+                "required": [
+                  "kind",
+                  "title",
+                  "body"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "feedback": {
+                          "type": "object",
+                          "properties": {
+                            "number": {
+                              "type": "integer",
+                              "description": "The request number (12 for FB-0012)."
+                            },
+                            "code": {
+                              "type": "string",
+                              "description": "The request number as written, `FB-0012`."
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "feature",
+                                "issue",
+                                "question"
+                              ],
+                              "description": "Feature (a change or addition), issue (something wrong) or question."
+                            },
+                            "title": {
+                              "type": "string",
+                              "description": "The short title."
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "new",
+                                "triaged",
+                                "planned",
+                                "in_progress",
+                                "done",
+                                "will_not_do"
+                              ],
+                              "description": "Where the request stands."
+                            },
+                            "priority": {
+                              "type": "string",
+                              "enum": [
+                                "low",
+                                "normal",
+                                "high",
+                                "urgent"
+                              ],
+                              "description": "How urgent the request is."
+                            },
+                            "submittedByUserId": {
+                              "type": "string",
+                              "description": "Who sent it."
+                            },
+                            "submittedByLabel": {
+                              "type": "string",
+                              "description": "That person's name (preferred name, else first and last name, else email)."
+                            },
+                            "sectionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "The section it was sent from."
+                            },
+                            "markerCount": {
+                              "type": "integer",
+                              "description": "How many markers the text names."
+                            },
+                            "noteCount": {
+                              "type": "integer",
+                              "description": "How many developer notes it has."
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "description": "When it was sent (ISO time)."
+                            },
+                            "updatedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "When it last changed (ISO time)."
+                            },
+                            "body": {
+                              "type": "string",
+                              "description": "The request text."
+                            },
+                            "submitterRole": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "The sender's role when it was sent."
+                            },
+                            "context": {
+                              "type": "object",
+                              "properties": {
+                                "pageAddress": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The full address of the source window."
+                                },
+                                "sectionId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The open section."
+                                },
+                                "openItem": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The open item, when one was open."
+                                },
+                                "pageTitle": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The page title and breadcrumb."
+                                },
+                                "webVersion": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The `kr-web-version` tag."
+                                },
+                                "deploymentId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The `kr-deployment-id` tag."
+                                },
+                                "deploymentTime": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The `kr-deployment-time` tag."
+                                },
+                                "windowWidth": {
+                                  "type": [
+                                    "integer",
+                                    "null"
+                                  ],
+                                  "description": "Width of the source window, in CSS pixels."
+                                },
+                                "windowHeight": {
+                                  "type": [
+                                    "integer",
+                                    "null"
+                                  ],
+                                  "description": "Height of the source window, in CSS pixels."
+                                },
+                                "theme": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The theme in use."
+                                }
+                              },
+                              "required": [
+                                "pageAddress",
+                                "sectionId",
+                                "openItem",
+                                "pageTitle",
+                                "webVersion",
+                                "deploymentId",
+                                "deploymentTime",
+                                "windowWidth",
+                                "windowHeight",
+                                "theme"
+                              ],
+                              "description": "The page it was sent from, as captured."
+                            },
+                            "markers": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "attribute": {
+                                    "type": "string",
+                                    "enum": [
+                                      "data-kr-id",
+                                      "data-kr-element"
+                                    ],
+                                    "description": "The marker attribute named."
+                                  },
+                                  "value": {
+                                    "type": "string",
+                                    "description": "The marker value."
+                                  },
+                                  "pattern": {
+                                    "type": "string",
+                                    "description": "The marker as written in the text, `data-kr-id=\"...\"`."
+                                  },
+                                  "foundAtCapture": {
+                                    "type": "boolean",
+                                    "description": "True when the source window had it when the request was sent."
+                                  },
+                                  "box": {
+                                    "type": [
+                                      "object",
+                                      "null"
+                                    ],
+                                    "properties": {
+                                      "x": {
+                                        "type": "number",
+                                        "description": "Left edge, in CSS pixels from the left of the window."
+                                      },
+                                      "y": {
+                                        "type": "number",
+                                        "description": "Top edge, in CSS pixels from the top of the window."
+                                      },
+                                      "width": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "description": "Width in CSS pixels."
+                                      },
+                                      "height": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "description": "Height in CSS pixels."
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y",
+                                      "width",
+                                      "height"
+                                    ],
+                                    "description": "Where it was, when found."
+                                  }
+                                },
+                                "required": [
+                                  "attribute",
+                                  "value",
+                                  "pattern",
+                                  "foundAtCapture",
+                                  "box"
+                                ]
+                              },
+                              "description": "The markers the text names, in the order written."
+                            },
+                            "images": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "Image id."
+                                  },
+                                  "r2Key": {
+                                    "type": "string",
+                                    "description": "Where the PNG is kept in the private feedback bucket."
+                                  },
+                                  "contentType": {
+                                    "type": "string",
+                                    "description": "The file type, `image/png`."
+                                  },
+                                  "byteSize": {
+                                    "type": "integer",
+                                    "description": "Size in bytes."
+                                  },
+                                  "width": {
+                                    "type": [
+                                      "integer",
+                                      "null"
+                                    ],
+                                    "description": "Width in pixels."
+                                  },
+                                  "height": {
+                                    "type": [
+                                      "integer",
+                                      "null"
+                                    ],
+                                    "description": "Height in pixels."
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "description": "When it was added (ISO time)."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "r2Key",
+                                  "contentType",
+                                  "byteSize",
+                                  "width",
+                                  "height",
+                                  "createdAt"
+                                ]
+                              },
+                              "description": "Annotated screenshots (stage F3; empty until then)."
+                            },
+                            "notes": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "Note id."
+                                  },
+                                  "noteType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "note",
+                                      "status_change",
+                                      "priority_change"
+                                    ],
+                                    "description": "A plain note, or the record of a status or priority change."
+                                  },
+                                  "text": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The note text."
+                                  },
+                                  "fromValue": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The value before the change (status or priority changes)."
+                                  },
+                                  "toValue": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The value after the change."
+                                  },
+                                  "authorUserId": {
+                                    "type": "string",
+                                    "description": "Who wrote it."
+                                  },
+                                  "authorLabel": {
+                                    "type": "string",
+                                    "description": "That person's name."
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "description": "When (ISO time)."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "noteType",
+                                  "text",
+                                  "fromValue",
+                                  "toValue",
+                                  "authorUserId",
+                                  "authorLabel",
+                                  "createdAt"
+                                ]
+                              },
+                              "description": "Developer notes and status changes, oldest first. Empty for a sender who is not a developer."
+                            }
+                          },
+                          "required": [
+                            "number",
+                            "code",
+                            "kind",
+                            "title",
+                            "status",
+                            "priority",
+                            "submittedByUserId",
+                            "submittedByLabel",
+                            "sectionId",
+                            "markerCount",
+                            "noteCount",
+                            "createdAt",
+                            "updatedAt",
+                            "body",
+                            "submitterRole",
+                            "context",
+                            "markers",
+                            "images",
+                            "notes"
+                          ],
+                          "description": "The request after the save."
+                        }
+                      },
+                      "required": [
+                        "feedback"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "No free number after eight tries (HOMEBASE_FEEDBACK_NUMBER_EXHAUSTED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Homebase Feedback cannot be read or saved right now (HOMEBASE_FEEDBACK_UNAVAILABLE), or migration 033 (the feedback tables) is not applied yet (HOMEBASE_FEEDBACK_MIGRATION_REQUIRED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Every feedback request, newest first, by status and kind, one page at a time (Internal Developers).",
+        "description": "Any signed-in user.\n\nPermission: developer_tools.read.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, HOMEBASE_FEEDBACK_STATUS_INVALID, HOMEBASE_FEEDBACK_CURSOR_INVALID, HOMEBASE_FEEDBACK_UNAVAILABLE, HOMEBASE_FEEDBACK_MIGRATION_REQUIRED, INTERNAL_ERROR.",
+        "tags": [
+          "homebase-feedback"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Only these statuses, comma-separated (`new,triaged`)."
+            },
+            "required": false,
+            "description": "Only these statuses, comma-separated (`new,triaged`).",
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "feature",
+                "issue",
+                "question"
+              ],
+              "description": "Only this kind."
+            },
+            "required": false,
+            "description": "Only this kind.",
+            "name": "kind",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "description": "Requests per page, 1 to 100 (50 when left out)."
+            },
+            "required": false,
+            "description": "Requests per page, 1 to 100 (50 when left out).",
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 40,
+              "description": "The `nextCursor` of the previous page."
+            },
+            "required": false,
+            "description": "The `nextCursor` of the previous page.",
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of requests, newest first, and what the caller may do.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "number": {
+                                "type": "integer",
+                                "description": "The request number (12 for FB-0012)."
+                              },
+                              "code": {
+                                "type": "string",
+                                "description": "The request number as written, `FB-0012`."
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "feature",
+                                  "issue",
+                                  "question"
+                                ],
+                                "description": "Feature (a change or addition), issue (something wrong) or question."
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "The short title."
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "new",
+                                  "triaged",
+                                  "planned",
+                                  "in_progress",
+                                  "done",
+                                  "will_not_do"
+                                ],
+                                "description": "Where the request stands."
+                              },
+                              "priority": {
+                                "type": "string",
+                                "enum": [
+                                  "low",
+                                  "normal",
+                                  "high",
+                                  "urgent"
+                                ],
+                                "description": "How urgent the request is."
+                              },
+                              "submittedByUserId": {
+                                "type": "string",
+                                "description": "Who sent it."
+                              },
+                              "submittedByLabel": {
+                                "type": "string",
+                                "description": "That person's name (preferred name, else first and last name, else email)."
+                              },
+                              "sectionId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The section it was sent from."
+                              },
+                              "markerCount": {
+                                "type": "integer",
+                                "description": "How many markers the text names."
+                              },
+                              "noteCount": {
+                                "type": "integer",
+                                "description": "How many developer notes it has."
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "description": "When it was sent (ISO time)."
+                              },
+                              "updatedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "When it last changed (ISO time)."
+                              }
+                            },
+                            "required": [
+                              "number",
+                              "code",
+                              "kind",
+                              "title",
+                              "status",
+                              "priority",
+                              "submittedByUserId",
+                              "submittedByLabel",
+                              "sectionId",
+                              "markerCount",
+                              "noteCount",
+                              "createdAt",
+                              "updatedAt"
+                            ]
+                          },
+                          "description": "Newest first."
+                        },
+                        "nextCursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Pass as `cursor` for the next page; null on the last page."
+                        },
+                        "viewer": {
+                          "type": "object",
+                          "properties": {
+                            "userId": {
+                              "type": "string",
+                              "description": "The signed-in person."
+                            },
+                            "isDeveloper": {
+                              "type": "boolean",
+                              "description": "Holds `developer_tools` read (normally the Internal Developer role set): sees every request and the developer tools."
+                            },
+                            "canTriage": {
+                              "type": "boolean",
+                              "description": "Holds `developer_tools` update: may change status and priority and add notes."
+                            }
+                          },
+                          "required": [
+                            "userId",
+                            "isDeveloper",
+                            "canTriage"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "items",
+                        "nextCursor",
+                        "viewer"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A status is not a feedback status (HOMEBASE_FEEDBACK_STATUS_INVALID) or the cursor is not valid (HOMEBASE_FEEDBACK_CURSOR_INVALID).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Homebase Feedback cannot be read or saved right now (HOMEBASE_FEEDBACK_UNAVAILABLE), or migration 033 (the feedback tables) is not applied yet (HOMEBASE_FEEDBACK_MIGRATION_REQUIRED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/homebase-feedback/mine": {
+      "get": {
+        "summary": "The caller's own feedback requests, newest first, one page at a time, with whether the caller is a developer (`viewer.isDeveloper`).",
+        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, HOMEBASE_FEEDBACK_CURSOR_INVALID, HOMEBASE_FEEDBACK_UNAVAILABLE, HOMEBASE_FEEDBACK_MIGRATION_REQUIRED, INTERNAL_ERROR.",
+        "tags": [
+          "homebase-feedback"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "description": "Requests per page, 1 to 100 (50 when left out)."
+            },
+            "required": false,
+            "description": "Requests per page, 1 to 100 (50 when left out).",
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 40,
+              "description": "The `nextCursor` of the previous page."
+            },
+            "required": false,
+            "description": "The `nextCursor` of the previous page.",
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of requests, newest first, and what the caller may do.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "number": {
+                                "type": "integer",
+                                "description": "The request number (12 for FB-0012)."
+                              },
+                              "code": {
+                                "type": "string",
+                                "description": "The request number as written, `FB-0012`."
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "feature",
+                                  "issue",
+                                  "question"
+                                ],
+                                "description": "Feature (a change or addition), issue (something wrong) or question."
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "The short title."
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "new",
+                                  "triaged",
+                                  "planned",
+                                  "in_progress",
+                                  "done",
+                                  "will_not_do"
+                                ],
+                                "description": "Where the request stands."
+                              },
+                              "priority": {
+                                "type": "string",
+                                "enum": [
+                                  "low",
+                                  "normal",
+                                  "high",
+                                  "urgent"
+                                ],
+                                "description": "How urgent the request is."
+                              },
+                              "submittedByUserId": {
+                                "type": "string",
+                                "description": "Who sent it."
+                              },
+                              "submittedByLabel": {
+                                "type": "string",
+                                "description": "That person's name (preferred name, else first and last name, else email)."
+                              },
+                              "sectionId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The section it was sent from."
+                              },
+                              "markerCount": {
+                                "type": "integer",
+                                "description": "How many markers the text names."
+                              },
+                              "noteCount": {
+                                "type": "integer",
+                                "description": "How many developer notes it has."
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "description": "When it was sent (ISO time)."
+                              },
+                              "updatedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "When it last changed (ISO time)."
+                              }
+                            },
+                            "required": [
+                              "number",
+                              "code",
+                              "kind",
+                              "title",
+                              "status",
+                              "priority",
+                              "submittedByUserId",
+                              "submittedByLabel",
+                              "sectionId",
+                              "markerCount",
+                              "noteCount",
+                              "createdAt",
+                              "updatedAt"
+                            ]
+                          },
+                          "description": "Newest first."
+                        },
+                        "nextCursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Pass as `cursor` for the next page; null on the last page."
+                        },
+                        "viewer": {
+                          "type": "object",
+                          "properties": {
+                            "userId": {
+                              "type": "string",
+                              "description": "The signed-in person."
+                            },
+                            "isDeveloper": {
+                              "type": "boolean",
+                              "description": "Holds `developer_tools` read (normally the Internal Developer role set): sees every request and the developer tools."
+                            },
+                            "canTriage": {
+                              "type": "boolean",
+                              "description": "Holds `developer_tools` update: may change status and priority and add notes."
+                            }
+                          },
+                          "required": [
+                            "userId",
+                            "isDeveloper",
+                            "canTriage"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "items",
+                        "nextCursor",
+                        "viewer"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The cursor is not valid (HOMEBASE_FEEDBACK_CURSOR_INVALID).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Homebase Feedback cannot be read or saved right now (HOMEBASE_FEEDBACK_UNAVAILABLE), or migration 033 (the feedback tables) is not applied yet (HOMEBASE_FEEDBACK_MIGRATION_REQUIRED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/homebase-feedback/{number}": {
+      "get": {
+        "summary": "One feedback request with its markers, images and notes; an Internal Developer may read any request, anyone else only their own, without the notes.",
+        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, HOMEBASE_FEEDBACK_NOT_FOUND, HOMEBASE_FEEDBACK_UNAVAILABLE, HOMEBASE_FEEDBACK_MIGRATION_REQUIRED, INTERNAL_ERROR.",
+        "tags": [
+          "homebase-feedback"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(?:FB-?)?\\d{1,9}$/i",
+              "description": "The request number: `FB-0012` or `12`."
+            },
+            "required": true,
+            "description": "The request number: `FB-0012` or `12`.",
+            "name": "number",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "feedback": {
+                          "type": "object",
+                          "properties": {
+                            "number": {
+                              "type": "integer",
+                              "description": "The request number (12 for FB-0012)."
+                            },
+                            "code": {
+                              "type": "string",
+                              "description": "The request number as written, `FB-0012`."
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "feature",
+                                "issue",
+                                "question"
+                              ],
+                              "description": "Feature (a change or addition), issue (something wrong) or question."
+                            },
+                            "title": {
+                              "type": "string",
+                              "description": "The short title."
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "new",
+                                "triaged",
+                                "planned",
+                                "in_progress",
+                                "done",
+                                "will_not_do"
+                              ],
+                              "description": "Where the request stands."
+                            },
+                            "priority": {
+                              "type": "string",
+                              "enum": [
+                                "low",
+                                "normal",
+                                "high",
+                                "urgent"
+                              ],
+                              "description": "How urgent the request is."
+                            },
+                            "submittedByUserId": {
+                              "type": "string",
+                              "description": "Who sent it."
+                            },
+                            "submittedByLabel": {
+                              "type": "string",
+                              "description": "That person's name (preferred name, else first and last name, else email)."
+                            },
+                            "sectionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "The section it was sent from."
+                            },
+                            "markerCount": {
+                              "type": "integer",
+                              "description": "How many markers the text names."
+                            },
+                            "noteCount": {
+                              "type": "integer",
+                              "description": "How many developer notes it has."
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "description": "When it was sent (ISO time)."
+                            },
+                            "updatedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "When it last changed (ISO time)."
+                            },
+                            "body": {
+                              "type": "string",
+                              "description": "The request text."
+                            },
+                            "submitterRole": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "The sender's role when it was sent."
+                            },
+                            "context": {
+                              "type": "object",
+                              "properties": {
+                                "pageAddress": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The full address of the source window."
+                                },
+                                "sectionId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The open section."
+                                },
+                                "openItem": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The open item, when one was open."
+                                },
+                                "pageTitle": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The page title and breadcrumb."
+                                },
+                                "webVersion": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The `kr-web-version` tag."
+                                },
+                                "deploymentId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The `kr-deployment-id` tag."
+                                },
+                                "deploymentTime": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The `kr-deployment-time` tag."
+                                },
+                                "windowWidth": {
+                                  "type": [
+                                    "integer",
+                                    "null"
+                                  ],
+                                  "description": "Width of the source window, in CSS pixels."
+                                },
+                                "windowHeight": {
+                                  "type": [
+                                    "integer",
+                                    "null"
+                                  ],
+                                  "description": "Height of the source window, in CSS pixels."
+                                },
+                                "theme": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The theme in use."
+                                }
+                              },
+                              "required": [
+                                "pageAddress",
+                                "sectionId",
+                                "openItem",
+                                "pageTitle",
+                                "webVersion",
+                                "deploymentId",
+                                "deploymentTime",
+                                "windowWidth",
+                                "windowHeight",
+                                "theme"
+                              ],
+                              "description": "The page it was sent from, as captured."
+                            },
+                            "markers": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "attribute": {
+                                    "type": "string",
+                                    "enum": [
+                                      "data-kr-id",
+                                      "data-kr-element"
+                                    ],
+                                    "description": "The marker attribute named."
+                                  },
+                                  "value": {
+                                    "type": "string",
+                                    "description": "The marker value."
+                                  },
+                                  "pattern": {
+                                    "type": "string",
+                                    "description": "The marker as written in the text, `data-kr-id=\"...\"`."
+                                  },
+                                  "foundAtCapture": {
+                                    "type": "boolean",
+                                    "description": "True when the source window had it when the request was sent."
+                                  },
+                                  "box": {
+                                    "type": [
+                                      "object",
+                                      "null"
+                                    ],
+                                    "properties": {
+                                      "x": {
+                                        "type": "number",
+                                        "description": "Left edge, in CSS pixels from the left of the window."
+                                      },
+                                      "y": {
+                                        "type": "number",
+                                        "description": "Top edge, in CSS pixels from the top of the window."
+                                      },
+                                      "width": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "description": "Width in CSS pixels."
+                                      },
+                                      "height": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "description": "Height in CSS pixels."
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y",
+                                      "width",
+                                      "height"
+                                    ],
+                                    "description": "Where it was, when found."
+                                  }
+                                },
+                                "required": [
+                                  "attribute",
+                                  "value",
+                                  "pattern",
+                                  "foundAtCapture",
+                                  "box"
+                                ]
+                              },
+                              "description": "The markers the text names, in the order written."
+                            },
+                            "images": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "Image id."
+                                  },
+                                  "r2Key": {
+                                    "type": "string",
+                                    "description": "Where the PNG is kept in the private feedback bucket."
+                                  },
+                                  "contentType": {
+                                    "type": "string",
+                                    "description": "The file type, `image/png`."
+                                  },
+                                  "byteSize": {
+                                    "type": "integer",
+                                    "description": "Size in bytes."
+                                  },
+                                  "width": {
+                                    "type": [
+                                      "integer",
+                                      "null"
+                                    ],
+                                    "description": "Width in pixels."
+                                  },
+                                  "height": {
+                                    "type": [
+                                      "integer",
+                                      "null"
+                                    ],
+                                    "description": "Height in pixels."
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "description": "When it was added (ISO time)."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "r2Key",
+                                  "contentType",
+                                  "byteSize",
+                                  "width",
+                                  "height",
+                                  "createdAt"
+                                ]
+                              },
+                              "description": "Annotated screenshots (stage F3; empty until then)."
+                            },
+                            "notes": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "Note id."
+                                  },
+                                  "noteType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "note",
+                                      "status_change",
+                                      "priority_change"
+                                    ],
+                                    "description": "A plain note, or the record of a status or priority change."
+                                  },
+                                  "text": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The note text."
+                                  },
+                                  "fromValue": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The value before the change (status or priority changes)."
+                                  },
+                                  "toValue": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The value after the change."
+                                  },
+                                  "authorUserId": {
+                                    "type": "string",
+                                    "description": "Who wrote it."
+                                  },
+                                  "authorLabel": {
+                                    "type": "string",
+                                    "description": "That person's name."
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "description": "When (ISO time)."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "noteType",
+                                  "text",
+                                  "fromValue",
+                                  "toValue",
+                                  "authorUserId",
+                                  "authorLabel",
+                                  "createdAt"
+                                ]
+                              },
+                              "description": "Developer notes and status changes, oldest first. Empty for a sender who is not a developer."
+                            }
+                          },
+                          "required": [
+                            "number",
+                            "code",
+                            "kind",
+                            "title",
+                            "status",
+                            "priority",
+                            "submittedByUserId",
+                            "submittedByLabel",
+                            "sectionId",
+                            "markerCount",
+                            "noteCount",
+                            "createdAt",
+                            "updatedAt",
+                            "body",
+                            "submitterRole",
+                            "context",
+                            "markers",
+                            "images",
+                            "notes"
+                          ],
+                          "description": "The request after the save."
+                        }
+                      },
+                      "required": [
+                        "feedback"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No request has that number, or it is not the caller's and the caller is not a developer (HOMEBASE_FEEDBACK_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Homebase Feedback cannot be read or saved right now (HOMEBASE_FEEDBACK_UNAVAILABLE), or migration 033 (the feedback tables) is not applied yet (HOMEBASE_FEEDBACK_MIGRATION_REQUIRED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Changes a feedback request's status or priority; each change is recorded as a note, with the optional note text.",
+        "description": "Any signed-in user.\n\nPermission: developer_tools.update.\n\nSide effects: Writes homebase_feedback; Writes homebase_feedback_note; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, HOMEBASE_FEEDBACK_NOT_FOUND, HOMEBASE_FEEDBACK_UNAVAILABLE, HOMEBASE_FEEDBACK_MIGRATION_REQUIRED, INTERNAL_ERROR.",
+        "tags": [
+          "homebase-feedback"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(?:FB-?)?\\d{1,9}$/i",
+              "description": "The request number: `FB-0012` or `12`."
+            },
+            "required": true,
+            "description": "The request number: `FB-0012` or `12`.",
+            "name": "number",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "new",
+                      "triaged",
+                      "planned",
+                      "in_progress",
+                      "done",
+                      "will_not_do"
+                    ],
+                    "description": "Where the request stands."
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "normal",
+                      "high",
+                      "urgent"
+                    ],
+                    "description": "How urgent the request is."
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 10000,
+                    "description": "An optional note saved with the change."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "feedback": {
+                          "type": "object",
+                          "properties": {
+                            "number": {
+                              "type": "integer",
+                              "description": "The request number (12 for FB-0012)."
+                            },
+                            "code": {
+                              "type": "string",
+                              "description": "The request number as written, `FB-0012`."
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "feature",
+                                "issue",
+                                "question"
+                              ],
+                              "description": "Feature (a change or addition), issue (something wrong) or question."
+                            },
+                            "title": {
+                              "type": "string",
+                              "description": "The short title."
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "new",
+                                "triaged",
+                                "planned",
+                                "in_progress",
+                                "done",
+                                "will_not_do"
+                              ],
+                              "description": "Where the request stands."
+                            },
+                            "priority": {
+                              "type": "string",
+                              "enum": [
+                                "low",
+                                "normal",
+                                "high",
+                                "urgent"
+                              ],
+                              "description": "How urgent the request is."
+                            },
+                            "submittedByUserId": {
+                              "type": "string",
+                              "description": "Who sent it."
+                            },
+                            "submittedByLabel": {
+                              "type": "string",
+                              "description": "That person's name (preferred name, else first and last name, else email)."
+                            },
+                            "sectionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "The section it was sent from."
+                            },
+                            "markerCount": {
+                              "type": "integer",
+                              "description": "How many markers the text names."
+                            },
+                            "noteCount": {
+                              "type": "integer",
+                              "description": "How many developer notes it has."
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "description": "When it was sent (ISO time)."
+                            },
+                            "updatedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "When it last changed (ISO time)."
+                            },
+                            "body": {
+                              "type": "string",
+                              "description": "The request text."
+                            },
+                            "submitterRole": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "The sender's role when it was sent."
+                            },
+                            "context": {
+                              "type": "object",
+                              "properties": {
+                                "pageAddress": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The full address of the source window."
+                                },
+                                "sectionId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The open section."
+                                },
+                                "openItem": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The open item, when one was open."
+                                },
+                                "pageTitle": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The page title and breadcrumb."
+                                },
+                                "webVersion": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The `kr-web-version` tag."
+                                },
+                                "deploymentId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The `kr-deployment-id` tag."
+                                },
+                                "deploymentTime": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The `kr-deployment-time` tag."
+                                },
+                                "windowWidth": {
+                                  "type": [
+                                    "integer",
+                                    "null"
+                                  ],
+                                  "description": "Width of the source window, in CSS pixels."
+                                },
+                                "windowHeight": {
+                                  "type": [
+                                    "integer",
+                                    "null"
+                                  ],
+                                  "description": "Height of the source window, in CSS pixels."
+                                },
+                                "theme": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The theme in use."
+                                }
+                              },
+                              "required": [
+                                "pageAddress",
+                                "sectionId",
+                                "openItem",
+                                "pageTitle",
+                                "webVersion",
+                                "deploymentId",
+                                "deploymentTime",
+                                "windowWidth",
+                                "windowHeight",
+                                "theme"
+                              ],
+                              "description": "The page it was sent from, as captured."
+                            },
+                            "markers": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "attribute": {
+                                    "type": "string",
+                                    "enum": [
+                                      "data-kr-id",
+                                      "data-kr-element"
+                                    ],
+                                    "description": "The marker attribute named."
+                                  },
+                                  "value": {
+                                    "type": "string",
+                                    "description": "The marker value."
+                                  },
+                                  "pattern": {
+                                    "type": "string",
+                                    "description": "The marker as written in the text, `data-kr-id=\"...\"`."
+                                  },
+                                  "foundAtCapture": {
+                                    "type": "boolean",
+                                    "description": "True when the source window had it when the request was sent."
+                                  },
+                                  "box": {
+                                    "type": [
+                                      "object",
+                                      "null"
+                                    ],
+                                    "properties": {
+                                      "x": {
+                                        "type": "number",
+                                        "description": "Left edge, in CSS pixels from the left of the window."
+                                      },
+                                      "y": {
+                                        "type": "number",
+                                        "description": "Top edge, in CSS pixels from the top of the window."
+                                      },
+                                      "width": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "description": "Width in CSS pixels."
+                                      },
+                                      "height": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "description": "Height in CSS pixels."
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y",
+                                      "width",
+                                      "height"
+                                    ],
+                                    "description": "Where it was, when found."
+                                  }
+                                },
+                                "required": [
+                                  "attribute",
+                                  "value",
+                                  "pattern",
+                                  "foundAtCapture",
+                                  "box"
+                                ]
+                              },
+                              "description": "The markers the text names, in the order written."
+                            },
+                            "images": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "Image id."
+                                  },
+                                  "r2Key": {
+                                    "type": "string",
+                                    "description": "Where the PNG is kept in the private feedback bucket."
+                                  },
+                                  "contentType": {
+                                    "type": "string",
+                                    "description": "The file type, `image/png`."
+                                  },
+                                  "byteSize": {
+                                    "type": "integer",
+                                    "description": "Size in bytes."
+                                  },
+                                  "width": {
+                                    "type": [
+                                      "integer",
+                                      "null"
+                                    ],
+                                    "description": "Width in pixels."
+                                  },
+                                  "height": {
+                                    "type": [
+                                      "integer",
+                                      "null"
+                                    ],
+                                    "description": "Height in pixels."
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "description": "When it was added (ISO time)."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "r2Key",
+                                  "contentType",
+                                  "byteSize",
+                                  "width",
+                                  "height",
+                                  "createdAt"
+                                ]
+                              },
+                              "description": "Annotated screenshots (stage F3; empty until then)."
+                            },
+                            "notes": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "Note id."
+                                  },
+                                  "noteType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "note",
+                                      "status_change",
+                                      "priority_change"
+                                    ],
+                                    "description": "A plain note, or the record of a status or priority change."
+                                  },
+                                  "text": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The note text."
+                                  },
+                                  "fromValue": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The value before the change (status or priority changes)."
+                                  },
+                                  "toValue": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The value after the change."
+                                  },
+                                  "authorUserId": {
+                                    "type": "string",
+                                    "description": "Who wrote it."
+                                  },
+                                  "authorLabel": {
+                                    "type": "string",
+                                    "description": "That person's name."
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "description": "When (ISO time)."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "noteType",
+                                  "text",
+                                  "fromValue",
+                                  "toValue",
+                                  "authorUserId",
+                                  "authorLabel",
+                                  "createdAt"
+                                ]
+                              },
+                              "description": "Developer notes and status changes, oldest first. Empty for a sender who is not a developer."
+                            }
+                          },
+                          "required": [
+                            "number",
+                            "code",
+                            "kind",
+                            "title",
+                            "status",
+                            "priority",
+                            "submittedByUserId",
+                            "submittedByLabel",
+                            "sectionId",
+                            "markerCount",
+                            "noteCount",
+                            "createdAt",
+                            "updatedAt",
+                            "body",
+                            "submitterRole",
+                            "context",
+                            "markers",
+                            "images",
+                            "notes"
+                          ],
+                          "description": "The request after the save."
+                        }
+                      },
+                      "required": [
+                        "feedback"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No request has that number, or it is not the caller's and the caller is not a developer (HOMEBASE_FEEDBACK_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Homebase Feedback cannot be read or saved right now (HOMEBASE_FEEDBACK_UNAVAILABLE), or migration 033 (the feedback tables) is not applied yet (HOMEBASE_FEEDBACK_MIGRATION_REQUIRED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/homebase-feedback/{number}/notes": {
+      "post": {
+        "summary": "Adds a developer note to a feedback request.",
+        "description": "Any signed-in user.\n\nPermission: developer_tools.update.\n\nSide effects: Writes homebase_feedback_note; Writes homebase_feedback; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, HOMEBASE_FEEDBACK_NOT_FOUND, HOMEBASE_FEEDBACK_UNAVAILABLE, HOMEBASE_FEEDBACK_MIGRATION_REQUIRED, INTERNAL_ERROR.",
+        "tags": [
+          "homebase-feedback"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(?:FB-?)?\\d{1,9}$/i",
+              "description": "The request number: `FB-0012` or `12`."
+            },
+            "required": true,
+            "description": "The request number: `FB-0012` or `12`.",
+            "name": "number",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000,
+                    "description": "The note."
+                  }
+                },
+                "required": [
+                  "text"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "feedback": {
+                          "type": "object",
+                          "properties": {
+                            "number": {
+                              "type": "integer",
+                              "description": "The request number (12 for FB-0012)."
+                            },
+                            "code": {
+                              "type": "string",
+                              "description": "The request number as written, `FB-0012`."
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "feature",
+                                "issue",
+                                "question"
+                              ],
+                              "description": "Feature (a change or addition), issue (something wrong) or question."
+                            },
+                            "title": {
+                              "type": "string",
+                              "description": "The short title."
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "new",
+                                "triaged",
+                                "planned",
+                                "in_progress",
+                                "done",
+                                "will_not_do"
+                              ],
+                              "description": "Where the request stands."
+                            },
+                            "priority": {
+                              "type": "string",
+                              "enum": [
+                                "low",
+                                "normal",
+                                "high",
+                                "urgent"
+                              ],
+                              "description": "How urgent the request is."
+                            },
+                            "submittedByUserId": {
+                              "type": "string",
+                              "description": "Who sent it."
+                            },
+                            "submittedByLabel": {
+                              "type": "string",
+                              "description": "That person's name (preferred name, else first and last name, else email)."
+                            },
+                            "sectionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "The section it was sent from."
+                            },
+                            "markerCount": {
+                              "type": "integer",
+                              "description": "How many markers the text names."
+                            },
+                            "noteCount": {
+                              "type": "integer",
+                              "description": "How many developer notes it has."
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "description": "When it was sent (ISO time)."
+                            },
+                            "updatedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "When it last changed (ISO time)."
+                            },
+                            "body": {
+                              "type": "string",
+                              "description": "The request text."
+                            },
+                            "submitterRole": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "The sender's role when it was sent."
+                            },
+                            "context": {
+                              "type": "object",
+                              "properties": {
+                                "pageAddress": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The full address of the source window."
+                                },
+                                "sectionId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The open section."
+                                },
+                                "openItem": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The open item, when one was open."
+                                },
+                                "pageTitle": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The page title and breadcrumb."
+                                },
+                                "webVersion": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The `kr-web-version` tag."
+                                },
+                                "deploymentId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The `kr-deployment-id` tag."
+                                },
+                                "deploymentTime": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The `kr-deployment-time` tag."
+                                },
+                                "windowWidth": {
+                                  "type": [
+                                    "integer",
+                                    "null"
+                                  ],
+                                  "description": "Width of the source window, in CSS pixels."
+                                },
+                                "windowHeight": {
+                                  "type": [
+                                    "integer",
+                                    "null"
+                                  ],
+                                  "description": "Height of the source window, in CSS pixels."
+                                },
+                                "theme": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The theme in use."
+                                }
+                              },
+                              "required": [
+                                "pageAddress",
+                                "sectionId",
+                                "openItem",
+                                "pageTitle",
+                                "webVersion",
+                                "deploymentId",
+                                "deploymentTime",
+                                "windowWidth",
+                                "windowHeight",
+                                "theme"
+                              ],
+                              "description": "The page it was sent from, as captured."
+                            },
+                            "markers": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "attribute": {
+                                    "type": "string",
+                                    "enum": [
+                                      "data-kr-id",
+                                      "data-kr-element"
+                                    ],
+                                    "description": "The marker attribute named."
+                                  },
+                                  "value": {
+                                    "type": "string",
+                                    "description": "The marker value."
+                                  },
+                                  "pattern": {
+                                    "type": "string",
+                                    "description": "The marker as written in the text, `data-kr-id=\"...\"`."
+                                  },
+                                  "foundAtCapture": {
+                                    "type": "boolean",
+                                    "description": "True when the source window had it when the request was sent."
+                                  },
+                                  "box": {
+                                    "type": [
+                                      "object",
+                                      "null"
+                                    ],
+                                    "properties": {
+                                      "x": {
+                                        "type": "number",
+                                        "description": "Left edge, in CSS pixels from the left of the window."
+                                      },
+                                      "y": {
+                                        "type": "number",
+                                        "description": "Top edge, in CSS pixels from the top of the window."
+                                      },
+                                      "width": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "description": "Width in CSS pixels."
+                                      },
+                                      "height": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "description": "Height in CSS pixels."
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y",
+                                      "width",
+                                      "height"
+                                    ],
+                                    "description": "Where it was, when found."
+                                  }
+                                },
+                                "required": [
+                                  "attribute",
+                                  "value",
+                                  "pattern",
+                                  "foundAtCapture",
+                                  "box"
+                                ]
+                              },
+                              "description": "The markers the text names, in the order written."
+                            },
+                            "images": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "Image id."
+                                  },
+                                  "r2Key": {
+                                    "type": "string",
+                                    "description": "Where the PNG is kept in the private feedback bucket."
+                                  },
+                                  "contentType": {
+                                    "type": "string",
+                                    "description": "The file type, `image/png`."
+                                  },
+                                  "byteSize": {
+                                    "type": "integer",
+                                    "description": "Size in bytes."
+                                  },
+                                  "width": {
+                                    "type": [
+                                      "integer",
+                                      "null"
+                                    ],
+                                    "description": "Width in pixels."
+                                  },
+                                  "height": {
+                                    "type": [
+                                      "integer",
+                                      "null"
+                                    ],
+                                    "description": "Height in pixels."
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "description": "When it was added (ISO time)."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "r2Key",
+                                  "contentType",
+                                  "byteSize",
+                                  "width",
+                                  "height",
+                                  "createdAt"
+                                ]
+                              },
+                              "description": "Annotated screenshots (stage F3; empty until then)."
+                            },
+                            "notes": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "Note id."
+                                  },
+                                  "noteType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "note",
+                                      "status_change",
+                                      "priority_change"
+                                    ],
+                                    "description": "A plain note, or the record of a status or priority change."
+                                  },
+                                  "text": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The note text."
+                                  },
+                                  "fromValue": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The value before the change (status or priority changes)."
+                                  },
+                                  "toValue": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The value after the change."
+                                  },
+                                  "authorUserId": {
+                                    "type": "string",
+                                    "description": "Who wrote it."
+                                  },
+                                  "authorLabel": {
+                                    "type": "string",
+                                    "description": "That person's name."
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "description": "When (ISO time)."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "noteType",
+                                  "text",
+                                  "fromValue",
+                                  "toValue",
+                                  "authorUserId",
+                                  "authorLabel",
+                                  "createdAt"
+                                ]
+                              },
+                              "description": "Developer notes and status changes, oldest first. Empty for a sender who is not a developer."
+                            }
+                          },
+                          "required": [
+                            "number",
+                            "code",
+                            "kind",
+                            "title",
+                            "status",
+                            "priority",
+                            "submittedByUserId",
+                            "submittedByLabel",
+                            "sectionId",
+                            "markerCount",
+                            "noteCount",
+                            "createdAt",
+                            "updatedAt",
+                            "body",
+                            "submitterRole",
+                            "context",
+                            "markers",
+                            "images",
+                            "notes"
+                          ],
+                          "description": "The request after the save."
+                        }
+                      },
+                      "required": [
+                        "feedback"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No request has that number, or it is not the caller's and the caller is not a developer (HOMEBASE_FEEDBACK_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Homebase Feedback cannot be read or saved right now (HOMEBASE_FEEDBACK_UNAVAILABLE), or migration 033 (the feedback tables) is not applied yet (HOMEBASE_FEEDBACK_MIGRATION_REQUIRED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "webhooks": {}

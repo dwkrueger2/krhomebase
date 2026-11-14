@@ -6,8 +6,8 @@
  *
  * It is the right column of the HeaderBar. The timer, create-new and time-entries controls are visual
  * placeholders until their data is connected (the old app also marked them TBD). The search box and the data
- * sync indicator come from the contacts area through the `search` and `status` props, so this file stays
- * free of feature code. The
+ * sync indicator come from the contacts area through the `search` and `status` props, and the Feedback button from
+ * the homebase-feedback area through `feedback` (plan 12, stage F2), so this file stays free of feature code. The
  * bell opens a small list that says there is nothing to show, because the notification summary
  * needs the API.
  *
@@ -42,6 +42,8 @@ export interface TopTitleBarProps {
   search?: ReactNode
   /** A status mark before the bell (the data sync indicator). */
   status?: ReactNode
+  /** The Feedback button, drawn before the status mark (Homebase Feedback, plan 12). */
+  feedback?: ReactNode
   /** Recently accessed items, newest first (at most five). */
   recentItems?: readonly ShellOpenItem[]
   /** Called when the person chooses a recently accessed item. */
@@ -128,6 +130,7 @@ export default function TopTitleBar({
   notificationCount = 0,
   search,
   status,
+  feedback,
   recentItems = [],
   onSelectRecent,
 }: TopTitleBarProps) {
@@ -205,6 +208,8 @@ export default function TopTitleBar({
           Create new <span aria-hidden="true">+</span>
         </button>
 
+        {/* Feedback about KR Homebase (a feature's button), then the status mark */}
+        {feedback}
         {status}
 
         {/* Recently accessed: the last five items opened, newest first */}
