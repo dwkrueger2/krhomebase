@@ -135,6 +135,11 @@ export interface ApplicationShellProps {
   topBarStatus?: ReactNode
   /** The Feedback button in the top bar, before the status mark (Homebase Feedback, plan 12). When absent, none. */
   topBarFeedback?: ReactNode
+  /**
+   * A notice drawn in its own row above the header bar, across the whole frame (repository patch 34: the maintenance
+   * banner). It draws nothing most of the time; the row then has no height. When absent, no row content.
+   */
+  topNotice?: ReactNode
   /** One screen per parent row that lists open items (Clients & Contacts: the contact detail). */
   openItemPanels?: Partial<Record<OpenItemParentId, ReactNode>>
   /** The signed-in person's user id. Open and recent items are saved under it; empty: they are not saved. */
@@ -162,10 +167,13 @@ function OpenItemScopeProvider({
 }
 
 const LAYOUT_STYLES = {
+  // Three rows: the top notice (no height when empty), the header bar, the panels.
   frameExpanded:
-    'h-dvh min-w-[320px] grid grid-cols-[minmax(0,1fr)] md:grid-cols-[240px_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden transition-[grid-template-columns] duration-200',
+    'h-dvh min-w-[320px] grid grid-cols-[minmax(0,1fr)] md:grid-cols-[240px_minmax(0,1fr)] grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden transition-[grid-template-columns] duration-200',
   frameCollapsed:
-    'h-dvh min-w-[320px] grid grid-cols-[minmax(0,1fr)] md:grid-cols-[68px_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden transition-[grid-template-columns] duration-200',
+    'h-dvh min-w-[320px] grid grid-cols-[minmax(0,1fr)] md:grid-cols-[68px_minmax(0,1fr)] grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden transition-[grid-template-columns] duration-200',
+  // The top notice row spans both columns from tablet width up.
+  topNotice: 'min-w-0 md:col-span-2',
 } as const
 
 const STYLES = {
@@ -198,6 +206,7 @@ export default function ApplicationShell({
   topBarSearch,
   topBarStatus,
   topBarFeedback,
+  topNotice,
   openItemPanels,
   storageScope = '',
 }: ApplicationShellProps) {
@@ -592,6 +601,11 @@ export default function ApplicationShell({
     >
       {/* The person's theme (stage 2b): one style rule above styles/theme.css, for every theme scope on the page */}
       {themeCss ? <style data-kr-element="user-theme-style">{themeCss}</style> : null}
+
+      {/* Top notice row: the maintenance banner above the header bar (empty, and so no height, most of the time) */}
+      <div className={LAYOUT_STYLES.topNotice} data-kr-element="shell-top-notice">
+        {topNotice}
+      </div>
 
       {/* Header bar: brand block on the left, title bar on the right */}
       <HeaderBar

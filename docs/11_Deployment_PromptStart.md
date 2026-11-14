@@ -1,7 +1,7 @@
 # 11_Deployment_PromptStart
 
 <small>Version 1.2</small><br>
-<small>Updated Nov 14, 2026 9:45am</small>
+<small>Updated Nov 14, 2026 4:10am</small>
 
 **Purpose:** Drop this file into a new chat to start a **deployment session** for the `krhomebase` repository. It holds the project summary, the rules, what is live now, what is waiting to go live, and the deploy process in order. Read it first, then follow section 9.
 
@@ -53,7 +53,7 @@ Read before acting: `AGENTS.md` (root), `docs\04_Deployed_Architecture.md` (what
 
 ---
 
-## 4. What Is Live Now (checked read-only, Nov 14, 2026 9:35am)
+## 4. What Is Live Now (checked read-only, Nov 14, 2026 3:35am)
 
 | Worker | Live version | Deployed | Carries |
 |---|---|---|---|
@@ -76,9 +76,9 @@ pnpm.cmd exec wrangler deployments status --name krhomebase-web
 
 ---
 
-## 5. What Is Waiting to Go Live (committed at `e2ecde8`, Nov 14, 2026 3:25am)
+## 5. What Is Waiting to Go Live (committed at `d6e75ac`, Nov 14, 2026)
 
-Repository patches 27 to 33, API 26 to 30, web 536 to 542. Task lists: `docs\patch-notes\{repository,api,web}`. Commits since the last deploy: `b36cce8` (stages 3 to 6, fixes), `8b7f5bf` (Homebase Feedback), `e2ecde8` (GPT Model Gateway). Not committed on Nov 14, 2026 9:35am: the proposed denser Gemini editor (`GptGeminiEditor_v2.client.tsx`, the import switch in `GptModelGatewayPage.client.tsx`) and its line in the web 542 task list. The requester is still changing it; whether it goes in this release is the requester's choice (the web deploy builds the working folder, not the commit).
+Repository patches 27 to 33, API 26 to 30, web 536 to 542. Task lists: `docs\patch-notes\{repository,api,web}`. Commits since the last deploy: `b36cce8` (stages 3 to 6, fixes), `8b7f5bf` (Homebase Feedback), `e2ecde8` (GPT Model Gateway), `d6e75ac` (the denser Gemini editor `GptGeminiEditor_v2`, final, in this release). The web deploy builds the working folder, not the commit, so the folder must match the commit when the build runs.
 
 | Area | What changes |
 |---|---|
@@ -91,7 +91,7 @@ Repository patches 27 to 33, API 26 to 30, web 536 to 542. Task lists: `docs\pat
 | Homebase Feedback (plan 12, F1, F2, F6) | `/v1/homebase-feedback` routes; the Feedback icon button and pop-out in the top bar; `developer_tools` permission and the Internal Developer role set |
 | GPT Model Gateway | `/v1/gpt/...` through the new `GPT_WORKER` binding; the Gateway page restored to the old style (`DESIGN.md` exception) |
 
-**New infrastructure in this release (checked read-only Nov 14, 2026 9:35am):**
+**New infrastructure in this release (checked read-only Nov 14, 2026 3:35am):**
 
 | Item | State |
 |---|---|
@@ -100,7 +100,8 @@ Repository patches 27 to 33, API 26 to 30, web 536 to 542. Task lists: `docs\pat
 | R2 binding `ARTICLES` on the API | Buckets `kr-homebase-articles` (deployed) and `kr-homebase-articles-dev` (`pnpm dev`) both exist |
 | Feedback bucket | None needed: `kr-homebase-feedback` belongs to stage F3, not built |
 | Service binding `GPT_WORKER` on the API | Target `krhomebase-gpt-models-worker` is deployed (section 4) |
-| New API secret `KR_GPT_WORKER_SECRET` | **Missing** on the deployed API (the seven other secrets are listed). The requester sets it before `pnpm deploy:api` (6.2). Without it the Gateway page says "GPT Model Gateway cannot be reached right now"; nothing else is affected. |
+| New API secret `KR_GPT_WORKER_SECRET` | **Missing** on the deployed API (the seven other secrets are listed). The requester sets it before the deploy (6.3, step 1). Without it the Gateway page says "GPT Model Gateway cannot be reached right now"; nothing else is affected. |
+| Migration 034 (deploy window on `kr_maintenance_gate`, repository patch 34) | **Not applied** (the deploy script's status reads no columns). Needed by `pnpm deploy:warn` only; apply it in 6.3, step 2 |
 | `krhomebase-public-article-worker` | New Worker; deploy after the API (D24). Needs no secret. Binds D1 `krhomebase` and R2 `kr-homebase-articles` (both exist) |
 
 ---
@@ -117,45 +118,67 @@ Repository patches 27 to 33, API 26 to 30, web 536 to 542. Task lists: `docs\pat
 6. Secrets the release needs are present (`wrangler secret list --config kr-api-wrangler.jsonc`, names only).
 7. Note the live version ids (section 4), so a rollback target is known.
 
-### 6.2 Deploy (the requester runs each block, then Claude checks it)
+### 6.2 Hot deploy or warn deploy (repository patch 34, Nov 14, 2026)
 
-First the API's new secret (step 6 of `workers\gpt-workers\README.md`; the value is the one the GPT models Worker holds as `GPT_WORKER_SHARED_SECRET`). `wrangler secret put` makes a new API version from the code that is live now, so note its id as the API's rollback target.
+The API and the web app go live with `scripts\Deploy-Krhomebase.ps1` (root scripts `deploy:*`). It builds and uploads a new **Worker version** of each without making it live (`wrangler versions upload`, `vinext-cloudflare deploy --no-promote`), then makes both live with `wrangler versions deploy`, API first, and checks each with `wrangler deployments status`. The build is taken at upload, so the working folder may change as soon as the upload ends.
 
-```powershell
-$Repo = "D:\Repos\krhomebase"
-$Api  = Join-Path $Repo "apps\api"
-Set-Location $Api
-pnpm.cmd exec wrangler secret put KR_GPT_WORKER_SECRET --config kr-api-wrangler.jsonc
-```
+| Command | When | What it does |
+|---|---|---|
+| `pnpm deploy:hot` | Nobody else is working (usually the requester alone) | Upload both, make both live now. Open pages show "KR Homebase was updated" with Reload. |
+| `pnpm deploy:warn 5 -Estimate 3` | Others may be working | Upload both; the banner above the top bar warns for 5 minutes ("Server Maintenance in 5 minutes. Estimated shutdown time < 3 minutes. Save your work, you will be logged out in 4:59"); at 0:00 everyone is signed out and the API closes (503 `MAINTENANCE_IN_PROGRESS`; health, the login settings and log-out stay open); both go live; the API opens again (green) and the login pages reload with "Server status: Green". |
+| `pnpm deploy:status` | Any time | The pending deploy, the deploy window, the live version ids. |
+| `pnpm deploy:finish` | The warn deploy's terminal was closed | Continues the wait and the deploy (or clears a window left behind). |
+| `pnpm deploy:cancel` | Change of plan | Ends the warning; the uploaded versions are never made live. |
 
-```powershell
-$Repo = "D:\Repos\krhomebase"
-Set-Location $Repo
-pnpm.cmd deploy:api
-```
+- **Options:** `-Only api` or `-Only web` (one Worker); `-Restart` (a second warn deploy restarts the countdown); `-Force` (a hot deploy while a warn deploy waits: cancels the warning first); `-AllowDirty` (deploy uncommitted files; otherwise `git status` must be clean).
+- **Deploying again before the delayed one goes live:** the waiting script reads `deploy-state\pending.json` again when it makes the versions live, so the newest upload wins. A second `pnpm deploy:warn` uploads, replaces the pending ids, keeps the countdown and ends.
+- **Safety:** the window ends on its own 15 minutes after the estimate runs out, so a closed terminal never keeps the firm out; the API then serves the versions live before. `deploy-state\last.json` holds the previous ids, and the script prints the rollback commands.
+- **Needs:** `pnpm deploy:warn` needs migration 034 (`Migration_Patch034_11_14_deploy_window.sql`); `pnpm deploy:hot` does not. The web upload needs the `cf` sign-in (`pnpm --dir apps/web exec cf auth login`) or `CLOUDFLARE_API_TOKEN`; the rest uses `wrangler login`.
+- **Not done by the script:** migrations, secrets (`wrangler secret put` before the upload, or `wrangler versions secret put`), and the other Workers (`pnpm deploy:public-article`, `deploy:pay`, `deploy:external` stay as they are).
+- The old one-step commands `pnpm deploy:api` and `pnpm deploy:web` still work (upload and make live at once).
 
-```powershell
-$Repo = "D:\Repos\krhomebase"
-Set-Location $Repo
-pnpm.cmd build:web
-pnpm.cmd deploy:web
-```
+### 6.3 This release, in order (the requester runs each block, then Claude checks it)
 
-```powershell
-$Repo = "D:\Repos\krhomebase"
-Set-Location $Repo
-pnpm.cmd deploy:public-article
-```
+1. The API's new secret (step 6 of `workers\gpt-workers\README.md`; the value is the one the GPT models Worker holds as `GPT_WORKER_SHARED_SECRET`). `wrangler secret put` makes a new API version from the code that is live now; the deploy script records it as the rollback target.
 
-- Order: API first (the web calls the new routes), then web, then the public article Worker (it reads what the new API publishes).
-- `pnpm deploy:api` ends with "No targets deployed": expected, the API has no address of its own.
-- The web deploy needs the `cf` sign-in (`pnpm --dir apps/web exec cf auth login`) or `CLOUDFLARE_API_TOKEN`.
-- After the public article Worker is live, the public site's `KR_R2_PUBLIC_ARTICLE_WORKER_URL` must point at its `workers.dev` address (the public site is not in this repository).
+   ```powershell
+   $Repo = "D:\Repos\krhomebase"
+   $Api  = Join-Path $Repo "apps\api"
+   Set-Location $Api
+   pnpm.cmd exec wrangler secret put KR_GPT_WORKER_SECRET --config kr-api-wrangler.jsonc
+   ```
+
+2. Migration 034 (the deploy window columns; header of the file has the checks). Safe before the deploy: the live API does not read the columns.
+
+   ```powershell
+   $Repo = "D:\Repos\krhomebase"
+   $Api  = Join-Path $Repo "apps\api"
+   $Db   = "krhomebase"
+   $File = Join-Path $Repo "docs\patch-notes\repository\Migration_Patch034_11_14_deploy_window.sql"
+   Set-Location $Api
+   pnpm.cmd exec wrangler d1 execute $Db --remote --config kr-api-wrangler.jsonc --file $File
+   ```
+
+3. The API and the web app, as a hot deploy (the banner is not live yet, so it cannot warn anyone this time).
+
+   ```powershell
+   $Repo = "D:\Repos\krhomebase"
+   Set-Location $Repo
+   pnpm.cmd deploy:hot
+   ```
+
+4. The public article Worker (it reads what the new API publishes), then point the public site's `KR_R2_PUBLIC_ARTICLE_WORKER_URL` at its `workers.dev` address (the public site is not in this repository).
+
+   ```powershell
+   $Repo = "D:\Repos\krhomebase"
+   Set-Location $Repo
+   pnpm.cmd deploy:public-article
+   ```
 
 ## 7. Verify After Each Step
 
 1. `wrangler deployments status` shows the new version at 100%.
-2. `krhomebase.com/login`, View Source: `kr-web-version` reads `1.1.5 p542 (11-13)` (or the next web patch, if this session advances it) and `kr-deployment-id` matches the web deploy's version id.
+2. `krhomebase.com/login`, View Source: `kr-web-version` reads `1.1.5 p543 (11-14)` and the card shows "Server status: Green"; `krhomebase.com/deployment` and `kr-deployment-id` matches the web deploy's version id.
 3. Sign in as the super admin and walk the smoke list, **looking only** unless a test record is agreed:
    - Dashboard; Clients & Contacts (open 306, then 090; browser Back returns to 306)
    - Contact Detail: Detail, WorkStream (list loads), Projects & Matters
@@ -170,8 +193,8 @@ pnpm.cmd deploy:public-article
 
 ## 8. Rollback
 
-- Cloudflare keeps earlier versions. To go back, the requester runs `wrangler rollback` for the Worker (or `wrangler versions deploy <old version id>@100%`), using the ids noted in 6.1. The API and web roll back separately; roll back the web first if a screen fails, the API if a route fails.
-- Migrations are not rolled back by a Worker rollback. Migrations 031 and 033 only add columns, tables and rows, so the old API version keeps working with them.
+- Cloudflare keeps earlier versions. To go back, the requester runs `wrangler rollback` for the Worker (or `wrangler versions deploy <old version id>@100%`), using the ids noted in 6.1 (the deploy script prints them and keeps them in `deploy-state\last.json`). The API and web roll back separately; roll back the web first if a screen fails, the API if a route fails.
+- Migrations are not rolled back by a Worker rollback. Migrations 031, 033 and 034 only add columns, tables and rows, so the old API version keeps working with them.
 
 ## 9. Start-of-Session Checklist (deployment)
 
@@ -180,7 +203,7 @@ pnpm.cmd deploy:public-article
 3. Print the Response Header.
 4. Re-check section 4 (live versions) and section 5 (what is waiting) read-only; report any difference.
 5. Run the pre-flight (6.1) and report it as a checklist with pass or fail.
-6. Give the deploy blocks one at a time; verify each (section 7) before the next.
+6. Give the deploy blocks one at a time (6.3); verify each (section 7) before the next. Use `pnpm deploy:hot` when the requester is the only one working, `pnpm deploy:warn` otherwise (6.2).
 7. After the last step, update `docs\04_Deployed_Architecture.md` (versions, the `ARTICLES` binding, the public article Worker moved out of section 7) and the task lists, and say what is left (stage 7 Billing audit, stage 8 Stripe check).
 
 ## 10. Open Items Carried Into This Session
@@ -190,6 +213,6 @@ pnpm.cmd deploy:public-article
 - `docs\Schema_8.0` is not regenerated since migrations 026 and 031.
 - `www.krhomebase.com` is a CNAME only (no Custom Domain).
 - `krhomebase-external-api` has no domain.
-- The GPT models Worker `krhomebase-gpt-models-worker` was deployed on Nov 14, 2026 and the API's `GPT_WORKER` binding is on in `kr-api-wrangler.jsonc`. Before `pnpm deploy:api`, set the API secret `KR_GPT_WORKER_SECRET` (6.2), or the deployed GPT Model Gateway answers "cannot be reached".
+- The GPT models Worker `krhomebase-gpt-models-worker` was deployed on Nov 14, 2026 and the API's `GPT_WORKER` binding is on in `kr-api-wrangler.jsonc`. Before the API deploy, set the API secret `KR_GPT_WORKER_SECRET` (6.3, step 1), or the deployed GPT Model Gateway answers "cannot be reached".
 - Homebase Feedback stages F3 to F5 wait until after the Billing audit; F3 brings the `kr-homebase-feedback` bucket.
 - Old copy `workers\r2-workers\kr-r2-public-article-worker\` is replaced by `public-article-worker\` and may be deleted.

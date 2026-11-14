@@ -32,6 +32,8 @@
  * the frame saves the open items per person.
  * For everyone it places the homebase-feedback feature's `HomebaseFeedbackButton` in the top bar (`topBarFeedback`;
  * plan 12, stage F2), which opens the Feedback pop-out; the API decides who is an Internal Developer.
+ * Above the top bar it places the maintenance feature's `MaintenanceBanner` (`topNotice`; repository patch 34): the
+ * countdown before a deploy and the sign-out at its end, or the "updated" notice after a hot deploy.
  * Keeping the list here, and not inside `components/shell`, is what lets the shell stay free of any
  * feature import (dependency rule in apps/web/AGENTS.md).
  */
@@ -52,6 +54,7 @@ import DataSyncIndicator from '@/features/contacts/components/DataSyncIndicator.
 import { DataStoreProvider } from '@/features/contacts/DataStoreProvider.client'
 import DashboardPanel from '@/features/dashboard/components/DashboardPanel.client'
 import LeadsPanel from '@/features/leads/components/LeadsPanel.client'
+import MaintenanceBanner from '@/features/maintenance/components/MaintenanceBanner.client'
 import DashboardPreferencesPage from '@/features/preferences/components/DashboardPreferencesPage.client'
 import PreferencesPage from '@/features/preferences/components/PreferencesPage.client'
 import { PreferencesProvider } from '@/features/preferences/PreferencesProvider.client'
@@ -195,6 +198,7 @@ export default async function HomePage() {
         topBarSearch={<ApplicationSearch />}
         topBarStatus={<DataSyncIndicator />}
         topBarFeedback={<HomebaseFeedbackButton />}
+        topNotice={<MaintenanceBanner />}
         openItemPanels={{ contacts: <ContactDetailPanel viewer={viewer} />, billing: <BillingClientPanel /> }}
         storageScope={session.userId}
       />

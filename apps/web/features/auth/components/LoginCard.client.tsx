@@ -23,14 +23,15 @@
  *
  * The card owns its own state (token, message, busy). The page owns the settings it passes in. It shows a
  * sign-in failure from `?auth_error=` in an alert; plain reminders (see `AUTH_NOTICE_CODES`) show in a quiet
- * box without the "Sign-in failed" label. Widths: base (phone, under 768px) and `md:` (768px and up).
+ * box without the "Sign-in failed" label. Repository patch 34 adds the page's server status line (`serverStatus`,
+ * above the Google button) and `signInPaused`, which turns the button off while a deploy has the server closed. Widths: base (phone, under 768px) and `md:` (768px and up).
  *
  * Style rules this port does not follow yet (AGENTS_04, ported-component rule): the sizes are the old ones, so
  * padding goes above 10px and the title is larger than the new screens' scale; colors that the old card wrote as
  * literal values (the alert red, the Turnstile panel tints) stay literal.
  */
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import KRHomebaseLogo from '@/components/ui/KRHomebaseLogo'
 import { verifyTurnstile } from '@/features/auth/api.client'
 import { AUTH_NOTICE_CODES } from '@/features/auth/authErrors'
@@ -60,6 +61,13 @@ export interface LoginCardProps {
   cookieHref?: string
   /** Set when the API could not be reached for its settings; the card then explains instead of offering sign-in. */
   settingsUnavailable?: boolean
+  /**
+   * The server status line (repository patch 34): the maintenance feature's `LoginServerStatus`, placed by
+   * `app/login/page.tsx`. Drawn above the Google button. When absent, no line.
+   */
+  serverStatus?: ReactNode
+  /** True while the server is closed for a deploy: the Google button is off and says why. */
+  signInPaused?: boolean
 }
 
 // Layout: sizes, padding, margins and arrangement (old .kr-page, .kr-login-shell, .kr-login-card and friends).
@@ -148,6 +156,8 @@ export default function LoginCard({
   privacyHref = KR_PUBLIC_LEGAL_LINKS.privacy,
   cookieHref = KR_PUBLIC_LEGAL_LINKS.cookies,
   settingsUnavailable = false,
+  serverStatus,
+  signInPaused = false,
 }: LoginCardProps) {
   const [token, setToken] = useState<string | null>(null)
   const [message, setMessage] = useState('')
@@ -249,14 +259,25 @@ export default function LoginCard({
             </p>
           ) : null}
 
-          {/* Google sign-in button: disabled until the human check is passed */}
+          {/* Server status (repository patch 34): green, maintenance soon, or closed for a deploy */}
+          {serverStatus}
+
+          {/* Google sign-in button: disabled until the human check is passed, and while the server is closed */}
           <div className={LAYOUT_STYLES.ssoRow}>
             <button
               type="button"
               className={`${LAYOUT_STYLES.ssoButton} ${STYLES.ssoButton}`}
-              disabled={busy || blocked || waitingForToken}
-              aria-disabled={busy || blocked || waitingForToken}
-              title={busy ? 'Verifying Cloudflare human check...' : waitingForToken ? 'Complete the Cloudflare human check first.' : undefined}
+              disabled={busy || blocked || waitingForToken || signInPaused}
+              aria-disabled={busy || blocked || waitingForToken || signInPaused}
+              title={
+                signInPaused
+                  ? 'KR Homebase is being updated. Sign-in opens when the server status is Green.'
+                  : busy
+                    ? 'Verifying Cloudflare human check...'
+                    : waitingForToken
+                      ? 'Complete the Cloudflare human check first.'
+                      : undefined
+              }
               onClick={() => void handleGoogle()}
               data-kr-element="login-google-button"
             >

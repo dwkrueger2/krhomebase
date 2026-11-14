@@ -1,7 +1,7 @@
 # Deployed Architecture
 
-<small>Version 2.0</small><br>
-<small>Updated Nov 14, 2026 1:55am</small>
+<small>Version 2.1</small><br>
+<small>Updated Nov 14, 2026 4:10am</small>
 
 **Status:** live since Nov 6, 2026. Read this file before any work that touches a Worker, a binding, a web address, a secret or a deploy command. Update it in the same change as any of those.
 
@@ -21,7 +21,7 @@
 | `krhomebase-session-worker` (checks a session cookie) | `workers/d1-workers/session-worker` | `session-worker.jsonc` in that folder | Same | None |
 | `kr-pay-worker-live` (public pay-link pages and Stripe webhooks; live since Nov 9, 2026) | `workers/d1-workers/kr-pay-worker` | `kr-pay-worker.jsonc` in that folder | `pnpm deploy:pay` | `pay.krhomebase.com` |
 | `krhomebase-crud-worker-pub-inquiry` (the public inquiry database's reader and writer; Web Site Feedback) | `workers/d1-workers/crud-worker-pub-inquiry` | `crud-worker-pub-inquiry.jsonc` in that folder | Wrangler with `--config` | None |
-| `krhomebase-gpt-models-worker` (the GPT Model Gateway's provider, key and usage boundary; deployed by the requester Nov 14, 2026, version `e4fa8c9a-35b6-435b-8b16-60e7739de93a`) | `workers/gpt-workers` | `gpt-models-worker.jsonc` in that folder | Wrangler with `--config` (`workers/gpt-workers/README.md`; the first deploy carried its secrets with `--secrets-file`) | None (`workers_dev` and `preview_urls` off; reached only through the API's `GPT_WORKER` binding, so it has no address to call directly) |
+| `krhomebase-gpt-models-worker` (the GPT Model Gateway's provider, key and usage boundary; deployed by the requester Nov 14, 2026, version `e4fa8c9a-35b6-435b-8b16-60e7739de93a`; live version `8cf75acf-f7ab-4ec9-9ab9-9bc06293df32` since the requester's secret update at 2:51am) | `workers/gpt-workers` | `gpt-models-worker.jsonc` in that folder | Wrangler with `--config` (`workers/gpt-workers/README.md`; the first deploy carried its secrets with `--secrets-file`) | None (`workers_dev` and `preview_urls` off; reached only through the API's `GPT_WORKER` binding, so it has no address to call directly) |
 | `krhomebase-external-api` (the door for outside tool servers; deployed Nov 9, 2026, version `96d3e0a4-51f0-4345-9cfd-913d658838b6`) | `apps/external-api` | `apps/external-api/kr-external-api-wrangler.jsonc` | `pnpm deploy:external` | None recorded yet (see section 7) |
 
 - `pnpm deploy:web` runs `vinext-cloudflare deploy`, which builds the app and deploys it as `krhomebase-web` using `cloudflare.config.ts`. It does not create another Worker. The static files go up with the same Worker.
@@ -92,7 +92,9 @@ Only `krhomebase-api`, the crud Worker and the session Worker can reach the data
 
 ## 6. Deploying
 
-Run from the repository root. The requester runs these; Claude does not.
+**API and web app (repository patch 34):** `pnpm deploy:hot` (nobody else working) or `pnpm deploy:warn <minutes> -Estimate <minutes>` (others may be working: the banner warns, everyone is signed out, the API closes while the new versions go live). Both run `scripts/Deploy-Krhomebase.ps1`, which uploads Worker versions first (`wrangler versions upload`, `vinext-cloudflare deploy --no-promote`) and then makes them live with `wrangler versions deploy`, API first. The deploy window lives on the `kr_maintenance_gate` row (migration 034); the API reports it in `GET /v1/health` and enforces it in `apps/api/src/platform/deployLock.ts`. The full process, options and the "deploy again while one waits" rule: `docs/11_Deployment_PromptStart.md`, section 6.2.
+
+The one-step commands below still work. Run from the repository root. The requester runs these; Claude does not.
 
 ```powershell
 Set-Location D:\Repos\krhomebase
@@ -105,7 +107,7 @@ pnpm deploy:web
 - Sign-in for the tools: `wrangler login` covers the API and Worker secrets. The web deploy uses Cloudflare's `cf` tool, which has its own sign-in (`pnpm --dir apps/web exec cf auth login`). Setting `CLOUDFLARE_API_TOKEN` replaces both logins.
 - A secret can be set only after the Worker has been deployed at least once.
 - Domains added in the dashboard are not in any repository file. Record each one in section 2.
-- **Which version is live:** every page, including `/login`, carries `<meta name="kr-web-version">` (for example `1.1.5 p535 (11-13)`), `kr-deployment-id` (the Cloudflare version id shown by `pnpm deploy:web` and `wrangler deployments status --name krhomebase-web`) and `kr-deployment-time` in its `<head>` (View Source, or DevTools → Elements). On this computer they read `local`.
+- **Which version is live:** `GET /deployment` on the web app answers `{ "id": "<version id>" }` (repository patch 34; the banner uses it for "KR Homebase was updated"). Every page, including `/login`, carries `<meta name="kr-web-version">` (for example `1.1.5 p535 (11-13)`), `kr-deployment-id` (the Cloudflare version id shown by `pnpm deploy:web` and `wrangler deployments status --name krhomebase-web`) and `kr-deployment-time` in its `<head>` (View Source, or DevTools → Elements). On this computer they read `local`.
 - Local servers and ports: the table in the root `AGENTS.md`. Deployed version ids of the crud and session Workers: `workers/Readme-workers.md`.
 
 ## 7. Built, not yet deployed

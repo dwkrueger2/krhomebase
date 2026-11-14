@@ -30,6 +30,8 @@ export const USER_PREFERENCE_MIGRATION = join(here, '..', '..', '..', 'docs', 'p
 export const CONTENT_ASSET_LICENSE_MIGRATION = join(here, '..', '..', '..', 'docs', 'patch-notes', 'repository', 'Migration_Patch031_11_13_content_asset_license.sql')
 /** The Homebase Feedback tables and the Internal Developer role set (plan 12, stage F1). Added only with the full schema. */
 export const HOMEBASE_FEEDBACK_MIGRATION = join(here, '..', '..', '..', 'docs', 'patch-notes', 'repository', 'Migration_Patch033_11_13_homebase_feedback.sql')
+/** Migration 034: the deploy window columns on kr_maintenance_gate (repository patch 34). Built with fullSchema. */
+export const DEPLOY_WINDOW_MIGRATION = join(here, '..', '..', '..', 'docs', 'patch-notes', 'repository', 'Migration_Patch034_11_14_deploy_window.sql')
 
 /** Headers that make the sign-in middleware ask the Session Worker. */
 export const SIGNED_IN_HEADERS = { cookie: 'kr_session=test-session-token' } as const
@@ -102,7 +104,7 @@ class TestStatement {
  * Makes an in-memory D1 database with the outside-tool tables, from the real migration file. With
  * `{ fullSchema: true }` it first builds every table of `docs/Schema_8.0/schema_d1_v8_0.sql`, then the
  * `user_preference` table, the `content_asset` license columns and the Homebase Feedback tables from their migration
- * files. Pass `withoutLicenseMigration: true` to leave the license columns out (a database before migration 031), and
+ * files, and the deploy window columns (migration 034). Pass `withoutLicenseMigration: true` to leave the license columns out (a database before migration 031), and
  * `withoutFeedbackMigration: true` to leave the feedback tables out (a database before migration 033).
  *
  * @returns `db` (pass it as the `krhomebase` binding) and `sqlite` (to look at rows directly in a test).
@@ -115,6 +117,7 @@ export function createTestD1(options: { fullSchema?: boolean; withoutLicenseMigr
   if (options.fullSchema) sqlite.exec(readFileSync(USER_PREFERENCE_MIGRATION, 'utf8'))
   if (options.fullSchema && !options.withoutLicenseMigration) sqlite.exec(readFileSync(CONTENT_ASSET_LICENSE_MIGRATION, 'utf8'))
   if (options.fullSchema && !options.withoutFeedbackMigration) sqlite.exec(readFileSync(HOMEBASE_FEEDBACK_MIGRATION, 'utf8'))
+  if (options.fullSchema) sqlite.exec(readFileSync(DEPLOY_WINDOW_MIGRATION, 'utf8'))
   sqlite.exec(readFileSync(WORKSPACE_TOOLS_MIGRATION, 'utf8'))
   const db = {
     prepare: (sql: string) => new TestStatement(sqlite, sql),

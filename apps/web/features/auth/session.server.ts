@@ -17,7 +17,8 @@ export type SessionState = { signedIn: true; session: SessionUser } | { signedIn
  *
  * @returns The session, or `signedIn: false` with the reason: `missing_session_cookie` (no cookie),
  *   the API's reason (`session_expired`, `session_not_found`, `session_revoked`, `user_inactive`),
- *   or `SESSION_VALIDATION_UNAVAILABLE` when the check could not be made.
+ *   `SESSION_VALIDATION_UNAVAILABLE` when the check could not be made, or `maintenance` while a deploy has the server
+ *   closed (503 `MAINTENANCE_IN_PROGRESS`).
  */
 export async function fetchSession(): Promise<SessionState> {
   const cookieHeader = (await cookies()).toString()
@@ -42,6 +43,8 @@ export async function fetchSession(): Promise<SessionState> {
   const error = ErrorEnvelope.safeParse(body)
   if (error.success) {
     if (error.data.error.code === 'SESSION_VALIDATION_UNAVAILABLE') return { signedIn: false, reason: 'SESSION_VALIDATION_UNAVAILABLE' }
+    // Repository patch 34: the server is closed for a deploy (platform/deployLock.ts in the API).
+    if (error.data.error.code === 'MAINTENANCE_IN_PROGRESS') return { signedIn: false, reason: 'maintenance' }
     const reason = (error.data.error.details as { reason?: string } | undefined)?.reason
     return { signedIn: false, reason: reason ?? 'missing_session_cookie' }
   }

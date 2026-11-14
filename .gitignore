@@ -15,6 +15,9 @@ snapshots/
 # Homebase Feedback requests read by scripts/Get-Feedback.ps1 (may hold client details; plan 12, stage F6)
 feedback-cache/
 
+# Pending and last deploy of scripts/Deploy-Krhomebase.ps1 (version ids and commit; local to this computer)
+deploy-state/
+
 # build output and caches
 dist/
 .next/

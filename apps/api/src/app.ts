@@ -1,6 +1,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { failure } from './platform/envelope.ts'
 import { signInGuard } from './platform/authGuard.ts'
+import { deployLock } from './platform/deployLock.ts'
 import { writeGate } from './platform/writeGate.ts'
 import { requestId } from './platform/requestId.ts'
 import type { AppEnv } from './platform/types.ts'
@@ -52,6 +53,8 @@ export function createApp() {
   })
 
   app.use('*', requestId)
+  // Closes the API while a deploy goes live (pnpm deploy:warn; platform/deployLock.ts). Health, the login settings and log-out stay open.
+  app.use('*', deployLock)
   // Enforces each route's declared `access` (public, signed-in or roles) before the route runs.
   app.use('*', signInGuard)
   // Refuses writes while kr_maintenance_gate is locked (moved here from the old crud Worker).

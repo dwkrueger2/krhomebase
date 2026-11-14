@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.17</small><br>
-<small>Updated Nov 13, 2026 10:10pm</small>
+<small>Version 2.18</small><br>
+<small>Updated Nov 14, 2026 4:10am</small>
 
 ## Agent Guide Index
 
@@ -112,6 +112,7 @@ docs/                Documentation: schema spaces, architecture, API notes, patc
 scripts/             Helper scripts: snapshot tools, the stop-port scripts and Get-Feedback.ps1. Replaces the old repo-utilities folder.
 snapshots/           Git-ignored database dumps. Never read.
 feedback-cache/      Git-ignored Homebase Feedback requests (Get-Feedback.ps1). Read only the number the requester names.
+deploy-state/        Git-ignored: the pending and last deploy of Deploy-Krhomebase.ps1 (version ids, commit; no secrets).
 ```
 
 Planned, not yet created: `packages/api-client` (generated typed client), `packages/db` (migrations, generated row types), `packages/config`, `packages/tools/<name>` (built-in tools as packages), `apps/public-inquiry`, `apps/gpt-gateway`. The public website (`apps/kr-website-public`) is not part of this repository.
@@ -210,6 +211,9 @@ pnpm dev:external     # external-api on port 8793 (calls the deployed API)
 pnpm check            # type check + all tests; must pass before the requester commits
 pnpm openapi          # rewrite apps/api/openapi/openapi.json after changing any route
 pnpm build:web        # build the web app (apps/web)
+pnpm deploy:hot       # API and web as Worker versions, live at once (nobody else working); the requester runs it
+pnpm deploy:warn 5 -Estimate 3  # warn 5 minutes, sign everyone out, deploy API and web, open again (needs migration 034)
+pnpm deploy:status    # pending deploy, deploy window, live versions (deploy:finish and deploy:cancel: docs/11_Deployment_PromptStart.md 6.2)
 pnpm deploy:api       # deploy the API Worker (apps/api); the requester runs it
 pnpm deploy:web       # deploy the web Worker (apps/web); needs the cf sign-in
 pnpm deploy:external  # deploy the external-api Worker; the requester runs it, after deploy:api
@@ -245,6 +249,7 @@ pnpm listScripts      # show the root scripts
 | `deploy:external` | `apps/external-api` | `wrangler deploy` |
 | `deploy:pay` | `workers/d1-workers/kr-pay-worker` | `wrangler deploy --config kr-pay-worker.jsonc` |
 | `deploy:public-article` | root | `wrangler deploy --config workers/r2-workers/public-article-worker/public-article-worker.jsonc` |
+| `deploy:hot`, `deploy:warn`, `deploy:status`, `deploy:finish`, `deploy:cancel` | root | `scripts/Deploy-Krhomebase.ps1 -Mode <mode>` (`hot`, `warn`, `status`, `finish` or `cancel`): Worker versions uploaded (`wrangler versions upload`, `vinext-cloudflare deploy --no-promote`), then made live (`wrangler versions deploy`), API first; `warn` writes and clears the deploy window on `kr_maintenance_gate` (repository patch 34). Pending and last deploy in the git-ignored `deploy-state/`. |
 | `pack:tool-sdk` | `packages/tool-sdk` | build, then `pnpm pack` into `dist/tool-sdk` |
 | `openapi` | `apps/api` | `tsx scripts/write-openapi.ts` |
 | `feedback:get` | root | `scripts/Get-Feedback.ps1 -Number <n>`: read-only `wrangler d1 execute` SELECTs on `krhomebase` (config `apps/api/kr-api-wrangler.jsonc`), then writes `feedback-cache/FB-000n/FB-000n.md` |

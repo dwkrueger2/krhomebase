@@ -1,7 +1,7 @@
 # KR Homebase API Agent Guide
 
-<small>Version 1.33</small><br>
-<small>Updated Nov 13, 2026 10:10pm</small>
+<small>Version 1.34</small><br>
+<small>Updated Nov 14, 2026 4:10am</small>
 
 ## Purpose
 
@@ -229,6 +229,8 @@ Articles and answers (plan 10, stage 6; old `api/front-end-publishing` and its `
 ## Maintenance gate (Data Import)
 
 `src/features/maintenance/` (Settings plan, stage 8; super admin): `GET` and `PUT /v1/maintenance-gate` (`{ locked }`; lock reason "Contact import review"), one batch with its `audit_log` row. The feature is exempt from the write gate (`src/platform/writeGate.ts`), or a locked gate could never be unlocked. A missing table reads as unlocked. The Data Import screen creates contacts through the existing `POST /v1/contacts`, one at a time; there is no import route.
+
+**Deploy window (repository patch 34, Nov 14, 2026).** The same row carries the deploy window (migration 034: `deploy_notice_at`, `deploy_logout_at`, `deploy_expires_at`, `deploy_estimate_minutes`, `deploy_set_by`), written and cleared only by `scripts/Deploy-Krhomebase.ps1` (`pnpm deploy:warn`), never by a route. It is separate from the Data Import lock (`locked`). `src/platform/queries.ts` `readDeployWindow` reads it (missing columns: no window); `src/platform/deployLock.ts` caches it 10 seconds per isolate and works out the phase with `deployMaintenanceStatus` (contracts `health.ts`): green, warning (before `deploy_logout_at`) or maintenance (until the script clears it or `deploy_expires_at`). `GET /v1/health` reports the phase (`maintenance`). The `deployLock` middleware runs before `signInGuard` and, during maintenance, refuses every declared route with 503 `MAINTENANCE_IN_PROGRESS` except `GET /v1/health`, `GET /v1/auth/config` and `DELETE /v1/auth/session` (`OPEN_DURING_MAINTENANCE`). A read failure counts as green and is logged. Tests: `test/deployLock.test.ts`.
 
 ## Stripe Payment Configuration
 

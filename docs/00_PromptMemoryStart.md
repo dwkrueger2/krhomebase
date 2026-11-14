@@ -1,7 +1,7 @@
 # 00_PromptMemoryStart
 
-<small>Version 1.6</small><br>
-<small>Updated Nov 9, 2026 10:40am</small>
+<small>Version 1.7</small><br>
+<small>Updated Nov 14, 2026 4:30am</small>
 
 **Purpose:** Read and follow this file at the start of every new prompt in the `krhomebase` repository.
 
@@ -78,6 +78,13 @@ In any directory whose path contains the text `private`, file names may be liste
 2. Allowed git: `git status`, `git log`, `git diff`, `git show`, `git branch`, and other read-only commands.
 3. Not allowed: `git commit`, `git push`, `git merge`, `git rebase`, `git reset`, `git checkout` of files, `git stash`, or any command that changes history.
 4. Dan makes all commits and pushes. Give the commands when asked.
+
+### 3.6 Deployments, migrations and secrets: Claude writes the commands
+1. Claude never runs a deploy or anything that changes Cloudflare or the database: `wrangler deploy`, `wrangler versions upload` or `versions deploy`, `wrangler rollback`, `wrangler secret put`, `pnpm deploy:*`, migrations and any `d1 execute` that writes.
+2. Whenever the work needs one of them, Claude gives it to the requester **without being asked**: the exact command in its own PowerShell block (section 2: `Set-Location`, path variables), one purpose per block, numbered in the order to run, each with one line on what it changes.
+3. The requester runs one block and pastes the result. Claude checks it read-only (`deployments status`, `secret list`, a `SELECT`, the `kr-web-version` and `kr-deployment-id` tags) and only then gives the next block.
+4. Before a deploy, Claude says what must be true first (committed work, migrations applied, secrets set) and which kind of deploy fits: `pnpm deploy:hot` when the requester is the only one working, `pnpm deploy:warn <minutes> -Estimate <minutes>` when others may be.
+5. The process, the checks and the rollback are in `docs\11_Deployment_PromptStart.md` (section 6).
 
 ---
 

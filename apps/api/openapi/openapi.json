@@ -12,7 +12,7 @@
   "paths": {
     "/v1/health": {
       "get": {
-        "summary": "Report that the API Worker is running and which version answered.",
+        "summary": "Report that the API Worker is running, which version answered, and the server status (green, warning or maintenance). Answers while the server is closed for a deploy.",
         "description": "Public (no sign-in).\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: INTERNAL_ERROR.",
         "tags": [
           "platform"
@@ -52,13 +52,64 @@
                         "time": {
                           "type": "string",
                           "format": "date-time"
+                        },
+                        "maintenance": {
+                          "type": "object",
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "green",
+                                "warning",
+                                "maintenance"
+                              ],
+                              "description": "green: open. warning: a deploy is announced (sign-out at logoutAt). maintenance: the API is closed while the new version goes live."
+                            },
+                            "noticeAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "When the warning started (ISO time); null when green."
+                            },
+                            "logoutAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "When everyone is signed out and the API closes (ISO time); null when green."
+                            },
+                            "expectedBackBy": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "logoutAt plus the estimate: when the API is expected to open again (ISO time); null when green or no estimate."
+                            },
+                            "estimateMinutes": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ],
+                              "description": "The estimated shutdown in minutes; null when green or not given."
+                            }
+                          },
+                          "required": [
+                            "status",
+                            "noticeAt",
+                            "logoutAt",
+                            "expectedBackBy",
+                            "estimateMinutes"
+                          ],
+                          "description": "The server status for the maintenance banner and the login page. Green when the gate cannot be read."
                         }
                       },
                       "required": [
                         "status",
                         "service",
                         "version",
-                        "time"
+                        "time",
+                        "maintenance"
                       ]
                     },
                     "requestId": {

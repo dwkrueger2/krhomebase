@@ -5,10 +5,14 @@
  *
  *  - `readMaintenanceGate`: reads `kr_maintenance_gate`. While it is locked, writes are refused
  *    (`writeGate.ts`). A missing table counts as unlocked, as in the old crud Worker.
+ *  - `readDeployWindow`: reads the deploy window on the same row (migration 034), for the deploy lock
+ *    (`deployLock.ts`) and the server status in `GET /v1/health`. Missing columns count as no window.
  *  - `auditStatement`: builds the `audit_log` insert for a write. A feature's `queries.ts` puts it in the SAME
  *    `db.batch([...])` as the write, so the row and its audit entry are saved together or not at all. (The old
  *    crud Worker wrote the audit row in a separate step after the write.)
  */
+
+import type { DeployWindow } from '@krhomebase/contracts'
 
 export interface MaintenanceGateState {
   locked: boolean
@@ -27,6 +31,33 @@ export async function readMaintenanceGate(db: D1Database): Promise<MaintenanceGa
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     if (/no such table|does not exist/i.test(message)) return { locked: false, reason: null }
+    throw error
+  }
+}
+
+/**
+ * Reads the deploy window on the maintenance gate row (migration 034; written by `scripts/Deploy-Krhomebase.ps1`).
+ * `deployLock.ts` caches it and turns it into the server phase with `deployMaintenanceStatus` (contracts).
+ *
+ * @returns The window, or null when there is no row, or no table or columns yet (before migration 034): no window.
+ * @throws Any other database error.
+ */
+export async function readDeployWindow(db: D1Database): Promise<DeployWindow | null> {
+  try {
+    const row = await db
+      .prepare("SELECT deploy_notice_at, deploy_logout_at, deploy_expires_at, deploy_estimate_minutes FROM kr_maintenance_gate WHERE id = 'krhomebase' LIMIT 1")
+      .first<{ deploy_notice_at?: string | null; deploy_logout_at?: string | null; deploy_expires_at?: string | null; deploy_estimate_minutes?: number | string | null }>()
+    if (!row || !row.deploy_logout_at) return null
+    const estimate = row.deploy_estimate_minutes === null || row.deploy_estimate_minutes === undefined ? null : Number(row.deploy_estimate_minutes)
+    return {
+      noticeAt: row.deploy_notice_at ?? null,
+      logoutAt: row.deploy_logout_at,
+      expiresAt: row.deploy_expires_at ?? null,
+      estimateMinutes: estimate !== null && Number.isFinite(estimate) ? estimate : null,
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (/no such table|no such column|does not exist/i.test(message)) return null
     throw error
   }
 }
