@@ -96,6 +96,18 @@
       "binding": "EMPLOYEE_STORAGE",
       "bucket_name": "kr-homebase-employee-storage",
       "remote": true
+    },
+    // Front End Publishing (plan 10, stage 6; D23): article packages, images, stylesheets, cleaned snapshots and past
+    // publications, under the old key prefixes. `wrangler deploy` uses "bucket_name" (the live bucket). `wrangler dev`
+    // (pnpm dev:api) uses "preview_bucket_name" instead: the installed wrangler (4.156.2) builds dev bindings with its
+    // preview ids (`bucket_name: preview_bucket_name ?? bucket_name`), and "remote": true then reaches that real
+    // bucket rather than an empty local one. So a local upload is a real file in kr-homebase-articles-dev, never in the
+    // live bucket.
+    {
+      "binding": "ARTICLES",
+      "bucket_name": "kr-homebase-articles",
+      "preview_bucket_name": "kr-homebase-articles-dev",
+      "remote": true
     }
   ]
 }

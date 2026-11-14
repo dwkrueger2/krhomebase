@@ -47,6 +47,9 @@ const LAYOUT_STYLES = {
   associationTitle: 'm-0 mb-[4px]',
   associationList: 'gap-[3px] flex max-h-[74px] flex-col overflow-auto pr-[4px]',
   associationItem: 'gap-[8px] grid min-w-0 grid-cols-[7ch_minmax(0,1fr)] items-baseline px-0 py-[1px] whitespace-nowrap text-left',
+  /** A related contact: the name first, then the relationship (its words are wider than a matter number's column). */
+  relatedItem: 'gap-[6px] grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-baseline px-0 py-[1px] whitespace-nowrap text-left',
+  relatedName: 'min-w-0 overflow-hidden text-ellipsis',
   mutedText: 'm-0',
 } as const
 
@@ -314,15 +317,15 @@ export default function ContactIdentityDetails({ contact, onEdit, onOpenMatter, 
             {contact.relatedContacts.length ? (
               contact.relatedContacts.map((related) => (
                 <button
-                  className={`${LAYOUT_STYLES.associationItem} ${STYLES.associationItem}`}
+                  className={`${LAYOUT_STYLES.relatedItem} ${STYLES.associationItem}`}
                   data-kr-action="open-related-contact"
                   key={related.id}
-                  title={related.relationship ?? undefined}
+                  title={`${related.displayName} — ${related.relationship || 'Related contact'}`}
                   type="button"
                   onClick={() => onOpenContact?.(related.id)}
                 >
+                  <span className={LAYOUT_STYLES.relatedName}>{related.displayName}</span>
                   <span className={STYLES.associationItemMeta}>{related.relationship || 'Related contact'}</span>
-                  <span>{related.displayName}</span>
                 </button>
               ))
             ) : (

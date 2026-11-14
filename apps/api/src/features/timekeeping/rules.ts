@@ -30,14 +30,27 @@
  *     the old app has always used the defaults (an employee window of 1 day where the row says 4).
  *  2. Team membership must be active (`team_member.is_active`); the old route loaded the column and ignored it.
  *  3. Reads take only the employee and period asked for, and the clock state is always the signed-in person's.
- *  4. Regular hours are not copied into `employee_time_event` rows: the totals come from the punch pairs
- *     (`timeMath.ts`, change 3), so the old `reconcileRegularEventsForCard` is not needed.
+ *  4. The totals come from the punch pairs (`timeMath.ts`, change 3), never from a card's whole set of `regular`
+ *     rows. Since change 10, each pair's own figure is stored in one `regular` row and read back for that pair.
  *  5. Employment status (decision 4, as recommended): only active employees use the clock or change punches; an
  *     employee on leave may still enter hours and approve; others (contractor, terminated, inactive) may only look.
- *  6. The overnight missed clock-out is checked before rounding and rounded within its own day (the old repair
- *     always failed); the three punches of a midnight split are one batch.
+ *  6. The overnight missed clock-out's date is checked as typed, and the time is saved on that day (the old repair
+ *     rounded 11:59 PM to the next midnight and always failed); the three punches of a midnight split are one batch.
  *  7. Pay period and card rows are created only after the action is checked; the old route created them first.
  *  8. Approval checks the lock and the order (an employee approves once, a locked card is not approved again).
+ *  9. Punch times are saved exactly (the requester, Nov 13, 2026; `timeMath.ts`, change 8): clock in, clock out and
+ *     the split's final clock-out save the instant of the click (`now`); a typed punch (`savePunch`, the missed
+ *     clock-out time) saves the minute typed. The old route rounded every punch to the reporting increment. Only the
+ *     hours are rounded: each pair's span and the totals (`deriveIntervals`, `timekeepingTotals`), and hand-entered
+ *     hours (`saveTimeEvent`). Punch times are compared as instants (`Date.parse`), not as text.
+ * 10. A pair's rounded hours are stored when the pair is closed and read back (the requester, Nov 13, 2026, decision
+ *     D19; `timeMath.ts`, change 9). Every punch change (clock out, the missed clock-out time, the midnight split,
+ *     adding, replacing or voiding a punch) works out the pairs of each card it touches, in the same batch:
+ *     a newly closed or edited pair gets its figure, a pair that is gone has its figure retired (0 hours, kept), an
+ *     unchanged pair keeps the figure it has. The time-card read uses the stored figures; a pair with none (older
+ *     pairs) is worked out. The old route did the same through `reconcileRegularEventsForCard` (as-is 8.6); its
+ *     zero-hour rows for a clock-out without a clock-in are not made. The stored rows stay `draft`: approval and
+ *     reopen change the status of hand-entered hours only, as before.
  */
 
 import type {
@@ -64,6 +77,7 @@ import {
   DEFAULT_PAY_PERIOD_ANCHOR,
   DEFAULT_TIME_INCREMENT_MINUTES,
   DEFAULT_TIMEZONE,
+  applyStoredPairHours,
   type DerivedInterval,
   deriveIntervals,
   isIsoDate,
@@ -74,9 +88,10 @@ import {
   minutesWorkedOnDay,
   openPunchAgeStatus,
   payPeriodForDate,
-  roundInstantToReportingIncrement,
+  planPairHours,
   roundMinutesToTenths,
   timekeepingTotals,
+  truncateToMinute,
 } from './timeMath.ts'
 
 /** A refusal with its stable code, HTTP status and, for some, details for the screen (the open punch). */
@@ -341,11 +356,13 @@ export async function loadTimeCard(
 
   const periodId = payPeriodForDate(date, policies.payPeriodAnchorDate).id
   const [stored, card] = await Promise.all([queries.payPeriod(periodId), queries.timeCard(access.employee.id, periodId)])
-  const [punches, events] = await Promise.all([
+  const [punches, events, storedHours] = await Promise.all([
     card ? queries.punchesForCard(card.id) : Promise.resolve([]),
     queries.eventsForCard(access.employee.id, periodId, card?.id ?? null),
+    card ? queries.pairHoursForCard(card.id) : Promise.resolve([]),
   ])
-  const intervals = deriveIntervals(punches, policies.firmTimezone, policies.timeReportingIncrementMinutes)
+  // Change 10: each pair shows the figure stored when it was closed; a pair with none is worked out.
+  const intervals = applyStoredPairHours(deriveIntervals(punches, policies.firmTimezone, policies.timeReportingIncrementMinutes), storedHours)
   const period = periodInfo(date, policies, stored)
   const editWindowDays = access.isOwn ? policies.employeeClockEditWindowDays : policies.managerClockEditWindowDays
   const decision = approvalDecision(access, card, period, today, intervals)
@@ -487,6 +504,62 @@ function ensureCard(queries: TimekeepingQueries, employeeId: string, period: { i
   return [queries.ensurePayPeriod(period, at), queries.ensureTimeCard(newId('tc'), employeeId, period.id, at)]
 }
 
+/** One card a punch change touches: its period, and its id when the card exists already. */
+interface TouchedCard {
+  payPeriodId: string
+  cardId: string | null
+}
+
+/**
+ * The statements that keep the stored pair hours of each touched card current after a punch change (change 10),
+ * with one audit row per card that changes. The pairs are worked out from the card's punches with the change
+ * applied: `added` punches (each on the card of its own period) and `voidedIds`. With `onlyIfPunchId`, every
+ * statement runs only when that punch was saved, so a guarded clock-out that the database refused stores nothing.
+ * Goes after the punch statements in the batch (a new card and a new period row must exist first).
+ */
+async function pairHourStatements(
+  queries: TimekeepingQueries,
+  policies: EmployeePolicies,
+  actor: Actor,
+  at: string,
+  employeeId: string,
+  touched: TouchedCard[],
+  change: { added?: NewPunch[]; voidedIds?: string[] },
+  onlyIfPunchId?: string,
+): Promise<D1PreparedStatement[]> {
+  const statements: D1PreparedStatement[] = []
+  const seen = new Set<string>()
+  const voided = new Set(change.voidedIds ?? [])
+  for (const target of touched) {
+    if (seen.has(target.payPeriodId)) continue
+    seen.add(target.payPeriodId)
+    const [existing, stored] = target.cardId
+      ? await Promise.all([queries.punchesForCard(target.cardId), queries.pairHoursForCard(target.cardId)])
+      : [[], []]
+    const punches = [
+      ...existing.map((punch) => (voided.has(punch.id) && !punch.voidedAt ? { ...punch, voidedAt: at } : punch)),
+      ...(change.added ?? []).filter((punch) => punch.payPeriodId === target.payPeriodId),
+    ]
+    const plan = planPairHours(deriveIntervals(punches, policies.firmTimezone, policies.timeReportingIncrementMinutes), stored)
+    if (plan.writes.length === 0 && plan.retire.length === 0) continue
+    const saved: Array<{ rowId: string; workDate: string; startAt: string; endAt: string; hours: number }> = []
+    for (const write of plan.writes) {
+      const row = { workDate: write.workDate, startAt: write.startAt, endAt: write.endAt, hours: write.hours }
+      const rowId = write.rowId ?? newId('tte')
+      statements.push(
+        write.rowId
+          ? queries.updatePairHours(rowId, row, at, onlyIfPunchId)
+          : queries.insertPairHours(rowId, employeeId, target.payPeriodId, row, actor.userId, at, onlyIfPunchId),
+      )
+      saved.push({ rowId, ...row })
+    }
+    for (const rowId of plan.retire) statements.push(queries.retirePairHours(rowId, at, onlyIfPunchId))
+    const auditTarget = target.cardId ?? `${employeeId}:${target.payPeriodId}`
+    statements.push(queries.audit(auditEntry(actor, 'pair_hours', 'employee_time_event', auditTarget, { saved, retired: plan.retire }), onlyIfPunchId))
+  }
+  return statements
+}
+
 function assertNotLocked(card: Pick<TimeCardRecord, 'lockedAt' | 'status'> | null) {
   if (isCardLocked(card)) throw new TimekeepingError('TIME_CARD_LOCKED', 409, 'This time card is approved and locked. Ask a manager to reopen it.')
 }
@@ -523,7 +596,8 @@ export async function clockIn(queries: TimekeepingQueries, viewer: Viewer, actor
 
   const period = payPeriodForDate(today, policies.payPeriodAnchorDate)
   assertNotLocked(await queries.timeCard(employee.id, period.id))
-  const occurredAt = roundInstantToReportingIncrement(now, tz, policies.timeReportingIncrementMinutes, { keepDate: true })
+  // Change 9: the exact instant of the click; only the hours worked are rounded, later, from the pair.
+  const occurredAt = at
   const punch: NewPunch = {
     id: newId('punch'),
     employeeId: employee.id,
@@ -563,8 +637,8 @@ export async function clockOut(queries: TimekeepingQueries, viewer: Viewer, acto
   const card = await queries.cardById(current.timeCardId)
   if (!card) throw new TimekeepingError('TIME_CARD_NOT_FOUND', 404, 'The open punch has no time card.')
   assertNotLocked(card)
-  const rounded = roundInstantToReportingIncrement(now, tz, policies.timeReportingIncrementMinutes, { keepDate: true })
-  const occurredAt = rounded < current.occurredAt ? current.occurredAt : rounded
+  // Change 9: the exact instant of the click. A server clock behind the clock-in never saves a clock-out before it.
+  const occurredAt = now.getTime() < Date.parse(current.occurredAt) ? current.occurredAt : at
   const punch: NewPunch = {
     id: newId('punch'),
     employeeId: employee.id,
@@ -580,7 +654,9 @@ export async function clockOut(queries: TimekeepingQueries, viewer: Viewer, acto
     createdByUserId: actor.userId,
     createdAt: at,
   }
-  const changes = await queries.run(punchStatements(queries, punch, { kind: 'clock_in_still_open', punchId: current.id }, actor, 'clock_out'))
+  // Change 10: the pair this clock-out closes gets its stored hours, only if the clock-out is saved.
+  const hours = await pairHourStatements(queries, policies, actor, at, employee.id, [{ payPeriodId: card.payPeriodId, cardId: card.id }], { added: [punch] }, punch.id)
+  const changes = await queries.run([...punchStatements(queries, punch, { kind: 'clock_in_still_open', punchId: current.id }, actor, 'clock_out'), ...hours])
   if (changes[0] !== 1) throw conflict()
   return { punchId: punch.id, occurredAt, localDate: today, replayed: false }
 }
@@ -613,21 +689,21 @@ export async function missedClockOut(
   if (!openCard) throw new TimekeepingError('TIME_CARD_NOT_FOUND', 404, 'The open punch has no time card.')
   assertNotLocked(openCard)
 
-  const increment = policies.timeReportingIncrementMinutes
   const source = 'employee_correction'
   const base = { employeeId: employee.id, timezone: tz, supersedesPunchId: null, createdByUserId: actor.userId, createdAt: at }
 
   if (body.choice === 'enter_time') {
     const missed = body.missedAt ? new Date(body.missedAt) : null
     if (!missed || !Number.isFinite(missed.getTime())) throw new TimekeepingError('MISSED_CLOCK_OUT_TIME_REQUIRED', 422, 'Enter the clock-out time.')
-    // Change 6: the date is checked before rounding, and rounding stays within the day.
-    if (localDateForInstant(missed, tz) !== latest.localDate) {
+    // Changes 6 and 9: the typed minute is saved as typed (11:59 PM stays 11:59 PM), on the open shift's date.
+    const occurredAt = truncateToMinute(missed)
+    if (localDateForInstant(occurredAt, tz) !== latest.localDate) {
       throw new TimekeepingError('MISSED_CLOCK_OUT_MUST_USE_OPEN_WORK_DATE', 422, `The clock-out must be on ${latest.localDate}, after the clock-in.`)
     }
-    const occurredAt = roundInstantToReportingIncrement(missed, tz, increment, { keepDate: true })
-    if (occurredAt <= latest.occurredAt) throw new TimekeepingError('MISSED_CLOCK_OUT_MUST_USE_OPEN_WORK_DATE', 422, `The clock-out must be on ${latest.localDate}, after the clock-in.`)
+    if (Date.parse(occurredAt) <= Date.parse(latest.occurredAt)) throw new TimekeepingError('MISSED_CLOCK_OUT_MUST_USE_OPEN_WORK_DATE', 422, `The clock-out must be on ${latest.localDate}, after the clock-in.`)
     const punch: NewPunch = { ...base, id: newId('punch'), payPeriodId: openCard.payPeriodId, punchType: 'clock_out', occurredAt, localDate: latest.localDate, source, correctionReason: 'Missed clock-out entered from overnight review', idempotencyKey: key ? `${key}:missed` : null }
-    const changes = await queries.run(punchStatements(queries, punch, { kind: 'clock_in_still_open', punchId: latest.id }, actor, 'missed_clock_out'))
+    const hours = await pairHourStatements(queries, policies, actor, at, employee.id, [{ payPeriodId: openCard.payPeriodId, cardId: openCard.id }], { added: [punch] }, punch.id)
+    const changes = await queries.run([...punchStatements(queries, punch, { kind: 'clock_in_still_open', punchId: latest.id }, actor, 'missed_clock_out'), ...hours])
     if (changes[0] !== 1) throw conflict()
     return { punchIds: [punch.id] }
   }
@@ -635,16 +711,23 @@ export async function missedClockOut(
   // split_midnight
   const midnight = localDateTimeToIso(today, 0, 0, tz)
   const todayPeriod = payPeriodForDate(today, policies.payPeriodAnchorDate)
-  assertNotLocked(await queries.timeCard(employee.id, todayPeriod.id))
-  const rounded = roundInstantToReportingIncrement(now, tz, increment, { keepDate: true })
+  const todayCard = await queries.timeCard(employee.id, todayPeriod.id)
+  assertNotLocked(todayCard)
+  // Change 9: the final clock-out is the exact instant of the click (never before the midnight it pairs with).
+  const finalAt = now.getTime() < Date.parse(midnight) ? midnight : at
   const closeOut: NewPunch = { ...base, id: newId('punch'), payPeriodId: openCard.payPeriodId, punchType: 'clock_out', occurredAt: midnight, localDate: latest.localDate, source, correctionReason: 'Missed clock-out split at midnight', idempotencyKey: key ? `${key}:missed` : null }
   const resumeIn: NewPunch = { ...base, id: newId('punch'), payPeriodId: todayPeriod.id, punchType: 'clock_in', occurredAt: midnight, localDate: today, source, correctionReason: 'Midnight split clock-in', idempotencyKey: key ? `${key}:resume` : null }
-  const finalOut: NewPunch = { ...base, id: newId('punch'), payPeriodId: todayPeriod.id, punchType: 'clock_out', occurredAt: rounded < midnight ? midnight : rounded, localDate: today, source: 'button', correctionReason: 'Clock-out paired after midnight split', idempotencyKey: key ? `${key}:out` : null }
+  const finalOut: NewPunch = { ...base, id: newId('punch'), payPeriodId: todayPeriod.id, punchType: 'clock_out', occurredAt: finalAt, localDate: today, source: 'button', correctionReason: 'Clock-out paired after midnight split', idempotencyKey: key ? `${key}:out` : null }
+  // Change 10: both pairs (last night to midnight, midnight to now) get their stored hours, only if the last
+  // clock-out is saved. The two cards are one when both days are in the same pay period.
+  const touched = [{ payPeriodId: openCard.payPeriodId, cardId: openCard.id }, { payPeriodId: todayPeriod.id, cardId: todayCard?.id ?? null }]
+  const hours = await pairHourStatements(queries, policies, actor, at, employee.id, touched, { added: [closeOut, resumeIn, finalOut] }, finalOut.id)
   const changes = await queries.run([
     ...punchStatements(queries, closeOut, { kind: 'clock_in_still_open', punchId: latest.id }, actor, 'split_midnight'),
     ...ensureCard(queries, employee.id, todayPeriod, at),
     ...punchStatements(queries, resumeIn, { kind: 'no_open_clock_in_on', localDate: today }, actor, 'split_midnight'),
     ...punchStatements(queries, finalOut, { kind: 'clock_in_still_open', punchId: resumeIn.id }, actor, 'split_midnight'),
+    ...hours,
   ])
   if (changes[0] !== 1) throw conflict()
   return { punchIds: [closeOut.id, resumeIn.id, finalOut.id] }
@@ -693,12 +776,14 @@ export async function savePunch(
   const { policies, tz, today, at } = await writeSetup(queries, now)
   const requested = new Date(body.occurredAt)
   if (!Number.isFinite(requested.getTime())) throw new TimekeepingError('TIMEKEEPING_OCCURRED_AT_INVALID', 422, 'The time is not a valid time.')
-  const localDate = localDateForInstant(requested, tz)
-  const occurredAt = roundInstantToReportingIncrement(requested, tz, policies.timeReportingIncrementMinutes, { keepDate: true })
+  // Change 9: the minute typed, not rounded. Its own local date picks the card and the edit window.
+  const occurredAt = truncateToMinute(requested)
+  const localDate = localDateForInstant(occurredAt, tz)
   assertPunchWindow(access, policies, localDate, today)
 
   const period = payPeriodForDate(localDate, policies.payPeriodAnchorDate)
-  assertNotLocked(await queries.timeCard(access.employee.id, period.id))
+  const targetCard = await queries.timeCard(access.employee.id, period.id)
+  assertNotLocked(targetCard)
   assertCardWindow(access, policies, period.end, today)
 
   let original: (PunchRecord & { employeeId: string }) | null = null
@@ -737,6 +822,10 @@ export async function savePunch(
   if (original) {
     statements.push(queries.voidPunch(original.id, at), queries.audit(auditEntry(actor, 'void_punch', 'employee_time_punch', original.id, { voidedAt: at, replacedBy: punch.id })))
   }
+  // Change 10: the pairs of the new punch's card (and of the replaced punch's card) get their stored hours again.
+  const touched: TouchedCard[] = [{ payPeriodId: period.id, cardId: targetCard?.id ?? null }]
+  if (original && originalPeriodId) touched.push({ payPeriodId: originalPeriodId, cardId: original.timeCardId })
+  statements.push(...(await pairHourStatements(queries, policies, actor, at, access.employee.id, touched, { added: [punch], voidedIds: original ? [original.id] : [] })))
   await queries.run(statements)
   const card = await queries.timeCard(access.employee.id, period.id)
   return { punchId: punch.id, supersededPunchId: original?.id ?? null, timeCardId: card?.id ?? '' }
@@ -757,6 +846,8 @@ export async function voidPunch(queries: TimekeepingQueries, viewer: Viewer, act
 
   const statements = [queries.voidPunch(punchId, at), queries.audit(auditEntry(actor, 'void_punch', 'employee_time_punch', punchId, { voidedAt: at }))]
   if (!access.isOwn && card) statements.push(queries.clearEmployeeApproval(access.employee.id, card.payPeriodId, at))
+  // Change 10: the card's pairs without this punch; a pair it closed or opened has its stored hours retired.
+  if (card) statements.push(...(await pairHourStatements(queries, policies, actor, at, access.employee.id, [{ payPeriodId: card.payPeriodId, cardId: card.id }], { voidedIds: [punchId] })))
   const changes = await queries.run(statements)
   if (changes[0] !== 1) return { punchId, voidedAt: at, alreadyVoided: true }
   return { punchId, voidedAt: at, alreadyVoided: false }

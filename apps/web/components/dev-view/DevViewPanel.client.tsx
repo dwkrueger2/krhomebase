@@ -8,6 +8,9 @@
  * file stays short; `DevView` still owns every piece of state and passes it in. New: the corner picker in the
  * heading and the Pick button in the action row.
  *
+ * New (Nov 13, 2026, the requester): `detached` draws the panel to fill its own browser window
+ * (`DevViewPanelWindow`), and Enter in the search field shows only the markers it finds (`onSearchSubmit`).
+ *
  * The CSS module became the Tailwind maps below with the same values. The panel keeps its 8px corners and its
  * own sizes, which are wider than the screen rules in apps/web/AGENTS.md: it is a development tool, not a
  * screen, and the requester asked for its look to stay the same.
@@ -20,6 +23,8 @@ import { markerLabel, type MarkerEntry, type MarkerSort, type ViewFilter } from 
 /** Structural arrangements owned by the Dev View marker panel. */
 const LAYOUT_STYLES = {
   panel: 'p-3 fixed max-h-[min(560px,calc(100vh-84px))] w-[min(340px,calc(100vw-36px))] overflow-auto z-[9998]',
+  /** In its own browser window (`DevViewPanelWindow`): the whole window, no corner placement. */
+  panelDetached: 'p-3 min-h-dvh w-full box-border',
   heading: 'gap-3 flex items-start justify-between',
   headingControls: 'gap-2 flex items-start',
   cornerGrid: 'gap-[2px] grid grid-cols-2',
@@ -36,6 +41,7 @@ const LAYOUT_STYLES = {
 const STYLES = {
   panel:
     'bg-[color:var(--kr-theme-card-surface,#ffffff)] border border-[color:var(--kr-theme-brand-secondary,#001e3a)] rounded-[8px] shadow-[0_8px_24px_rgba(0,30,58,0.22)] text-[color:var(--kr-theme-text,#243142)]',
+  panelDetached: 'bg-[color:var(--kr-theme-card-surface,#ffffff)] text-[color:var(--kr-theme-text,#243142)]',
   title: 'm-0 text-[0.88rem] font-extrabold',
   description: 'mt-1 text-[color:var(--kr-theme-text-muted,#5a6775)] text-[0.72rem] leading-[1.35]',
   closeButton: 'px-[2px] py-0 appearance-none bg-transparent border-0 text-inherit cursor-pointer text-[1.25rem] leading-none',
@@ -116,11 +122,15 @@ export interface DevViewPanelProps {
   onMarkerHover: (entry: MarkerEntry) => void
   onMarkerLeave: (key: string) => void
   onSearchChange: (search: string) => void
+  /** Enter in the search field: show only the markers the search finds. */
+  onSearchSubmit?: () => void
   onSelectVisible: () => void
   onSortChange: (sortMode: MarkerSort) => void
   onToggleBordered: () => void
   onToggleMarker: (key: string) => void
   onTogglePicking: () => void
+  /** Drawn in its own browser window (the requester, Nov 13, 2026) instead of a corner of the page. */
+  detached?: boolean
 }
 
 /**
@@ -136,7 +146,7 @@ export default function DevViewPanel(props: DevViewPanelProps) {
 
   return (
     <section
-      className={`${LAYOUT_STYLES.panel} ${CORNER_LAYOUT_STYLES[corner].panel} ${STYLES.panel}`}
+      className={props.detached ? `${LAYOUT_STYLES.panelDetached} ${STYLES.panelDetached}` : `${LAYOUT_STYLES.panel} ${CORNER_LAYOUT_STYLES[corner].panel} ${STYLES.panel}`}
       aria-label="Dev View marker controls"
       data-kr-id="Dev-View-Marker-Controls"
     >
@@ -166,14 +176,21 @@ export default function DevViewPanel(props: DevViewPanelProps) {
         </div>
       </div>
 
-      {/* Search: narrows the active filter set */}
+      {/* Search: narrows the active filter set; Enter shows only what it finds (for example "dialog") */}
       <input
         className={STYLES.search}
         type="search"
         value={search}
-        placeholder="Filter identifiers"
+        placeholder="Filter identifiers (Enter: show only these)"
         aria-label="Filter data-kr identifiers"
+        title="Type part of a marker, for example dialog. Enter shows only the markers listed."
         onChange={(event) => props.onSearchChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault()
+            props.onSearchSubmit?.()
+          }
+        }}
       />
 
       {/* Filter buttons: single click toggles the filter, double click selects or clears its markers */}

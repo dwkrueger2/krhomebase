@@ -1,7 +1,7 @@
 # Deployed Architecture
 
-<small>Version 1.8</small><br>
-<small>Updated Nov 13, 2026 4:30pm</small>
+<small>Version 1.9</small><br>
+<small>Updated Nov 13, 2026 7:15pm</small>
 
 **Status:** live since Nov 6, 2026. Read this file before any work that touches a Worker, a binding, a web address, a secret or a deploy command. Update it in the same change as any of those.
 
@@ -113,3 +113,4 @@ When an item goes live, move its line into sections 1 to 4.
 |---|---|---|
 | Custom Domain for `krhomebase-external-api` | The Worker is deployed (Nov 9, 2026); no domain is recorded here. The `workspace_tool*` tables exist (checked Nov 13, 2026) and the tool routes are in the deployed API. | The requester chooses a domain, adds it in the dashboard, and records it in section 2. |
 | GPT models Worker (`workers/gpt-workers/`) and the API's `GPT_WORKER` binding | Not deployed; the binding is a comment in `kr-api-wrangler.jsonc`. | The go-live steps in the API task lists (database, secrets, deploy, binding). |
+| `krhomebase-public-article-worker` (`workers/r2-workers/public-article-worker/`; published Articles and Answers and their images for the public site) | Copied Nov 13, 2026 (plan 10, decision D24). Not deployed. Binds D1 `krhomebase` (`KRHOMEBASE_DB`) and R2 `kr-homebase-articles` (`ARTICLE_BUCKET`); `workers_dev` on, no domain. Until it is live, the public site reads the old `kr-r2-public-article-worker`, which reads the old database, so nothing published from this app appears there. | Stage 9: `pnpm deploy:public-article`, then point the public site's `KR_R2_PUBLIC_ARTICLE_WORKER_URL` at its `workers.dev` address (`Readme-public-article-worker.md` in that folder). |

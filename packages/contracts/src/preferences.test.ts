@@ -10,7 +10,7 @@ import { DEFAULT_USER_PREFERENCES, UpdateUserPreferencesBody, UserPreferences } 
 
 describe('user preferences', () => {
   it('has defaults that pass their own schema (light, 60 minutes, Dashboard)', () => {
-    expect(UserPreferences.parse(DEFAULT_USER_PREFERENCES)).toEqual({ theme: 'light', autoLogoutMinutes: 60, startingSection: 'dashboard', dashboardWidgets: {}, personalTheme: { themeId: 'firm-default', density: 'compact', light: {}, dark: {} }, workstreamTypes: [] })
+    expect(UserPreferences.parse(DEFAULT_USER_PREFERENCES)).toEqual({ theme: 'light', autoLogoutMinutes: 60, startingSection: 'dashboard', dashboardWidgets: {}, personalTheme: { themeId: 'firm-default', density: 'compact', light: {}, dark: {} }, workstreamTypes: [], assignCreatorByDefault: true })
   })
 
   it('accepts a change of one preference', () => {

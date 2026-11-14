@@ -1,7 +1,7 @@
 # WorkStream, Leads, Tasks and Publishing Port Plan
 
-<small>Version 1.2</small><br>
-<small>Updated Nov 13, 2026 4:55pm</small>
+<small>Version 1.7</small><br>
+<small>Updated Nov 13, 2026 7:55pm</small>
 
 ## 1. The requester's direction (Nov 13, 2026)
 
@@ -96,4 +96,7 @@ Recorded in full in `docs/API/WorkStream_AsIs_Reference.md`, section 8.1 (decisi
 | 1 | Done Nov 13, 2026: `/v1/clients/{clientId}/matters`, `/v1/matters/{matterId}`; the Projects & Matters tab and the ASSOCIATED MATTERS box; checked on contacts 055 and 306. | API 23, web 532, repository 27 |
 | 2 | Done Nov 13, 2026: the `/v1/workstream` routes and email; the Communications section (menu: Workstream). Deployed Nov 13, 2026 with the pre-deploy list. | API 24 to 25, web 533 to 535, repository 28 |
 | 3 | Built Nov 13, 2026: `/v1/leads` (list, one, create, change, conversion); the Leads section with the lead's Workstream; Data Import lead rows. Lead notes are Workstream Notes; conversion is new. | API 26, web 536, repository 29 |
+| 4 | Built Nov 13, 2026: the Contact Detail WorkStream tab (`ClientWorkstreamTab`: the old ledger, rows, detail card with edit, reassign and delete, Add activity) and the WorkStream email dialog around the shared `SendEmailDialog`. No API change (the stage 2 routes). | web 537, repository 30 |
+| 5 | Started Nov 13, 2026: the Tasks API (`/v1/tasks` list, one, create, change, and `PUT /v1/tasks/{taskId}/assignees`); task ids are seven-character public codes and tasks and WorkStream entries refer to each other only in text (`Task #ABC1234`, `WS #XYZ7890`; D21); a new task is assigned to its creator unless the person's Task Settings say otherwise (D20). Built Nov 13, 2026: the Tasks section (`TasksPanel`: Mine / Everyone, Open / All, the task ledger, the task card, the New / Edit dialog) and the Task Settings card in User Settings. | API 27 to 28, web 540 |
+| 6 | Built Nov 13, 2026 (D22 to D25): the Publishing API (`/v1/publishing/...`, the Worker-friendly package check, the `ARTICLES` bucket binding, image licenses), the Front End Publishing screens (ported as they were, D11), migration 031 (written, not applied), and the public article Worker copied to `workers/r2-workers/public-article-worker` (bound to `krhomebase`; deployed in stage 9). | API 29, web 541, repository 31 |
 | 8 | The Stripe sandbox was verified by the requester on Nov 13, 2026. | — |

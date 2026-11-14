@@ -20,7 +20,7 @@ const clock = { definition: employeeClockInWidget, element: <p>clock-body</p> }
 const notes = { definition: defineWidget({ id: 'test-notes', title: 'Notes', description: 'Made-up widget.', size: 'wide', defaultEnabled: false, defaultOrder: 1 }), element: <p>notes-body</p> }
 
 function withChoices(dashboardWidgets: UserPreferencesData['preferences']['dashboardWidgets']): UserPreferencesData {
-  return { preferences: { theme: 'light', autoLogoutMinutes: 60, startingSection: 'dashboard', dashboardWidgets, personalTheme: { themeId: 'firm-default', density: 'compact', light: {}, dark: {} }, workstreamTypes: [] }, updatedAt: null }
+  return { preferences: { theme: 'light', autoLogoutMinutes: 60, startingSection: 'dashboard', dashboardWidgets, personalTheme: { themeId: 'firm-default', density: 'compact', light: {}, dark: {} }, workstreamTypes: [], assignCreatorByDefault: true }, updatedAt: null }
 }
 
 describe('arranging widgets', () => {

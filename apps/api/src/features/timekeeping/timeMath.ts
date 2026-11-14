@@ -19,6 +19,18 @@
  *  6. Data comes in camelCase (the `queries.ts` rows are mapped before they reach these rules).
  *  7. `deriveIntervals` puts a clock-out before a clock-in at the same instant (stage 3: the midnight split closes
  *     last night and starts today at the same midnight).
+ *  8. Punches are saved exactly, not rounded (the requester, Nov 13, 2026). A clock in or clock out saves the instant
+ *     of the click; a typed punch (a time-card entry or the missed clock-out repair) saves the minute typed
+ *     (`truncateToMinute`). The old code rounded every punch to the reporting increment (6 minutes) before saving
+ *     it. Rounding now happens only where hours are worked out: the span of a pair (`hoursBetween`) and the period
+ *     and day totals (`timekeepingTotals`). `roundInstantToReportingIncrement` is kept (change 5 still holds for it),
+ *     but no rule calls it for a saved punch. Punches saved before this change keep their rounded times.
+ *  9. A pair's rounded hours are stored when the pair is closed, and read back (the requester, Nov 13, 2026,
+ *     decision D19: "the safest way to provide consistency"). The figure is a `regular` row of `employee_time_event`
+ *     with the pair's start and end (`start_at`, `end_at`), the columns the old app used for the same purpose.
+ *     `planPairHours` decides what to save after a punch change; `applyStoredPairHours` puts the stored figures in
+ *     place on a read, and a pair with nothing stored keeps the calculated hours. Change 3 still holds: the totals
+ *     come from the pairs, one figure per pair, never from a whole-card set of regular rows.
  *
  * Not ported: `formatReportedHours` (no caller), and the old manager/employee window names, which `rules.ts` owns.
  */
@@ -226,7 +238,22 @@ export function payPeriodForDate(workDate: string, anchorDate = DEFAULT_PAY_PERI
 // ----------------------------------------------------------------------------------------------------------
 // Rounding
 
-/** Rounds minutes to the reporting increment and returns hours with one decimal (6 minutes = 0.1 hour). */
+/**
+ * A typed punch time to the minute (change 8): seconds and milliseconds are dropped, nothing is rounded, so 11:59 PM
+ * stays 11:59 PM on its own date. Every time zone in use has a whole-minute offset, so the local minute is kept too.
+ *
+ * @throws Error `INVALID_PUNCH_TIMESTAMP` when `instant` is not a valid time.
+ */
+export function truncateToMinute(instant: string | Date): string {
+  const ms = instant instanceof Date ? instant.getTime() : Date.parse(instant)
+  if (!Number.isFinite(ms)) throw new Error('INVALID_PUNCH_TIMESTAMP')
+  return new Date(Math.floor(ms / 60_000) * 60_000).toISOString()
+}
+
+/**
+ * Rounds minutes to the reporting increment and returns hours with one decimal (6 minutes = 0.1 hour). This is
+ * where rounding belongs (change 8): on a span of time worked or a total, never on a punch time.
+ */
 export function roundMinutesToTenths(minutes: number, incrementMinutes = DEFAULT_TIME_INCREMENT_MINUTES): number {
   if (!Number.isFinite(minutes) || minutes <= 0) return 0
   const increment = Math.max(1, incrementMinutes)
@@ -244,6 +271,9 @@ export function hoursBetween(startAt: string, endAt: string, incrementMinutes = 
 /**
  * Rounds a punch to the nearest increment of local wall-clock time. With `keepDate`, a time that would round past
  * midnight is rounded down instead, so it stays on its own local date (change 5).
+ *
+ * Not used for saved punches since change 8 (Nov 13, 2026): a punch keeps its exact time and only the hours are
+ * rounded. Kept, with its tests, for a display or report that wants a punch shown on the increment.
  *
  * @throws Error `INVALID_PUNCH_TIMESTAMP` when `instant` is not a valid time (as the old code).
  */
@@ -343,6 +373,105 @@ export function deriveIntervals(
 /** True for an interval made of a real clock-in and a real clock-out (the only kind that counts toward pay). */
 export function isPayableInterval(interval: DerivedInterval): boolean {
   return !interval.isAssumedMidnightClose && interval.exception !== 'clock_out_without_clock_in' && interval.endPunchId !== null
+}
+
+// ----------------------------------------------------------------------------------------------------------
+// Stored pair hours (change 9)
+
+/** A pair's rounded hours as saved when the pair was closed: one `regular` row of `employee_time_event`. */
+export interface StoredPairHours {
+  id: string
+  /** The clock-in time of the pair (`start_at`). */
+  startAt: string | null
+  /** The clock-out time of the pair (`end_at`). */
+  endAt: string | null
+  hours: number
+}
+
+/** A row to write for one pair: an existing row to change (`rowId`), or a new row (`rowId` null). */
+export interface PairHoursWrite {
+  rowId: string | null
+  workDate: string
+  startAt: string
+  endAt: string
+  hours: number
+}
+
+/** True when the stored row was saved for this pair: the same start and end, compared as instants. */
+function storedFor(row: StoredPairHours, interval: Pick<DerivedInterval, 'startAt' | 'endAt'>): boolean {
+  if (!row.startAt || !row.endAt) return false
+  return Date.parse(row.startAt) === Date.parse(interval.startAt) && Date.parse(row.endAt) === Date.parse(interval.endAt)
+}
+
+/**
+ * True when a matching stored figure can be used for the pair. A stored 0 for a pair that works out to more than 0
+ * is a retired row (the old app and this API set a row to 0 hours when its pair went away, and never delete it),
+ * so the figure is worked out instead.
+ */
+function isTrustedFigure(row: StoredPairHours, calculatedHours: number): boolean {
+  return Number(row.hours) > 0 || calculatedHours === 0
+}
+
+/**
+ * The card's pairs with the stored hours in place of the calculated ones (change 9): a real pair whose rounded hours
+ * were saved when it was closed shows that figure, so a later change of the increment never changes it. A pair with
+ * nothing stored (older pairs, made before the figure was saved) keeps the calculated hours. Stand-in ends and
+ * exceptions are never stored and keep their calculated hours.
+ */
+export function applyStoredPairHours(intervals: DerivedInterval[], stored: StoredPairHours[]): DerivedInterval[] {
+  if (stored.length === 0) return intervals
+  return intervals.map((interval) => {
+    if (!isPayableInterval(interval)) return interval
+    const row = stored.find((candidate) => storedFor(candidate, interval) && isTrustedFigure(candidate, interval.hours))
+    return row ? { ...interval, hours: Number(row.hours) } : interval
+  })
+}
+
+/**
+ * What to save after a punch change so every real pair on the card has its stored figure (change 9; the old
+ * `reconcileRegularEventsForCard`, `docs/API/Timekeeping_AsIs_Reference.md` 8.6, with its faults fixed):
+ *  - A pair with a usable stored figure keeps it; nothing is written (the figure is not worked out again).
+ *  - A pair without one (a newly closed pair, an edited pair, which has a new start or end, or an older pair) gets
+ *    its calculated hours: written into a retired row with the same start and end, else into a row of the card that
+ *    no pair matches any more (an edited pair's old row, or a retired one; recycled, as the old code did), else into
+ *    a new row.
+ *  - A stored row with hours whose pair is gone (voided or replaced) is retired: set to 0 hours, never deleted.
+ * Only real pairs are stored. The old code also stored a zero-hour row for a clock-out without a clock-in.
+ *
+ * @param intervals - The card's pairs after the change (`deriveIntervals` of its punches with the change applied).
+ * @param stored - The card's stored `regular` rows.
+ */
+export function planPairHours(intervals: DerivedInterval[], stored: StoredPairHours[]): { writes: PairHoursWrite[]; retire: string[] } {
+  const pairs = intervals.filter(isPayableInterval)
+  const used = new Set<string>()
+  const writes: PairHoursWrite[] = []
+  const pending: DerivedInterval[] = []
+
+  for (const pair of pairs) {
+    const trusted = stored.find((row) => !used.has(row.id) && storedFor(row, pair) && isTrustedFigure(row, pair.hours))
+    if (trusted) {
+      used.add(trusted.id)
+      continue
+    }
+    const retiredSame = stored.find((row) => !used.has(row.id) && storedFor(row, pair))
+    if (retiredSame) {
+      used.add(retiredSame.id)
+      writes.push({ rowId: retiredSame.id, workDate: pair.workDate, startAt: pair.startAt, endAt: pair.endAt, hours: pair.hours })
+      continue
+    }
+    pending.push(pair)
+  }
+
+  // Reuse a row that no pair matches any more (an edited pair's old row first, then a retired one) before adding one.
+  const belongsToAPair = (row: StoredPairHours) => pairs.some((pair) => storedFor(row, pair))
+  for (const pair of pending) {
+    const spare = stored.find((row) => !used.has(row.id) && !belongsToAPair(row))
+    if (spare) used.add(spare.id)
+    writes.push({ rowId: spare?.id ?? null, workDate: pair.workDate, startAt: pair.startAt, endAt: pair.endAt, hours: pair.hours })
+  }
+
+  const retire = stored.filter((row) => !used.has(row.id) && Number(row.hours) !== 0).map((row) => row.id)
+  return { writes, retire }
 }
 
 /**

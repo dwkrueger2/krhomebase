@@ -99,7 +99,7 @@ export type TimeCardInfo = z.infer<typeof TimeCardInfo>
 export const TimePunch = z.object({
   id: z.string().describe('`punch_<uuid>`.'),
   punchType: PunchType.describe('Clock-in or clock-out.'),
-  occurredAt: instant.describe('When, rounded to the reporting increment.'),
+  occurredAt: instant.describe('When: the exact time of a clock click, or the minute typed. Punches are not rounded; only hours are.'),
   localDate: isoDate.describe('Firm-local date of the punch.'),
   source: z.string().describe('`button`, `employee_correction`, `manager_correction`, `auto_break_resume` or `system`.'),
   correctionReason: z.string().nullable().describe('Reason given for a correction.'),
@@ -115,7 +115,7 @@ export const TimeInterval = z.object({
   startAt: instant.describe('Start.'),
   endAt: instant.describe('End; for an unclosed clock-in, the next local midnight (a stand-in, never paid).'),
   workDate: isoDate.describe('Local date of the start.'),
-  hours: z.number().describe('Rounded reported hours.'),
+  hours: z.number().describe('Rounded hours of the pair: the figure stored when the pair was closed, or, for an older pair with none stored, worked out from the punches.'),
   isAssumedMidnightClose: z.boolean().describe('True when the end is a stand-in, not a real clock-out.'),
   exception: IntervalException.nullable().describe('A problem with this pair, or null.'),
 })
@@ -144,7 +144,7 @@ export type TimekeepingTotals = z.infer<typeof TimekeepingTotals>
 
 export const AttendancePolicyView = z.object({
   timezone: z.string().describe('Firm time zone (IANA name).'),
-  incrementMinutes: z.number().describe('Punches and hours are rounded to this many minutes (6 = a tenth of an hour).'),
+  incrementMinutes: z.number().describe('Hours worked and totals are rounded to this many minutes (6 = a tenth of an hour). Punch times are not rounded.'),
   employeeEditWindowDays: z.number().int().describe('Days after the work date an employee may still change their own punches.'),
   managerEditWindowDays: z.number().int().describe('Days after the work date a manager may still change a team member\'s punches.'),
 })
@@ -238,7 +238,7 @@ export type ClockBody = z.infer<typeof ClockBody>
 
 export const ClockActionData = z.object({
   punchId: z.string().describe('The punch that was saved (or found again for a repeated key).'),
-  occurredAt: instant.describe('When, rounded to the reporting increment.'),
+  occurredAt: instant.describe('When: the exact time of the click (not rounded).'),
   localDate: isoDate.describe('Firm-local date of the punch.'),
   replayed: z.boolean().describe('True when the key had already been used: nothing new was saved.'),
 })
@@ -263,7 +263,7 @@ export type MissedClockOutData = z.infer<typeof MissedClockOutData>
 export const SavePunchBody = z.object({
   employeeId: optionalEmployeeId,
   punchType: PunchType.describe('Clock-in or clock-out.'),
-  occurredAt: instant.describe('When (an ISO time); rounded to the reporting increment. Its firm-local date picks the card.'),
+  occurredAt: instant.describe('When (an ISO time); saved to the minute, not rounded. Its firm-local date picks the card.'),
   replacesPunchId: z.string().trim().min(1).max(120).optional().describe('The punch this one corrects. It is voided in the same save; nothing is deleted.'),
   reason: z.string().trim().max(300).optional().describe('Why, for the correction history. Default for a replacement: "Time Card Review correction".'),
 })

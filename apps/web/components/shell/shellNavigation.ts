@@ -9,6 +9,9 @@
  * contact, wrapped in a different `OpenItemContext`), and lets it refresh the item's menu label.
  *
  * Outside the frame (tests, a screen drawn on its own) every call does nothing and returns false.
+ *
+ * Back and Forward (Nov 13, 2026): a move made through this context adds a browser history entry, except from a
+ * screen drawn in a pop-out, which the frame gives its own copy whose moves replace the entry (`shellHistory.ts`).
  */
 
 import { createContext, useContext } from 'react'
@@ -23,6 +26,8 @@ export interface SubPageRequest {
   sectionId: string
   subPage: string
   nonce: number
+  /** True when a screen in a pop-out asked: the page change replaces the history entry instead of adding one. */
+  fromPopout?: boolean
 }
 
 export interface ShellNavigation {

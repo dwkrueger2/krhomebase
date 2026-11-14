@@ -16,6 +16,7 @@
  *   navigation   {"startingSection": "<menu id>"}
  *   dashboard    {"dashboardWidgets": {"<widget id>": {"enabled": true, "order": 5}, ...}}   (stage 3)
  *   workstream   {"workstreamTypes": ["PhoneCalls", "Notes"]}   (plan 10, Nov 13, 2026; empty means All)
+ *   tasks        {"assignCreatorByDefault": true}   (plan 10, stage 5, decision D20 of Nov 13, 2026)
  *   theme        {"personalTheme": {"themeId": "firm-default", "density": "compact", "light": {...}, "dark": {...}}}   (stage 2b, themes.ts)
  *
  * Changes from the old Preferences card: the theme is light or dark (the old list of administrator themes stays with
@@ -79,6 +80,15 @@ export const WorkstreamTypesPreference = z
   .describe('Activity types WorkStream shows when it opens; an empty list shows All.')
 export type WorkstreamTypesPreference = z.infer<typeof WorkstreamTypesPreference>
 
+/**
+ * Task Settings (D20, the requester, Nov 13, 2026): whether a new task is assigned to the person creating it when no
+ * assignees are given (`POST /v1/tasks` without `assigneeUserIds`). Default true, the old route's rule.
+ */
+export const AssignCreatorByDefaultPreference = z
+  .boolean()
+  .describe('A new task with no assignees given is assigned to the person creating it (true) or to nobody (false).')
+export type AssignCreatorByDefaultPreference = z.infer<typeof AssignCreatorByDefaultPreference>
+
 /** One person's preferences, every field filled. */
 export const UserPreferences = z.object({
   theme: ThemeName,
@@ -87,6 +97,7 @@ export const UserPreferences = z.object({
   dashboardWidgets: DashboardWidgetChoices,
   personalTheme: PersonalTheme.describe('The theme the person uses, their text size and their own color changes (stage 2b).'),
   workstreamTypes: WorkstreamTypesPreference,
+  assignCreatorByDefault: AssignCreatorByDefaultPreference,
 })
 export type UserPreferences = z.infer<typeof UserPreferences>
 
@@ -98,6 +109,7 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   dashboardWidgets: {},
   personalTheme: DEFAULT_PERSONAL_THEME,
   workstreamTypes: [],
+  assignCreatorByDefault: true,
 }
 
 /** Reply of both routes. */

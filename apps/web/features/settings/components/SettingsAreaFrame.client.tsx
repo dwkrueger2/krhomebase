@@ -17,13 +17,18 @@
  * one does, choosing another tab asks "Leave without saving?" in `U6ConfirmationDialog` first, because the tab strip
  * unmounts the page it leaves and its draft would be lost.
  *
+ * Back and Forward (decision D18, Nov 13, 2026): the frame passes `confirmLeave` to `useSectionSubPage`, so a browser
+ * Back or Forward that would leave a page with a draft (to another tab of this area, or out of the area) first puts
+ * the browser back on the page's entry and asks the same "Leave without saving?". Discard changes goes where Back or
+ * Forward asked; Cancel stays on the page with its draft.
+ *
  * @param props - The area's marker, accessible name, visible pages, old address aliases and its finished pages.
  * @returns The tab strip and the open page (`data-kr-id="<krId>"`).
  */
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
-import { useSectionSubPage } from '@/components/shell/useSectionSubPage.client'
+import { useSectionSubPage, type SectionLeaveConfirm } from '@/components/shell/useSectionSubPage.client'
 import MenuStyleOne from '@/components/ui/MenuStyleOne.client'
 import { UnsavedChangesContext, type UnsavedChangesReporter } from '@/components/ui/unsavedChanges.client'
 import SettingsPagePlaceholder from '@/features/settings/components/SettingsPagePlaceholder.client'
@@ -50,9 +55,18 @@ export interface SettingsAreaFrameProps<T extends string> {
 }
 
 export default function SettingsAreaFrame<T extends string>({ krId, ariaLabel, pages, aliases, builtPages, focusPage }: SettingsAreaFrameProps<T>) {
-  const [activePageId, setActivePageId] = useSectionSubPage<T>({ pages, aliases })
   const unsavedRef = useRef(new Set<string>())
-  const [pendingPageId, setPendingPageId] = useState<T | null>(null)
+  // The move waiting for "Leave without saving?": another tab chosen here, or a browser Back or Forward.
+  const [pendingLeave, setPendingLeave] = useState<{ run: () => void } | null>(null)
+  // Back and Forward ask through the same dialog (useSectionSubPage step 6); the draft is read at that moment.
+  const confirmLeave = useMemo<SectionLeaveConfirm>(
+    () => ({
+      hasUnsavedChanges: () => unsavedRef.current.size > 0,
+      ask: (proceed) => setPendingLeave({ run: proceed }),
+    }),
+    [],
+  )
+  const [activePageId, setActivePageId] = useSectionSubPage<T>({ pages, aliases, confirmLeave })
   const reporter = useMemo<UnsavedChangesReporter>(
     () => ({
       report: (key, dirty) => {
@@ -74,7 +88,7 @@ export default function SettingsAreaFrame<T extends string>({ krId, ariaLabel, p
   /** Opens a page, asking first while the open page has unsaved changes. */
   function choosePage(pageId: T) {
     if (pageId === activePageId) return
-    if (unsavedRef.current.size) setPendingPageId(pageId)
+    if (unsavedRef.current.size) setPendingLeave({ run: () => setActivePageId(pageId) })
     else setActivePageId(pageId)
   }
 
@@ -104,13 +118,13 @@ export default function SettingsAreaFrame<T extends string>({ krId, ariaLabel, p
       <U6ConfirmationDialog
         confirmLabel="Discard changes"
         description="This page has changes that are not saved. Leave it and discard them?"
-        onCancel={() => setPendingPageId(null)}
+        onCancel={() => setPendingLeave(null)}
         onConfirm={() => {
           unsavedRef.current.clear()
-          if (pendingPageId) setActivePageId(pendingPageId)
-          setPendingPageId(null)
+          pendingLeave?.run()
+          setPendingLeave(null)
         }}
-        open={pendingPageId !== null}
+        open={pendingLeave !== null}
         title="Leave without saving?"
       />
     </div>

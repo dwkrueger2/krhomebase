@@ -10,7 +10,8 @@
  *  - The number part is `H:MM` or `HH:MM`, or 1 to 4 digits: 1 or 2 digits are the hour; 3 or 4 digits are the hour
  *    followed by two digits of minutes (`830p` is 8:30 PM, `1230am` is 12:30 AM).
  *  - Hour 1 to 12, minute 0 to 59. The tidy form is `H:MM AM` or `H:MM PM`.
- * The API rounds the result to the reporting increment; the browser does not round.
+ * Neither the browser nor the API rounds a typed time: the punch is saved to the minute typed (the requester,
+ * Nov 13, 2026). Only the hours worked out from the punches are rounded, by the API.
  */
 
 /** A typed time read as a time of day. */

@@ -9,6 +9,8 @@
  * `INSERT OR IGNORE` in the same batch, and a punch finds its card by employee and period inside its own insert.
  * The clock guards are the old crud Worker's atomic checks: a clock-in is inserted only when no clock-in is open on
  * that date, and a clock-out only while its clock-in is still open (`changes` is 0 when the guard refused).
+ * A pair's stored hours (`regular` rows of `employee_time_event`, `rules.ts` change 10) can carry the same kind of
+ * guard: written only when the punch that closed the pair was saved, so a refused clock-out stores no hours.
  *
  * Readers return camelCase objects (the rules in `timeMath.ts` and `rules.ts` never see column names).
  * Every statement is fixed SQL with bound values and named columns.
@@ -118,6 +120,22 @@ export interface EventWrite {
   at: string
 }
 
+/** A pair's stored rounded hours: one `regular` row of `employee_time_event` (`timeMath.ts`, change 9). */
+export interface PairHoursRecord {
+  id: string
+  startAt: string | null
+  endAt: string | null
+  hours: number
+}
+
+/** The figure to save for one pair. A new row finds its card and period dates from the employee and the period. */
+export interface PairHoursRow {
+  workDate: string
+  startAt: string
+  endAt: string
+  hours: number
+}
+
 /** One audit row for an Attendance write (resource `timekeeping`). The person comes from the checked session. */
 export interface TimekeepingAudit {
   requestId: string
@@ -144,6 +162,8 @@ export interface TimekeepingQueries {
   recentPunches(employeeId: string, limit?: number): Promise<PunchRecord[]>
   /** Hand-entered hours in the period (not regular or overtime rows), on this card or on no card. */
   eventsForCard(employeeId: string, periodId: string, cardId: string | null): Promise<EventRecord[]>
+  /** The card's stored pair hours (its `regular` rows), retired ones (0 hours) included. */
+  pairHoursForCard(cardId: string): Promise<PairHoursRecord[]>
   /** The teams the employee belongs to, and the teams the user leads (only active lead rows, as the old route). */
   teamLinks(employeeId: string, leadUserId: string): Promise<{ memberOf: TeamLink[]; leads: TeamLink[] }>
   /** Every employee, by name (the picker for the all scope). */
@@ -166,6 +186,12 @@ export interface TimekeepingQueries {
   clearEmployeeApproval(employeeId: string, payPeriodId: string, at: string): D1PreparedStatement
   insertEvent(event: EventWrite): D1PreparedStatement
   updateEvent(eventId: string, hours: number, notes: string | null, at: string): D1PreparedStatement
+  /** A new stored pair figure. With `onlyIfPunchId`, inserted only when that punch exists. */
+  insertPairHours(rowId: string, employeeId: string, payPeriodId: string, row: PairHoursRow, userId: string, at: string, onlyIfPunchId?: string): D1PreparedStatement
+  /** Writes a pair's figure into an existing `regular` row (back to draft). With `onlyIfPunchId`, only when that punch exists. */
+  updatePairHours(rowId: string, row: PairHoursRow, at: string, onlyIfPunchId?: string): D1PreparedStatement
+  /** Retires a stored figure whose pair is gone: 0 hours, the row is kept. With `onlyIfPunchId`, only when that punch exists. */
+  retirePairHours(rowId: string, at: string, onlyIfPunchId?: string): D1PreparedStatement
   approveAsEmployee(cardId: string, userId: string, status: 'submitted' | 'approved', at: string): D1PreparedStatement
   approveAsManager(cardId: string, userId: string, at: string): D1PreparedStatement
   reopenCard(cardId: string, userId: string, at: string): D1PreparedStatement
@@ -280,6 +306,10 @@ const STILL_OPEN = `AND open_in.punch_type = 'clock_in' AND open_in.voided_at IS
                        WHERE close_out.employee_id = open_in.employee_id AND close_out.punch_type = 'clock_out'
                          AND close_out.voided_at IS NULL AND close_out.occurred_at > open_in.occurred_at)`
 
+/** The guard of a pair-hours write: the punch bound at `?<n>` exists. Unguarded, it still binds `?<n>` so the numbering stays fixed. */
+const punchExists = (n: number, punchId: string | undefined) =>
+  punchId ? `EXISTS (SELECT 1 FROM employee_time_punch WHERE id = ?${n})` : `?${n} = ?${n}`
+
 type LinkRow = { team_id: string; starts_at: string | null; ends_at: string | null; is_active: number | null }
 const toLink = (row: LinkRow): TeamLink => ({ teamId: row.team_id, startsAt: row.starts_at, endsAt: row.ends_at, isActive: row.is_active !== 0 })
 
@@ -350,6 +380,18 @@ export function createTimekeepingQueries(db: D1Database): TimekeepingQueries {
         .bind(employeeId, periodId, cardId ?? '')
         .all<{ id: string; work_date: string; time_type: string; hours: number; status: string; notes: string | null }>()
       return (result.results ?? []).map((row) => ({ id: row.id, workDate: row.work_date, timeType: row.time_type, hours: Number(row.hours), status: row.status, notes: row.notes }))
+    },
+
+    async pairHoursForCard(cardId) {
+      const result = await db
+        .prepare(
+          `SELECT id, start_at, end_at, hours FROM employee_time_event
+            WHERE time_card_id = ?1 AND time_type = 'regular'
+            ORDER BY created_at, id LIMIT 1000`,
+        )
+        .bind(cardId)
+        .all<{ id: string; start_at: string | null; end_at: string | null; hours: number }>()
+      return (result.results ?? []).map((row) => ({ id: row.id, startAt: row.start_at, endAt: row.end_at, hours: Number(row.hours) }))
     },
 
     async allEmployees() {
@@ -465,6 +507,34 @@ export function createTimekeepingQueries(db: D1Database): TimekeepingQueries {
 
     updateEvent(eventId, hours, notes, at) {
       return db.prepare('UPDATE employee_time_event SET hours = ?2, notes = ?3, updated_at = ?4 WHERE id = ?1').bind(eventId, hours, notes, at)
+    },
+
+    insertPairHours(rowId, employeeId, payPeriodId, row, userId, at, onlyIfPunchId) {
+      return db
+        .prepare(
+          `INSERT INTO employee_time_event (id, employee_id, time_card_id, pay_period_id, work_date, start_at, end_at, break_minutes, hours,
+                  time_type, status, pay_period_start, pay_period_end, created_by_user_id, created_at, updated_at)
+           SELECT ?1, ?2, (SELECT id FROM employee_time_card WHERE employee_id = ?2 AND pay_period_id = ?3), ?3, ?4, ?5, ?6, 0, ?7,
+                  'regular', 'draft', (SELECT period_start FROM pay_period WHERE id = ?3), (SELECT period_end FROM pay_period WHERE id = ?3),
+                  ?8, ?9, ?9
+            WHERE ${punchExists(10, onlyIfPunchId)}`,
+        )
+        .bind(rowId, employeeId, payPeriodId, row.workDate, row.startAt, row.endAt, row.hours, userId, at, onlyIfPunchId ?? '')
+    },
+
+    updatePairHours(rowId, row, at, onlyIfPunchId) {
+      return db
+        .prepare(
+          `UPDATE employee_time_event SET work_date = ?2, start_at = ?3, end_at = ?4, hours = ?5, status = 'draft', updated_at = ?6
+            WHERE id = ?1 AND time_type = 'regular' AND ${punchExists(7, onlyIfPunchId)}`,
+        )
+        .bind(rowId, row.workDate, row.startAt, row.endAt, row.hours, at, onlyIfPunchId ?? '')
+    },
+
+    retirePairHours(rowId, at, onlyIfPunchId) {
+      return db
+        .prepare(`UPDATE employee_time_event SET hours = 0, updated_at = ?2 WHERE id = ?1 AND time_type = 'regular' AND ${punchExists(3, onlyIfPunchId)}`)
+        .bind(rowId, at, onlyIfPunchId ?? '')
     },
 
     approveAsEmployee(cardId, userId, status, at) {

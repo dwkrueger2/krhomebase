@@ -119,6 +119,13 @@ const LAYOUT_STYLES = {
   sendIcon: 'h-[20px] w-[20px] absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
 } as const
 
+// Fixed empty lists for the defaults: a fresh `[]` on every draw would re-run the cue lookup effect, whose
+// `setContextMatches([])` draws again, without end ("Maximum update depth exceeded"; found Nov 13, 2026 when the
+// client WorkStream editor left `contextCandidates` out).
+const NO_ASSIGNEES: readonly WorkStreamRTEAssigneeOption[] = []
+const NO_CANDIDATES: readonly KRContactRecord[] = []
+const NO_MATTERS: readonly WorkStreamRTEMatterOption[] = []
+
 /**
  * Provides one shared WorkStream editor surface for both new and existing entries.
  *
@@ -129,11 +136,11 @@ const LAYOUT_STYLES = {
  */
 export default function WorkStreamRTE({
   activityTypes,
-  assigneeOptions = [],
+  assigneeOptions = NO_ASSIGNEES,
   canSubmit = true,
   clientButtonLabel,
   clientState,
-  contextCandidates = [],
+  contextCandidates = NO_CANDIDATES,
   contextLocked = false,
   currentUser,
   disabled = false,
@@ -142,7 +149,7 @@ export default function WorkStreamRTE({
   initialBody = '',
   initialHtml,
   leadButtonLabel,
-  matterOptions = [],
+  matterOptions = NO_MATTERS,
   onActivityTypesChange,
   onClientStateChange,
   onContextContactSelected,

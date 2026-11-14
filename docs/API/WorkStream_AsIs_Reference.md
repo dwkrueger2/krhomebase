@@ -1,7 +1,7 @@
 # WorkStream, Leads, Tasks and Publishing As-Is Reference
 
-<small>Version 1.3</small><br>
-<small>Updated Nov 13, 2026 4:55pm</small>
+<small>Version 1.4</small><br>
+<small>Updated Nov 13, 2026 7:15pm</small>
 
 ## 1. Purpose and sources
 
@@ -380,6 +380,10 @@ For later stages (asked again when the stage starts):
 | 10 | WorkStream lists newest to oldest as a rule; where a list is capped (100), add paging, and the screen says when a list is cut short. |
 | Stage 3 (decisions 10 and 11 of the table below, asked Nov 13, 2026) | Lead notes are Workstream `Notes` entries on the lead. Build Convert to client now. |
 | 11 | Front End Publishing is copied as it is; the server-side cleaning of HTML and the "public content database" wording are marked for review much later (low on the list). |
+| Stage 6 (D22, Nov 13, 2026) | The package check is rebuilt for a Worker with the old rules: fflate to unzip (a new API dependency), allow-list HTML cleaning, byte checks for image type and size. The API cleans the HTML again when a draft is saved (closes point 2 of section 6.5). |
+| Stage 6 (D23) | The API binds the articles bucket: `kr-homebase-articles` deployed, `kr-homebase-articles-dev` under `pnpm dev`. |
+| Stage 6 (D24) | Copy `kr-r2-public-article-worker` into `workers/r2-workers/` now, bound to `krhomebase` and the articles bucket, keeping the draft-address rewrite; the requester deploys it in stage 9. |
+| Stage 6 (D25) | Add image licenses now: a migration (applied by the requester) adds license columns to `content_asset`; the package check and Publish refuse an image without a license. |
 
 ## 9. Matter removal: recommendations for later (decision 7)
 

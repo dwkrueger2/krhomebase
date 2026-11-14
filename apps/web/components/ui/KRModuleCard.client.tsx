@@ -19,6 +19,8 @@ const LAYOUT_STYLES = {
 
 const STYLES = {
   card: 'rounded-[2px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) shadow-[0_1px_2px_rgba(27,35,48,0.07)]',
+  /** `plain`: no border, corners or shadow, for a card that is a whole window (a pop-out editor). */
+  cardPlain: 'bg-(--kr-theme-card-surface)',
   header: 'border-b border-(--kr-theme-line) bg-(--kr-theme-muted-surface)',
   title: 'm-0 text-[13px] font-[850] leading-[1.2] text-(color:--kr-theme-text)',
   note: 'text-[12px] leading-[1.35] text-(color:--kr-theme-text-muted)',
@@ -38,12 +40,14 @@ export interface KRModuleCardProps {
   component?: string
   className?: string
   bodyClassName?: string
+  /** No border, corners or shadow: the card fills a pop-out window on its own. */
+  plain?: boolean
 }
 
 /** Renders a standard dense module card. */
-export function KRModuleCard({ title, note, noteTone = 'muted', actions, children, krId, component = 'KRModuleCard', className, bodyClassName }: KRModuleCardProps) {
+export function KRModuleCard({ title, note, noteTone = 'muted', actions, children, krId, component = 'KRModuleCard', className, bodyClassName, plain = false }: KRModuleCardProps) {
   return (
-    <section className={[LAYOUT_STYLES.card, STYLES.card, className].filter(Boolean).join(' ')} data-kr-id={`${krId}-KRModuleCard`} data-kr-component={component}>
+    <section className={[LAYOUT_STYLES.card, plain ? STYLES.cardPlain : STYLES.card, className].filter(Boolean).join(' ')} data-kr-id={`${krId}-KRModuleCard`} data-kr-component={component}>
       <header className={`${LAYOUT_STYLES.header} ${STYLES.header}`} data-kr-element={`${krId}-header`}>
         <div>
           <h3 className={STYLES.title}>{title}</h3>

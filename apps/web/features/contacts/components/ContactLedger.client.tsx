@@ -103,7 +103,8 @@ function renderCopyableContactValue(value: string, label: string): ReactNode {
 
 export interface ContactLedgerRowHoverCardProps {
   row: KRContactRecord
-  onSelectContact: (contact: KRContactRecord) => void
+  /** View button; left out, the card shows no View (the edit dialog's related contacts, Nov 13, 2026). */
+  onSelectContact?: (contact: KRContactRecord) => void
   /** Optional until contact editing is ported. */
   onEditContact?: (contact: KRContactRecord) => void
 }
@@ -142,12 +143,16 @@ export function ContactLedgerRowHoverCard({ row, onSelectContact, onEditContact 
       <ContactHoverCopyLine label="Email" value={row.email} emptyText="No email" />
       <ContactHoverCopyLine label="Phone" value={row.phone} emptyText="No phone" />
       <p className={STYLES.summaryLine}><strong>Related Matters:</strong> {relatedMatterLabel(row)}</p>
-      <div className={STYLES.buttonRow}>
-        <button className={STYLES.ghostButton} type="button" onClick={(event) => { event.stopPropagation(); onSelectContact(row) }}>View</button>
-        {onEditContact ? (
-          <button className={STYLES.primaryButton} type="button" onClick={(event) => { event.stopPropagation(); onEditContact(row) }}>Edit</button>
-        ) : null}
-      </div>
+      {onSelectContact || onEditContact ? (
+        <div className={STYLES.buttonRow}>
+          {onSelectContact ? (
+            <button className={STYLES.ghostButton} type="button" onClick={(event) => { event.stopPropagation(); onSelectContact(row) }}>View</button>
+          ) : null}
+          {onEditContact ? (
+            <button className={STYLES.primaryButton} type="button" onClick={(event) => { event.stopPropagation(); onEditContact(row) }}>Edit</button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }

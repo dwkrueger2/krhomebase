@@ -14,21 +14,29 @@
  *    meanwhile and "Contact saved." for a moment after.
  *  - Someone else saved first (`CONTACT_CONFLICT`): the latest contact is loaded and the person is told to review.
  *  - Changing one's own login email asks first, then signs the person out (their sessions were ended).
- *  - Closing with no changes: click outside or Close. With changes, outside clicks are ignored (as before).
+ *  - Closing with no changes: click outside, Escape or Close. With changes, each of these first asks "Discard
+ *    changes?" (the requester, Nov 13, 2026; outside clicks used to be ignored and Close lost the changes).
+ *  - A related contact's pop-out button opens its editor in a pop-out browser window (the requester, Nov 13, 2026),
+ *    as the frame's pop-out does: this dialog drawn `inline` there, with no border, backdrop or width limit. The
+ *    window closes with this screen.
+ *  - "Click outside closes" counts only presses on the backdrop's own elements: React passes events from content
+ *    drawn into the body (the related contact's hover card) up to this handler, which closed the editor.
  *
  * Changed: the old controller checked the client save by reading the account back; the API now answers with the
  * saved account from the same batch, so that extra read is gone. The saved contact goes into the data store without
  * its SSN and date of birth.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import U6ConfirmationDialog from '@/components/dialogs/U6ConfirmationDialog.client'
+import PopOutBrowserWindow, { openPopoutBrowserWindow } from '@/components/shell/PopOutBrowserWindow.client'
 import SaveDialog from '@/components/ui/SaveDialog.client'
 import { L } from '@/lib/KRUtilities'
 import { ContactApiError, fetchContactDetail, lookupClientNumber, setClientStatus, suggestClientNumber, updateContact } from '../contactEdits.client'
 import { normalizePhoneNumber, validateEmailAddress, validateRequiredText } from '../contactValidators'
 import type { KRContactDraft, KRContactRecord } from '../types'
+import { useOptionalDataStore } from '../DataStoreProvider.client'
 import ContactEditCard, { getIndividualDisplayName } from './ContactEditCard.client'
 
 type ClientNumberAvailabilityState = {
@@ -39,6 +47,9 @@ type ClientNumberAvailabilityState = {
 
 const LAYOUT_STYLES = {
   backdrop: 'py-[10px] px-(--kr-theme-padding-2-6) fixed inset-0 z-[1000] overflow-y-auto',
+  /** Drawn in a pop-out window (`inline`): the window is the dialog's whole page, with no border or width limit. */
+  backdropInline: 'min-h-dvh',
+  dialogInline: 'relative w-full',
   viewport: 'flex min-h-full items-center justify-center',
   dialog: 'p-(--kr-theme-padding-2-6) relative w-full max-h-[calc(100vh-20px)] max-[640px]:max-h-screen max-w-[760px] overflow-y-auto',
   status: 'm-0 p-[8px]',
@@ -47,6 +58,8 @@ const LAYOUT_STYLES = {
 /** The old `ContactDetailEditDialog.module.css`, as Tailwind classes reading the theme tokens. */
 const STYLES = {
   backdrop: 'bg-[color-mix(in_srgb,var(--kr-theme-brand-secondary)_68%,transparent)]',
+  backdropInline: 'bg-(--kr-theme-card-surface)',
+  dialogInline: 'bg-(--kr-theme-card-surface) font-(family-name:--kr-theme-font-body) text-(color:--kr-theme-text)',
   dialog:
     'rounded-[2px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) font-(family-name:--kr-theme-font-body) text-(color:--kr-theme-text) shadow-[0_16px_42px_rgba(0,30,58,0.28)]',
   status: 'text-[12px] text-(color:--kr-theme-text-muted)',
@@ -138,9 +151,20 @@ export interface ContactEditDialogProps {
   onClose: () => void
   /** Called with the saved contact (with SSN and date of birth; the caller strips them before caching). */
   onSaved: (contact: KRContactRecord) => void | Promise<void>
+  /** Draws in place instead of over the page: the dialog is the whole of a pop-out window. */
+  inline?: boolean
 }
 
-export default function ContactEditDialog({ contact: listContact, open, onClose, onSaved }: ContactEditDialogProps) {
+/** A related contact's editor in its own pop-out window. */
+interface RelatedContactWindow {
+  contactId: string
+  popup: Window
+}
+
+export default function ContactEditDialog({ contact: listContact, inline = false, open, onClose, onSaved }: ContactEditDialogProps) {
+  const dataStore = useOptionalDataStore()
+  const [discardOpen, setDiscardOpen] = useState(false)
+  const [relatedWindow, setRelatedWindow] = useState<RelatedContactWindow | null>(null)
   const [contact, setContact] = useState<KRContactRecord>(listContact)
   const [draft, setDraft] = useState<KRContactDraft>(() => draftFromContact(listContact))
   const [detailsLoading, setDetailsLoading] = useState(false)
@@ -157,6 +181,66 @@ export default function ContactEditDialog({ contact: listContact, open, onClose,
   const clientNumberChanged = (draft.clientNumber?.trim() ?? '') !== (contact.clientNumber?.trim() ?? '')
   const isSelf = Boolean(contact.isCurrentUser)
   const loginEmailChanged = Boolean(contact.linkedUserId && draft.email.trim().toLowerCase() !== (contact.email ?? '').trim().toLowerCase())
+
+  /** Close, outside click or Escape: with changes, ask first ("Discard changes?"). */
+  const requestClose = useCallback((): void => {
+    if (savingContact) return
+    if (unchanged) onClose()
+    else setDiscardOpen(true)
+  }, [onClose, savingContact, unchanged])
+
+  // Escape asks to close, as the other dialogs do.
+  useEffect(() => {
+    if (!open || typeof window === 'undefined') return undefined
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape' && !discardOpen && !emailConfirmOpen) requestClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [discardOpen, emailConfirmOpen, open, requestClose])
+
+  /**
+   * Opens a related contact in a pop-out window. The window is opened here, in the click, or the browser blocks it.
+   * A second request replaces the first window.
+   */
+  function openRelatedWindow(contactId: string): void {
+    if (!dataStore?.contacts.some((candidate) => candidate.id === contactId)) {
+      L(`[CONTACT_EDIT:205] related contact not in the list contactId=${contactId}`)
+      return
+    }
+    if (relatedWindow && !relatedWindow.popup.closed) {
+      setRelatedWindow({ ...relatedWindow, contactId })
+      relatedWindow.popup.focus()
+      return
+    }
+    const popup = openPopoutBrowserWindow(0)
+    if (popup) setRelatedWindow({ contactId, popup })
+  }
+
+  // The related contact's window closes with this screen (only then: switching View to Edit keeps the window).
+  const relatedPopupRef = useRef<Window | null>(null)
+  relatedPopupRef.current = relatedWindow?.popup ?? null
+  useEffect(() => {
+    return () => {
+      const popup = relatedPopupRef.current
+      if (popup && !popup.closed) popup.close()
+    }
+  }, [])
+
+  /** A contact saved in the related window goes into the data store without its SSN and date of birth. */
+  async function keepRelatedSaved(saved: KRContactRecord): Promise<void> {
+    await dataStore?.upsertContact({ ...saved, ssn: null, dob: null, detailsLoaded: false })
+  }
+
+  const relatedContact = relatedWindow ? (dataStore?.contacts.find((candidate) => candidate.id === relatedWindow.contactId) ?? null) : null
+  let relatedWindowContent: ReactNode = null
+  if (relatedWindow && relatedContact) {
+    relatedWindowContent = (
+      <PopOutBrowserWindow popupWindow={relatedWindow.popup} title={`Edit ${relatedContact.displayName}`} onClose={() => setRelatedWindow(null)}>
+        <ContactEditDialog key={relatedContact.id} inline open contact={relatedContact} onClose={() => relatedWindow.popup.close()} onSaved={keepRelatedSaved} />
+      </PopOutBrowserWindow>
+    )
+  }
 
   // Opening: load the full contact (with SSN, date of birth and related contacts).
   useEffect(() => {
@@ -370,19 +454,19 @@ export default function ContactEditDialog({ contact: listContact, open, onClose,
     }
   }
 
-  if (!open || typeof document === 'undefined') return null
+  if (!open || typeof document === 'undefined') return relatedWindowContent
 
-  return (
-    <>
-      {createPortal(
+  const dialog = (
         <div
-          className={`${LAYOUT_STYLES.backdrop} ${STYLES.backdrop}`}
+          className={inline ? `${LAYOUT_STYLES.backdropInline} ${STYLES.backdropInline}` : `${LAYOUT_STYLES.backdrop} ${STYLES.backdrop}`}
           data-kr-theme-scope="krhomebase"
           role="presentation"
           onMouseDown={(event) => {
-            if (savingContact) return
+            if (savingContact || inline) return
             const target = event.target
-            if (unchanged && target instanceof Node && !dialogRef.current?.contains(target)) onClose()
+            // Only a press on the backdrop's own page elements; a press in a portal (the hover card) is not outside.
+            if (!(target instanceof Node) || !event.currentTarget.contains(target)) return
+            if (!dialogRef.current?.contains(target)) requestClose()
           }}
         >
           <div className={LAYOUT_STYLES.viewport}>
@@ -390,7 +474,7 @@ export default function ContactEditDialog({ contact: listContact, open, onClose,
               aria-busy={savingContact}
               aria-label={`Edit contact ${contact.displayName}`}
               aria-modal="true"
-              className={`${LAYOUT_STYLES.dialog} ${STYLES.dialog}`}
+              className={inline ? `${LAYOUT_STYLES.dialogInline} ${STYLES.dialogInline}` : `${LAYOUT_STYLES.dialog} ${STYLES.dialog}`}
               data-kr-id="ContactDetailEditDialog"
               ref={dialogRef}
               role="dialog"
@@ -413,19 +497,42 @@ export default function ContactEditDialog({ contact: listContact, open, onClose,
                   savingContact={savingContact}
                   saveState={savingContact ? 'Saving' : detailsLoading || contact.detailsLoaded !== true || unchanged ? 'Disabled' : 'Can Save'}
                   onCheckClientNumberAvailability={checkClientNumberAvailability}
-                  onClose={() => {
-                    if (!savingContact) onClose()
-                  }}
+                  onClose={requestClose}
                   onDraftChange={setDraft}
+                  onEditRelatedContact={openRelatedWindow}
+                  plain={inline}
                   onSave={() => void save()}
                 />
               )}
               <SaveDialog contained label={savePhase === 'saved' ? 'Contact saved' : 'Saving contact'} message={savePhase === 'saved' ? 'Contact saved.' : 'Saving contact...'} open={savingContact} />
             </section>
           </div>
-        </div>,
-        document.body,
-      )}
+        </div>
+  )
+
+  return (
+    <>
+      {inline ? dialog : createPortal(dialog, document.body)}
+      {relatedWindowContent}
+      {discardOpen
+        ? createPortal(
+            <div data-kr-theme-scope="krhomebase">
+              <U6ConfirmationDialog
+                confirmLabel="Discard changes"
+                description="This contact has changes that are not saved. Close the editor and lose them?"
+                open
+                title="Discard changes?"
+                onCancel={() => setDiscardOpen(false)}
+                onConfirm={() => {
+                  setDiscardOpen(false)
+                  setDraft(draftFromContact(contact))
+                  onClose()
+                }}
+              />
+            </div>,
+            inline ? (dialogRef.current?.ownerDocument.body ?? document.body) : document.body,
+          )
+        : null}
       {emailConfirmOpen
         ? createPortal(
             <div data-kr-theme-scope="krhomebase">

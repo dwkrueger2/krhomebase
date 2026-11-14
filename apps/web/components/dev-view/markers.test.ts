@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest'
 import {
   findMarkedAncestor,
   isDialogMarker,
+  isDialogScopeElement,
   isElementMarker,
   isIdMarker,
   isLedgerMarker,
@@ -47,6 +48,20 @@ describe('marker families', () => {
     expect(isLedgerMarker('data-kr-element', 'time-and-fees-ledger')).toBe(false)
     expect(isDialogMarker('data-kr-element', 'theme-save-dialog-backdrop')).toBe(true)
     expect(isDialogMarker('data-kr-action', 'open-dialog')).toBe(false)
+    // Nov 13, 2026: "dialog" anywhere, in any case, so ContactDetailEditDialog matches too.
+    expect(isDialogMarker('data-kr-id', 'ContactDetailEditDialog')).toBe(true)
+    expect(isDialogMarker('data-kr-id', 'ContactEditCard-Dialog-KRModuleCard')).toBe(true)
+  })
+
+  it('counts an open dialog, its backdrop and its direct children as a Focus area', () => {
+    const backdrop = fakeElement({ 'data-kr-theme-scope': 'krhomebase' })
+    const dialog = fakeElement({ role: 'dialog', 'data-kr-id': 'ContactDetailEditDialog' }, backdrop)
+    const card = fakeElement({ 'data-kr-id': 'ContactEditCard-Dialog-KRModuleCard' }, dialog)
+    const deep = fakeElement({ 'data-kr-element': 'contact-save' }, card)
+    const backdrops = new Set([backdrop])
+    expect([dialog, card, backdrop].map((element) => isDialogScopeElement(element, backdrops))).toEqual([true, true, true])
+    expect(isDialogScopeElement(deep, backdrops)).toBe(false)
+    expect(isDialogScopeElement(fakeElement({ 'aria-modal': 'true' }), new Set())).toBe(true)
   })
 
   it('turns a key into a label and back', () => {

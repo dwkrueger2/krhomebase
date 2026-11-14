@@ -7,13 +7,27 @@
  *
  * Ported Nov 9, 2026 (plan stage 1d-3) from the old `hb-components/modules/contacts/components/ContactEditCard.client.tsx`. Unchanged apart from import paths and a few `!`
  * marks for this repository's stricter type check.
+ *
+ * Changed Nov 13, 2026 (the requester), the area under Notes only; the input layout is unchanged:
+ *  - Current matters is a short informational list (one line each, 11px, scrolls after four) beside Related
+ *    contacts, which takes the wider column.
+ *  - Related contacts are 20px chips (name, then the remove button with the Close icon) in rows that scroll after
+ *    three, so 5 to 10 related people fit; the search sits on the heading line.
+ *  - A related contact chip is "name [pop out] | x" (the requester, Nov 13, 2026): the pop-out button asks the
+ *    parent (`onEditRelatedContact`) to open that contact's editor in a pop-out browser window. The name is not a
+ *    button; hovering it shows the contact card, whose copy buttons still work; the card has no View or Edit. The old
+ *    name button and View / Edit opened a new tab with `?contactId=`, an address the new shell does not read.
+ *  - The hover card stops its mouse presses from reaching the dialog: it is drawn into `document.body`, but React
+ *    passes its events up the component tree to the dialog's "click outside closes" handler, which closed the editor
+ *    on a click in the card (the requester's report, Nov 13, 2026).
+ *  - The card's marker is `data-kr-id="ContactEditCard-Dialog-KRModuleCard"` (was `data-kr-component`).
  */
 
 import { createPortal } from 'react-dom'
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { KRModuleCard } from '@/components/ui/KRModuleCard.client'
 import SaveButton, { type SaveButtonState } from '@/components/ui/SaveButton.client'
-import KRHomebaseIcon from '@/components/ui/KRHomebaseIcon.client'
+import KRHomebaseIcon, { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import type { KRContactDraft, KRContactRecord, KRRelatedContact } from '../types'
 import { normalizePhoneNumber } from '../contactValidators'
 import {
@@ -51,11 +65,14 @@ const LAYOUT_STYLES = {
     'p-1.5 gap-1.5 grid min-w-0 grid-cols-2 max-[640px]:grid-cols-1',
   phoneNumberCell: 'gap-1 grid min-w-0',
   phoneNumberControl: 'gap-1.5 grid min-w-0 grid-cols-[92px_minmax(0,1fr)] items-center',
-  relatedRecords: 'gap-1.5 grid min-w-0 grid-cols-[repeat(auto-fit,minmax(180px,1fr))]',
-  relatedSectionHeading: 'gap-1 flex items-center justify-between',
-  feedList: 'gap-1 grid',
-  relatedContactCards: 'gap-1 flex flex-wrap items-center',
+  // Under Notes: matters (informational, narrow) beside related contacts (wide); one column on a phone.
+  relatedRecords: 'pt-[4px] gap-x-[10px] gap-y-[4px] grid min-w-0 grid-cols-[minmax(150px,0.7fr)_minmax(0,1.6fr)] items-start border-t max-[640px]:grid-cols-1',
+  relatedSectionHeading: 'mb-[2px] gap-[6px] flex min-h-[22px] items-center justify-between',
+  feedList: 'pr-[2px] gap-[1px] grid max-h-[64px] overflow-y-auto',
+  feedItem: 'gap-x-[4px] flex min-w-0 items-baseline whitespace-nowrap',
+  relatedContactCards: 'pr-[2px] gap-[3px] flex max-h-[68px] flex-wrap content-start items-center overflow-y-auto',
   relatedContactCard: 'inline-flex items-stretch',
+  relatedRemoveIcon: 'size-[10px]',
   relatedContactHoverCard: 'fixed z-[10000] min-w-[300px] max-w-[calc(100vw-16px)]',
   relatedLoading: 'gap-1.5 inline-flex items-center',
   buttonRow: 'gap-1.5 flex flex-wrap items-center justify-end',
@@ -86,11 +103,16 @@ const STYLES = {
   statusLine: 'm-0 text-[11px] leading-[1.35] text-[var(--kr-theme-text-muted,#5a6775)]',
   statusError: 'm-0 text-[11px] leading-[1.35] text-[var(--kr-theme-danger,#9d2c20)]',
   cardTitle: 'm-0 text-[13px] font-extrabold leading-[1.2] text-[var(--kr-theme-text,#243142)]',
-  feedItem:
-    'gap-0.5 grid rounded-[2px] border border-[var(--kr-theme-line,#d7dee5)] bg-[var(--kr-theme-muted-surface,#eef3f7)] px-[6px] py-[5px] text-[12px] text-[var(--kr-theme-text,#243142)]',
-  relatedContactCard: 'inline-flex overflow-hidden rounded-[2px] border border-[var(--kr-theme-line,#d7dee5)] bg-[var(--kr-theme-muted-surface,#eef3f7)] text-[12px] text-[var(--kr-theme-text,#243142)] shadow-[0_1px_2px_rgba(0,30,58,0.08)]',
-  relatedContactNameButton: 'min-h-[26px] max-w-[240px] cursor-pointer truncate px-[7px] py-[4px] text-left font-semibold outline-none hover:bg-[var(--kr-theme-card-surface,#fff)] focus-visible:bg-[var(--kr-theme-card-surface,#fff)]',
-  relatedContactRemoveButton: 'min-h-[26px] min-w-[26px] cursor-pointer border-l border-[var(--kr-theme-line,#d7dee5)] px-[6px] py-[4px] font-black leading-none hover:bg-[var(--kr-theme-danger,#9d2c20)] hover:text-[var(--kr-theme-text-inverse,#fff)] focus-visible:bg-[var(--kr-theme-danger,#9d2c20)] focus-visible:text-[var(--kr-theme-text-inverse,#fff)] disabled:cursor-not-allowed disabled:opacity-[0.56]',
+  relatedRule: 'border-[var(--kr-theme-line,#d7dee5)]',
+  // The small headings under Notes (informational, below the 13px card titles).
+  relatedTitle: 'm-0 text-[11px] font-[850] uppercase tracking-[0.05em] text-[var(--kr-theme-text-muted,#5a6775)]',
+  feedItem: 'text-[11px] leading-[1.3] text-[var(--kr-theme-text,#243142)]',
+  feedItemNumber: 'font-[800] tabular-nums text-[var(--kr-theme-accent2,#0066cc)]',
+  feedItemMeta: 'min-w-0 truncate text-[var(--kr-theme-text-muted,#5a6775)]',
+  relatedContactCard: 'inline-flex overflow-hidden rounded-[3px] border border-[var(--kr-theme-line,#d7dee5)] bg-[var(--kr-theme-muted-surface,#eef3f7)] text-[11.5px] leading-tight text-[var(--kr-theme-text,#243142)]',
+  relatedContactName: 'inline-flex min-h-[20px] max-w-[220px] items-center truncate px-[6px] py-[1px] text-[11.5px] font-semibold',
+  relatedContactPopOutButton: 'grid min-h-[20px] w-[20px] cursor-pointer place-items-center border-0 bg-transparent p-0 text-[var(--kr-theme-accent-dark,#004c7f)] hover:bg-[var(--kr-theme-card-surface,#fff)] focus-visible:bg-[var(--kr-theme-card-surface,#fff)]',
+  relatedContactRemoveButton: 'grid min-h-[20px] w-[20px] cursor-pointer place-items-center border-0 border-l border-[var(--kr-theme-line,#d7dee5)] bg-transparent p-0 text-inherit hover:bg-[var(--kr-theme-danger,#9d2c20)] hover:text-[var(--kr-theme-text-inverse,#fff)] focus-visible:bg-[var(--kr-theme-danger,#9d2c20)] focus-visible:text-[var(--kr-theme-text-inverse,#fff)] disabled:cursor-not-allowed disabled:opacity-[0.56]',
   relatedContactHoverCard: 'rounded-[3px] border border-[var(--kr-theme-line,#d7dee5)] bg-[var(--kr-theme-card-surface,#fff)] p-2 text-[12px] text-[var(--kr-theme-text,#243142)] shadow-[0_8px_22px_rgba(0,30,58,0.22)]',
   relatedLoadingSpinner: 'h-3 w-3 animate-spin rounded-full border-2 border-[var(--kr-theme-line,#d7dee5)] border-t-[var(--kr-theme-brand-primary-active,#0a4f9c)]',
   clientNumberAvailable:
@@ -167,6 +189,10 @@ export interface ContactEditCardProps {
   onSave: () => void | Promise<void>
   saveState?: SaveButtonState
   errorMessage?: string
+  /** Opens a related contact's own editor (a pop-out window, from `ContactEditDialog`). */
+  onEditRelatedContact?: (contactId: string) => void
+  /** No card border: the editor fills a pop-out window. */
+  plain?: boolean
 }
 
 export default function ContactEditCard({
@@ -187,6 +213,8 @@ export default function ContactEditCard({
   onSave,
   saveState = 'Disabled',
   errorMessage = '',
+  onEditRelatedContact,
+  plain = false,
 }: ContactEditCardProps) {
   const [phoneError, setPhoneError] = useState<string | null>(null)
   const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumberFieldValue[]>(() =>
@@ -215,8 +243,9 @@ export default function ContactEditCard({
   // @formatter:off
   return (
     <KRModuleCard
-      component="ContactEditCard"
-      krId="contact-edit-dialog-card"
+      // The card's name is a data-kr-id (the requester, Nov 13, 2026: Dev View lists ids, and "dialog" finds it).
+      krId="ContactEditCard-Dialog"
+      plain={plain}
       title="Edit contact"
       note="Make Changes to the Contact then hit save."
       // className={STYLES.card}
@@ -389,12 +418,13 @@ export default function ContactEditCard({
         </label>
       </section>
       {/* Related records remain visible while contact editing is expanded. */}
-      <div className={LAYOUT_STYLES.relatedRecords} data-kr-element="contact-related-records">
+      <div className={`${LAYOUT_STYLES.relatedRecords} ${STYLES.relatedRule}`} data-kr-element="contact-related-records">
         <ClientEditCardCurrentMatters contact={contact} />
         <ClientEditCardRelatedContacts
           contact={contact}
           draft={draft}
           onDraftChange={onDraftChange}
+          onEditRelatedContact={onEditRelatedContact}
           savingContact={savingContact}
           relatedContactsLoading={relatedContactsLoading}
           relatedContactsError={relatedContactsError}
@@ -519,24 +549,22 @@ function ClientEditCardCurrentMatters({ contact }: ClientEditCardCurrentMattersP
       : contact.relatedMatters
 
   return (
-    <div>
+    <div className="min-w-0" data-kr-element="contact-edit-current-matters">
       <div className={LAYOUT_STYLES.relatedSectionHeading}>
-        <h4 className={STYLES.cardTitle}>Current matters</h4>
+        <h4 className={STYLES.relatedTitle}>Current matters</h4>
       </div>
       <div className={LAYOUT_STYLES.feedList}>
         {currentMatters.length ? (
           currentMatters.map((matter) => (
-            <article className={STYLES.feedItem} key={matter.id}>
-              <strong>
-                {matter.matterNumber} · {matter.role}
-              </strong>
-              <p>
+            <p className={`m-0 ${LAYOUT_STYLES.feedItem} ${STYLES.feedItem}`} key={matter.id} title={`${matter.matterNumber} · ${matter.title} · ${matter.role} · ${matter.status}`}>
+              <span className={STYLES.feedItemNumber}>{matter.matterNumber}</span>
+              <span className={STYLES.feedItemMeta}>
                 {matter.title} · {matter.status}
-              </p>
-            </article>
+              </span>
+            </p>
           ))
         ) : (
-          <p className={STYLES.statusLine}>No related matters found in the current fixture.</p>
+          <p className={STYLES.statusLine}>No matters.</p>
         )}
       </div>
     </div>
@@ -546,6 +574,7 @@ interface ClientEditCardRelatedContactsProps {
   contact: KRContactRecord
   draft: KRContactDraft
   onDraftChange: (draft: KRContactDraft) => void
+  onEditRelatedContact?: (contactId: string) => void
   savingContact?: boolean
   relatedContactsLoading?: boolean
   relatedContactsError?: string
@@ -598,7 +627,7 @@ function relatedContactHoverRow(related: KRRelatedContact, directoryContact?: KR
   }
 }
 
-function ClientEditCardRelatedContacts({ contact, draft, onDraftChange, savingContact = false, relatedContactsLoading = false, relatedContactsError = '' }: ClientEditCardRelatedContactsProps) {
+function ClientEditCardRelatedContacts({ contact, draft, onDraftChange, onEditRelatedContact, savingContact = false, relatedContactsLoading = false, relatedContactsError = '' }: ClientEditCardRelatedContactsProps) {
   const dataStore = useOptionalDataStore()
   const [selectedDirectory, setSelectedDirectory] = useState<Record<string, KRRelatedContact>>({})
   const [hoverState, setHoverState] = useState<RelatedContactHoverState | null>(null)
@@ -629,14 +658,10 @@ function ClientEditCardRelatedContacts({ contact, draft, onDraftChange, savingCo
     setHoverState({ row: relatedContactHoverRow(related, directoryContact), left, top })
   }
 
-  function openRelatedContact(id: string, edit = false): void {
-    if (typeof window === 'undefined') return
-    const url = new URL(window.location.href)
-    url.searchParams.set('section', 'contacts')
-    url.searchParams.set('contactId', id)
-    if (edit) url.searchParams.set('edit', '1')
-    else url.searchParams.delete('edit')
-    window.open(url.toString(), '_blank', 'noopener,noreferrer')
+  /** The pop-out button: the parent opens the contact's editor in a pop-out window. */
+  function popOutRelatedContact(id: string): void {
+    setHoverState(null)
+    onEditRelatedContact?.(id)
   }
 
   useEffect(() => () => clearHoverTimer(), [])
@@ -646,9 +671,9 @@ function ClientEditCardRelatedContacts({ contact, draft, onDraftChange, savingCo
     onDraftChange({ ...draft, relatedContactIds: selectedIds.filter((selectedId) => selectedId !== id) })
   }
   return (
-    <div>
+    <div className="min-w-0" data-kr-element="contact-edit-related-contacts">
       <div className={LAYOUT_STYLES.relatedSectionHeading}>
-        <h4 className={STYLES.cardTitle}>Related contacts</h4>
+        <h4 className={STYLES.relatedTitle}>Related contacts{relatedContacts.length ? ` (${relatedContacts.length})` : ''}</h4>
         <IndividualSearch
           disabled={savingContact || relatedContactsLoading}
           excludeIds={[contact.id, ...selectedIds]}
@@ -664,7 +689,7 @@ function ClientEditCardRelatedContacts({ contact, draft, onDraftChange, savingCo
         {relatedContactsLoading ? (
           <p className={`${STYLES.statusLine} ${LAYOUT_STYLES.relatedLoading}`} role="status">
             <span aria-hidden="true" className={STYLES.relatedLoadingSpinner} />
-            Loading related contacts…
+            Loading related contacts...
           </p>
         ) : relatedContactsError ? (
           <p className={STYLES.statusError} role="alert">{relatedContactsError}</p>
@@ -677,14 +702,21 @@ function ClientEditCardRelatedContacts({ contact, draft, onDraftChange, savingCo
               onMouseEnter={(event) => showHover(related, event)}
               onMouseLeave={scheduleHoverClear}
             >
-              <button
-                aria-label={`View ${related.displayName}`}
-                className={STYLES.relatedContactNameButton}
-                type="button"
-                onClick={() => openRelatedContact(related.id)}
-              >
+              <span className={STYLES.relatedContactName} title={related.displayName}>
                 {related.displayName}
-              </button>
+              </span>
+              {onEditRelatedContact ? (
+                <button
+                  aria-label={`Pop out ${related.displayName} to edit in its own window`}
+                  className={STYLES.relatedContactPopOutButton}
+                  data-kr-element="related-contact-pop-out"
+                  title="Pop out: edit this contact in its own window"
+                  type="button"
+                  onClick={() => popOutRelatedContact(related.id)}
+                >
+                  <KRHomebaseIcons.ExternalLink className={LAYOUT_STYLES.relatedRemoveIcon} />
+                </button>
+              ) : null}
               <button
                 aria-label={`Remove ${related.displayName} from related contacts`}
                 className={STYLES.relatedContactRemoveButton}
@@ -692,7 +724,7 @@ function ClientEditCardRelatedContacts({ contact, draft, onDraftChange, savingCo
                 type="button"
                 onClick={() => removeRelatedContact(related.id)}
               >
-                ×
+                <KRHomebaseIcons.Close className={LAYOUT_STYLES.relatedRemoveIcon} />
               </button>
             </div>
           ))
@@ -707,13 +739,12 @@ function ClientEditCardRelatedContacts({ contact, draft, onDraftChange, savingCo
           style={{ left: hoverState.left, top: hoverState.top }}
           onMouseEnter={clearHoverTimer}
           onMouseLeave={scheduleHoverClear}
+          // Drawn into the body, but React still passes its events up to the dialog: keep presses here.
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
         >
           <div className={STYLES.relatedContactHoverCard}>
-            <ContactLedgerRowHoverCard
-              row={hoverState.row}
-              onSelectContact={(row) => openRelatedContact(row.id)}
-              onEditContact={(row) => openRelatedContact(row.id, true)}
-            />
+            <ContactLedgerRowHoverCard row={hoverState.row} />
           </div>
         </div>,
         document.body,

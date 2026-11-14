@@ -18,9 +18,11 @@
  *    birth.
  *  - Danger Zone (stage 1d-4): super admins get the maintenance tab; after a resolution the contact closes and the
  *    data store refreshes.
+ *  - WorkStream (plan 10, stage 4): `app/page.tsx` passes the signed-in `viewer`, handed to the WorkStream tab.
  */
 
 import { useEffect, useState } from 'react'
+import type { CommunicationsViewer } from '@/features/communications/communicationTypes'
 import { useOpenItem, useShellNavigation } from '@/components/shell/shellNavigation'
 import KRCloseCardButton from '@/components/ui/KRCloseCardButton.client'
 import { useOptionalDataStore } from '../DataStoreProvider.client'
@@ -39,7 +41,8 @@ const STYLES = {
   note: 'rounded-[2px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) text-[length:var(--kr-theme-font-size-base)] text-(color:--kr-theme-text-muted) shadow-[0_1px_2px_rgba(27,35,48,0.08)]',
 } as const
 
-export default function ContactDetailPanel() {
+/** @param props.viewer - The signed-in person (`app/page.tsx`), for the WorkStream tab. */
+export default function ContactDetailPanel({ viewer = null }: { viewer?: CommunicationsViewer | null } = {}) {
   const scope = useOpenItem()
   const navigation = useShellNavigation()
   const dataStore = useOptionalDataStore()
@@ -88,6 +91,7 @@ export default function ContactDetailPanel() {
       <ContactDetailWorkspace
         canMaintain={capabilities.canMaintain}
         contact={contact}
+        viewer={viewer}
         onClose={close}
         onEdit={canEdit ? () => setEditOpen(true) : undefined}
         onResolved={() => {

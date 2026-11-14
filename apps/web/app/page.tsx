@@ -127,11 +127,15 @@ export default async function HomePage() {
   const user = { displayName: session.displayName, firmName: session.firmName, avatarInitials: session.avatarInitials }
   const [outsideTools, preferences, firmThemes] = await Promise.all([fetchToolMenu(), fetchUserPreferences(), fetchFirmThemes()])
   const isSuperAdmin = session.role === 'super_admin'
+  // The signed-in person for the Workstream, Leads, Tasks and Front End Publishing screens and an open client's WorkStream tab.
+  const viewer = { userId: session.userId, displayName: session.displayName, email: session.email, role: session.role }
   const panels: Record<BuiltInSectionId, ReactNode> = {
     ...PANELS,
-    leads: <LeadsPanel viewer={{ userId: session.userId, displayName: session.displayName, email: session.email, role: session.role }} />,
-    communications: <CommunicationsPanel viewer={{ userId: session.userId, displayName: session.displayName, email: session.email, role: session.role }} />,
-    settings: <SettingsPanel isSuperAdmin={isSuperAdmin} />,
+    leads: <LeadsPanel viewer={viewer} />,
+    communications: <CommunicationsPanel viewer={viewer} />,
+    tasks: <TasksPanel viewer={viewer} />,
+    'front-end-publishing': <FrontEndPublishingPanel viewer={viewer} />,
+    settings:<SettingsPanel isSuperAdmin={isSuperAdmin} />,
     'application-settings': (
       <ApplicationSettingsPanel
         isSuperAdmin={isSuperAdmin}
@@ -187,7 +191,7 @@ export default async function HomePage() {
         versionLabel={VERSION_LABEL}
         topBarSearch={<ApplicationSearch />}
         topBarStatus={<DataSyncIndicator />}
-        openItemPanels={{ contacts: <ContactDetailPanel />, billing: <BillingClientPanel /> }}
+        openItemPanels={{ contacts: <ContactDetailPanel viewer={viewer} />, billing: <BillingClientPanel /> }}
         storageScope={session.userId}
       />
       </PreferencesProvider>

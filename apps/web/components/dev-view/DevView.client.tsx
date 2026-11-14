@@ -28,6 +28,7 @@
  */
 
 import { type MouseEvent, useEffect, useMemo, useRef, useState } from 'react'
+import DevViewPanelWindow, { openDevViewPanelWindow } from './DevViewPanelWindow.client'
 import { CORNER_LAYOUT_STYLES, DEFAULT_DEV_VIEW_CORNER, readStoredCorner, storeCorner, type DevViewCorner } from './corner'
 import DevOverlay, { type DevOverlayData } from './DevOverlay.client'
 import DevPickHighlight from './DevPickHighlight.client'
@@ -92,6 +93,8 @@ export interface DevViewProps {
 export default function DevView({ targetWindow }: DevViewProps = {}) {
   const [enabled, setEnabled] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)
+  /** The panel's own browser window (the requester, Nov 13, 2026); null when blocked or closed (the page panel is used). */
+  const [panelWindow, setPanelWindow] = useState<Window | null>(null)
   const [corner, setCorner] = useState<DevViewCorner>(DEFAULT_DEV_VIEW_CORNER)
   const [picking, setPicking] = useState(false)
   const [entries, setEntries] = useState<MarkerEntry[]>([])
@@ -224,13 +227,35 @@ export default function DevView({ targetWindow }: DevViewProps = {}) {
     })
   }, [entries, selectedKeys, targetWindow])
 
+  /**
+   * The Dev View button. Off: switch on and open the panel in its own window (opened here, in the click, or the
+   * browser blocks it; when it is blocked the panel draws in the page as before). On with the panel closed: open the
+   * panel again. On with the panel open: switch everything off and close the panel window.
+   */
   function toggleEnabled(): void {
-    setEnabled((current) => {
-      const next = !current
-      setPanelOpen(next)
-      if (!next) setPicking(false)
-      return next
-    })
+    if (enabled && !panelOpen) {
+      setPanelWindow(openDevViewPanelWindow(currentWindow()))
+      setPanelOpen(true)
+      return
+    }
+    const next = !enabled
+    if (next) setPanelWindow(openDevViewPanelWindow(currentWindow()))
+    else closePanelWindow()
+    setEnabled(next)
+    setPanelOpen(next)
+    if (!next) setPicking(false)
+  }
+
+  /** Closes the panel's own window, if it is open. */
+  function closePanelWindow(): void {
+    if (panelWindow && !panelWindow.closed) panelWindow.close()
+    setPanelWindow(null)
+  }
+
+  /** Enter in the search field: the overlays become exactly the markers the search lists. */
+  function showOnlySearchResults(): void {
+    resetOverlayContext()
+    setSelectedKeys(new Set(visibleEntries.map((entry) => entry.key)))
   }
 
   function changeCorner(next: DevViewCorner): void {
@@ -584,7 +609,48 @@ export default function DevView({ targetWindow }: DevViewProps = {}) {
 
       {/* Control panel */}
       {panelOpen ? (
-        <DevViewPanel
+        panelWindow ? (
+          <DevViewPanelWindow
+            inspected={currentWindow()}
+            panelWindow={panelWindow}
+            onClose={() => {
+              setPanelWindow(null)
+              setPanelOpen(false)
+              setPicking(false)
+            }}
+          >
+            <DevViewPanel
+              detached
+              activeFilters={activeFilters}
+              copiedKey={copiedKey}
+              corner={corner}
+              hoveredMetadata={hoveredMetadata}
+              pickedCount={pickedElements.length}
+              picking={picking}
+              search={search}
+              selectedKeys={selectedKeys}
+              sortMode={sortMode}
+              totalCount={entries.length}
+              visibleEntries={visibleEntries}
+              onClearVisible={clearVisibleMarkers}
+              onClose={() => { closePanelWindow(); setPanelOpen(false); setPicking(false) }}
+              onCopy={(label, key) => { void copyMarker(label, key) }}
+              onCornerChange={changeCorner}
+              onFilterClick={handleFilterButtonClick}
+              onMarkerHover={handleMarkerHover}
+              onMarkerLeave={(key) => setHoveredMetadata((current) => current?.key === key ? null : current)}
+              onSearchChange={setSearch}
+              onSearchSubmit={showOnlySearchResults}
+              onSelectVisible={selectVisibleMarkers}
+              onSortChange={setSortMode}
+              onToggleBordered={toggleBorderedMode}
+              onToggleMarker={toggleMarker}
+              onTogglePicking={() => setPicking((current) => !current)}
+            />
+          </DevViewPanelWindow>
+        ) : (
+          // The browser blocked the window: the panel draws in a corner of the page, as before.
+          <DevViewPanel
           activeFilters={activeFilters}
           copiedKey={copiedKey}
           corner={corner}
@@ -597,19 +663,21 @@ export default function DevView({ targetWindow }: DevViewProps = {}) {
           totalCount={entries.length}
           visibleEntries={visibleEntries}
           onClearVisible={clearVisibleMarkers}
-          onClose={() => { setPanelOpen(false); setPicking(false) }}
+          onClose={() => { closePanelWindow(); setPanelOpen(false); setPicking(false) }}
           onCopy={(label, key) => { void copyMarker(label, key) }}
           onCornerChange={changeCorner}
           onFilterClick={handleFilterButtonClick}
           onMarkerHover={handleMarkerHover}
           onMarkerLeave={(key) => setHoveredMetadata((current) => current?.key === key ? null : current)}
           onSearchChange={setSearch}
+          onSearchSubmit={showOnlySearchResults}
           onSelectVisible={selectVisibleMarkers}
           onSortChange={setSortMode}
           onToggleBordered={toggleBorderedMode}
           onToggleMarker={toggleMarker}
           onTogglePicking={() => setPicking((current) => !current)}
         />
+        )
       ) : null}
 
       {/* Dev View button: switches the overlays and the panel on and off */}

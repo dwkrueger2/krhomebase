@@ -27,6 +27,7 @@ import { registerGpt } from './features/gpt/routes.ts'
 import { registerMatters } from './features/matters/routes.ts'
 import { registerWorkstream } from './features/workstream/routes.ts'
 import { registerLeads } from './features/leads/routes.ts'
+import { registerTasks } from './features/tasks/routes.ts'
 import { registerSiteFeedback } from './features/site-feedback/routes.ts'
 
 export const openApiInfo = {
@@ -86,6 +87,7 @@ export function createApp() {
   registerMatters(app)
   registerWorkstream(app)
   registerLeads(app)
+  registerTasks(app)
 
   app.doc31('/v1/openapi.json', openApiInfo)
 

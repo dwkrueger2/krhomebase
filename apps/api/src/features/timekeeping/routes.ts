@@ -158,11 +158,13 @@ function writeRoute(spec: WriteSpec) {
 
 const CLOCK_ERRORS = ['EMPLOYEE_NOT_ACTIVE', 'TIME_CARD_LOCKED', 'ATTENDANCE_STATE_CONFLICT', 'TIME_CARD_NOT_FOUND'] as const
 const CARD_ROWS = 'Writes pay_period and employee_time_card when missing'
+/** Change 10 in `rules.ts`: a closed pair's rounded hours are stored, and a gone pair's figure retired. */
+const PAIR_HOURS = "Writes employee_time_event (each pair's stored hours, time_type 'regular')"
 
 export const clockInRoute = writeRoute({
   method: 'post',
   path: '/v1/timekeeping/clock-in',
-  summary: 'Clock the signed-in person in now (rounded to the reporting increment). Refused while a shift is open. A repeated idempotency key returns the first punch.',
+  summary: 'Clock the signed-in person in now (the exact time; only hours are rounded). Refused while a shift is open. A repeated idempotency key returns the first punch.',
   errors: [...CLOCK_ERRORS, 'ALREADY_CLOCKED_IN'],
   sideEffects: ['Writes employee_time_punch', CARD_ROWS],
   body: ClockBody,
@@ -175,7 +177,7 @@ export const clockOutRoute = writeRoute({
   summary:
     "Clock the signed-in person out now. With no open shift: NO_OPEN_CLOCK_IN (details name an older open punch to repair). Last night's shift still open before 3 am: MISSED_CLOCK_OUT_REQUIRES_REVIEW, answered with the missed clock-out route.",
   errors: [...CLOCK_ERRORS, 'NO_OPEN_CLOCK_IN', 'MISSED_CLOCK_OUT_REQUIRES_REVIEW'],
-  sideEffects: ['Writes employee_time_punch'],
+  sideEffects: ['Writes employee_time_punch', PAIR_HOURS],
   body: ClockBody,
   data: ClockActionData,
 })
@@ -186,7 +188,7 @@ export const missedClockOutRoute = writeRoute({
   summary:
     "Close last night's open shift, before 3 am: `enter_time` saves the given clock-out on that date; `split_midnight` closes it at midnight, starts today at midnight and clocks out now (three punches, one save).",
   errors: [...CLOCK_ERRORS, 'NO_OPEN_CLOCK_IN', 'MISSED_CLOCK_OUT_REPAIR_REQUIRED', 'MISSED_CLOCK_OUT_TIME_REQUIRED', 'MISSED_CLOCK_OUT_MUST_USE_OPEN_WORK_DATE'],
-  sideEffects: ['Writes employee_time_punch', CARD_ROWS],
+  sideEffects: ['Writes employee_time_punch', CARD_ROWS, PAIR_HOURS],
   body: MissedClockOutBody,
   data: MissedClockOutData,
 })
@@ -197,7 +199,7 @@ export const savePunchRoute = writeRoute({
   summary:
     "Add a punch to an employee's time card, or replace one (the original is voided in the same save). The work date must be inside the edit window (from the work date through the employee's or manager's window; super admins are exempt). A manager's change clears the employee's approval.",
   errors: ['EMPLOYEE_NOT_FOUND', 'EMPLOYEE_NOT_ACTIVE', 'TIMEKEEPING_OCCURRED_AT_INVALID', 'CLOCK_EDIT_WINDOW_EXPIRED', 'TIME_CARD_EDIT_WINDOW_EXPIRED', 'TIME_CARD_LOCKED', 'PUNCH_NOT_FOUND', 'PUNCH_ALREADY_VOIDED'],
-  sideEffects: ['Writes employee_time_punch', CARD_ROWS, 'Clears employee approval on a manager change (employee_time_card)'],
+  sideEffects: ['Writes employee_time_punch', CARD_ROWS, PAIR_HOURS, 'Clears employee approval on a manager change (employee_time_card)'],
   body: SavePunchBody,
   data: SavePunchData,
 })
@@ -207,7 +209,7 @@ export const voidPunchRoute = writeRoute({
   path: '/v1/timekeeping/punches/{punchId}',
   summary: 'Void a punch (it stays on record, marked, and stops counting). Same window and lock rules as a change. A punch already voided answers alreadyVoided.',
   errors: ['EMPLOYEE_NOT_FOUND', 'EMPLOYEE_NOT_ACTIVE', 'PUNCH_NOT_FOUND', 'CLOCK_EDIT_WINDOW_EXPIRED', 'TIME_CARD_EDIT_WINDOW_EXPIRED', 'TIME_CARD_LOCKED'],
-  sideEffects: ['Writes employee_time_punch (voided_at)', 'Clears employee approval on a manager change (employee_time_card)'],
+  sideEffects: ['Writes employee_time_punch (voided_at)', PAIR_HOURS, 'Clears employee approval on a manager change (employee_time_card)'],
   params: PunchParams,
   data: VoidPunchData,
 })

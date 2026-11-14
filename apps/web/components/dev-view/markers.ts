@@ -82,8 +82,12 @@ const WORKSPACE_CANVAS_ELEMENT = 'application-main-content'
 /** Value fragment that marks a `data-kr-id` as a ledger region for the Dev View `-ledger` filter. */
 const LEDGER_MARKER_FRAGMENT = '-ledger'
 
-/** Value fragment that marks a `data-kr-id` or `data-kr-element` as a dialog region for the Dev View `-dialog` filter. */
-const DIALOG_MARKER_FRAGMENT = '-dialog'
+/**
+ * Value fragment that marks a `data-kr-id` or `data-kr-element` as a dialog region for the Dev View `-dialog` filter.
+ * Was `-dialog`; since Nov 13, 2026 (the requester) any value containing "dialog" in any case counts, so
+ * `ContactEditDialog` and `workstream-email-dialog` both match.
+ */
+const DIALOG_MARKER_FRAGMENT = 'dialog'
 
 /** Tailwind class groups used by the temporary b1-b4 border markers in Homebase components. */
 const BORDER_STYLE_CLASS_GROUPS: ReadonlyArray<readonly string[]> = [
@@ -120,7 +124,7 @@ export function isLedgerMarker(attribute: MarkerAttribute, value: string): boole
  * Identifies markers for the Dev View `-dialog` filter button.
  *
  * @param attribute - Marker attribute name; the `data-kr-id` and `data-kr-element` families qualify (suppressed markers excluded).
- * @param value - Marker value, matched case-insensitively against `-dialog` (e.g. `create-user-dialog`, `theme-save-dialog-backdrop`).
+ * @param value - Marker value, matched case-insensitively against `dialog` (e.g. `create-user-dialog`, `ContactEditDialog`).
  * @returns True when the marker is a dialog `data-kr-id` or `data-kr-element`.
  */
 export function isDialogMarker(attribute: MarkerAttribute, value: string): boolean {
@@ -254,8 +258,29 @@ function findWorkspaceCanvasElement<T extends MarkerElement>(elements: T[]): T |
   return elements.find(isWorkspaceCanvasElement) ?? null
 }
 
-function isWorkspaceScopeElement(element: MarkerElement, workspaceCanvas: MarkerElement | null): boolean {
-  return Boolean(workspaceCanvas && (element === workspaceCanvas || element.parentElement === workspaceCanvas))
+/** An open dialog's own element: `role="dialog"` or `aria-modal="true"`. */
+function isDialogRootElement(element: MarkerElement | null): boolean {
+  return Boolean(element && (element.getAttribute('role') === 'dialog' || element.getAttribute('aria-modal') === 'true'))
+}
+
+/**
+ * A dialog is a second Focus area (the requester, Nov 13, 2026): dialogs are drawn into `document.body`, outside the
+ * Workspace Canvas, so their markers were never Focus markers and the dialog had no overlay label. The dialog's own
+ * element, its backdrop (the dialog's parent) and the dialog's direct children now count, as the canvas and its
+ * direct children do.
+ */
+export function isDialogScopeElement(element: MarkerElement, dialogBackdrops: ReadonlySet<MarkerElement | null>): boolean {
+  return isDialogRootElement(element) || isDialogRootElement(element.parentElement) || dialogBackdrops.has(element)
+}
+
+/** The parents of the open dialogs on the page (their backdrops), for `isDialogScopeElement`. */
+function findDialogBackdrops<T extends MarkerElement>(elements: T[]): Set<MarkerElement | null> {
+  return new Set(elements.filter((element) => isDialogRootElement(element)).map((element) => element.parentElement))
+}
+
+function isWorkspaceScopeElement(element: MarkerElement, workspaceCanvas: MarkerElement | null, dialogBackdrops: ReadonlySet<MarkerElement | null> = new Set()): boolean {
+  if (workspaceCanvas && (element === workspaceCanvas || element.parentElement === workspaceCanvas)) return true
+  return isDialogScopeElement(element, dialogBackdrops)
 }
 
 function isFixedOverlayMarker(attribute: MarkerAttribute, value: string): boolean {
@@ -298,11 +323,12 @@ export function readMarkerEntries(doc: Document = document): MarkerEntry[] {
   const grouped = new Map<string, MarkerEntry>()
   const elements = pageElements(doc)
   const workspaceCanvas = findWorkspaceCanvasElement(elements)
+  const dialogBackdrops = findDialogBackdrops(elements)
   const borderedElements = new Set(elements.filter(isBorderedInspectionElement))
   const borderedOverlayTargets = findBorderedOverlayTargets(elements)
 
   for (const element of elements) {
-    const inWorkspaceScope = isWorkspaceScopeElement(element, workspaceCanvas)
+    const inWorkspaceScope = isWorkspaceScopeElement(element, workspaceCanvas, dialogBackdrops)
     const isBorderedElement = borderedElements.has(element)
     const markerAttributes = markerAttributesForElement(element, inWorkspaceScope || isBorderedElement)
 
@@ -350,7 +376,7 @@ export function markerKeyFromLabel(label: string): string | null {
 export function markerLabelsForElement(element: HTMLElement, fallback: MarkerEntry, selectedKeys: Set<string>): string[] {
   const elements = pageElements(element.ownerDocument)
   const workspaceCanvas = findWorkspaceCanvasElement(elements)
-  const includeAllDataKr = isWorkspaceScopeElement(element, workspaceCanvas) || (hasBorderedStyle(element) && allDataKrAttributesForElement(element).length > 0)
+  const includeAllDataKr = isWorkspaceScopeElement(element, workspaceCanvas, findDialogBackdrops(elements)) || (hasBorderedStyle(element) && allDataKrAttributesForElement(element).length > 0)
   const labels = markerAttributesForElement(element, includeAllDataKr)
     .map((attribute) => {
       const value = element.getAttribute(attribute)

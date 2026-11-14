@@ -3,7 +3,8 @@
 /**
  * Settings → User Settings → Preferences (Settings plan, stage 2): the person's theme, starting page and auto logout
  * time. It replaces the old "Personal Preferences" card (`modules/settings/user-settings/UserSettingsSection.client.tsx`;
- * reference `docs/API/Settings_AsIs_Reference.md` section 3.2, "Preference form").
+ * reference `docs/API/Settings_AsIs_Reference.md` section 3.2, "Preference form"). Below it: the WorkStream view card
+ * and, since plan 10 stage 5 (D20, Nov 13, 2026), the Task Settings card (`TaskPreferencesCard`), each saved at once.
  *
  * Kept from the old card: the three choices, the auto logout list (15 minutes, 30 minutes, 60 minutes, 2 hours,
  * 8 hours) and its default of 60, the Starting page default of Dashboard, and the "Undo changes" and "Save changes"
@@ -32,6 +33,7 @@ import { KRModuleCard } from '@/components/ui/KRModuleCard.client'
 import SaveButton from '@/components/ui/SaveButton.client'
 import { PreferencesApiError } from '@/features/preferences/api.client'
 import ThemePreferencesCard from '@/features/preferences/components/ThemePreferencesCard.client'
+import TaskPreferencesCard from './TaskPreferencesCard.client'
 import WorkstreamPreferencesCard from './WorkstreamPreferencesCard.client'
 import { usePreferences } from '@/features/preferences/PreferencesProvider.client'
 
@@ -218,6 +220,9 @@ export default function PreferencesPage() {
 
     {/* WorkStream view: the activity types WorkStream opens on (Nov 13, 2026) */}
     <WorkstreamPreferencesCard />
+
+    {/* Task Settings: assign new tasks to the creator by default (plan 10, stage 5, D20) */}
+    <TaskPreferencesCard />
 
     {/* Theme: firm theme, text size and own colors (stage 2b) */}
     <ThemePreferencesCard />

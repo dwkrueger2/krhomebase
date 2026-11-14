@@ -6,7 +6,8 @@
  *
  * Tabs, and when each gets its real screen:
  *  - Detail: `ContactDetailCard`, ported now (plan stage 1d-2).
- *  - WorkStream: the client's activity ledger. Holding card until Tasks and WorkStream are ported (phase D).
+ *  - WorkStream: the client's activity ledger, `ClientWorkstreamTab` from `features/communications` (plan 10, stage 4),
+ *    given the loaded matters and the signed-in `viewer`; a contact with no client account shows a holding card.
  *  - Projects & Matters: the client's matters, `ClientMattersCard` from `features/matters` (plan 10, stage 1). The
  *    workspace loads the matters once (`useClientMatters`) and shares them with the Detail tab's ASSOCIATED MATTERS
  *    box, as the old workspace did; a contact with no client account shows a holding card.
@@ -18,6 +19,8 @@
 
 import { useMemo, useState } from 'react'
 import MenuStyleOne, { type MenuStyleOneItem } from '@/components/ui/MenuStyleOne.client'
+import ClientWorkstreamTab from '@/features/communications/components/ClientWorkstreamTab.client'
+import type { CommunicationsViewer } from '@/features/communications/communicationTypes'
 import ClientMattersCard from '@/features/matters/components/ClientMattersCard.client'
 import { useClientMatters } from '@/features/matters/useClientMatters.client'
 import type { KRContactRecord } from '../types'
@@ -39,13 +42,15 @@ export interface ContactDetailWorkspaceProps {
   canMaintain?: boolean
   /** Called after a merge, copy-and-inactivate, delete or inactivate of this contact. */
   onResolved?: () => void
+  /** The signed-in person, for the WorkStream tab (default assignee, super admin's Delete entry). */
+  viewer?: CommunicationsViewer | null
 }
 
 const LAYOUT_STYLES = {
   workspace: 'w-full min-w-0 p-[8px]',
 } as const
 
-export default function ContactDetailWorkspace({ contact, onEdit, onClose, onOpenContact, onOpenBilling, canMaintain = false, onResolved }: ContactDetailWorkspaceProps) {
+export default function ContactDetailWorkspace({ contact, onEdit, onClose, onOpenContact, onOpenBilling, canMaintain = false, onResolved, viewer = null }: ContactDetailWorkspaceProps) {
   const [activeMenuItemId, setActiveMenuItemId] = useState('detail')
   const [requestedMatterId, setRequestedMatterId] = useState<string | null>(null)
   const clientMatters = useClientMatters(contact.isClient ? contact.clientId : null)
@@ -81,7 +86,18 @@ export default function ContactDetailWorkspace({ contact, onEdit, onClose, onOpe
     {
       id: 'workstream',
       label: 'WorkStream',
-      card: <ContactDetailPlaceholder title="WorkStream" description="Client-level history for work, communications, documents, notes, and tasks. It is connected when Tasks and WorkStream are ported." />,
+      card:
+        contact.isClient && contact.clientId ? (
+          <ClientWorkstreamTab
+            clientId={contact.clientId}
+            clientNumber={clientMatters.data?.clientNumber ?? contact.clientNumber}
+            displayName={contact.clientDisplayName || contact.displayName}
+            matters={clientMatters.data?.matters ?? []}
+            viewer={viewer}
+          />
+        ) : (
+          <ContactDetailPlaceholder title="WorkStream" description="This contact has no client account. WorkStream entries belong to a client (or a lead); make the contact a client to record them here." />
+        ),
     },
     {
       id: 'projects-matters',

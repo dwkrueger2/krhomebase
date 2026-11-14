@@ -44,9 +44,18 @@
  * `ShellPreferencesContext` (`shellPreferences.ts`), provided by `features/preferences` around the frame. The theme is
  * `data-kr-theme` on the frame and on `<html>` (dialogs drawn into the page body follow it); the starting section is
  * the first section when the address names none; `IdleLogoutMonitor` warns and then calls `onIdleLogout`.
+ *
+ * Back and Forward (report of Nov 13, 2026; rules in `shellHistory.ts`): moving to another screen (a section, an open
+ * item, or a page inside a section through `useSectionSubPage`) adds a browser history entry; the first draw, a
+ * default and a tidy-up replace the current one, so Back from the first screen leaves the app as from any page.
+ * A `popstate` listener shows the screen the entry names without adding an entry, and reopens an item closed since.
+ * A move asked for from a pop-out (its own `ShellNavigationContext`, or closing its window) never adds an entry, and
+ * closing the item on show replaces its entry with the parent row, so Back then goes to the screen before the item.
+ * Back or Forward away from an outside tool with unsaved work (or a Settings page with a draft, `useSectionSubPage`)
+ * first returns the browser to the page's entry and asks; Continue goes on, Cancel stays (`decideShellPopState`).
  */
 
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
 import type { ToolMenuItem } from '@krhomebase/contracts'
 import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
 import ApplicationPanels, { LEFT_PANEL_ELEMENT_ID } from '@/components/shell/ApplicationPanels.client'
@@ -71,6 +80,7 @@ import {
   openItemSectionId,
   parseOpenItemSectionId,
   SECTION_SUB_PAGE_PARAMS,
+  SHELL_DEFAULT_SECTION_ID,
   type BuiltInSectionId,
   type OpenItemParentId,
   type ShellBreadcrumb,
@@ -79,6 +89,19 @@ import {
   type ShellUser,
 } from '@/components/shell/navigation'
 import { readSavedShellItems, writeSavedShellItems } from '@/components/shell/openItemsStorage'
+import {
+  addressLeavesSection,
+  addShellLeaveGuard,
+  currentShellHistoryIndex,
+  decideShellPopState,
+  noteShellHistoryEntry,
+  readShellAddress,
+  resolvePoppedScreen,
+  sectionAddress,
+  sectionWriteMode,
+  writeShellHistory,
+} from '@/components/shell/shellHistory'
+import { L } from '@/lib/KRUtilities'
 import { useShellPreferences, useShellThemeStyle } from '@/components/shell/shellPreferences'
 import { createInitialShellState, shellReducer } from '@/components/shell/shellState'
 import {
@@ -188,7 +211,15 @@ export default function ApplicationShell({
   // Outside tools that reported unsaved work, and the move waiting for the person to confirm it.
   const [dirtyToolIds, setDirtyToolIds] = useState<ReadonlySet<ShellSectionId>>(() => new Set())
   const [pendingMove, setPendingMove] = useState<{ label: string; run: () => void } | null>(null)
-  const addressReadRef = useRef(false)
+  // True once the address was read after the first draw (stage 2a). State, not a ref, so the address sync below sees
+  // it only in the draw that also has the section read from the address (a development double run of the first
+  // effects would otherwise write the starting section as a new history entry).
+  const [addressRead, setAddressRead] = useState(false)
+  // A move that replaces the history entry instead of adding one (from a pop-out, or closing the item on show;
+  // shellHistory.ts): from which section to which. It counts only while the frame is still on `from`.
+  const replaceMoveRef = useRef<{ from: ShellSectionId; to: ShellSectionId } | null>(null)
+  // The section the address sync last saw, to match `replaceMoveRef`.
+  const syncedSectionRef = useRef<ShellSectionId | null>(null)
   // Browser windows used by the pop-outs, by section. A popped-out section with no window here is
   // shown in the in-page fallback window, because the browser blocked the real one.
   const [popoutWindows, setPopoutWindows] = useState<Partial<Record<ShellSectionId, Window>>>({})
@@ -262,31 +293,80 @@ export default function ApplicationShell({
   // Stage 2b: keep the address bar in step with the open section. Runs before the read below on the
   // first render, when the read flag is still false, so the section in the address is not overwritten.
   // The second parameter of every other section is removed (the open section's screen keeps its own up to date).
-  useEffect(() => {
-    if (!addressReadRef.current) return
-    const url = new URL(window.location.href)
-    url.searchParams.set('section', activeSectionId)
-    for (const [ownerId, param] of Object.entries(SECTION_SUB_PAGE_PARAMS)) {
-      if (ownerId !== activeSectionId) url.searchParams.delete(param)
-    }
-    window.history.replaceState(null, '', url)
-  }, [activeSectionId])
+  // Back and Forward: another section adds a history entry; a tidy-up replaces it; a screen restored from an entry
+  // already matches the address and writes nothing (sectionWriteMode). A move from a pop-out replaces instead of adding.
+  // A layout effect, so the section's entry exists before the screen's own page parameter is written (useSectionSubPage).
+  useLayoutEffect(() => {
+    if (!addressRead) return
+    const url = sectionAddress(window.location.href, activeSectionId)
+    let mode = sectionWriteMode(window.location.search, url.search)
+    const replaceMove = replaceMoveRef.current
+    if (mode === 'push' && replaceMove?.to === activeSectionId && replaceMove.from === syncedSectionRef.current) mode = 'replace'
+    replaceMoveRef.current = null
+    syncedSectionRef.current = activeSectionId
+    const index = writeShellHistory(mode, url)
+    if (mode === 'push') L(`[SHELL_HISTORY:308] push section=${activeSectionId} entry=${index}`)
+  }, [activeSectionId, addressRead])
 
   // Stage 2a: after the page loads, bring back this person's open items, then open the section named in the
   // address, if it names a real one (an open item counts only when it is still in the saved list).
+  // The first screen's address replaces the entry the page loaded in (numbered 0, or its old number after a refresh),
+  // so Back from the first screen leaves the app as it would from any page.
   useEffect(() => {
     const saved = readSavedShellItems(storageScope)
     dispatch({ type: 'restoreItems', openItems: saved.openItems, recentItems: saved.recentItems })
     itemsRestoredRef.current = true
     const requested = new URLSearchParams(window.location.search).get('section')
     const requestedItem = parseOpenItemSectionId(requested)
+    let firstSectionId: ShellSectionId = activeSectionId
     if (requestedItem) {
       const stillOpen = saved.openItems.some((item) => item.parentId === requestedItem.parentId && item.itemId === requestedItem.itemId)
-      dispatch({ type: 'restoreSection', sectionId: stillOpen ? openItemSectionId(requestedItem.parentId, requestedItem.itemId) : requestedItem.parentId })
-    } else if (isShellSectionId(requested, navItems)) dispatch({ type: 'restoreSection', sectionId: requested })
-    addressReadRef.current = true
+      firstSectionId = stillOpen ? openItemSectionId(requestedItem.parentId, requestedItem.itemId) : requestedItem.parentId
+      dispatch({ type: 'restoreSection', sectionId: firstSectionId })
+    } else if (isShellSectionId(requested, navItems)) {
+      firstSectionId = requested
+      dispatch({ type: 'restoreSection', sectionId: requested })
+    }
+    noteShellHistoryEntry(window.history.state)
+    writeShellHistory('replace', sectionAddress(window.location.href, firstSectionId))
+    setAddressRead(true)
     // Runs once, after the first draw. The menu (navItems) is fixed for the life of the page.
   }, [])
+
+  // Back and Forward (shellHistory.ts): show the screen the entry names, without adding an entry. An item closed since
+  // the entry was made is reopened; an address that names nothing usable opens the starting section and is rewritten.
+  // A leave guard (an outside tool with unsaved work below, or a Settings draft in useSectionSubPage) may block the
+  // move first: decideShellPopState then puts the browser back on the page's entry and the guard asks.
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent): void => {
+      const decision = decideShellPopState(event, window.location.href)
+      if (decision.kind !== 'proceed') {
+        L(`[SHELL_HISTORY:344] popstate ${decision.kind} entry=${currentShellHistoryIndex()}`)
+        return
+      }
+      const fallback = isShellSectionId(preferences.startingSection, navItems) ? preferences.startingSection : SHELL_DEFAULT_SECTION_ID
+      const target = resolvePoppedScreen(readShellAddress(window.location.search, navItems), openItems, recentItems, fallback)
+      const targetSectionId = target.kind === 'reopen' ? openItemSectionId(target.item.parentId, target.item.itemId) : target.sectionId
+      L(`[SHELL_HISTORY:350] popstate entry ${decision.from} -> ${decision.to ?? 'unknown'} section=${targetSectionId} kind=${target.kind}`)
+      if (target.kind === 'section' && target.tidy) writeShellHistory('replace', sectionAddress(window.location.href, targetSectionId))
+      if (target.kind === 'reopen') dispatch({ type: 'openItem', item: target.item })
+      else dispatch({ type: 'restoreSection', sectionId: target.sectionId })
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [navItems, openItems, preferences.startingSection, recentItems])
+
+  // The leave guard of an outside tool with unsaved work in the workspace: Back or Forward to another section asks
+  // first with the "Leave unsaved work?" dialog (Continue moves on; Cancel stays on the tool's entry).
+  const activeToolDirty = dirtyToolIds.has(activeSectionId) && !popoutSectionIds.includes(activeSectionId)
+  useEffect(() => {
+    if (!activeToolDirty) return
+    const toolSectionId = activeSectionId
+    return addShellLeaveGuard({
+      blocks: (search) => addressLeavesSection(search, navItems, toolSectionId),
+      ask: (proceed) => setPendingMove({ label: findNavItem(toolSectionId, navItems).label, run: proceed }),
+    })
+  }, [activeSectionId, activeToolDirty, navItems])
 
   /** Records whether an outside tool has unsaved work. */
   const setToolDirty = useCallback((sectionId: ShellSectionId, dirty: boolean) => {
@@ -347,14 +427,20 @@ export default function ApplicationShell({
     )
   }
 
-  /** Ends one pop-out: closes its browser window, if it has one, and removes the frame's record of it. */
+  /**
+   * Ends one pop-out: closes its browser window, if it has one, and removes the frame's record of it. Closing the
+   * pop-out of the open item shown in the workspace closes the item and opens its parent row there; that move
+   * replaces the history entry, as closing an item does (`closeOpenItem`).
+   */
   const handleClosePopout = useCallback(
     (sectionId: ShellSectionId) => {
+      const item = parseOpenItemSectionId(sectionId)
+      if (item && sectionId === activeSectionId) replaceMoveRef.current = { from: activeSectionId, to: item.parentId }
       popoutWindows[sectionId]?.close()
       setPopoutWindows(({ [sectionId]: _closed, ...rest }) => rest)
       dispatch({ type: 'closePopout', sectionId })
     },
-    [popoutWindows],
+    [activeSectionId, popoutWindows],
   )
 
   // A pop-out whose item was dropped (a sixth item opened under the same row) loses its window too.
@@ -391,11 +477,31 @@ export default function ApplicationShell({
     })
   }
 
-  /** Opens another section; leaving an outside tool with unsaved work in the workspace asks first. */
-  function handleSelectSection(sectionId: ShellSectionId): void {
+  /**
+   * Opens another section; leaving an outside tool with unsaved work in the workspace asks first.
+   *
+   * @param sectionId - Section to open.
+   * @param options - `subPage`: the section's page parameter and value, written with the section's address (another
+   *   section only; the screen of a section already showing follows the request itself). `fromPopout`: the move was
+   *   asked for from a pop-out, so its address replaces the history entry instead of adding one.
+   */
+  function handleSelectSection(sectionId: ShellSectionId, options: { subPage?: { param: string; value: string }; fromPopout?: boolean } = {}): void {
+    const { subPage, fromPopout = false } = options
+    const move = (): void => {
+      if (sectionId !== activeSectionId) {
+        if (fromPopout) replaceMoveRef.current = { from: activeSectionId, to: sectionId }
+        // Written before the screen appears, so useSectionSubPage reads the page on its first draw.
+        if (subPage) {
+          const url = sectionAddress(window.location.href, sectionId)
+          url.searchParams.set(subPage.param, subPage.value)
+          writeShellHistory(fromPopout ? 'replace' : 'push', url)
+        }
+      }
+      dispatch({ type: 'selectSection', sectionId })
+    }
     const leavingTool = sectionId !== activeSectionId && !popoutSectionIds.includes(activeSectionId)
-    if (leavingTool) confirmIfDirty(activeSectionId, () => dispatch({ type: 'selectSection', sectionId }))
-    else dispatch({ type: 'selectSection', sectionId })
+    if (leavingTool) confirmIfDirty(activeSectionId, move)
+    else move()
   }
 
   /**
@@ -409,35 +515,64 @@ export default function ApplicationShell({
     else move()
   }
 
-  // Screens inside the frame open other sections through this (components/shell/shellNavigation.ts).
-  const navigation: ShellNavigation = {
-    openSection: (sectionId, subPage) => {
-      if (!isShellSectionId(sectionId, navItems)) return false
-      const param = SECTION_SUB_PAGE_PARAMS[sectionId as BuiltInSectionId]
-      if (subPage && param) {
-        // Written first so the section's screen finds it when it appears; the request covers a screen already showing.
-        const url = new URL(window.location.href)
-        url.searchParams.set(param, subPage)
-        window.history.replaceState(null, '', url)
-        subPageNonceRef.current += 1
-        setSubPageRequest({ sectionId, subPage, nonce: subPageNonceRef.current })
-      }
-      handleSelectSection(sectionId)
-      return true
-    },
-    openItem: (parentId, itemId, label) => {
-      if (!itemId) return false
-      openItemWithCheck({ parentId, itemId, label })
-      return true
-    },
-    closeItem: (parentId, itemId) => dispatch({ type: 'closeItem', parentId, itemId }),
-    setSubPageLabel,
-    subPageRequest,
+  /**
+   * Builds the navigation screens use to open other sections (components/shell/shellNavigation.ts).
+   *
+   * @param fromPopout - True for the copy given to screens drawn in a pop-out: their moves change the workspace but
+   *   replace the main window's history entry instead of adding one.
+   * @returns The navigation for one place.
+   */
+  function buildNavigation(fromPopout: boolean): ShellNavigation {
+    return {
+      openSection: (sectionId, subPage) => {
+        if (!isShellSectionId(sectionId, navItems)) return false
+        const param = SECTION_SUB_PAGE_PARAMS[sectionId as BuiltInSectionId]
+        if (subPage && param) {
+          // Another section gets the page in its address before it appears (handleSelectSection); the request covers
+          // a screen already showing, which then writes the page itself (useSectionSubPage).
+          subPageNonceRef.current += 1
+          setSubPageRequest({ sectionId, subPage, nonce: subPageNonceRef.current, fromPopout })
+        }
+        handleSelectSection(sectionId, { subPage: subPage && param ? { param, value: subPage } : undefined, fromPopout })
+        return true
+      },
+      openItem: (parentId, itemId, label) => {
+        if (!itemId) return false
+        openItemWithCheck({ parentId, itemId, label }, fromPopout)
+        return true
+      },
+      closeItem: closeOpenItem,
+      setSubPageLabel,
+      subPageRequest,
+    }
   }
 
-  /** Shows an open item (opening it first); leaving an outside tool with unsaved work asks first. */
-  function openItemWithCheck(item: ShellOpenItem): void {
-    const move = (): void => dispatch({ type: 'openItem', item })
+  /**
+   * Closes an open item. When it was showing, its parent row opens in its place, over the item's history entry rather
+   * than as a new one, so Back after closing goes to the screen before the item instead of reopening it.
+   */
+  function closeOpenItem(parentId: OpenItemParentId, itemId: string): void {
+    if (openItemSectionId(parentId, itemId) === activeSectionId) replaceMoveRef.current = { from: activeSectionId, to: parentId }
+    dispatch({ type: 'closeItem', parentId, itemId })
+  }
+
+  // Screens inside the frame open other sections through this (components/shell/shellNavigation.ts).
+  const navigation: ShellNavigation = buildNavigation(false)
+  // The same for screens drawn in a pop-out: their moves never add an entry to the main window's history.
+  const popoutNavigation: ShellNavigation = buildNavigation(true)
+
+  /**
+   * Shows an open item (opening it first); leaving an outside tool with unsaved work asks first.
+   *
+   * @param item - The item to show.
+   * @param fromPopout - True when a pop-out asked: the move replaces the history entry instead of adding one.
+   */
+  function openItemWithCheck(item: ShellOpenItem, fromPopout = false): void {
+    const sectionId = openItemSectionId(item.parentId, item.itemId)
+    const move = (): void => {
+      if (fromPopout && sectionId !== activeSectionId) replaceMoveRef.current = { from: activeSectionId, to: sectionId }
+      dispatch({ type: 'openItem', item })
+    }
     const leaving = !popoutSectionIds.includes(activeSectionId)
     if (leaving) confirmIfDirty(activeSectionId, move)
     else move()
@@ -467,7 +602,7 @@ export default function ApplicationShell({
             search={topBarSearch}
             status={topBarStatus}
             recentItems={recentItems}
-            onSelectRecent={openItemWithCheck}
+            onSelectRecent={(item) => openItemWithCheck(item)}
           />
         }
       />
@@ -480,10 +615,10 @@ export default function ApplicationShell({
             activeSectionId={activeSectionId}
             collapsed={collapsed}
             settingsExpanded={settingsExpanded}
-            onSelectSection={handleSelectSection}
+            onSelectSection={(sectionId) => handleSelectSection(sectionId)}
             openItems={openItems}
-            onSelectItem={openItemWithCheck}
-            onCloseItem={(item) => dispatch({ type: 'closeItem', parentId: item.parentId, itemId: item.itemId })}
+            onSelectItem={(item) => openItemWithCheck(item)}
+            onCloseItem={(item) => closeOpenItem(item.parentId, item.itemId)}
           />
         }
         footer={<LeftPanelFooter user={user} collapsed={collapsed} onLogout={onLogout} />}
@@ -507,16 +642,17 @@ export default function ApplicationShell({
       />
 
       {/* Pop-outs: one browser window for each popped-out section, or a floating in-page window when the browser blocked the pop-up */}
+      {/* Screens in a pop-out get the pop-out navigation, so their moves never add a history entry to the main window */}
       {popoutSectionIds.map((sectionId) => {
         const popup = popoutWindows[sectionId]
         const label = sectionLabel(sectionId)
         return popup ? (
           <PopOutBrowserWindow key={sectionId} popupWindow={popup} title={label} onClose={() => handlePopoutWindowClosed(sectionId)}>
-            {renderSection(sectionId, 'popout-window')}
+            <ShellNavigationContext.Provider value={popoutNavigation}>{renderSection(sectionId, 'popout-window')}</ShellNavigationContext.Provider>
           </PopOutBrowserWindow>
         ) : (
           <PopOutWindow key={sectionId} title={label} onClose={() => confirmIfDirty(sectionId, () => handleClosePopout(sectionId))}>
-            {renderSection(sectionId, 'popout-inline')}
+            <ShellNavigationContext.Provider value={popoutNavigation}>{renderSection(sectionId, 'popout-inline')}</ShellNavigationContext.Provider>
           </PopOutWindow>
         )
       })}

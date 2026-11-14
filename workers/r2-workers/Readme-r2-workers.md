@@ -1,9 +1,11 @@
 # R2 Workers
 
-<small>Version 1.0</small><br>
-<small>Updated Nov 4, 2026 2:06pm</small>
+<small>Version 1.1</small><br>
+<small>Updated Nov 13, 2026 7:15pm</small>
 
 > **Copied from the old repository on Nov 4, 2026.** File paths were changed from `apps/shared/...` to `workers/...`. Worker names, database names and ids, bucket names and deploy commands in this document describe the OLD live system. Do not run them. The names this repository uses are in each worker's `.jsonc` file and in `workers/Readme-workers.md`.
+
+> **Added Nov 13, 2026 (plan 10, stage 6, decision D24).** `public-article-worker/` is a new copy of `kr-r2-public-article-worker`, named `krhomebase-public-article-worker`, bound to the database `krhomebase` and the bucket `kr-homebase-articles`, and changed to also rewrite the new app's draft image address (`/api/v1/publishing/assets/...`). It replaces the Nov 4 copy in `kr-r2-public-article-worker/`, which stays as a record. It is not deployed; the requester deploys it in stage 9 with `pnpm deploy:public-article`. Its changes, columns and deploy steps are in `public-article-worker/Readme-public-article-worker.md`.
 
 This folder mirrors the `workers/d1-workers` convention for Cloudflare worker-related source, but it is reserved for R2-backed asset work.
 
@@ -378,4 +380,4 @@ The strongest safety rule is that a public worker cannot leak a private bucket i
 
 `kr-r2-crud-articles-worker` is the private KR Homebase R2 CRUD worker for source ZIPs, draft images, sanitized snapshots, and past-publication snapshots. It requires the server-side bearer token and is not for public browser use.
 
-`kr-r2-public-article-worker` is the public published-image worker. It checks `content_asset` joined to `public_content.status = published` before serving an image from `kr-homebase-articles`.
+`kr-r2-public-article-worker` is the public published-image worker. It checks `content_asset` joined to `public_content.status = published` before serving an image from `kr-homebase-articles`. In this repository its working copy is `public-article-worker/` (`krhomebase-public-article-worker`, database `krhomebase`); see the note at the top of this file.

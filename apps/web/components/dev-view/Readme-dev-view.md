@@ -1,9 +1,13 @@
 # Readme: Dev View
 
-<small>Version 1.6</small><br>
-<small>Updated Nov 13, 2026 3:15pm</small>
+<small>Version 1.7</small><br>
+<small>Updated Nov 13, 2026 6:05pm</small>
 
 Ported from the old `README - Dev Overlay.md` (v1.3, krueger-richard-website, `apps/kr-homebase/src/hb-components/dev-view`). Version continues from it.
+
+## The panel window
+
+Since Nov 13, 2026 (the requester) the Dev View button opens the control panel in a browser window of its own (`DevViewPanelWindow.client.tsx`), so it no longer covers the page. The overlays stay on the inspected page; hovering, selecting and Pick in the panel window act on it. Closing the window keeps the overlays; the Dev View button then opens the panel again, and a click with the panel open switches Dev View off. If the browser blocks the window, the panel draws in a corner of the page as before.
 
 ## Purpose
 
@@ -139,7 +143,9 @@ TopTitleBar is not one of the fixed Overlay markers; it can still be found with 
 
 ### `-dialog`
 
-**`-dialog`** filters the marker list to `data-kr-id` / `data-kr-id-*` and `data-kr-element` / `data-kr-element-*` markers whose value contains `-dialog` (case-insensitive), for example `create-user-dialog`. Its double-click behavior matches `-ledger`.
+**`-dialog`** filters the marker list to `data-kr-id` / `data-kr-id-*` and `data-kr-element` / `data-kr-element-*` markers whose value contains `dialog` in any case (since Nov 13, 2026; it was `-dialog`), for example `create-user-dialog` or `ContactDetailEditDialog`. Its double-click behavior matches `-ledger`.
+
+**Dialogs are a Focus area** (Nov 13, 2026). Dialogs are drawn into `document.body`, outside the Workspace Canvas, so their markers used to be missing from Focus and got no overlay. An open dialog (`role="dialog"` or `aria-modal="true"`), its backdrop (the dialog's parent) and the dialog's direct children now count as Focus markers, as the canvas and its children do.
 
 ### All markers
 
@@ -151,7 +157,7 @@ TopTitleBar is not one of the fixed Overlay markers; it can still be found with 
 
 ### Search and sort
 
-The search field narrows the currently active filter set. The sort selector provides:
+The search field narrows the currently active filter set. **Enter** in the search field shows only what it lists: the selection becomes exactly the listed markers (type `dialog`, press Enter, and only the open dialog's overlays remain). The sort selector provides:
 
 - **Page order**: first rendered DOM order.
 - **Identifier A–Z**: lexical `attribute=value` order.

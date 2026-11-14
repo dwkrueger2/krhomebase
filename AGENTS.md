@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.14</small><br>
-<small>Updated Nov 13, 2026 9:30am</small>
+<small>Version 2.15</small><br>
+<small>Updated Nov 13, 2026 7:25pm</small>
 
 ## Agent Guide Index
 
@@ -211,6 +211,7 @@ pnpm deploy:api       # deploy the API Worker (apps/api); the requester runs it
 pnpm deploy:web       # deploy the web Worker (apps/web); needs the cf sign-in
 pnpm deploy:external  # deploy the external-api Worker; the requester runs it, after deploy:api
 pnpm deploy:pay       # deploy kr-pay-worker-live (pay.krhomebase.com); the requester runs it (workers/d1-workers/kr-pay-worker/README.md)
+pnpm deploy:public-article  # deploy krhomebase-public-article-worker (the public site's article reader, bound to krhomebase); the requester runs it (workers/r2-workers/public-article-worker)
 pnpm pack:tool-sdk    # build dist\tool-sdk\krhomebase-tool-sdk-1.0.0.tgz for outside developers
 pnpm stop:ports:all   # stop every development server started by this repository
 pnpm listScripts      # show the root scripts
@@ -239,6 +240,7 @@ pnpm listScripts      # show the root scripts
 | `dev:external` | `apps/external-api` | `wrangler dev --port 8793 --inspector-port 9342` |
 | `deploy:external` | `apps/external-api` | `wrangler deploy` |
 | `deploy:pay` | `workers/d1-workers/kr-pay-worker` | `wrangler deploy --config kr-pay-worker.jsonc` |
+| `deploy:public-article` | root | `wrangler deploy --config workers/r2-workers/public-article-worker/public-article-worker.jsonc` |
 | `pack:tool-sdk` | `packages/tool-sdk` | build, then `pnpm pack` into `dist/tool-sdk` |
 | `openapi` | `apps/api` | `tsx scripts/write-openapi.ts` |
 | `dev:crud`, `dev:session` | `workers/d1-workers/...` | `wrangler dev` with that Worker's config |

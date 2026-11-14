@@ -1,0 +1,52 @@
+//file: workers/r2-workers/public-article-worker/public-article-worker.jsonc
+// Public Article Worker: serves published Articles and Answers, and their images, to the public site.
+// Copied Nov 13, 2026 from the old repository's kr-r2-public-article-worker (plan 10, stage 6, decision D24).
+// The requester deploys it in stage 9 (pnpm deploy:public-article). See Readme-public-article-worker.md.
+// Changes from the old wrangler.jsonc:
+//   - name: krhomebase-public-article-worker (was kr-r2-public-article-worker); dev: krhomebase-public-article-worker-dev.
+//   - D1 KRHOMEBASE_DB: krhomebase (was the old live krhomebase_05_2026_v5, id f0d7dc13-...; dev was krhomebase_dev).
+//   - R2 ARTICLE_BUCKET: kr-homebase-articles; dev: kr-homebase-articles-dev (same buckets as before).
+//   - $schema path fits this folder.
+// Kept: main, compatibility_date, workers_dev true. The old config had no routes and no custom domain;
+// its only address was its workers.dev address, so this Worker's own workers.dev address is its public address.
+{
+  "$schema": "../../../node_modules/wrangler/config-schema.json",
+  "name": "krhomebase-public-article-worker",
+  "main": "./kr-r2-public-article-worker.ts",
+  "compatibility_date": "2026-06-11",
+  "workers_dev": true,
+  "r2_buckets": [
+    {
+      "binding": "ARTICLE_BUCKET",
+      "bucket_name": "kr-homebase-articles"
+    }
+  ],
+  "d1_databases": [
+    {
+      // The one database. The Worker runs only the fixed SELECT statements in kr-r2-public-article-worker.ts.
+      "binding": "KRHOMEBASE_DB",
+      "database_name": "krhomebase",
+      "database_id": "ef68921f-c7d3-4d0b-9af4-defebc748616"
+    }
+  ],
+  "env": {
+    // Used only with --env dev. Matches the API under pnpm dev (decision D23): database krhomebase, bucket kr-homebase-articles-dev.
+    "dev": {
+      "name": "krhomebase-public-article-worker-dev",
+      "workers_dev": true,
+      "r2_buckets": [
+        {
+          "binding": "ARTICLE_BUCKET",
+          "bucket_name": "kr-homebase-articles-dev"
+        }
+      ],
+      "d1_databases": [
+        {
+          "binding": "KRHOMEBASE_DB",
+          "database_name": "krhomebase",
+          "database_id": "ef68921f-c7d3-4d0b-9af4-defebc748616"
+        }
+      ]
+    }
+  }
+}

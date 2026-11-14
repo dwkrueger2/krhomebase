@@ -501,12 +501,107 @@ function ExternalLinkIcon(props: KRHomebaseUtilityIconProps) {
   )
 }
 
+/**
+ * Front End Publishing's status and content-type discs (plan 10, stage 6), ported from the old
+ * `front-end-publishing/components/PublicationStatusIcon.tsx`: a filled circle with a light glyph on the old 50×50 grid.
+ * The old fixed colors became theme tokens: published `--kr-theme-success` (was #2e7d32), archived
+ * `--kr-theme-brand-primary-active` (was #1f6feb), draft `--kr-theme-text-muted` (was #9aa0a6), article
+ * `--kr-theme-teal` (was #0fb5ae) and answer `--kr-theme-accent` (was #a8521c). Size them with `className`
+ * (`size-[20px]`); a `title` makes them an image with that name.
+ */
+const PUBLICATION_DISC_STYLES = {
+  published: 'fill-(--kr-theme-success)',
+  archived: 'fill-(--kr-theme-brand-primary-active)',
+  draft: 'fill-(--kr-theme-text-muted)',
+  article: 'fill-(--kr-theme-teal)',
+  answer: 'fill-(--kr-theme-accent)',
+  glyph: 'fill-none stroke-(--kr-theme-text-inverse)',
+} as const
+
+function PublicationDisc({ className, title, tone, children }: KRHomebaseUtilityIconProps & { tone: Exclude<keyof typeof PUBLICATION_DISC_STYLES, 'glyph'>; children: ReactNode }) {
+  return (
+    <svg
+      aria-hidden={title ? undefined : true}
+      aria-label={title}
+      className={className}
+      focusable="false"
+      height={20}
+      role={title ? 'img' : undefined}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      viewBox="0 0 50 50"
+      width={20}
+    >
+      {title && <title>{title}</title>}
+      <circle className={PUBLICATION_DISC_STYLES[tone]} cx="25" cy="25" r="22" />
+      <g className={PUBLICATION_DISC_STYLES.glyph} strokeWidth="2.5">
+        {children}
+      </g>
+    </svg>
+  )
+}
+
+/** Published: a tick on the success disc. */
+function PublicationPublishedIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <PublicationDisc {...props} tone="published">
+      <path d="M16 25.5 L22 31.5 L34 18.5" strokeWidth="3.5" />
+    </PublicationDisc>
+  )
+}
+
+/** Archived (taken down): a filing box on the blue disc. */
+function PublicationArchivedIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <PublicationDisc {...props} tone="archived">
+      <rect x="14" y="18" width="22" height="6" rx="1.5" />
+      <path d="M16 24 L16 34 L34 34 L34 24" />
+      <line x1="21" y1="28" x2="29" y2="28" />
+    </PublicationDisc>
+  )
+}
+
+/** Draft: a pencil on the gray disc. */
+function PublicationDraftIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <PublicationDisc {...props} tone="draft">
+      <path d="M18 32 L18 27 L29.5 15.5 L34 20 L22.5 31.5 Z" />
+      <line x1="27" y1="18" x2="31.5" y2="22.5" />
+    </PublicationDisc>
+  )
+}
+
+/** Article: a page with lines on the teal disc. */
+function ContentArticleIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <PublicationDisc {...props} tone="article">
+      <path d="M17 14 L29 14 L34 19 L34 36 L17 36 Z" />
+      <path d="M29 14 L29 19 L34 19" />
+      <line x1="21" y1="24" x2="30" y2="24" strokeWidth="2.2" />
+      <line x1="21" y1="28.5" x2="30" y2="28.5" strokeWidth="2.2" />
+      <line x1="21" y1="33" x2="26.5" y2="33" strokeWidth="2.2" />
+    </PublicationDisc>
+  )
+}
+
+/** Answer: a speech bubble with a tick on the camel disc. */
+function ContentAnswerIcon(props: KRHomebaseUtilityIconProps) {
+  return (
+    <PublicationDisc {...props} tone="answer">
+      <path d="M14 16 L36 16 L36 31 L26 31 L20 36.5 L20 31 L14 31 Z" />
+      <path d="M20 23.5 L24 27.5 L31 19.5" />
+    </PublicationDisc>
+  )
+}
+
 /** Named utility components for JSX member notation alongside the name-based API. */
 export const KRHomebaseIcons = {
   Add: AddIcon,
   Check: CheckIcon,
   Chevron: ChevronIcon,
   Close: CloseIcon,
+  ContentAnswer: ContentAnswerIcon,
+  ContentArticle: ContentArticleIcon,
   Copy: CopyIcon,
   Download: DownloadIcon,
   ExternalLink: ExternalLinkIcon,
@@ -523,6 +618,9 @@ export const KRHomebaseIcons = {
   Print: PrintIcon,
   Preview: PreviewIcon,
   Progress: ProgressIcon,
+  PublicationArchived: PublicationArchivedIcon,
+  PublicationDraft: PublicationDraftIcon,
+  PublicationPublished: PublicationPublishedIcon,
   Reply: ReplyIcon,
   Send: SendIcon,
   Trash: TrashIcon,

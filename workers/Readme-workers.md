@@ -1,7 +1,7 @@
 # Workers
 
-<small>Version 1.8</small><br>
-<small>Updated Nov 12, 2026 5:48pm</small>
+<small>Version 1.9</small><br>
+<small>Updated Nov 13, 2026 7:15pm</small>
 
 The Cloudflare Workers copied from the old repository (`apps\shared`). Plan and reasons: `docs/03_Workers_And_Login_Plan.md`.
 
@@ -56,7 +56,8 @@ Cloudflare names now start with `krhomebase-`, like `krhomebase-api` and `krhome
 | `gpt-workers` | `krhomebase-gpt-models-worker` (no public address; changed Nov 12, 2026 to trust the API's shared secret, see `gpt-workers/README.md`) | `krhomebase_gpt_usage_dev`, id not set | No |
 | `r2-workers/front-end-assets` | `krhomebase-public-site-front-end-assets` | none | No |
 | `r2-workers/kr-r2-crud-articles-worker` | `krhomebase-r2-crud-articles-worker` | none | No |
-| `r2-workers/kr-r2-public-article-worker` | `krhomebase-r2-public-article-worker` | not set | No |
+| `r2-workers/kr-r2-public-article-worker` | `krhomebase-r2-public-article-worker` (record of the old Worker; replaced by `public-article-worker`) | not set | No |
+| `r2-workers/public-article-worker` | `krhomebase-public-article-worker` (copied Nov 13, 2026, decision D24; bucket `kr-homebase-articles`; see its `Readme-public-article-worker.md`) | `krhomebase` | No; the requester deploys it in stage 9 with `pnpm deploy:public-article` |
 | `redirect-workers/kr-dklegal-domain-redirect-worker` | `krhomebase-dklegal-domain-redirect-worker` | none | No |
 
 What the configuration changes were:
@@ -70,7 +71,7 @@ What the configuration changes were:
 7. **Inventory files and readmes.** Paths changed to `workers/`. A notice at the top of each says that names, ids and commands inside describe the OLD live system and must not be run.
 8. **Removed.** `sso-auth-worker` (retired and deleted from Cloudflare), the stray `wrangler.jsonc` at the top of `d1-workers`, `test-workers`, and all `.env*` files.
 
-Not changed: every `.ts`, `.mjs` and `.sql` file is byte for byte the same as its original, except `kr-pay-worker.ts`, which adds version metadata to its responses (Nov 9, 2026; new file `payWorkerVersion.ts`).
+Not changed: every `.ts`, `.mjs` and `.sql` file is byte for byte the same as its original, except `kr-pay-worker.ts`, which adds version metadata to its responses (Nov 9, 2026; new file `payWorkerVersion.ts`), and `r2-workers/public-article-worker/kr-r2-public-article-worker.ts`, which also rewrites the new app's draft image address (Nov 13, 2026, decision D24; the changes are listed at the top of the file and in its readme). Its configuration names real targets (database `krhomebase`, bucket `kr-homebase-articles`), with no `NOT_SET_REVIEW_BEFORE_USE` placeholders.
 
 ## Rules for working in this folder
 

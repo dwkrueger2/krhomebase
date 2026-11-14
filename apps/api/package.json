@@ -1,7 +1,7 @@
 {
   "name": "@krhomebase/api",
   "version": "1.1.1",
-  "patchNum": "26",
+  "patchNum": "29",
   "patchDate": "11-13",
   "private": true,
   "type": "module",
@@ -17,7 +17,9 @@
   "dependencies": {
     "@hono/zod-openapi": "^1.6.3",
     "@krhomebase/contracts": "workspace:*",
+    "fflate": "0.8.2",
     "hono": "^4.13.16",
+    "htmlparser2": "10.0.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {

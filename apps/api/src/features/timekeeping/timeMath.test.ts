@@ -1,7 +1,9 @@
 // file: apps/api/src/features/timekeeping/timeMath.test.ts
 /**
  * The Attendance time rules (`timeMath.ts`). The old library had no tests; the expected values come from the as-is
- * reference (`docs/API/Timekeeping_AsIs_Reference.md`, section 5) and the changes listed in `timeMath.ts`.
+ * reference (`docs/API/Timekeeping_AsIs_Reference.md`, section 5) and the changes listed in `timeMath.ts`. Change 8
+ * (Nov 13, 2026): punch times are exact; only the hours worked out from them are rounded ("exact punches" below).
+ * Change 9 (decision D19): a pair's rounded hours are stored when it is closed and read back ("stored pair hours").
  * Times are in America/Chicago: CDT (UTC-5) until Nov 1, 2026, CST (UTC-6) after.
  *
  * Run: pnpm --dir apps/api exec vitest run src/features/timekeeping/timeMath.test.ts
@@ -10,6 +12,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   addDays,
+  applyStoredPairHours,
   calendarDayDifference,
   deriveIntervals,
   firstPayPeriodOfYear,
@@ -22,9 +25,11 @@ import {
   minutesWorkedOnDay,
   openPunchAgeStatus,
   payPeriodForDate,
+  planPairHours,
   roundInstantToReportingIncrement,
   roundMinutesToTenths,
   timekeepingTotals,
+  truncateToMinute,
   workweekOvertime,
   type PunchLike,
 } from './timeMath.ts'
@@ -109,6 +114,46 @@ describe('rounding', () => {
   })
 })
 
+describe('exact punches (change 8)', () => {
+  it('keeps a typed punch to the minute: seconds dropped, nothing rounded, 11:59 PM on its own date', () => {
+    expect(truncateToMinute('2026-11-11T14:02:59.999Z')).toBe('2026-11-11T14:02:00.000Z')
+    expect(truncateToMinute(new Date('2026-11-11T14:04:00.000Z'))).toBe('2026-11-11T14:04:00.000Z')
+    const lateNov10 = truncateToMinute('2026-11-11T05:59:30.000Z') // 11:59:30 PM Nov 10, local
+    expect(lateNov10).toBe('2026-11-11T05:59:00.000Z')
+    expect(localDateForInstant(lateNov10, TZ)).toBe('2026-11-10')
+    expect(() => truncateToMinute('nope')).toThrow('INVALID_PUNCH_TIMESTAMP')
+  })
+
+  it('rounds the span of a pair of exact punches, not the punches', () => {
+    // 8:04 AM to 4:31 PM is 507 minutes: 8.5 hours. Rounding each punch first (8:06 to 4:30) gave 8.4.
+    const [pair] = deriveIntervals([punchIn('i', '2026-11-11T14:04:00.000Z'), punchOut('o', '2026-11-11T22:31:00.000Z')], TZ)
+    expect(pair).toMatchObject({ startAt: '2026-11-11T14:04:00.000Z', endAt: '2026-11-11T22:31:00.000Z', hours: 8.5 })
+    // Seconds count toward the span: 2:00:00 to 2:02:59 is just under 3 minutes, so 0 hours.
+    expect(hoursBetween('2026-11-11T20:00:00.000Z', '2026-11-11T20:02:59.000Z')).toBe(0)
+    expect(hoursBetween('2026-11-11T20:00:00.000Z', '2026-11-11T20:03:00.000Z')).toBe(0.1)
+  })
+
+  it('keeps a pair across midnight on the start date, with the hours of the real span', () => {
+    // 11:58 PM Nov 10 to 12:03 AM Nov 11: 5 minutes, 0.1 hour, on Nov 10.
+    const [pair] = deriveIntervals([punchIn('i', '2026-11-11T05:58:00.000Z'), punchOut('o', '2026-11-11T06:03:00.000Z')], TZ)
+    expect(pair).toMatchObject({ workDate: '2026-11-10', hours: 0.1, exception: null })
+  })
+
+  it('totals the rounded pair hours of exact punches', () => {
+    const intervals = deriveIntervals(
+      [
+        punchIn('i1', '2026-11-11T14:04:00.000Z'), // 8:04 AM
+        punchOut('o1', '2026-11-11T18:01:37.000Z'), // 12:01:37 PM: 237.6 minutes, 4.0 hours
+        punchIn('i2', '2026-11-11T18:32:00.000Z'), // 12:32 PM
+        punchOut('o2', '2026-11-11T22:31:00.000Z'), // 4:31 PM: 239 minutes, 4.0 hours
+      ],
+      TZ,
+    )
+    expect(intervals.map((interval) => interval.hours)).toEqual([4, 4])
+    expect(timekeepingTotals(intervals).regularHours).toBe(8)
+  })
+})
+
 describe('deriveIntervals', () => {
   it('pairs in and out in time order, ignoring voided punches', () => {
     const intervals = deriveIntervals(
@@ -152,6 +197,62 @@ describe('deriveIntervals', () => {
   it('shows a clock-out without a clock-in as a zero-hour exception', () => {
     const [interval] = deriveIntervals([punchOut('o', '2026-11-11T22:00:00.000Z')], TZ)
     expect(interval!).toMatchObject({ startPunchId: 'o', endPunchId: 'o', hours: 0, exception: 'clock_out_without_clock_in' })
+  })
+})
+
+describe('stored pair hours (change 9)', () => {
+  const pairs = () =>
+    deriveIntervals(
+      [
+        punchIn('i1', '2026-11-11T14:00:00.000Z'),
+        punchOut('o1', '2026-11-11T22:30:00.000Z'), // 8.5 hours
+        punchIn('i2', '2026-11-12T14:00:00.000Z'),
+        punchOut('o2', '2026-11-12T18:00:00.000Z'), // 4 hours
+        punchIn('open', '2026-11-13T14:00:00.000Z'), // a stand-in end: never stored
+      ],
+      TZ,
+    )
+  const row = (id: string, startAt: string | null, endAt: string | null, hours: number) => ({ id, startAt, endAt, hours })
+
+  it('shows the stored figure for a pair, and the calculated hours for a pair with none', () => {
+    const shown = applyStoredPairHours(pairs(), [row('r1', '2026-11-11T14:00:00Z', '2026-11-11T22:30:00Z', 8.4)])
+    expect(shown.map((interval) => interval.hours)).toEqual([8.4, 4, expect.any(Number)])
+    expect(timekeepingTotals(shown).regularHours).toBe(12.4)
+  })
+
+  it('does not trust a retired 0 for a pair that works out to more than 0, nor a row with no start and end', () => {
+    const shown = applyStoredPairHours(pairs(), [row('r1', '2026-11-11T14:00:00.000Z', '2026-11-11T22:30:00.000Z', 0), row('r2', null, null, 3)])
+    expect(shown.slice(0, 2).map((interval) => interval.hours)).toEqual([8.5, 4])
+  })
+
+  it('plans a new row for a newly closed pair and keeps a pair that has its figure', () => {
+    const plan = planPairHours(pairs(), [row('r1', '2026-11-11T14:00:00.000Z', '2026-11-11T22:30:00.000Z', 8.5)])
+    expect(plan).toEqual({
+      writes: [{ rowId: null, workDate: '2026-11-12', startAt: '2026-11-12T14:00:00.000Z', endAt: '2026-11-12T18:00:00.000Z', hours: 4 }],
+      retire: [],
+    })
+  })
+
+  it('reuses the row of an edited pair, rewrites a retired row of the same pair, and retires a figure whose pair is gone', () => {
+    const plan = planPairHours(pairs(), [
+      row('old', '2026-11-11T14:00:00.000Z', '2026-11-11T22:00:00.000Z', 8), // the first pair before its clock-out was changed
+      row('retired', '2026-11-12T14:00:00.000Z', '2026-11-12T18:00:00.000Z', 0), // the second pair, retired earlier
+      row('gone', '2026-11-10T14:00:00.000Z', '2026-11-10T22:00:00.000Z', 8), // a pair that was voided
+    ])
+    expect(plan.writes).toEqual([
+      { rowId: 'retired', workDate: '2026-11-12', startAt: '2026-11-12T14:00:00.000Z', endAt: '2026-11-12T18:00:00.000Z', hours: 4 },
+      { rowId: 'old', workDate: '2026-11-11', startAt: '2026-11-11T14:00:00.000Z', endAt: '2026-11-11T22:30:00.000Z', hours: 8.5 },
+    ])
+    expect(plan.retire).toEqual(['gone'])
+  })
+
+  it('plans nothing when every pair has its figure and no other row has hours', () => {
+    const stored = [
+      row('r1', '2026-11-11T14:00:00.000Z', '2026-11-11T22:30:00.000Z', 8.5),
+      row('r2', '2026-11-12T14:00:00.000Z', '2026-11-12T18:00:00.000Z', 4),
+      row('spent', '2026-11-09T14:00:00.000Z', '2026-11-09T15:00:00.000Z', 0),
+    ]
+    expect(planPairHours(pairs(), stored)).toEqual({ writes: [], retire: [] })
   })
 })
 
