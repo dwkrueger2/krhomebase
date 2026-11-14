@@ -1,7 +1,7 @@
 # Outstanding Task List: Repository Patch 37
 
-<small>Version 1.1</small><br>
-<small>Updated Nov 14, 2026 1:32pm</small>
+<small>Version 1.2</small><br>
+<small>Updated Nov 14, 2026 1:56pm</small>
 
 **Track:** Repository (root `package.json`)
 **Version:** 1.0.0  **Patch:** 37  **Patch date:** 11-14
@@ -29,6 +29,7 @@
   - `workers/Readme-workers.md` 2.0;
   - `docs/04_Deployed_Architecture.md` 2.2 (section 7);
   - `docs/12_Homebase_Feedback_Plan.md` 1.2 (decision 3 changed, "What F5 built").
+- **Deploy script** (`scripts/Deploy-Krhomebase.ps1`, the requester's request): with uncommitted files it stops with one red line (how many files, and what to do) instead of the file list and PowerShell's error details; `-Verbose` lists the files. `docs/11_Deployment_PromptStart.md` 1.3 (section 6, options).
 - **Web track:** no web file changed, so there is no web patch. The registration form shows the two new permissions once the web app is rebuilt with the new contracts.
 - **Checks:**
   - `pnpm check` passed (the viewer: 16 tests);

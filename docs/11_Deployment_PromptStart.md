@@ -1,7 +1,7 @@
 # 11_Deployment_PromptStart
 
-<small>Version 1.2</small><br>
-<small>Updated Nov 14, 2026 4:10am</small>
+<small>Version 1.3</small><br>
+<small>Updated Nov 14, 2026 1:56pm</small>
 
 **Purpose:** Drop this file into a new chat to start a **deployment session** for the `krhomebase` repository. It holds the project summary, the rules, what is live now, what is waiting to go live, and the deploy process in order. Read it first, then follow section 9.
 
@@ -130,7 +130,7 @@ The API and the web app go live with `scripts\Deploy-Krhomebase.ps1` (root scrip
 | `pnpm deploy:finish` | The warn deploy's terminal was closed | Continues the wait and the deploy (or clears a window left behind). |
 | `pnpm deploy:cancel` | Change of plan | Ends the warning; the uploaded versions are never made live. |
 
-- **Options:** `-Only api` or `-Only web` (one Worker); `-Restart` (a second warn deploy restarts the countdown); `-Force` (a hot deploy while a warn deploy waits: cancels the warning first); `-AllowDirty` (deploy uncommitted files; otherwise `git status` must be clean).
+- **Options:** `-Only api` or `-Only web` (one Worker); `-Restart` (a second warn deploy restarts the countdown); `-Force` (a hot deploy while a warn deploy waits: cancels the warning first); `-AllowDirty` (deploy uncommitted files; otherwise `git status` must be clean, and the script stops with a one-line message giving the number of uncommitted files); `-Verbose` (with that stop, also lists the files, for example `pnpm run deploy:hot -Verbose`).
 - **Deploying again before the delayed one goes live:** the waiting script reads `deploy-state\pending.json` again when it makes the versions live, so the newest upload wins. A second `pnpm deploy:warn` uploads, replaces the pending ids, keeps the countdown and ends.
 - **Safety:** the window ends on its own 15 minutes after the estimate runs out, so a closed terminal never keeps the firm out; the API then serves the versions live before. `deploy-state\last.json` holds the previous ids, and the script prints the rollback commands.
 - **Needs:** `pnpm deploy:warn` needs migration 034 (`Migration_Patch034_11_14_deploy_window.sql`); `pnpm deploy:hot` does not. The web upload needs the `cf` sign-in (`pnpm --dir apps/web exec cf auth login`) or `CLOUDFLARE_API_TOKEN`; the rest uses `wrangler login`.
