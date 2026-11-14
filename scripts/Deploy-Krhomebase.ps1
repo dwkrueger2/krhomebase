@@ -11,7 +11,8 @@
 #
 # Options (after the command): -Only api|web (one Worker), -Restart (a new warn deploy restarts the countdown),
 # -Force (a hot deploy while a warn deploy is pending: cancels the warning first), -AllowDirty (deploy with
-# uncommitted files; the build takes the working folder as it is).
+# uncommitted files; the build takes the working folder as it is), -Verbose (also list the uncommitted files when the
+# script stops for them; PowerShell's own common parameter).
 #
 # How it works:
 #  1. Upload: `wrangler versions upload` (API) and `vinext-cloudflare deploy --no-promote` (web) build and upload a new
@@ -229,7 +230,14 @@ function Get-CommitLabel {
         $dirty = (& git status --porcelain) -join "`n"
         $label = (& git log -1 --format="%h %s") -join " "
     } finally { Pop-Location }
-    if ($dirty -and -not $AllowDirty) { throw "The working folder has uncommitted changes. Commit first (the build takes the folder as it is), or add -AllowDirty.`n$dirty" }
+    if ($dirty -and -not $AllowDirty) {
+        # A short message, without the file list or PowerShell's error details (Nov 14, 2026): most deploys start from
+        # an IDE whose own Git view already shows the files. -Verbose lists them (git status --porcelain).
+        $count = @($dirty -split "`n" | Where-Object { $_ }).Count
+        Write-Host "Not deployed: the working folder has $count uncommitted change(s). Commit first (the build takes the folder as it is), or add -AllowDirty. Add -Verbose to list them." -ForegroundColor Red
+        Write-Verbose "Uncommitted changes:`n$dirty"
+        exit 1
+    }
     if ($dirty) { $label = "$label (with uncommitted changes)" }
     # Only plain characters go to wrangler's --message (it passes through cmd.exe in pnpm.cmd).
     $label = ($label -replace '[^A-Za-z0-9 ._:,()/-]', ' ') -replace '\s+', ' '
