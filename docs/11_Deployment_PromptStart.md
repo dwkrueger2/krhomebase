@@ -1,7 +1,7 @@
 # 11_Deployment_PromptStart
 
-<small>Version 1.1</small><br>
-<small>Updated Nov 14, 2026 1:55am</small>
+<small>Version 1.2</small><br>
+<small>Updated Nov 14, 2026 9:45am</small>
 
 **Purpose:** Drop this file into a new chat to start a **deployment session** for the `krhomebase` repository. It holds the project summary, the rules, what is live now, what is waiting to go live, and the deploy process in order. Read it first, then follow section 9.
 
@@ -32,6 +32,7 @@ KR Homebase is the practice-management app of Krueger & Richard, PLLC: contacts,
 | Sign-in helpers | `workers\d1-workers\crud-worker`, `session-worker` | `krhomebase-crud-worker`, `krhomebase-session-worker` | none |
 | Public inquiry reader/writer | `workers\d1-workers\crud-worker-pub-inquiry` | `krhomebase-crud-worker-pub-inquiry` | none |
 | Pay links and Stripe webhooks | `workers\d1-workers\kr-pay-worker` | `kr-pay-worker-live` | `pay.krhomebase.com` |
+| GPT Model Gateway's provider and key boundary | `workers\gpt-workers` | `krhomebase-gpt-models-worker` | none (service binding `GPT_WORKER` from the API) |
 | Public site's article reader (new, not deployed) | `workers\r2-workers\public-article-worker` | `krhomebase-public-article-worker` | its `workers.dev` address |
 
 Shared packages: `packages\contracts` (zod shapes and the OpenAPI source), `packages\tool-sdk`.
@@ -52,13 +53,16 @@ Read before acting: `AGENTS.md` (root), `docs\04_Deployed_Architecture.md` (what
 
 ---
 
-## 4. What Is Live Now (checked read-only, Nov 13, 2026 9:45pm)
+## 4. What Is Live Now (checked read-only, Nov 14, 2026 9:35am)
 
 | Worker | Live version | Deployed | Carries |
 |---|---|---|---|
-| `krhomebase-api` | `0916b60c-3be7-4649-8740-ccc559f18a54` | Nov 13, 2026 3:20pm | API patch 25: plan 10 stages 1 and 2 (Projects & Matters, WorkStream) |
-| `krhomebase-web` | `24f8596a-54eb-419a-829d-7b6383d37405` | Nov 13, 2026 3:37pm | Web patch 535 (version tags in `<head>`) |
-| crud, session, pub-inquiry, pay, external-api | as recorded in `docs\04_Deployed_Architecture.md` | earlier | unchanged by this release |
+| `krhomebase-api` | `0916b60c-3be7-4649-8740-ccc559f18a54` | Nov 13, 2026 3:20pm | API patch 25: plan 10 stages 1 and 2 (Projects & Matters, WorkStream). No `GPT_WORKER` binding, no `KR_GPT_WORKER_SECRET`. |
+| `krhomebase-web` | `24f8596a-54eb-419a-829d-7b6383d37405` | Nov 13, 2026 3:37pm | Web patch 535; `krhomebase.com/login` reads `kr-web-version` `1.1.5 p535 (11-13)` and this id |
+| `krhomebase-gpt-models-worker` | `8cf75acf-f7ab-4ec9-9ab9-9bc06293df32` | Nov 14, 2026 2:51am | First deployed as `e4fa8c9a`; `8cf75acf` is the requester's secret update (`GPT_LEGACY_WORKER_PRIVATE_KEY`) |
+| `krhomebase-external-api` | `96d3e0a4-51f0-4345-9cfd-913d658838b6` | Nov 9, 2026 | unchanged by this release |
+| `krhomebase-public-article-worker` | none: "This Worker does not exist on your account" | | deployed by this release |
+| crud, session, pub-inquiry, pay | as recorded in `docs\04_Deployed_Architecture.md` | earlier | unchanged by this release |
 
 Check again at the start of the session:
 
@@ -72,9 +76,9 @@ pnpm.cmd exec wrangler deployments status --name krhomebase-web
 
 ---
 
-## 5. What Is Waiting to Go Live (committed at `b36cce8`, Nov 13, 2026 9:29pm)
+## 5. What Is Waiting to Go Live (committed at `e2ecde8`, Nov 14, 2026 3:25am)
 
-Repository patches 27 to 31, API 26 to 29, web 536 to 541. Task lists: `docs\patch-notes\{repository,api,web}`.
+Repository patches 27 to 33, API 26 to 30, web 536 to 542. Task lists: `docs\patch-notes\{repository,api,web}`. Commits since the last deploy: `b36cce8` (stages 3 to 6, fixes), `8b7f5bf` (Homebase Feedback), `e2ecde8` (GPT Model Gateway). Not committed on Nov 14, 2026 9:35am: the proposed denser Gemini editor (`GptGeminiEditor_v2.client.tsx`, the import switch in `GptModelGatewayPage.client.tsx`) and its line in the web 542 task list. The requester is still changing it; whether it goes in this release is the requester's choice (the web deploy builds the working folder, not the commit).
 
 | Area | What changes |
 |---|---|
@@ -84,15 +88,20 @@ Repository patches 27 to 31, API 26 to 29, web 536 to 541. Task lists: `docs\pat
 | Front End Publishing (stage 6) | `/v1/publishing/...`; Worker-friendly package check (new API dependencies `fflate`, `htmlparser2`); R2 binding `ARTICLES`; image licenses; the Publishing screens |
 | Attendance | Exact punch times; each pair's rounded hours stored in `employee_time_event` when the pair closes |
 | Shell and tools | Browser Back and Forward between screens (asks before leaving a Settings draft); Dev View dialog markers and its panel window; Edit Contact density, discard-changes warning, related-contact pop-out |
+| Homebase Feedback (plan 12, F1, F2, F6) | `/v1/homebase-feedback` routes; the Feedback icon button and pop-out in the top bar; `developer_tools` permission and the Internal Developer role set |
+| GPT Model Gateway | `/v1/gpt/...` through the new `GPT_WORKER` binding; the Gateway page restored to the old style (`DESIGN.md` exception) |
 
-**New infrastructure in this release:**
+**New infrastructure in this release (checked read-only Nov 14, 2026 9:35am):**
 
 | Item | State |
 |---|---|
-| Migration 031 (`content_asset` license columns) | **Applied** (6 columns, checked read-only Nov 13, 2026 9:45pm) |
-| R2 binding `ARTICLES` on the API | Bucket `kr-homebase-articles` (deployed) and `kr-homebase-articles-dev` (`pnpm dev`, `preview_bucket_name`); both buckets exist |
-| New API secrets | None |
-| `krhomebase-public-article-worker` | New Worker; deploy after the API (D24) |
+| Migration 031 (`content_asset` license columns) | **Applied**: all six `license_*` columns present |
+| Migration 033 (Homebase Feedback) | **Applied**: the four `homebase_feedback*` tables exist (no rows yet); `role_internal_developer` grants `developer_tools` read and update |
+| R2 binding `ARTICLES` on the API | Buckets `kr-homebase-articles` (deployed) and `kr-homebase-articles-dev` (`pnpm dev`) both exist |
+| Feedback bucket | None needed: `kr-homebase-feedback` belongs to stage F3, not built |
+| Service binding `GPT_WORKER` on the API | Target `krhomebase-gpt-models-worker` is deployed (section 4) |
+| New API secret `KR_GPT_WORKER_SECRET` | **Missing** on the deployed API (the seven other secrets are listed). The requester sets it before `pnpm deploy:api` (6.2). Without it the Gateway page says "GPT Model Gateway cannot be reached right now"; nothing else is affected. |
+| `krhomebase-public-article-worker` | New Worker; deploy after the API (D24). Needs no secret. Binds D1 `krhomebase` and R2 `kr-homebase-articles` (both exist) |
 
 ---
 
@@ -109,6 +118,15 @@ Repository patches 27 to 31, API 26 to 29, web 536 to 541. Task lists: `docs\pat
 7. Note the live version ids (section 4), so a rollback target is known.
 
 ### 6.2 Deploy (the requester runs each block, then Claude checks it)
+
+First the API's new secret (step 6 of `workers\gpt-workers\README.md`; the value is the one the GPT models Worker holds as `GPT_WORKER_SHARED_SECRET`). `wrangler secret put` makes a new API version from the code that is live now, so note its id as the API's rollback target.
+
+```powershell
+$Repo = "D:\Repos\krhomebase"
+$Api  = Join-Path $Repo "apps\api"
+Set-Location $Api
+pnpm.cmd exec wrangler secret put KR_GPT_WORKER_SECRET --config kr-api-wrangler.jsonc
+```
 
 ```powershell
 $Repo = "D:\Repos\krhomebase"
@@ -137,7 +155,7 @@ pnpm.cmd deploy:public-article
 ## 7. Verify After Each Step
 
 1. `wrangler deployments status` shows the new version at 100%.
-2. `krhomebase.com/login`, View Source: `kr-web-version` reads `1.1.5 p541 (11-13)` and `kr-deployment-id` matches the web deploy's version id.
+2. `krhomebase.com/login`, View Source: `kr-web-version` reads `1.1.5 p542 (11-13)` (or the next web patch, if this session advances it) and `kr-deployment-id` matches the web deploy's version id.
 3. Sign in as the super admin and walk the smoke list, **looking only** unless a test record is agreed:
    - Dashboard; Clients & Contacts (open 306, then 090; browser Back returns to 306)
    - Contact Detail: Detail, WorkStream (list loads), Projects & Matters
@@ -145,13 +163,15 @@ pnpm.cmd deploy:public-article
    - Front End Publishing lists the three existing items, each image "License needed before Publish"
    - Attendance time card loads
    - Settings: Preferences shows the WorkStream view and Task Settings cards
+   - Feedback icon in the top bar opens the pop-out (New request, My requests, All requests for developers); send nothing unless a test request is agreed
+   - GPT Model Gateway lists the `gemini-3.7-flash` connection (or, without the secret, says "cannot be reached right now")
 4. Repeat a short pass as each test account (other roles), as the plan's stage 9 asks.
 5. Check the API's logs if anything fails: `pnpm.cmd exec wrangler tail --config kr-api-wrangler.jsonc` (read-only).
 
 ## 8. Rollback
 
 - Cloudflare keeps earlier versions. To go back, the requester runs `wrangler rollback` for the Worker (or `wrangler versions deploy <old version id>@100%`), using the ids noted in 6.1. The API and web roll back separately; roll back the web first if a screen fails, the API if a route fails.
-- Migrations are not rolled back by a Worker rollback. Migration 031 only adds columns, so the old API version keeps working with it.
+- Migrations are not rolled back by a Worker rollback. Migrations 031 and 033 only add columns, tables and rows, so the old API version keeps working with them.
 
 ## 9. Start-of-Session Checklist (deployment)
 
@@ -170,5 +190,6 @@ pnpm.cmd deploy:public-article
 - `docs\Schema_8.0` is not regenerated since migrations 026 and 031.
 - `www.krhomebase.com` is a CNAME only (no Custom Domain).
 - `krhomebase-external-api` has no domain.
-- The GPT models Worker `krhomebase-gpt-models-worker` was deployed on Nov 14, 2026 and the API's `GPT_WORKER` binding is on in `kr-api-wrangler.jsonc`. Before `pnpm deploy:api`, set the API secret `KR_GPT_WORKER_SECRET` (step 6 of `workers/gpt-workers/README.md`), or the deployed GPT Model Gateway answers "cannot be reached".
+- The GPT models Worker `krhomebase-gpt-models-worker` was deployed on Nov 14, 2026 and the API's `GPT_WORKER` binding is on in `kr-api-wrangler.jsonc`. Before `pnpm deploy:api`, set the API secret `KR_GPT_WORKER_SECRET` (6.2), or the deployed GPT Model Gateway answers "cannot be reached".
+- Homebase Feedback stages F3 to F5 wait until after the Billing audit; F3 brings the `kr-homebase-feedback` bucket.
 - Old copy `workers\r2-workers\kr-r2-public-article-worker\` is replaced by `public-article-worker\` and may be deleted.

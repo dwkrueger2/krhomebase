@@ -35,7 +35,9 @@ import { GPT_UNAVAILABLE_SENTENCE } from '@/features/gpt/api.client'
 import GptConnectionDialog from '@/features/gpt/components/GptConnectionDialog.client'
 import GptConnectionEditor from '@/features/gpt/components/GptConnectionEditor.client'
 import type { GptEditorProps } from '@/features/gpt/components/GptEditorParts.client'
-import GptGeminiEditor from '@/features/gpt/components/GptGeminiEditor.client'
+// The proposed denser Gemini editor (the requester, Nov 14, 2026). The original, `GptGeminiEditor.client.tsx` (the old
+// look, ported exactly), is kept unchanged; to go back, import it here instead.
+import GptGeminiEditor from '@/features/gpt/components/GptGeminiEditor_v2.client'
 import GptModelsLedger from '@/features/gpt/components/GptModelsLedger.client'
 import GptUsageReport from '@/features/gpt/components/GptUsageReport.client'
 import { LAYOUT_STYLES, STYLES } from '@/features/gpt/components/gptPanelStyles'
