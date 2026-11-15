@@ -1,9 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    // A browser page: the DOM types, and Vite's types for the CSS import in main.ts.
+    // A browser page: the DOM types, and Vite's types for the CSS import in main.ts. worker/ (the image script) needs only
+    // Request, Response and crypto.subtle, which the DOM types also describe; it declares its own bucket type.
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["vite/client"]
   },
-  "include": ["src/**/*.ts", "vite.config.ts"]
+  "include": ["src/**/*.ts", "worker/**/*.ts", "vite.config.ts"]
 }

@@ -1,7 +1,7 @@
 # Outstanding Task List: Repository Patch 39
 
 <small>Version 1.1</small><br>
-<small>Updated Nov 14, 2026 3:56pm</small>
+<small>Updated Nov 14, 2026 4:05pm</small>
 
 **Track:** Repository (root `package.json`)
 **Version:** 1.0.0  **Patch:** 39  **Patch date:** 11-14
@@ -38,7 +38,7 @@
 - **Viewer:**
   - **Files:** `public/health-check` and `public/tool-icon.svg` (the FB icon). `version: '1.1.0'`, and the README sheet is updated (`README.md` 2.2).
   - **Rainbow ring** (`.busy-ring` in `viewer.css`, KR Homebase's `RainbowBusySpinner` drawn with the tool's own CSS) while a screen loads and beside the button while a save runs. Seen only inside KR Homebase after the viewer is deployed (not checked).
-- **Not built: a key pair for the tool.** The requester asked whether a tool should hold a private key so KR Homebase can verify a nonce (against a man in the middle); this needs the requester's review. The answer is in the session, and a decision record would go in `docs/05_Outside_Tools.md`.
+- **Not built: a key pair for the tool.** The requester decided on Nov 14, 2026: skip it for now. The reasons are recorded in `docs/05_Outside_Tools.md`, section 8.
 
 ## Immediate (the requester)
 

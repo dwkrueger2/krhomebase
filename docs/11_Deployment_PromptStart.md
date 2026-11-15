@@ -1,7 +1,7 @@
 # 11_Deployment_PromptStart
 
-<small>Version 1.4</small><br>
-<small>Updated Nov 14, 2026 2:02pm</small>
+<small>Version 1.5</small><br>
+<small>Updated Nov 14, 2026 9:45pm</small>
 
 **Purpose:** Drop this file into a new chat to start a **deployment session** for the `krhomebase` repository. It holds the project summary, the rules, what is live now, what is waiting to go live, and the deploy process in order. Read it first, then follow section 9.
 
@@ -98,7 +98,7 @@ Repository patches 27 to 33, API 26 to 30, web 536 to 542. Task lists: `docs\pat
 | Migration 031 (`content_asset` license columns) | **Applied**: all six `license_*` columns present |
 | Migration 033 (Homebase Feedback) | **Applied**: the four `homebase_feedback*` tables exist (no rows yet); `role_internal_developer` grants `developer_tools` read and update |
 | R2 binding `ARTICLES` on the API | Buckets `kr-homebase-articles` (deployed) and `kr-homebase-articles-dev` (`pnpm dev`) both exist |
-| Feedback bucket | None needed: `kr-homebase-feedback` belongs to stage F3, not built |
+| Feedback bucket `kr-homebase-feedback` | **Needed before the next API deploy** (stage F3, API patch 34 binds it as `FEEDBACK_STORAGE`). Not created yet. Then the secret `KR_FEEDBACK_IMAGE_TICKET_SECRET` on the API and the viewer: `workers/feedback-viewer/README.md`, steps 0 and 2a |
 | Service binding `GPT_WORKER` on the API | Target `krhomebase-gpt-models-worker` is deployed (section 4) |
 | New API secret `KR_GPT_WORKER_SECRET` | **Set** by the requester Nov 14, 2026 (API version `6d25e9b5`, patch 25 code with the secret; the rollback target). Was missing at the 3:35am check. The requester sets it before the deploy (6.3, step 1). Without it the Gateway page says "GPT Model Gateway cannot be reached right now"; nothing else is affected. |
 | Migration 034 (deploy window on `kr_maintenance_gate`, repository patch 34) | **Applied** by the requester Nov 14, 2026 (the five `deploy_*` columns listed read-only, window empty). Needed by `pnpm deploy:warn` only |
@@ -214,5 +214,5 @@ The API and the web app go live with `scripts\Deploy-Krhomebase.ps1` (root scrip
 - `www.krhomebase.com` is a CNAME only (no Custom Domain).
 - `krhomebase-external-api` has no domain.
 - The GPT models Worker `krhomebase-gpt-models-worker` was deployed on Nov 14, 2026 and the API's `GPT_WORKER` binding is on in `kr-api-wrangler.jsonc`. Before the API deploy, set the API secret `KR_GPT_WORKER_SECRET` (6.3, step 1), or the deployed GPT Model Gateway answers "cannot be reached".
-- Homebase Feedback stages F3 to F5 wait until after the Billing audit; F3 brings the `kr-homebase-feedback` bucket.
+- Homebase Feedback F3 (screenshots) and F5 (the viewer) are built and wait for their deploy; F4 waits until after the Billing audit.
 - Old copy `workers\r2-workers\kr-r2-public-article-worker\` is replaced by `public-article-worker\` and may be deleted.

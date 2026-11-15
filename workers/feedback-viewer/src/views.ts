@@ -15,11 +15,14 @@ import {
   FEEDBACK_KINDS,
   FEEDBACK_PRIORITIES,
   FEEDBACK_STATUSES,
+  imageAddress,
   KIND_LABELS,
   labelOf,
   PRIORITY_LABELS,
+  SHAPE_LABELS,
   STATUS_LABELS,
   type FeedbackDetail,
+  type FeedbackImage,
   type FeedbackListData,
   type FeedbackNote,
   type FeedbackPriority,
@@ -108,6 +111,28 @@ ${table}
 ${paging}`
 }
 
+/** One shape in words: what it is, and the markers it points at. */
+export function shapeWords(shape: FeedbackImage['shapes'][number]): string {
+  const what = shape.type === 'text' ? `Text "${shape.text ?? ''}"` : labelOf(SHAPE_LABELS, shape.type)
+  const where = shape.type === 'arrow' ? 'pointing at' : shape.type === 'text' ? 'on' : 'around'
+  return shape.nearMarkers.length ? `${what} ${where} ${shape.nearMarkers.join(', ')}` : `${what} (no marker under it)`
+}
+
+/** One screenshot: the image (from this tool's own image script) and its shapes in words. */
+function imageHtml(item: Pick<FeedbackDetail, 'code'>, image: FeedbackImage, index: number): string {
+  const address = imageAddress(image)
+  const size = image.width && image.height ? `${image.width} x ${image.height}, ` : ''
+  const picture = address
+    ? `<a href="${escapeHtml(address)}" target="_blank" rel="noopener"><img src="${escapeHtml(address)}" alt="${escapeHtml(`Screenshot ${index + 1} of ${item.code}`)}" loading="lazy"></a>`
+    : '<p class="meta">This image cannot be shown: KR Homebase has no image ticket secret yet (README.md, go-live steps).</p>'
+  const shapes = image.shapes.length ? `<ul class="shapes">${image.shapes.map((shape) => `<li>${escapeHtml(shapeWords(shape))}</li>`).join('')}</ul>` : '<p class="meta">Nothing drawn on it.</p>'
+  return `<figure class="shot" data-kr-element="feedback-viewer-image">
+${picture}
+<figcaption class="meta">${escapeHtml(`${size}${Math.round(image.byteSize / 1024)} KB, ${image.markerMapCount} markers in the shot, added `)}${when(image.createdAt)}</figcaption>
+${shapes}
+</figure>`
+}
+
 function changeWords(note: FeedbackNote): string {
   if (note.noteType === 'status_change') return `Status ${labelOf(STATUS_LABELS, note.fromValue)} to ${labelOf(STATUS_LABELS, note.toValue)}. `
   if (note.noteType === 'priority_change') return `Priority ${labelOf(PRIORITY_LABELS, note.fromValue)} to ${labelOf(PRIORITY_LABELS, note.toValue)}. `
@@ -151,11 +176,7 @@ export function detailView(item: FeedbackDetail, options: { canTriage: boolean; 
         )
         .join('')}</tbody></table>`
     : '<p class="meta">The text names no markers.</p>'
-  const images = item.images.length
-    ? `<ul>${item.images
-        .map((image) => `<li>${escapeHtml(image.id)}: ${escapeHtml(image.contentType)}, ${image.byteSize} bytes${image.width && image.height ? `, ${image.width} x ${image.height}` : ''} (${when(image.createdAt)})</li>`)
-        .join('')}</ul><p class="meta">Showing the images themselves comes with stage F3.</p>`
-    : '<p class="meta">No images (screenshots come with stage F3).</p>'
+  const images = item.images.length ? item.images.map((image, index) => imageHtml(item, image, index)).join('\n') : '<p class="meta">No screenshots.</p>'
   const notes = item.notes.length
     ? item.notes
         .map((note) => `<div class="note"><div class="meta">${escapeHtml(note.authorLabel)}, ${when(note.createdAt)}</div><div>${escapeHtml(changeWords(note))}${escapeHtml(note.text ?? '')}</div></div>`)

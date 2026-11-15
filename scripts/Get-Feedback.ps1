@@ -6,9 +6,9 @@
 #   pnpm feedback:get -Number FB-0012       the same
 #
 # Read-only: it runs one `wrangler d1 execute ... --command` of SELECT statements (AGENTS_06 and the root AGENTS.md
-# hard rule 4 allow read-only commands). It never writes to the database; a status change is made in the viewer
-# (stage F5). Image download from the R2 bucket kr-homebase-feedback comes with stage F3; until then the images are
-# only listed.
+# hard rule 4 allow read-only commands), and one `wrangler r2 object get` per screenshot (stage F3), which downloads
+# the PNG from the private bucket kr-homebase-feedback into the same folder. It never writes to the database or the
+# bucket; a status change is made in the viewer (stage F5). `-NoImages` skips the downloads.
 #
 # The output folder `feedback-cache\` is git-ignored: a request can hold client details, so it is treated like
 # `snapshots\` and never committed. The request number is checked to be digits before it goes into the SQL.
@@ -19,7 +19,11 @@ param(
     [Parameter(Mandatory = $true, Position = 0)]
     [string]$Number,
     # The database to read; `krhomebase` unless told otherwise.
-    [string]$Database = "krhomebase"
+    [string]$Database = "krhomebase",
+    # The screenshots bucket (the API binding FEEDBACK_STORAGE).
+    [string]$Bucket = "kr-homebase-feedback",
+    # List the screenshots without downloading them.
+    [switch]$NoImages
 )
 
 $ErrorActionPreference = "Stop"
@@ -96,7 +100,7 @@ SELECT n.note_type, n.body, n.from_value, n.to_value, n.created_at,
   FROM homebase_feedback_note n JOIN homebase_feedback f ON f.id = n.feedback_id
   LEFT JOIN user au ON au.id = n.author_user_id LEFT JOIN individual ai ON ai.id = au.individual_id
  WHERE f.number = $Value ORDER BY n.created_at, n.rowid;
-SELECT i.id, i.r2_key, i.byte_size, i.width, i.height, i.created_at
+SELECT i.id, i.r2_key, i.byte_size, i.width, i.height, i.created_at, i.shapes_json, i.marker_map_json
   FROM homebase_feedback_image i JOIN homebase_feedback f ON f.id = i.feedback_id
  WHERE f.number = $Value ORDER BY i.created_at, i.id;
 "@ -replace '\r?\n', ' '
@@ -167,12 +171,55 @@ $lines.Add("| Theme | $(Format-Cell $request.theme) |")
 $lines.Add("")
 $lines.Add("## Images")
 $lines.Add("")
+$folder = Join-Path $Repo "feedback-cache\$Code"
+New-Item -ItemType Directory -Force -Path $folder | Out-Null
 if ($images.Count -eq 0) {
-    $lines.Add("None. (Screenshots come with stage F3.)")
+    $lines.Add("None.")
 } else {
-    $lines.Add("Listed only; downloading them comes with stage F3.")
-    $lines.Add("")
-    foreach ($image in $images) { $lines.Add("- ``$($image.r2_key)`` ($($image.width) x $($image.height), $($image.byte_size) bytes, $($image.created_at))") }
+    $lines.Add("Each PNG has the marks and redactions drawn in (redactions are solid black). Coordinates are 0 to 1 of the image; the markers each mark points at were worked out by the API from the marker map.")
+    $index = 0
+    foreach ($image in $images) {
+        $index += 1
+        $fileName = "$Code-image-$index.png"
+        $saved = "not downloaded (-NoImages)"
+        if (-not $NoImages) {
+            # Read-only download of one object (wrangler r2 object get), into the git-ignored feedback-cache folder.
+            $target = Join-Path $folder $fileName
+            $previous = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            try {
+                Push-Location $Repo
+                $output = & pnpm.cmd exec wrangler r2 object get "$Bucket/$($image.r2_key)" --remote --file $target --config $Config 2>&1 | ForEach-Object { "$_" } | Out-String
+            } finally {
+                Pop-Location
+                $ErrorActionPreference = $previous
+            }
+            $saved = if (Test-Path $target) { "saved as ``$fileName``" } else { "download failed: $($output.Trim() -replace '\s+', ' ')" }
+        }
+        $lines.Add("")
+        $lines.Add("### Image $index ($saved)")
+        $lines.Add("")
+        $markerCount = 0
+        if ($image.marker_map_json) { $markerCount = @($image.marker_map_json | ConvertFrom-Json).Count }
+        $lines.Add("``$($image.r2_key)``: $($image.width) x $($image.height), $($image.byte_size) bytes, $markerCount markers in the shot, added $($image.created_at).")
+        $lines.Add("")
+        $shapes = @()
+        if ($image.shapes_json) { $shapes = @($image.shapes_json | ConvertFrom-Json) }
+        if ($shapes.Count -eq 0) {
+            $lines.Add("- Nothing drawn on it.")
+        }
+        foreach ($shape in $shapes) {
+            $near = if (@($shape.nearMarkers).Count -gt 0) { (@($shape.nearMarkers) | ForEach-Object { "``$_``" }) -join ', ' } else { "no marker under it" }
+            $what = switch ($shape.type) {
+                'rectangle' { "Rectangle at x $($shape.x), y $($shape.y), $($shape.width) wide, $($shape.height) high, around $near" }
+                'redact'    { "Redaction at x $($shape.x), y $($shape.y), $($shape.width) wide, $($shape.height) high, over $near" }
+                'arrow'     { "Arrow from ($($shape.x1), $($shape.y1)) to ($($shape.x2), $($shape.y2)), pointing at $near" }
+                'text'      { "Text `"$($shape.text)`" at ($($shape.x), $($shape.y)), on $near" }
+                default     { "A $($shape.type) shape" }
+            }
+            $lines.Add("- $what")
+        }
+    }
 }
 $lines.Add("")
 $lines.Add("## Notes")
@@ -193,8 +240,6 @@ if ($notes.Count -eq 0) {
 }
 $lines.Add("")
 
-$folder = Join-Path $Repo "feedback-cache\$Code"
-New-Item -ItemType Directory -Force -Path $folder | Out-Null
 $file = Join-Path $folder "$Code.md"
 # UTF-8 without a byte order mark, so every tool reads it the same.
 [System.IO.File]::WriteAllText($file, ($lines -join "`n"), (New-Object System.Text.UTF8Encoding($false)))

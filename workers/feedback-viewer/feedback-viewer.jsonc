@@ -1,17 +1,33 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   // The Homebase Feedback viewer, built as a KR Homebase outside tool (frame path, path A) with only the tool kit
-  // (plan docs/12_Homebase_Feedback_Plan.md, stage F5; decision 3 changed Nov 14, 2026). Static files only: no script,
-  // no bindings, no secrets. Every call to KR Homebase goes through the KR Homebase page around the frame, with the
-  // signed-in person's own session. Guide and go-live steps: README.md in this folder.
+  // (plan docs/12_Homebase_Feedback_Plan.md, stage F5; decision 3 changed Nov 14, 2026). Static files, plus one small
+  // script for the screenshots (stage F3). Every call to KR Homebase goes through the KR Homebase page around the
+  // frame, with the signed-in person's own session. Guide and go-live steps: README.md in this folder.
   "name": "krhomebase-feedback-viewer",
   "compatibility_date": "2026-10-30",
+  // worker/imageWorker.ts runs only for /images/* (run_worker_first): it checks the ticket KR Homebase's API gave the
+  // image and serves the PNG from FEEDBACK_STORAGE. Every other address is a static file, as before.
+  "main": "worker/imageWorker.ts",
   // dist/ is written by `vite build` (the deploy script runs it first). public/_headers sets the
-  // Content-Security-Policy, including frame-ancestors https://krhomebase.com.
+  // Content-Security-Policy of the static files, including frame-ancestors https://krhomebase.com.
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/images/*"]
   },
+  // The private screenshots bucket, the same one the API writes (apps/api/kr-api-wrangler.jsonc, FEEDBACK_STORAGE).
+  // This Worker only reads it. A first-party exception to "an outside tool keeps its own storage": README.md, section
+  // "The screenshots: a stated exception".
+  "r2_buckets": [
+    {
+      "binding": "FEEDBACK_STORAGE",
+      "bucket_name": "kr-homebase-feedback"
+    }
+  ],
+  // Secret (set by the requester with wrangler secret put, never in this file): KR_FEEDBACK_IMAGE_TICKET_SECRET, the
+  // same value the API holds.
   // The tool's address is the workers.dev address, a different site from krhomebase.com, as the outside tools
   // design asks (docs/05_Outside_Tools.md, section 3, point 6). No preview addresses.
   "workers_dev": true,

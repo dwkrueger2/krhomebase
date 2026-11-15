@@ -6,7 +6,8 @@
  * - `homebase_feedback`: one row per request; `number` is UNIQUE (12 is FB-0012), so a save that loses a race for the
  *   next number answers false and the caller tries the next one.
  * - `homebase_feedback_marker`: the markers the text names, UNIQUE `(feedback_id, attribute, value)`.
- * - `homebase_feedback_image`: annotated screenshots (stage F3 writes them; read here so the reply shape is final).
+ * - `homebase_feedback_image`: annotated screenshots (stage F3): the R2 key, size, the shapes and the marker map as JSON.
+ *   The PNG itself is in R2 (`src/platform/feedbackImages.ts`).
  * - `homebase_feedback_note`: developer notes and status or priority changes.
  * - `user`, `individual`: the names of senders and note authors.
  *
@@ -86,6 +87,22 @@ export interface ImageRow {
   width: number | null
   height: number | null
   created_at: string
+  shapes_json: string | null
+  marker_map_json: string | null
+}
+
+/** A new image row (the PNG is already in R2 under `r2Key`). */
+export interface ImageInsert {
+  id: string
+  feedbackId: string
+  r2Key: string
+  byteSize: number
+  width: number
+  height: number
+  shapesJson: string
+  markerMapJson: string
+  createdByUserId: string
+  now: string
 }
 
 export interface NoteRow {
@@ -149,6 +166,10 @@ export interface HomebaseFeedbackQueries {
   byNumber(number: number): Promise<FeedbackRow | null>
   markers(feedbackId: string): Promise<MarkerRow[]>
   images(feedbackId: string): Promise<ImageRow[]>
+  /** How many images a request has. */
+  imageCount(feedbackId: string): Promise<number>
+  /** Saves one image row and marks the request changed. */
+  insertImage(row: ImageInsert, audit: AuditEntry): Promise<void>
   notes(feedbackId: string): Promise<NoteRow[]>
   /** Saves a request with its markers; false when its number was taken in between. */
   insert(row: FeedbackInsert, audit: AuditEntry): Promise<boolean>
@@ -208,9 +229,28 @@ export function createHomebaseFeedbackQueries(db: D1Database): HomebaseFeedbackQ
 
     images: (feedbackId) =>
       run(async () => {
-        const sql = 'SELECT id, r2_key, content_type, byte_size, width, height, created_at FROM homebase_feedback_image WHERE feedback_id = ?1 ORDER BY created_at, id'
+        const sql =
+          'SELECT id, r2_key, content_type, byte_size, width, height, created_at, shapes_json, marker_map_json FROM homebase_feedback_image WHERE feedback_id = ?1 ORDER BY created_at, id'
         return (await db.prepare(sql).bind(feedbackId).all<ImageRow>()).results ?? []
       }),
+
+    imageCount: (feedbackId) =>
+      run(async () => Number((await db.prepare('SELECT COUNT(*) AS n FROM homebase_feedback_image WHERE feedback_id = ?1').bind(feedbackId).first<{ n: number }>())?.n ?? 0)),
+
+    async insertImage(row, audit) {
+      await run(() =>
+        db.batch([
+          db
+            .prepare(
+              `INSERT INTO homebase_feedback_image (id, feedback_id, r2_key, content_type, byte_size, width, height, shapes_json, marker_map_json, created_by_user_id, created_at)
+               VALUES (?1, ?2, ?3, 'image/png', ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
+            )
+            .bind(row.id, row.feedbackId, row.r2Key, row.byteSize, row.width, row.height, row.shapesJson, row.markerMapJson, row.createdByUserId, row.now),
+          db.prepare('UPDATE homebase_feedback SET updated_at = ?2 WHERE id = ?1').bind(row.feedbackId, row.now),
+          auditStatement(db, audit),
+        ]),
+      )
+    },
 
     notes: (feedbackId) =>
       run(async () => {

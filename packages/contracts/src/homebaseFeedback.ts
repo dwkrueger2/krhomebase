@@ -9,8 +9,15 @@
  *   GET   /v1/homebase-feedback/{number}         one request with its markers, images and notes (developers, or its sender)
  *   PATCH /v1/homebase-feedback/{number}         change the status or priority, with an optional note (developers)
  *   POST  /v1/homebase-feedback/{number}/notes   add a developer note (developers)
+ *   POST  /v1/homebase-feedback/{number}/images  add an annotated screenshot (its sender, or a developer; stage F3)
  *
- * The image upload route (`POST .../{number}/images`) comes with stage F3; `images` is always empty until then.
+ * Images (stage F3): the Feedback pop-out draws the source window's page to a PNG, the person draws rectangles,
+ * arrows, text and redactions over it, and the flattened PNG is uploaded with the shapes as data (coordinates 0 to 1
+ * of the image) and the marker map (every `data-kr-*` element in the shot, with its box, also 0 to 1). The API keeps
+ * the PNG in the private R2 bucket `kr-homebase-feedback` and works out, for each shape, the markers it points at
+ * (`nearMarkers`), so a reader sees "a rectangle around data-kr-element=..." as data. Each image in a reply carries a
+ * short-lived ticket (`HOMEBASE_FEEDBACK_IMAGE_TICKET_*`): the Feedback viewer's own Worker checks it and serves the
+ * PNG from its own binding to the same bucket.
  *
  * Developers are people granted the permission resource `developer_tools` (`roleSets.ts`), normally through the
  * built-in role set "Internal Developer" (decision 2). `viewer.isDeveloper` says whether the caller is one.
@@ -214,7 +221,126 @@ export const HomebaseFeedbackMarker = z.object({
 })
 export type HomebaseFeedbackMarker = z.infer<typeof HomebaseFeedbackMarker>
 
-/** An annotated screenshot (stage F3; none until then). */
+// ---------------------------------------------------------------------------------------------------------------
+// Images (stage F3)
+// ---------------------------------------------------------------------------------------------------------------
+
+/** The kinds of shape the annotation editor draws. A redaction is solid black and burned into the PNG. */
+export const HOMEBASE_FEEDBACK_SHAPE_TYPES = ['rectangle', 'arrow', 'text', 'redact'] as const
+/** The most images one request keeps. */
+export const HOMEBASE_FEEDBACK_MAX_IMAGES = 5
+/** The largest PNG accepted, in bytes (8 MB). */
+export const HOMEBASE_FEEDBACK_MAX_IMAGE_BYTES = 8 * 1024 * 1024
+/** The most shapes one image keeps. */
+export const HOMEBASE_FEEDBACK_MAX_SHAPES = 100
+/** The most marker map entries one image keeps. */
+export const HOMEBASE_FEEDBACK_MAX_MAP_ENTRIES = 400
+/** How long an image ticket lasts, in seconds (10 minutes). */
+export const HOMEBASE_FEEDBACK_IMAGE_TICKET_SECONDS = 600
+/**
+ * What an image ticket signs: `homebase-feedback-image|<r2 key>|<expiry, Unix seconds>`, HMAC-SHA256 with the secret
+ * `KR_FEEDBACK_IMAGE_TICKET_SECRET` (held by the API and the Feedback viewer Worker, nobody else). The ticket text is
+ * `<expiry>.<signature as base64url>`. The viewer Worker (`workers/feedback-viewer/worker/imageWorker.ts`) writes the
+ * same rule out itself, because an outside tool cannot import this package; a test keeps the two equal.
+ */
+export const HOMEBASE_FEEDBACK_IMAGE_TICKET_PURPOSE = 'homebase-feedback-image'
+
+/** The text an image ticket signs. */
+export function feedbackImageTicketMessage(r2Key: string, expiresAt: number): string {
+  return `${HOMEBASE_FEEDBACK_IMAGE_TICKET_PURPOSE}|${r2Key}|${expiresAt}`
+}
+
+/** The R2 key of a feedback image: `feedback/FB-0012/<image id>.png`. */
+export const HOMEBASE_FEEDBACK_IMAGE_KEY_PATTERN = /^feedback\/FB-\d{4,9}\/hfi_[0-9a-f-]{36}\.png$/
+
+export const HomebaseFeedbackShapeType = z.enum(HOMEBASE_FEEDBACK_SHAPE_TYPES).describe('Rectangle, arrow, text or redaction (solid black, burned into the PNG).')
+export type HomebaseFeedbackShapeType = z.infer<typeof HomebaseFeedbackShapeType>
+export const HOMEBASE_FEEDBACK_SHAPE_LABELS: Record<HomebaseFeedbackShapeType, string> = { rectangle: 'Rectangle', arrow: 'Arrow', text: 'Text', redact: 'Redaction' }
+
+/** A position along one side of the image: 0 is the left or top edge, 1 the right or bottom edge. */
+const unit = (what: string) => z.number().finite().min(0).max(1).describe(what)
+
+/** A box on the image, every value 0 to 1 of the image width or height. */
+export const HomebaseFeedbackUnitBox = z.object({
+  x: unit('Left edge, 0 to 1 of the image width.'),
+  y: unit('Top edge, 0 to 1 of the image height.'),
+  width: unit('Width, 0 to 1 of the image width.'),
+  height: unit('Height, 0 to 1 of the image height.'),
+})
+export type HomebaseFeedbackUnitBox = z.infer<typeof HomebaseFeedbackUnitBox>
+
+/**
+ * One shape as the editor sends it. Rectangles and redactions are boxes; an arrow runs from its tail (x1, y1) to its
+ * head (x2, y2); a text starts at (x, y).
+ */
+export const HomebaseFeedbackShapeInput = z.discriminatedUnion('type', [
+  HomebaseFeedbackUnitBox.extend({ type: z.literal('rectangle') }),
+  HomebaseFeedbackUnitBox.extend({ type: z.literal('redact') }),
+  z.object({
+    type: z.literal('arrow'),
+    x1: unit('Tail, 0 to 1 of the image width.'),
+    y1: unit('Tail, 0 to 1 of the image height.'),
+    x2: unit('Head, 0 to 1 of the image width.'),
+    y2: unit('Head, 0 to 1 of the image height.'),
+  }),
+  z.object({
+    type: z.literal('text'),
+    x: unit('Where the text starts, 0 to 1 of the image width.'),
+    y: unit('Where the text starts, 0 to 1 of the image height.'),
+    text: z.string().trim().min(1).max(300).describe('The words written on the image.'),
+  }),
+])
+export type HomebaseFeedbackShapeInput = z.infer<typeof HomebaseFeedbackShapeInput>
+
+/** One `data-kr-*` element seen in the shot. */
+export const HomebaseFeedbackMapEntry = z.object({
+  attribute: HomebaseFeedbackMarkerAttribute,
+  value: z.string().trim().min(1).max(200).describe('The marker value.'),
+  box: HomebaseFeedbackUnitBox.describe('Where it was on the image.'),
+})
+export type HomebaseFeedbackMapEntry = z.infer<typeof HomebaseFeedbackMapEntry>
+
+/** The shapes of one image. */
+export const HomebaseFeedbackShapeList = z.array(HomebaseFeedbackShapeInput).max(HOMEBASE_FEEDBACK_MAX_SHAPES)
+/** The marker map of one image. */
+export const HomebaseFeedbackMarkerMap = z.array(HomebaseFeedbackMapEntry).max(HOMEBASE_FEEDBACK_MAX_MAP_ENTRIES)
+
+/** The upload form (multipart): the flattened PNG and the shapes and marker map as JSON text. The API reads the size from the PNG. */
+export const HomebaseFeedbackImageUploadForm = z.object({
+  file: z.any().describe('The annotated screenshot: a PNG of at most 8 MB, with the shapes and redactions already drawn in.'),
+  shapes: z.string().max(200_000).default('[]').describe('The shapes as JSON (`HomebaseFeedbackShapeInput[]`, at most 100).'),
+  markerMap: z.string().max(400_000).default('[]').describe('The marker map as JSON (`HomebaseFeedbackMapEntry[]`, at most 400).'),
+})
+export type HomebaseFeedbackImageUploadForm = z.infer<typeof HomebaseFeedbackImageUploadForm>
+
+/** A shape as kept and sent back: what was drawn, plus the markers it points at. */
+export const HomebaseFeedbackShape = z.object({
+  type: HomebaseFeedbackShapeType,
+  x: z.number().nullable().describe('Left edge (rectangle, redaction) or where a text starts, 0 to 1; null for an arrow.'),
+  y: z.number().nullable().describe('Top edge, or where a text starts, 0 to 1; null for an arrow.'),
+  width: z.number().nullable().describe('Width, 0 to 1 (rectangle, redaction).'),
+  height: z.number().nullable().describe('Height, 0 to 1 (rectangle, redaction).'),
+  x1: z.number().nullable().describe('Arrow tail, 0 to 1.'),
+  y1: z.number().nullable().describe('Arrow tail, 0 to 1.'),
+  x2: z.number().nullable().describe('Arrow head, 0 to 1.'),
+  y2: z.number().nullable().describe('Arrow head, 0 to 1.'),
+  text: z.string().nullable().describe('The words (text shapes).'),
+  nearMarkers: z
+    .array(z.string())
+    .describe(
+      'The markers the shape points at, as `data-kr-id="..."`, at most five: for a rectangle or redaction the largest elements inside it first; for an arrow head or a text the innermost element under it first.',
+    ),
+})
+export type HomebaseFeedbackShape = z.infer<typeof HomebaseFeedbackShape>
+
+/** A ticket to read one image from the Feedback viewer Worker. */
+export const HomebaseFeedbackImageTicket = z.object({
+  value: z.string().describe('`<expiry>.<signature>`, sent as `?ticket=` with the image key.'),
+  expiresAt: z.string().describe('When it stops working (ISO time).'),
+})
+export type HomebaseFeedbackImageTicket = z.infer<typeof HomebaseFeedbackImageTicket>
+
+/** An annotated screenshot (stage F3). */
 export const HomebaseFeedbackImage = z.object({
   id: z.string().describe('Image id.'),
   r2Key: z.string().describe('Where the PNG is kept in the private feedback bucket.'),
@@ -223,6 +349,9 @@ export const HomebaseFeedbackImage = z.object({
   width: z.number().int().nullable().describe('Width in pixels.'),
   height: z.number().int().nullable().describe('Height in pixels.'),
   createdAt: z.string().describe('When it was added (ISO time).'),
+  shapes: z.array(HomebaseFeedbackShape).describe('The shapes drawn on it, with the markers each points at.'),
+  markerMapCount: z.number().int().describe('How many `data-kr-*` elements were seen in the shot.'),
+  ticket: HomebaseFeedbackImageTicket.nullable().describe('A short-lived ticket for the Feedback viewer to show the image; null when the API has no ticket secret.'),
 })
 export type HomebaseFeedbackImage = z.infer<typeof HomebaseFeedbackImage>
 
@@ -257,7 +386,7 @@ export const HomebaseFeedbackDetail = HomebaseFeedbackSummary.extend({
     })
     .describe('The page it was sent from, as captured.'),
   markers: z.array(HomebaseFeedbackMarker).describe('The markers the text names, in the order written.'),
-  images: z.array(HomebaseFeedbackImage).describe('Annotated screenshots (stage F3; empty until then).'),
+  images: z.array(HomebaseFeedbackImage).describe('Annotated screenshots, oldest first.'),
   notes: z.array(HomebaseFeedbackNote).describe('Developer notes and status changes, oldest first. Empty for a sender who is not a developer.'),
 })
 export type HomebaseFeedbackDetail = z.infer<typeof HomebaseFeedbackDetail>

@@ -1,9 +1,9 @@
 # Homebase Feedback Plan (feature requests and issues for the app itself)
 
-<small>Version 1.2</small><br>
-<small>Updated Nov 14, 2026 1:32pm</small>
+<small>Version 1.3</small><br>
+<small>Updated Nov 14, 2026 9:45pm</small>
 
-**Status:** decided (section 7.1, Nov 13, 2026). Stages F1, F2 and F6 are built (repository patch 33, API patch 30, web patch 542); F5, the viewer (an outside tool, decision 3 changed), is built and not deployed (repository patch 37, API patch 32, Nov 14, 2026); F3 and F4 wait. Written from the requester's brief of Nov 13, 2026 ("FEED BACK FEATURE").
+**Status:** decided (section 7.1, Nov 13, 2026). Stages F1, F2 and F6 are built (repository patch 33, API patch 30, web patch 542); F5, the viewer (an outside tool, decision 3 changed), is built and not deployed (repository patch 37, API patch 32, Nov 14, 2026); F3, the screenshots, is built and not deployed (repository patch 40, API patch 34, web patch 545, Nov 14, 2026); F4 waits. Written from the requester's brief of Nov 13, 2026 ("FEED BACK FEATURE").
 
 **Headline:** people inside KR Homebase can send a numbered request (`FB-0012`) from a pop-out window: text with clickable `data-kr-*` markers, an annotated screenshot, and the page's address and deployed version, all captured automatically. A separate viewer Worker lists and works them. Claude Code reads a request by its number with a read-only script and answers with a plan. Nearly everything asked for is workable; four points need a change of rule or a choice (section 3).
 
@@ -154,4 +154,14 @@ What F5 built (Nov 14, 2026; repository patch 37, API patch 32):
 - **Go-live** (the requester): `pnpm deploy:hot`, `pnpm deploy:feedback-viewer`, register the tool, give developers the Internal Developer role set; the steps are in `workers/feedback-viewer/README.md`.
 - **Not in F5:** a person filter on the list (the API list has none), showing images (F3; the tool bridge carries only JSON today), and the "Copy plan" box of 3.6; "Copy for Claude" holds the words `plan FB-0012`, not the script's Markdown.
 
-Left for later: F3 (screenshot, annotation editor, marker map, the image upload route, the R2 bucket `kr-homebase-feedback`; the viewer then shows the images, through an API route), F4 (Dev View for developers in the deployed app, Pick into the text, the guide rule change).
+What F3 built (Nov 14, 2026; repository patch 40, API patch 34, web patch 545; the requester asked for it before the Billing audit, changing decision 7 for this stage):
+
+- **Storage (the requester's choice, Nov 14, 2026):** the private R2 bucket `kr-homebase-feedback`, bound to the API (`FEEDBACK_STORAGE`, writes) **and to the viewer Worker** (reads), so the viewer treats it as its own storage instead of fetching images through the API. One bucket for `pnpm dev` and deployed (not the `-dev` bucket of 4.2): `pnpm dev` already writes the live database, and a dev bucket would leave live rows pointing at images that are not there. Keys `feedback/FB-0012/<image id>.png`.
+- **Who sees an image:** the viewer's site has no KR Homebase session, so the API decides. Each image in a request reply carries a ticket (10 minutes; HMAC-SHA256 of `homebase-feedback-image|<key>|<expiry>` with the secret `KR_FEEDBACK_IMAGE_TICKET_SECRET`, held by the API and the viewer Worker only). The viewer's script `worker/imageWorker.ts` checks it and streams the PNG. This is a stated exception to the viewer's "only the kit" rule (its `README.md`).
+- **API:** `POST /v1/homebase-feedback/{number}/images` (multipart: the PNG, the shapes and the marker map as JSON; the sender or a developer; five images of 8 MB at most). The PNG signature is checked and the size read from the file; the shapes and the marker map are checked against the contracts; each shape is stored with `nearMarkers`, the markers it points at (a rectangle or redaction: the elements at least 60% inside it, largest first; an arrow head or a text: the innermost elements under it). The PNG goes to R2 first, then the row and its audit row (`IMAGE`) in one batch; a failed batch removes the PNG. No migration: `homebase_feedback_image` came with 033.
+- **Pop-out (web):** a Screenshot row in New request: **Take screenshot** draws the main window with `modern-screenshot` (4.7.0, the new web dependency of decision 5) and reads the marker map (every visible `data-kr-*` element, 0 to 1 of the window, at most 400); the annotation editor opens over the pop-out (Rectangle, Arrow, Text, Redact, Undo, Done, Cancel), with a reminder to redact client details. Send saves the request, then flattens the shapes into the PNG (a redaction is solid black, so the covered pixels are not sent) and uploads it. When only the upload fails, the request stands and the footer says so.
+- **Viewer:** one request shows each screenshot (from `/images/<key>?ticket=...`) and its marks in words ("Rectangle around `data-kr-element=...`"). Tool version 1.2.0.
+- **Claude's read path:** `Get-Feedback.ps1` downloads each PNG into `feedback-cache\FB-0012\` with a read-only `wrangler r2 object get` and lists the marks with their markers.
+- **Known limits:** frames and images from other sites may come out blank in the screenshot; the page is drawn from its top-left corner; under `vite dev` the viewer cannot show images (its script runs only deployed).
+
+Left for later: F4 (Dev View for developers in the deployed app, Pick into the text, the guide rule change). Showing a screenshot in My requests (the sender's own view) is not built.

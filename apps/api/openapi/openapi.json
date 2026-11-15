@@ -71067,6 +71067,133 @@
                                   "createdAt": {
                                     "type": "string",
                                     "description": "When it was added (ISO time)."
+                                  },
+                                  "shapes": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "type": {
+                                          "type": "string",
+                                          "enum": [
+                                            "rectangle",
+                                            "arrow",
+                                            "text",
+                                            "redact"
+                                          ],
+                                          "description": "Rectangle, arrow, text or redaction (solid black, burned into the PNG)."
+                                        },
+                                        "x": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Left edge (rectangle, redaction) or where a text starts, 0 to 1; null for an arrow."
+                                        },
+                                        "y": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Top edge, or where a text starts, 0 to 1; null for an arrow."
+                                        },
+                                        "width": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Width, 0 to 1 (rectangle, redaction)."
+                                        },
+                                        "height": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Height, 0 to 1 (rectangle, redaction)."
+                                        },
+                                        "x1": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow tail, 0 to 1."
+                                        },
+                                        "y1": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow tail, 0 to 1."
+                                        },
+                                        "x2": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow head, 0 to 1."
+                                        },
+                                        "y2": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow head, 0 to 1."
+                                        },
+                                        "text": {
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ],
+                                          "description": "The words (text shapes)."
+                                        },
+                                        "nearMarkers": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string"
+                                          },
+                                          "description": "The markers the shape points at, as `data-kr-id=\"...\"`, at most five: for a rectangle or redaction the largest elements inside it first; for an arrow head or a text the innermost element under it first."
+                                        }
+                                      },
+                                      "required": [
+                                        "type",
+                                        "x",
+                                        "y",
+                                        "width",
+                                        "height",
+                                        "x1",
+                                        "y1",
+                                        "x2",
+                                        "y2",
+                                        "text",
+                                        "nearMarkers"
+                                      ]
+                                    },
+                                    "description": "The shapes drawn on it, with the markers each points at."
+                                  },
+                                  "markerMapCount": {
+                                    "type": "integer",
+                                    "description": "How many `data-kr-*` elements were seen in the shot."
+                                  },
+                                  "ticket": {
+                                    "type": [
+                                      "object",
+                                      "null"
+                                    ],
+                                    "properties": {
+                                      "value": {
+                                        "type": "string",
+                                        "description": "`<expiry>.<signature>`, sent as `?ticket=` with the image key."
+                                      },
+                                      "expiresAt": {
+                                        "type": "string",
+                                        "description": "When it stops working (ISO time)."
+                                      }
+                                    },
+                                    "required": [
+                                      "value",
+                                      "expiresAt"
+                                    ],
+                                    "description": "A short-lived ticket for the Feedback viewer to show the image; null when the API has no ticket secret."
                                   }
                                 },
                                 "required": [
@@ -71076,10 +71203,13 @@
                                   "byteSize",
                                   "width",
                                   "height",
-                                  "createdAt"
+                                  "createdAt",
+                                  "shapes",
+                                  "markerMapCount",
+                                  "ticket"
                                 ]
                               },
-                              "description": "Annotated screenshots (stage F3; empty until then)."
+                              "description": "Annotated screenshots, oldest first."
                             },
                             "notes": {
                               "type": "array",
@@ -72616,6 +72746,133 @@
                                   "createdAt": {
                                     "type": "string",
                                     "description": "When it was added (ISO time)."
+                                  },
+                                  "shapes": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "type": {
+                                          "type": "string",
+                                          "enum": [
+                                            "rectangle",
+                                            "arrow",
+                                            "text",
+                                            "redact"
+                                          ],
+                                          "description": "Rectangle, arrow, text or redaction (solid black, burned into the PNG)."
+                                        },
+                                        "x": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Left edge (rectangle, redaction) or where a text starts, 0 to 1; null for an arrow."
+                                        },
+                                        "y": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Top edge, or where a text starts, 0 to 1; null for an arrow."
+                                        },
+                                        "width": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Width, 0 to 1 (rectangle, redaction)."
+                                        },
+                                        "height": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Height, 0 to 1 (rectangle, redaction)."
+                                        },
+                                        "x1": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow tail, 0 to 1."
+                                        },
+                                        "y1": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow tail, 0 to 1."
+                                        },
+                                        "x2": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow head, 0 to 1."
+                                        },
+                                        "y2": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow head, 0 to 1."
+                                        },
+                                        "text": {
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ],
+                                          "description": "The words (text shapes)."
+                                        },
+                                        "nearMarkers": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string"
+                                          },
+                                          "description": "The markers the shape points at, as `data-kr-id=\"...\"`, at most five: for a rectangle or redaction the largest elements inside it first; for an arrow head or a text the innermost element under it first."
+                                        }
+                                      },
+                                      "required": [
+                                        "type",
+                                        "x",
+                                        "y",
+                                        "width",
+                                        "height",
+                                        "x1",
+                                        "y1",
+                                        "x2",
+                                        "y2",
+                                        "text",
+                                        "nearMarkers"
+                                      ]
+                                    },
+                                    "description": "The shapes drawn on it, with the markers each points at."
+                                  },
+                                  "markerMapCount": {
+                                    "type": "integer",
+                                    "description": "How many `data-kr-*` elements were seen in the shot."
+                                  },
+                                  "ticket": {
+                                    "type": [
+                                      "object",
+                                      "null"
+                                    ],
+                                    "properties": {
+                                      "value": {
+                                        "type": "string",
+                                        "description": "`<expiry>.<signature>`, sent as `?ticket=` with the image key."
+                                      },
+                                      "expiresAt": {
+                                        "type": "string",
+                                        "description": "When it stops working (ISO time)."
+                                      }
+                                    },
+                                    "required": [
+                                      "value",
+                                      "expiresAt"
+                                    ],
+                                    "description": "A short-lived ticket for the Feedback viewer to show the image; null when the API has no ticket secret."
                                   }
                                 },
                                 "required": [
@@ -72625,10 +72882,13 @@
                                   "byteSize",
                                   "width",
                                   "height",
-                                  "createdAt"
+                                  "createdAt",
+                                  "shapes",
+                                  "markerMapCount",
+                                  "ticket"
                                 ]
                               },
-                              "description": "Annotated screenshots (stage F3; empty until then)."
+                              "description": "Annotated screenshots, oldest first."
                             },
                             "notes": {
                               "type": "array",
@@ -73352,6 +73612,133 @@
                                   "createdAt": {
                                     "type": "string",
                                     "description": "When it was added (ISO time)."
+                                  },
+                                  "shapes": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "type": {
+                                          "type": "string",
+                                          "enum": [
+                                            "rectangle",
+                                            "arrow",
+                                            "text",
+                                            "redact"
+                                          ],
+                                          "description": "Rectangle, arrow, text or redaction (solid black, burned into the PNG)."
+                                        },
+                                        "x": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Left edge (rectangle, redaction) or where a text starts, 0 to 1; null for an arrow."
+                                        },
+                                        "y": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Top edge, or where a text starts, 0 to 1; null for an arrow."
+                                        },
+                                        "width": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Width, 0 to 1 (rectangle, redaction)."
+                                        },
+                                        "height": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Height, 0 to 1 (rectangle, redaction)."
+                                        },
+                                        "x1": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow tail, 0 to 1."
+                                        },
+                                        "y1": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow tail, 0 to 1."
+                                        },
+                                        "x2": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow head, 0 to 1."
+                                        },
+                                        "y2": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow head, 0 to 1."
+                                        },
+                                        "text": {
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ],
+                                          "description": "The words (text shapes)."
+                                        },
+                                        "nearMarkers": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string"
+                                          },
+                                          "description": "The markers the shape points at, as `data-kr-id=\"...\"`, at most five: for a rectangle or redaction the largest elements inside it first; for an arrow head or a text the innermost element under it first."
+                                        }
+                                      },
+                                      "required": [
+                                        "type",
+                                        "x",
+                                        "y",
+                                        "width",
+                                        "height",
+                                        "x1",
+                                        "y1",
+                                        "x2",
+                                        "y2",
+                                        "text",
+                                        "nearMarkers"
+                                      ]
+                                    },
+                                    "description": "The shapes drawn on it, with the markers each points at."
+                                  },
+                                  "markerMapCount": {
+                                    "type": "integer",
+                                    "description": "How many `data-kr-*` elements were seen in the shot."
+                                  },
+                                  "ticket": {
+                                    "type": [
+                                      "object",
+                                      "null"
+                                    ],
+                                    "properties": {
+                                      "value": {
+                                        "type": "string",
+                                        "description": "`<expiry>.<signature>`, sent as `?ticket=` with the image key."
+                                      },
+                                      "expiresAt": {
+                                        "type": "string",
+                                        "description": "When it stops working (ISO time)."
+                                      }
+                                    },
+                                    "required": [
+                                      "value",
+                                      "expiresAt"
+                                    ],
+                                    "description": "A short-lived ticket for the Feedback viewer to show the image; null when the API has no ticket secret."
                                   }
                                 },
                                 "required": [
@@ -73361,10 +73748,13 @@
                                   "byteSize",
                                   "width",
                                   "height",
-                                  "createdAt"
+                                  "createdAt",
+                                  "shapes",
+                                  "markerMapCount",
+                                  "ticket"
                                 ]
                               },
-                              "description": "Annotated screenshots (stage F3; empty until then)."
+                              "description": "Annotated screenshots, oldest first."
                             },
                             "notes": {
                               "type": "array",
@@ -74072,6 +74462,133 @@
                                   "createdAt": {
                                     "type": "string",
                                     "description": "When it was added (ISO time)."
+                                  },
+                                  "shapes": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "type": {
+                                          "type": "string",
+                                          "enum": [
+                                            "rectangle",
+                                            "arrow",
+                                            "text",
+                                            "redact"
+                                          ],
+                                          "description": "Rectangle, arrow, text or redaction (solid black, burned into the PNG)."
+                                        },
+                                        "x": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Left edge (rectangle, redaction) or where a text starts, 0 to 1; null for an arrow."
+                                        },
+                                        "y": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Top edge, or where a text starts, 0 to 1; null for an arrow."
+                                        },
+                                        "width": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Width, 0 to 1 (rectangle, redaction)."
+                                        },
+                                        "height": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Height, 0 to 1 (rectangle, redaction)."
+                                        },
+                                        "x1": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow tail, 0 to 1."
+                                        },
+                                        "y1": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow tail, 0 to 1."
+                                        },
+                                        "x2": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow head, 0 to 1."
+                                        },
+                                        "y2": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow head, 0 to 1."
+                                        },
+                                        "text": {
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ],
+                                          "description": "The words (text shapes)."
+                                        },
+                                        "nearMarkers": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string"
+                                          },
+                                          "description": "The markers the shape points at, as `data-kr-id=\"...\"`, at most five: for a rectangle or redaction the largest elements inside it first; for an arrow head or a text the innermost element under it first."
+                                        }
+                                      },
+                                      "required": [
+                                        "type",
+                                        "x",
+                                        "y",
+                                        "width",
+                                        "height",
+                                        "x1",
+                                        "y1",
+                                        "x2",
+                                        "y2",
+                                        "text",
+                                        "nearMarkers"
+                                      ]
+                                    },
+                                    "description": "The shapes drawn on it, with the markers each points at."
+                                  },
+                                  "markerMapCount": {
+                                    "type": "integer",
+                                    "description": "How many `data-kr-*` elements were seen in the shot."
+                                  },
+                                  "ticket": {
+                                    "type": [
+                                      "object",
+                                      "null"
+                                    ],
+                                    "properties": {
+                                      "value": {
+                                        "type": "string",
+                                        "description": "`<expiry>.<signature>`, sent as `?ticket=` with the image key."
+                                      },
+                                      "expiresAt": {
+                                        "type": "string",
+                                        "description": "When it stops working (ISO time)."
+                                      }
+                                    },
+                                    "required": [
+                                      "value",
+                                      "expiresAt"
+                                    ],
+                                    "description": "A short-lived ticket for the Feedback viewer to show the image; null when the API has no ticket secret."
                                   }
                                 },
                                 "required": [
@@ -74081,10 +74598,13 @@
                                   "byteSize",
                                   "width",
                                   "height",
-                                  "createdAt"
+                                  "createdAt",
+                                  "shapes",
+                                  "markerMapCount",
+                                  "ticket"
                                 ]
                               },
-                              "description": "Annotated screenshots (stage F3; empty until then)."
+                              "description": "Annotated screenshots, oldest first."
                             },
                             "notes": {
                               "type": "array",
@@ -74405,6 +74925,904 @@
           },
           "503": {
             "description": "Homebase Feedback cannot be read or saved right now (HOMEBASE_FEEDBACK_UNAVAILABLE), or migration 033 (the feedback tables) is not applied yet (HOMEBASE_FEEDBACK_MIGRATION_REQUIRED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/homebase-feedback/{number}/images": {
+      "post": {
+        "summary": "Adds an annotated screenshot (a PNG with its shapes and marker map) to a feedback request; its sender or an Internal Developer, five images at most. Each shape is given the markers it points at.",
+        "description": "Any signed-in user.\n\nSide effects: Writes the PNG to R2 (kr-homebase-feedback); Writes homebase_feedback_image; Writes homebase_feedback; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, HOMEBASE_FEEDBACK_NOT_FOUND, HOMEBASE_FEEDBACK_IMAGE_REQUIRED, HOMEBASE_FEEDBACK_IMAGE_NOT_PNG, HOMEBASE_FEEDBACK_IMAGE_TOO_LARGE, HOMEBASE_FEEDBACK_IMAGE_DATA_INVALID, HOMEBASE_FEEDBACK_IMAGE_LIMIT, HOMEBASE_FEEDBACK_STORAGE_UNAVAILABLE, HOMEBASE_FEEDBACK_UNAVAILABLE, HOMEBASE_FEEDBACK_MIGRATION_REQUIRED, INTERNAL_ERROR.",
+        "tags": [
+          "homebase-feedback"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(?:FB-?)?\\d{1,9}$/i",
+              "description": "The request number: `FB-0012` or `12`."
+            },
+            "required": true,
+            "description": "The request number: `FB-0012` or `12`.",
+            "name": "number",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "description": "The annotated screenshot: a PNG of at most 8 MB, with the shapes and redactions already drawn in."
+                  },
+                  "shapes": {
+                    "type": "string",
+                    "maxLength": 200000,
+                    "default": "[]",
+                    "description": "The shapes as JSON (`HomebaseFeedbackShapeInput[]`, at most 100)."
+                  },
+                  "markerMap": {
+                    "type": "string",
+                    "maxLength": 400000,
+                    "default": "[]",
+                    "description": "The marker map as JSON (`HomebaseFeedbackMapEntry[]`, at most 400)."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "feedback": {
+                          "type": "object",
+                          "properties": {
+                            "number": {
+                              "type": "integer",
+                              "description": "The request number (12 for FB-0012)."
+                            },
+                            "code": {
+                              "type": "string",
+                              "description": "The request number as written, `FB-0012`."
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "feature",
+                                "issue",
+                                "question"
+                              ],
+                              "description": "Feature (a change or addition), issue (something wrong) or question."
+                            },
+                            "title": {
+                              "type": "string",
+                              "description": "The short title."
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "new",
+                                "triaged",
+                                "planned",
+                                "in_progress",
+                                "done",
+                                "will_not_do"
+                              ],
+                              "description": "Where the request stands."
+                            },
+                            "priority": {
+                              "type": "string",
+                              "enum": [
+                                "low",
+                                "normal",
+                                "high",
+                                "urgent"
+                              ],
+                              "description": "How urgent the request is."
+                            },
+                            "submittedByUserId": {
+                              "type": "string",
+                              "description": "Who sent it."
+                            },
+                            "submittedByLabel": {
+                              "type": "string",
+                              "description": "That person's name (preferred name, else first and last name, else email)."
+                            },
+                            "sectionId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "The section it was sent from."
+                            },
+                            "markerCount": {
+                              "type": "integer",
+                              "description": "How many markers the text names."
+                            },
+                            "noteCount": {
+                              "type": "integer",
+                              "description": "How many developer notes it has."
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "description": "When it was sent (ISO time)."
+                            },
+                            "updatedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "When it last changed (ISO time)."
+                            },
+                            "body": {
+                              "type": "string",
+                              "description": "The request text."
+                            },
+                            "submitterRole": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "The sender's role when it was sent."
+                            },
+                            "context": {
+                              "type": "object",
+                              "properties": {
+                                "pageAddress": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The full address of the source window."
+                                },
+                                "sectionId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The open section."
+                                },
+                                "openItem": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The open item, when one was open."
+                                },
+                                "pageTitle": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The page title and breadcrumb."
+                                },
+                                "webVersion": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The `kr-web-version` tag."
+                                },
+                                "deploymentId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The `kr-deployment-id` tag."
+                                },
+                                "deploymentTime": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The `kr-deployment-time` tag."
+                                },
+                                "windowWidth": {
+                                  "type": [
+                                    "integer",
+                                    "null"
+                                  ],
+                                  "description": "Width of the source window, in CSS pixels."
+                                },
+                                "windowHeight": {
+                                  "type": [
+                                    "integer",
+                                    "null"
+                                  ],
+                                  "description": "Height of the source window, in CSS pixels."
+                                },
+                                "theme": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The theme in use."
+                                }
+                              },
+                              "required": [
+                                "pageAddress",
+                                "sectionId",
+                                "openItem",
+                                "pageTitle",
+                                "webVersion",
+                                "deploymentId",
+                                "deploymentTime",
+                                "windowWidth",
+                                "windowHeight",
+                                "theme"
+                              ],
+                              "description": "The page it was sent from, as captured."
+                            },
+                            "markers": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "attribute": {
+                                    "type": "string",
+                                    "enum": [
+                                      "data-kr-id",
+                                      "data-kr-element"
+                                    ],
+                                    "description": "The marker attribute named."
+                                  },
+                                  "value": {
+                                    "type": "string",
+                                    "description": "The marker value."
+                                  },
+                                  "pattern": {
+                                    "type": "string",
+                                    "description": "The marker as written in the text, `data-kr-id=\"...\"`."
+                                  },
+                                  "foundAtCapture": {
+                                    "type": "boolean",
+                                    "description": "True when the source window had it when the request was sent."
+                                  },
+                                  "box": {
+                                    "type": [
+                                      "object",
+                                      "null"
+                                    ],
+                                    "properties": {
+                                      "x": {
+                                        "type": "number",
+                                        "description": "Left edge, in CSS pixels from the left of the window."
+                                      },
+                                      "y": {
+                                        "type": "number",
+                                        "description": "Top edge, in CSS pixels from the top of the window."
+                                      },
+                                      "width": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "description": "Width in CSS pixels."
+                                      },
+                                      "height": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "description": "Height in CSS pixels."
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y",
+                                      "width",
+                                      "height"
+                                    ],
+                                    "description": "Where it was, when found."
+                                  }
+                                },
+                                "required": [
+                                  "attribute",
+                                  "value",
+                                  "pattern",
+                                  "foundAtCapture",
+                                  "box"
+                                ]
+                              },
+                              "description": "The markers the text names, in the order written."
+                            },
+                            "images": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "Image id."
+                                  },
+                                  "r2Key": {
+                                    "type": "string",
+                                    "description": "Where the PNG is kept in the private feedback bucket."
+                                  },
+                                  "contentType": {
+                                    "type": "string",
+                                    "description": "The file type, `image/png`."
+                                  },
+                                  "byteSize": {
+                                    "type": "integer",
+                                    "description": "Size in bytes."
+                                  },
+                                  "width": {
+                                    "type": [
+                                      "integer",
+                                      "null"
+                                    ],
+                                    "description": "Width in pixels."
+                                  },
+                                  "height": {
+                                    "type": [
+                                      "integer",
+                                      "null"
+                                    ],
+                                    "description": "Height in pixels."
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "description": "When it was added (ISO time)."
+                                  },
+                                  "shapes": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "type": {
+                                          "type": "string",
+                                          "enum": [
+                                            "rectangle",
+                                            "arrow",
+                                            "text",
+                                            "redact"
+                                          ],
+                                          "description": "Rectangle, arrow, text or redaction (solid black, burned into the PNG)."
+                                        },
+                                        "x": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Left edge (rectangle, redaction) or where a text starts, 0 to 1; null for an arrow."
+                                        },
+                                        "y": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Top edge, or where a text starts, 0 to 1; null for an arrow."
+                                        },
+                                        "width": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Width, 0 to 1 (rectangle, redaction)."
+                                        },
+                                        "height": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Height, 0 to 1 (rectangle, redaction)."
+                                        },
+                                        "x1": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow tail, 0 to 1."
+                                        },
+                                        "y1": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow tail, 0 to 1."
+                                        },
+                                        "x2": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow head, 0 to 1."
+                                        },
+                                        "y2": {
+                                          "type": [
+                                            "number",
+                                            "null"
+                                          ],
+                                          "description": "Arrow head, 0 to 1."
+                                        },
+                                        "text": {
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ],
+                                          "description": "The words (text shapes)."
+                                        },
+                                        "nearMarkers": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "string"
+                                          },
+                                          "description": "The markers the shape points at, as `data-kr-id=\"...\"`, at most five: for a rectangle or redaction the largest elements inside it first; for an arrow head or a text the innermost element under it first."
+                                        }
+                                      },
+                                      "required": [
+                                        "type",
+                                        "x",
+                                        "y",
+                                        "width",
+                                        "height",
+                                        "x1",
+                                        "y1",
+                                        "x2",
+                                        "y2",
+                                        "text",
+                                        "nearMarkers"
+                                      ]
+                                    },
+                                    "description": "The shapes drawn on it, with the markers each points at."
+                                  },
+                                  "markerMapCount": {
+                                    "type": "integer",
+                                    "description": "How many `data-kr-*` elements were seen in the shot."
+                                  },
+                                  "ticket": {
+                                    "type": [
+                                      "object",
+                                      "null"
+                                    ],
+                                    "properties": {
+                                      "value": {
+                                        "type": "string",
+                                        "description": "`<expiry>.<signature>`, sent as `?ticket=` with the image key."
+                                      },
+                                      "expiresAt": {
+                                        "type": "string",
+                                        "description": "When it stops working (ISO time)."
+                                      }
+                                    },
+                                    "required": [
+                                      "value",
+                                      "expiresAt"
+                                    ],
+                                    "description": "A short-lived ticket for the Feedback viewer to show the image; null when the API has no ticket secret."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "r2Key",
+                                  "contentType",
+                                  "byteSize",
+                                  "width",
+                                  "height",
+                                  "createdAt",
+                                  "shapes",
+                                  "markerMapCount",
+                                  "ticket"
+                                ]
+                              },
+                              "description": "Annotated screenshots, oldest first."
+                            },
+                            "notes": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "Note id."
+                                  },
+                                  "noteType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "note",
+                                      "status_change",
+                                      "priority_change"
+                                    ],
+                                    "description": "A plain note, or the record of a status or priority change."
+                                  },
+                                  "text": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The note text."
+                                  },
+                                  "fromValue": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The value before the change (status or priority changes)."
+                                  },
+                                  "toValue": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The value after the change."
+                                  },
+                                  "authorUserId": {
+                                    "type": "string",
+                                    "description": "Who wrote it."
+                                  },
+                                  "authorLabel": {
+                                    "type": "string",
+                                    "description": "That person's name."
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "description": "When (ISO time)."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "noteType",
+                                  "text",
+                                  "fromValue",
+                                  "toValue",
+                                  "authorUserId",
+                                  "authorLabel",
+                                  "createdAt"
+                                ]
+                              },
+                              "description": "Developer notes and status changes, oldest first. Empty for a sender who is not a developer."
+                            }
+                          },
+                          "required": [
+                            "number",
+                            "code",
+                            "kind",
+                            "title",
+                            "status",
+                            "priority",
+                            "submittedByUserId",
+                            "submittedByLabel",
+                            "sectionId",
+                            "markerCount",
+                            "noteCount",
+                            "createdAt",
+                            "updatedAt",
+                            "body",
+                            "submitterRole",
+                            "context",
+                            "markers",
+                            "images",
+                            "notes"
+                          ],
+                          "description": "The request after the save."
+                        }
+                      },
+                      "required": [
+                        "feedback"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No request has that number, or it is not the caller's and the caller is not a developer (HOMEBASE_FEEDBACK_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request already has five images (HOMEBASE_FEEDBACK_IMAGE_LIMIT).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "No file (HOMEBASE_FEEDBACK_IMAGE_REQUIRED), not a PNG (HOMEBASE_FEEDBACK_IMAGE_NOT_PNG), over 8 MB (HOMEBASE_FEEDBACK_IMAGE_TOO_LARGE), or the shapes or marker map are not valid (HOMEBASE_FEEDBACK_IMAGE_DATA_INVALID).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The feedback bucket is not bound or did not answer (HOMEBASE_FEEDBACK_STORAGE_UNAVAILABLE), or Homebase Feedback is unavailable.",
             "content": {
               "application/json": {
                 "schema": {

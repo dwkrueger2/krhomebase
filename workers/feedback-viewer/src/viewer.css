@@ -67,6 +67,12 @@ button:disabled { cursor: default; opacity: 0.6; }
 .confirm p { margin: 0 0 6px; }
 .paging { margin: 6px 0; }
 
+/* Screenshots: the PNG at the column width (it opens full size), its size line and its shapes in words. */
+.shot { margin: 0 0 8px; }
+.shot img { display: block; max-width: 100%; height: auto; border: 1px solid var(--kr-theme-line, #d6dde6); border-radius: 3px; }
+.shot figcaption { margin: 2px 0; }
+.shapes { margin: 2px 0 0; padding-left: 18px; }
+
 /* Notices */
 .notice { margin: 4px 0 8px; padding: 4px 8px; border: 1px solid var(--kr-theme-line, #d6dde6); border-radius: 3px; }
 .notice.bad { border-color: var(--kr-theme-danger, #b3261e); color: var(--kr-theme-danger, #b3261e); }

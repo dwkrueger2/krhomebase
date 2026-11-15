@@ -16,5 +16,8 @@ KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY=
 KR_PAYMENT_PROVIDER_KEK=
 # GPT Model Gateway: the shared secret the GPT models Worker holds as GPT_WORKER_SHARED_SECRET.
 KR_GPT_WORKER_SECRET=
+# Homebase Feedback screenshots: the image ticket secret, the same value the Feedback viewer Worker holds (32 characters or more).
+# Optional locally: without it images carry no ticket (the local viewer cannot show them anyway).
+KR_FEEDBACK_IMAGE_TICKET_SECRET=
 # Optional: only while the database has no users.
 KR_SUPER_ADMIN_EMAILS=

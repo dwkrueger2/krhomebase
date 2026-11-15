@@ -9,8 +9,11 @@
  *   GET   /v1/homebase-feedback/{number}         one request (developers; or its sender, without notes)
  *   PATCH /v1/homebase-feedback/{number}         status and priority (permission developer_tools.update)
  *   POST  /v1/homebase-feedback/{number}/notes   a developer note (permission developer_tools.update)
+ *   POST  /v1/homebase-feedback/{number}/images  an annotated screenshot (its sender, or a developer; stage F3)
  *
- * The image upload (`POST .../{number}/images`) comes with stage F3. `/mine` is registered before `{number}`.
+ * `/mine` is registered before `{number}`. Images go to the R2 bucket `kr-homebase-feedback` (binding
+ * `FEEDBACK_STORAGE`, `src/platform/feedbackImages.ts`); every reply that carries a request gives each image a
+ * ticket for the Feedback viewer, signed with the secret `KR_FEEDBACK_IMAGE_TICKET_SECRET` (no ticket without it).
  * Until migration 033 is applied every route answers 503 `HOMEBASE_FEEDBACK_MIGRATION_REQUIRED`. Rules: `rules.ts`.
  * Writes pass the write gate and are audited (resource `homebase-feedback`).
  *
@@ -23,6 +26,7 @@
 import {
   ErrorEnvelope,
   HomebaseFeedbackCreateBody,
+  HomebaseFeedbackImageUploadForm,
   HomebaseFeedbackListData,
   HomebaseFeedbackListQuery,
   HomebaseFeedbackMineQuery,
@@ -36,12 +40,27 @@ import type { OpenAPIHono } from '@hono/zod-openapi'
 import type { Context } from 'hono'
 import { defineRoute } from '../../platform/defineRoute.ts'
 import { failure } from '../../platform/envelope.ts'
+import { feedbackImageTicketSigner, feedbackStorageFor, type FeedbackBucket } from '../../platform/feedbackImages.ts'
 import { logLine } from '../../platform/log.ts'
 import type { AppEnv } from '../../platform/types.ts'
 import { permissionQueriesFor } from '../permissions/queries.ts'
 import { isAuthorized } from '../permissions/rules.ts'
 import { HomebaseFeedbackMigrationRequiredError, homebaseFeedbackQueriesFor, HomebaseFeedbackUnavailableError, type HomebaseFeedbackQueries } from './queries.ts'
-import { addFeedbackNote, changeFeedback, createFeedback, DEVELOPER_RESOURCE, getFeedback, HomebaseFeedbackError, listFeedback, listMyFeedback, type FeedbackActor } from './rules.ts'
+import {
+  addFeedbackImage,
+  addFeedbackNote,
+  changeFeedback,
+  createFeedback,
+  DEVELOPER_RESOURCE,
+  getFeedback,
+  HomebaseFeedbackError,
+  listFeedback,
+  listMyFeedback,
+  type FeedbackActor,
+} from './rules.ts'
+
+/** The bindings this area reads beyond the database: the feedback bucket and the ticket secret. */
+type FeedbackBindings = { FEEDBACK_STORAGE?: FeedbackBucket; KR_FEEDBACK_IMAGE_TICKET_SECRET?: string }
 
 const json = <T,>(schema: T) => ({ 'application/json': { schema } })
 const error = (description: string) => ({ description, content: json(ErrorEnvelope) })
@@ -136,6 +155,34 @@ export const homebaseFeedbackNoteRoute = defineRoute({
   responses: { 200: savedReply, 404: notFound404, 503: unavailable503 },
 })
 
+export const homebaseFeedbackImageRoute = defineRoute({
+  method: 'post',
+  path: '/v1/homebase-feedback/{number}/images',
+  feature: 'homebase-feedback',
+  summary:
+    'Adds an annotated screenshot (a PNG with its shapes and marker map) to a feedback request; its sender or an Internal Developer, five images at most. Each shape is given the markers it points at.',
+  access: 'signed-in',
+  errors: [
+    'HOMEBASE_FEEDBACK_NOT_FOUND',
+    'HOMEBASE_FEEDBACK_IMAGE_REQUIRED',
+    'HOMEBASE_FEEDBACK_IMAGE_NOT_PNG',
+    'HOMEBASE_FEEDBACK_IMAGE_TOO_LARGE',
+    'HOMEBASE_FEEDBACK_IMAGE_DATA_INVALID',
+    'HOMEBASE_FEEDBACK_IMAGE_LIMIT',
+    'HOMEBASE_FEEDBACK_STORAGE_UNAVAILABLE',
+    ...UNAVAILABLE_CODES,
+  ],
+  sideEffects: ['Writes the PNG to R2 (kr-homebase-feedback)', 'Writes homebase_feedback_image', 'Writes homebase_feedback', 'Writes audit_log'],
+  request: { params: HomebaseFeedbackParams, body: { required: true, content: { 'multipart/form-data': { schema: HomebaseFeedbackImageUploadForm } } } },
+  responses: {
+    200: savedReply,
+    404: notFound404,
+    409: error('The request already has five images (HOMEBASE_FEEDBACK_IMAGE_LIMIT).'),
+    422: error('No file (HOMEBASE_FEEDBACK_IMAGE_REQUIRED), not a PNG (HOMEBASE_FEEDBACK_IMAGE_NOT_PNG), over 8 MB (HOMEBASE_FEEDBACK_IMAGE_TOO_LARGE), or the shapes or marker map are not valid (HOMEBASE_FEEDBACK_IMAGE_DATA_INVALID).'),
+    503: error('The feedback bucket is not bound or did not answer (HOMEBASE_FEEDBACK_STORAGE_UNAVAILABLE), or Homebase Feedback is unavailable.'),
+  },
+})
+
 /** Maps a refusal or a database failure to its reply; anything else is thrown on. */
 function feedbackFailure(c: Context<AppEnv>, caught: unknown) {
   if (caught instanceof HomebaseFeedbackError) return failure(c, caught.status, caught.code, caught.message)
@@ -175,7 +222,14 @@ function handle(app: OpenAPIHono<AppEnv>, route: ReturnType<typeof defineRoute>,
     if (!queries || !session) return failure(c, 503, 'HOMEBASE_FEEDBACK_UNAVAILABLE', 'Homebase Feedback is not available right now.')
     try {
       const access = await developerAccess(c, session.userId)
-      const actor: FeedbackActor = { userId: session.userId, email: session.email ?? '', role: session.role ?? '', requestId: c.get('requestId'), ...access }
+      const actor: FeedbackActor = {
+        userId: session.userId,
+        email: session.email ?? '',
+        role: session.role ?? '',
+        requestId: c.get('requestId'),
+        ...access,
+        imageTicket: feedbackImageTicketSigner((c.env as FeedbackBindings | undefined)?.KR_FEEDBACK_IMAGE_TICKET_SECRET),
+      }
       const data = await work(queries, actor, c)
       logLine(`HOMEBASE_FEEDBACK:${tag}`, c.get('requestId'), { route: route.path, isDeveloper: access.isDeveloper })
       return c.json({ ok: true as const, data, requestId: c.get('requestId') }, 200)
@@ -185,7 +239,7 @@ function handle(app: OpenAPIHono<AppEnv>, route: ReturnType<typeof defineRoute>,
   }) as any)
 }
 
-const valid = <T,>(c: Context<AppEnv>, part: 'param' | 'query' | 'json') => (c.req as any).valid(part) as T
+const valid = <T,>(c: Context<AppEnv>, part: 'param' | 'query' | 'json' | 'form') => (c.req as any).valid(part) as T
 
 export function registerHomebaseFeedback(app: OpenAPIHono<AppEnv>) {
   const now = () => new Date().toISOString()
@@ -196,4 +250,10 @@ export function registerHomebaseFeedback(app: OpenAPIHono<AppEnv>) {
   handle(app, homebaseFeedbackRoute, 'get', (q, actor, c) => getFeedback(q, actor, valid<HomebaseFeedbackParams>(c, 'param').number))
   handle(app, updateHomebaseFeedbackRoute, 'update', (q, actor, c) => changeFeedback(q, actor, valid<HomebaseFeedbackParams>(c, 'param').number, valid<HomebaseFeedbackUpdateBody>(c, 'json'), now()))
   handle(app, homebaseFeedbackNoteRoute, 'note', (q, actor, c) => addFeedbackNote(q, actor, valid<HomebaseFeedbackParams>(c, 'param').number, valid<HomebaseFeedbackNoteBody>(c, 'json'), now()))
+  handle(app, homebaseFeedbackImageRoute, 'image', (q, actor, c) => {
+    const storage = feedbackStorageFor(c.env as FeedbackBindings | undefined)
+    if (!storage) throw new HomebaseFeedbackError('HOMEBASE_FEEDBACK_STORAGE_UNAVAILABLE', 'The feedback image bucket is not available.', 503)
+    const form = valid<HomebaseFeedbackImageUploadForm>(c, 'form')
+    return addFeedbackImage(q, storage, actor, valid<HomebaseFeedbackParams>(c, 'param').number, { file: form.file, shapes: form.shapes, markerMap: form.markerMap }, now())
+  })
 }

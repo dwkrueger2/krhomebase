@@ -80,7 +80,28 @@ export interface FeedbackMarker {
   box: { x: number; y: number; width: number; height: number } | null
 }
 
-/** An annotated screenshot (stage F3; none until then). */
+/** A shape drawn on a screenshot, with the markers it points at (coordinates 0 to 1 of the image). */
+export interface FeedbackShape {
+  type: 'rectangle' | 'arrow' | 'text' | 'redact'
+  x: number | null
+  y: number | null
+  width: number | null
+  height: number | null
+  x1: number | null
+  y1: number | null
+  x2: number | null
+  y2: number | null
+  text: string | null
+  nearMarkers: string[]
+}
+
+/** A ticket to read one image from this tool's own image script (`worker/imageWorker.ts`), from KR Homebase. */
+export interface FeedbackImageTicket {
+  value: string
+  expiresAt: string
+}
+
+/** An annotated screenshot (stage F3). The PNG has the shapes and redactions drawn in. */
 export interface FeedbackImage {
   id: string
   r2Key: string
@@ -89,6 +110,19 @@ export interface FeedbackImage {
   width: number | null
   height: number | null
   createdAt: string
+  shapes: FeedbackShape[]
+  markerMapCount: number
+  /** Null when KR Homebase has no ticket secret yet. */
+  ticket: FeedbackImageTicket | null
+}
+
+/** Plain names of the shapes. */
+export const SHAPE_LABELS: Record<FeedbackShape['type'], string> = { rectangle: 'Rectangle', arrow: 'Arrow', text: 'Text', redact: 'Redaction' }
+
+/** The address of an image on this tool's own site: `/images/<key>?ticket=...` (served by `worker/imageWorker.ts`). */
+export function imageAddress(image: Pick<FeedbackImage, 'r2Key' | 'ticket'>): string | null {
+  if (!image.ticket) return null
+  return `/images/${image.r2Key.split('/').map(encodeURIComponent).join('/')}?ticket=${encodeURIComponent(image.ticket.value)}`
 }
 
 /** A developer note, or the record of a status or priority change. */

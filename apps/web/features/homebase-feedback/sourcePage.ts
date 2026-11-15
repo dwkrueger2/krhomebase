@@ -31,7 +31,7 @@ export function markerSelector(marker: Pick<FeedbackMarkerReference, 'attribute'
 }
 
 /** True for an element of the Feedback panel or of the outline layer, which never count as the page's. */
-function isFeedbackOwn(element: Element): boolean {
+export function isFeedbackOwn(element: Element): boolean {
   return Boolean(element.closest(`[data-kr-id="${FEEDBACK_PANEL_ID}"], [data-kr-id="${FEEDBACK_HIGHLIGHT_ID}"]`))
 }
 

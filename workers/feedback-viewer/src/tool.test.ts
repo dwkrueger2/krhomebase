@@ -1,7 +1,8 @@
 // file: workers/feedback-viewer/src/tool.test.ts
 // Keeps this tool honest as an outside developer's tool:
 //  1. its description passes the kit's own check, and README.md shows the registration sheet the kit prints;
-//  2. its code uses only the kit's public entry points, never the KR Homebase code (contracts or the apps).
+//  2. its code (the page in src/ and the image script in worker/) uses only the kit's public entry points, never the
+//     KR Homebase code (contracts or the apps).
 import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -38,8 +39,11 @@ describe('the tool description', () => {
 
 describe('only the tool kit', () => {
   it('imports nothing from KR Homebase but the kit entry points', () => {
-    for (const name of readdirSync(here).filter((file) => file.endsWith('.ts'))) {
-      const source = readFileSync(join(here, name), 'utf8')
+    const worker = join(here, '..', 'worker')
+    const files = [...readdirSync(here).map((name) => join(here, name)), ...readdirSync(worker).map((name) => join(worker, name))].filter((file) => file.endsWith('.ts'))
+    for (const file of files) {
+      const name = file.slice(here.length - 3)
+      const source = readFileSync(file, 'utf8')
       for (const [, from] of source.matchAll(/(?:from|import)\s+['"]([^'"]+)['"]/g)) {
         const target = from!
         if (target.startsWith('./')) continue

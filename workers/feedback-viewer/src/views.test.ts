@@ -89,3 +89,35 @@ describe('detailView', () => {
     expect(html).toContain('data-action="copy"')
   })
 })
+
+describe('screenshots', () => {
+  const image = {
+    id: 'hfi_1',
+    r2Key: 'feedback/FB-0012/hfi_00000000-0000-4000-8000-000000000000.png',
+    contentType: 'image/png',
+    byteSize: 20480,
+    width: 1280,
+    height: 720,
+    createdAt: '2026-11-14T09:31:00.000Z',
+    markerMapCount: 40,
+    ticket: { value: '1900000000.abc_DEF-123', expiresAt: '2030-03-17T17:46:40.000Z' },
+    shapes: [
+      { type: 'rectangle' as const, x: 0.1, y: 0.2, width: 0.4, height: 0.3, x1: null, y1: null, x2: null, y2: null, text: null, nearMarkers: ['data-kr-element="related-contacts-list"'] },
+      { type: 'text' as const, x: 0.3, y: 0.03, width: null, height: null, x1: null, y1: null, x2: null, y2: null, text: 'Too <tall>', nearMarkers: [] },
+    ],
+  }
+
+  it('shows each image from the tool image script, with its shapes in words, escaped', () => {
+    const html = detailView({ ...detail, images: [image] }, { canTriage: true, listFilter: {} })
+    expect(html).toContain('src="/images/feedback/FB-0012/hfi_00000000-0000-4000-8000-000000000000.png?ticket=1900000000.abc_DEF-123"')
+    expect(html).toContain('Rectangle around data-kr-element=&quot;related-contacts-list&quot;')
+    expect(html).toContain('Text &quot;Too &lt;tall&gt;&quot; (no marker under it)')
+    expect(html).toContain('1280 x 720, 20 KB, 40 markers in the shot')
+  })
+
+  it('says why an image without a ticket is not shown', () => {
+    const html = detailView({ ...detail, images: [{ ...image, ticket: null }] }, { canTriage: true, listFilter: {} })
+    expect(html).not.toContain('<img')
+    expect(html).toContain('no image ticket secret yet')
+  })
+})

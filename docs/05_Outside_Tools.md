@@ -1,7 +1,7 @@
 # Outside Tools: Design, Security and Operation
 
 <small>Version 1.3</small><br>
-<small>Updated Nov 14, 2026 3:56pm</small>
+<small>Updated Nov 14, 2026 4:05pm</small>
 
 **Headline:** other developers can add a tool to the left menu without a redeploy. A super admin registers the tool's address and grants it permissions. KR Homebase shows the tool in a sealed frame, in the workspace or popped out. The tool reaches data only through KR Homebase, and only within its grant.
 
@@ -163,5 +163,6 @@ Added with Settings and Dashboard stage 3 (`docs/08_Settings_Dashboard_Plan.md`,
 - **Schema documentation:** add the three tables to `docs/Schema_8.0` once the migration is applied (that folder is generated from the live database).
 - **Built-in tools as packages:** each built-in menu item becomes its own `packages/tools/<name>` package declared with `defineTool` (agreed in principle; not started).
 - **Kit delivery:** the kit is a `.tgz` file. A private registry can replace it later.
+- **Tool signing keys (decided Nov 14, 2026: not now).** The idea: each tool holds a private key, its public key is stored at registration, and KR Homebase checks a signed nonce on the health route. Not built, because HTTPS to the registered origin already stops a plain man in the middle; a key would only add protection against a takeover of the tool's domain or hosting, and even then would not prove the page a person's browser loads; and every tool would need a server and key handling, ruling out static tools. If it comes back, consider signing the tool page itself or stricter pinning of the tool's address instead.
 - **Health in the tools list:** the Outside tools screen checks a tool only on request (the form's Check health). A health column filled in the background, or a recorded last result, could follow.
 - **Outside Dashboard widgets:** store a tool's widget list at registration, return it with the menu, and draw each in a sandboxed widget frame on the Dashboard, honoring `krh:set-height` (section 7a).

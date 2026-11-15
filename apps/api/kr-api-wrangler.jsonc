@@ -108,6 +108,16 @@
       "bucket_name": "kr-homebase-articles",
       "preview_bucket_name": "kr-homebase-articles-dev",
       "remote": true
+    },
+    // Homebase Feedback screenshots (plan docs/12_Homebase_Feedback_Plan.md, stage F3): annotated PNGs under
+    // feedback/FB-0012/<image id>.png. Private; the Feedback viewer Worker (workers/feedback-viewer) is bound to the
+    // same bucket to show them, with tickets from this API. One bucket for pnpm dev and deployed (no
+    // preview_bucket_name), because pnpm dev already writes the live database: a separate dev bucket would leave live
+    // rows pointing at images that are not there. The requester creates it: wrangler r2 bucket create kr-homebase-feedback.
+    {
+      "binding": "FEEDBACK_STORAGE",
+      "bucket_name": "kr-homebase-feedback",
+      "remote": true
     }
   ]
 }

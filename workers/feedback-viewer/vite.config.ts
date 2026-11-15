@@ -10,6 +10,6 @@ export default defineConfig({
     modulePreload: { polyfill: false },
   },
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'worker/**/*.test.ts'],
   },
 } as Parameters<typeof defineConfig>[0])

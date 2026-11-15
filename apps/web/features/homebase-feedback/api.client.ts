@@ -7,6 +7,7 @@
  *   GET  /api/v1/homebase-feedback/mine        the person's own requests, with `viewer.isDeveloper`
  *   GET  /api/v1/homebase-feedback             every request (Internal Developers)
  *   GET  /api/v1/homebase-feedback/{number}    one request (developers; or its sender)
+ *   POST /api/v1/homebase-feedback/{number}/images  an annotated screenshot (stage F3, multipart)
  *
  * This site forwards the calls to the API Worker. Replies are checked against the shared contract
  * (`@krhomebase/contracts`, `homebaseFeedback.ts`); a failure throws `HomebaseFeedbackApiError` with a plain sentence
@@ -19,6 +20,8 @@ import {
   HomebaseFeedbackSavedData,
   successEnvelope,
   type HomebaseFeedbackCreateBody,
+  type HomebaseFeedbackMapEntry,
+  type HomebaseFeedbackShapeInput,
   type HomebaseFeedbackStatus,
 } from '@krhomebase/contracts'
 import type { z } from 'zod'
@@ -46,6 +49,12 @@ export const HOMEBASE_FEEDBACK_ERROR_SENTENCES: Readonly<Record<string, string>>
   HOMEBASE_FEEDBACK_STATUS_INVALID: 'That status is not a feedback status.',
   HOMEBASE_FEEDBACK_CURSOR_INVALID: 'The list changed. Load it again.',
   VALIDATION_FAILED: 'A title and a description are required.',
+  HOMEBASE_FEEDBACK_IMAGE_REQUIRED: 'The screenshot was missing from the upload.',
+  HOMEBASE_FEEDBACK_IMAGE_NOT_PNG: 'The screenshot was not a PNG image.',
+  HOMEBASE_FEEDBACK_IMAGE_TOO_LARGE: 'The screenshot is larger than 8 MB.',
+  HOMEBASE_FEEDBACK_IMAGE_DATA_INVALID: 'The drawn shapes could not be read.',
+  HOMEBASE_FEEDBACK_IMAGE_LIMIT: 'This request already has five screenshots.',
+  HOMEBASE_FEEDBACK_STORAGE_UNAVAILABLE: 'Screenshots cannot be stored right now (the feedback bucket is not ready).',
   MAINTENANCE_LOCKED: 'Changes are paused for maintenance. Try again later.',
   MAINTENANCE_GATE_UNAVAILABLE: 'Changes cannot be checked for maintenance right now. Try again in a moment.',
   PERMISSION_REQUIRED: 'Only Internal Developers may see every request.',
@@ -71,6 +80,11 @@ async function send<T extends z.ZodTypeAny>(schema: T, method: 'GET' | 'POST', p
     L(`[HOMEBASE_FEEDBACK_API:63] network failure method=${method} error=${error instanceof Error ? error.message.slice(0, 80) : 'unknown'}`)
     throw new HomebaseFeedbackApiError('NETWORK_ERROR', HOMEBASE_FEEDBACK_ERROR_SENTENCES.NETWORK_ERROR!, 0, null)
   }
+  return readReply(schema, method, response)
+}
+
+/** Reads a reply: the data on success, else `HomebaseFeedbackApiError` with the plain sentence for its code. */
+async function readReply<T extends z.ZodTypeAny>(schema: T, method: string, response: Response): Promise<z.infer<T>> {
   const reply: unknown = await response.json().catch(() => null)
   const parsed = successEnvelope(schema).safeParse(reply)
   if (response.ok && parsed.success) return (parsed.data as { data: z.infer<T> }).data
@@ -104,4 +118,29 @@ export function fetchAllHomebaseFeedback(request: { statuses?: readonly Homebase
 /** One request with its markers, the captured page and (for a developer) its notes. */
 export function fetchHomebaseFeedback(code: string): Promise<HomebaseFeedbackSavedData> {
   return send(HomebaseFeedbackSavedData, 'GET', `/api/v1/homebase-feedback/${encodeURIComponent(code)}`)
+}
+
+/**
+ * Adds an annotated screenshot to a request just sent (or one of the person's own): the flattened PNG, the shapes
+ * and the marker map.
+ *
+ * @param code - The request number, `FB-0012`.
+ * @param png - The PNG with the shapes and redactions drawn in (`flattenScreenshot`).
+ * @param shapes - The shapes, coordinates 0 to 1.
+ * @param markerMap - The marker elements seen in the shot.
+ * @returns The request with its images.
+ */
+export async function uploadHomebaseFeedbackImage(code: string, png: Blob, shapes: readonly HomebaseFeedbackShapeInput[], markerMap: readonly HomebaseFeedbackMapEntry[]): Promise<HomebaseFeedbackSavedData> {
+  const form = new FormData()
+  form.set('file', png, `${code}.png`)
+  form.set('shapes', JSON.stringify(shapes))
+  form.set('markerMap', JSON.stringify(markerMap))
+  let response: Response
+  try {
+    response = await fetch(`/api/v1/homebase-feedback/${encodeURIComponent(code)}/images`, { method: 'POST', credentials: 'same-origin', body: form })
+  } catch (error) {
+    L(`[HOMEBASE_FEEDBACK_API:150] network failure method=POST images error=${error instanceof Error ? error.message.slice(0, 80) : 'unknown'}`)
+    throw new HomebaseFeedbackApiError('NETWORK_ERROR', HOMEBASE_FEEDBACK_ERROR_SENTENCES.NETWORK_ERROR!, 0, null)
+  }
+  return readReply(HomebaseFeedbackSavedData, 'POST', response)
 }

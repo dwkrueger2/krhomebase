@@ -1,8 +1,9 @@
 'use client'
 // file: apps/web/features/homebase-feedback/components/FeedbackRequestForm.client.tsx
 /**
- * The New request form of the Feedback pop-out (plan 12, stage F2): kind, title, the marker chips above the text box
- * (point 3), the text, the captured page read-only (point 4), then Send.
+ * The New request form of the Feedback pop-out (plan 12, stages F2 and F3): kind, title, the marker chips above the
+ * text box (point 3), the text, the screenshot row (point 5, stage F3), the captured page read-only (point 4), then
+ * Send.
  *
  * - The text is scanned for markers on every change (`findFeedbackMarkers`, the same reader the API uses); each one
  *   becomes a chip. Whether each is on the source window's page is read again whenever that page changes
@@ -10,7 +11,11 @@
  *   and keeps its elements outlined there until it is clicked again (`useMarkerSelection`).
  * - The captured page is read from the source window on the same changes and shown read-only. Send reads it once more,
  *   with where each marker is, and sends it all (`sendHomebaseFeedback`). The sender comes from the session (API).
- * - Clear asks first in `U6ConfirmationDialog` when there is text. A sent request shows its number (`FB-0012`) and
+ * - Screenshot (stage F3): "Take screenshot" draws the main window (`captureSourceScreenshot`); the annotation
+ *   editor (`ScreenshotEditor`) opens at once over the pop-out. Send saves the request first, then uploads the PNG
+ *   with the shapes drawn in (`flattenScreenshot`) and the marker map (`uploadHomebaseFeedbackImage`). When only the
+ *   upload fails, the request stands and the footer says so with its number.
+ * - Clear asks first in `U6ConfirmationDialog` when there is text or a screenshot. A sent request shows its number (`FB-0012`) and
  *   the form starts again. `disabledReason` (the migration not applied yet) keeps Send off and says why.
  *
  * The parent (`HomebaseFeedbackPanel`) owns the source window and is told about each sent request.
@@ -23,17 +28,22 @@ import {
   HOMEBASE_FEEDBACK_KINDS,
   type HomebaseFeedbackDetail,
   type HomebaseFeedbackKind,
+  type HomebaseFeedbackShapeInput,
 } from '@krhomebase/contracts'
 import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
 import { L } from '@/lib/KRUtilities'
-import { HomebaseFeedbackApiError, sendHomebaseFeedback } from '../api.client'
+import { annotationColor, flattenScreenshot } from '../annotation'
+import { HomebaseFeedbackApiError, sendHomebaseFeedback, uploadHomebaseFeedbackImage } from '../api.client'
+import { captureSourceScreenshot, type SourceScreenshot } from '../screenshot'
 import { captureSourceContext, markerCaptures, markerPresence } from '../sourcePage'
 import { useMarkerSelection } from '../useMarkerSelection.client'
 import { useSourcePageWatch } from '../useSourcePageWatch.client'
 import CapturedContextCard from './CapturedContextCard.client'
+import FeedbackScreenshotRow from './FeedbackScreenshotRow.client'
 import MarkerChipRow from './MarkerChipRow.client'
+import ScreenshotEditor from './ScreenshotEditor.client'
 
 export interface FeedbackRequestFormProps {
   /** The window the pop-out was opened from: read for markers and the captured page. */
@@ -95,6 +105,12 @@ export default function FeedbackRequestForm({ sourceWindow, disabledReason, onSe
   const [error, setError] = useState('')
   const [sentCode, setSentCode] = useState('')
   const [clearOpen, setClearOpen] = useState(false)
+  // The screenshot (stage F3): the picture, its shapes, whether the editor is open, and the capture state.
+  const [screenshot, setScreenshot] = useState<SourceScreenshot | null>(null)
+  const [shapes, setShapes] = useState<HomebaseFeedbackShapeInput[]>([])
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [capturing, setCapturing] = useState(false)
+  const [captureError, setCaptureError] = useState('')
   // Moves on after each settled change of the source page; the chips and the captured page are read again then.
   const pageVersion = useSourcePageWatch(sourceWindow)
   const markers = useMemo(() => findFeedbackMarkers(body), [body])
@@ -102,13 +118,34 @@ export default function FeedbackRequestForm({ sourceWindow, disabledReason, onSe
   const context = useMemo(() => captureSourceContext(sourceWindow), [sourceWindow, pageVersion])
   // Selected chips and their lasting outlines in the source window.
   const selection = useMarkerSelection(sourceWindow, markers, presence, pageVersion)
-  const canSend = !disabledReason && !sending && Boolean(title.trim()) && Boolean(body.trim())
+  const canSend = !disabledReason && !sending && !capturing && Boolean(title.trim()) && Boolean(body.trim())
 
   function startOver(): void {
     setTitle('')
     setBody('')
     setKind('issue')
     setError('')
+    setScreenshot(null)
+    setShapes([])
+    setCaptureError('')
+  }
+
+  /** Draws the main window and opens the editor on it. */
+  async function takeScreenshot(): Promise<void> {
+    setCapturing(true)
+    setCaptureError('')
+    try {
+      const shot = await captureSourceScreenshot(sourceWindow)
+      L(`[HOMEBASE_FEEDBACK_FORM:118] screenshot ${shot.width}x${shot.height} markers=${shot.markerMap.length}`)
+      setScreenshot(shot)
+      setShapes([])
+      setEditorOpen(true)
+    } catch (caught) {
+      L(`[HOMEBASE_FEEDBACK_FORM:123] screenshot failed error=${caught instanceof Error ? caught.message.slice(0, 80) : 'unknown'}`)
+      setCaptureError('The screenshot could not be taken in this browser. Describe the screen in the text instead.')
+    } finally {
+      setCapturing(false)
+    }
   }
 
   async function send(): Promise<void> {
@@ -125,10 +162,23 @@ export default function FeedbackRequestForm({ sourceWindow, disabledReason, onSe
         context: captureSourceContext(sourceWindow),
         markers: markerCaptures(sourceWindow.document, findFeedbackMarkers(body)),
       })
-      L(`[HOMEBASE_FEEDBACK_FORM:126] sent code=${saved.feedback.code} markers=${saved.feedback.markerCount}`)
-      setSentCode(saved.feedback.code)
+      L(`[HOMEBASE_FEEDBACK_FORM:152] sent code=${saved.feedback.code} markers=${saved.feedback.markerCount}`)
+      let feedback = saved.feedback
+      let imageProblem = ''
+      if (screenshot) {
+        try {
+          const png = await flattenScreenshot(screenshot.dataUrl, screenshot.width, screenshot.height, shapes, annotationColor(sourceWindow.document))
+          feedback = (await uploadHomebaseFeedbackImage(feedback.code, png, shapes, screenshot.markerMap)).feedback
+          L(`[HOMEBASE_FEEDBACK_FORM:159] screenshot saved code=${feedback.code} bytes=${png.size} shapes=${shapes.length}`)
+        } catch (caught) {
+          imageProblem = caught instanceof HomebaseFeedbackApiError ? caught.message : 'The screenshot could not be prepared.'
+        }
+      }
+      setSentCode(feedback.code)
       startOver()
-      onSent(saved.feedback)
+      // The request stands even when only its screenshot failed; say so with its number.
+      if (imageProblem) setError(`Sent as ${feedback.code}, but the screenshot was not saved: ${imageProblem}`)
+      onSent(feedback)
     } catch (caught) {
       setError(caught instanceof HomebaseFeedbackApiError ? caught.message : 'The request was not sent. Try again.')
     } finally {
@@ -200,6 +250,21 @@ export default function FeedbackRequestForm({ sourceWindow, disabledReason, onSe
           }}
         />
 
+        {/* The screenshot (stage F3): take, mark up, retake, remove */}
+        <FeedbackScreenshotRow
+          screenshot={screenshot}
+          markCount={shapes.length}
+          capturing={capturing}
+          error={captureError}
+          disabled={sending || Boolean(disabledReason)}
+          onTake={() => void takeScreenshot()}
+          onMarkUp={() => setEditorOpen(true)}
+          onRemove={() => {
+            setScreenshot(null)
+            setShapes([])
+          }}
+        />
+
         {/* The captured page, read-only and live until Send */}
         <CapturedContextCard context={context} />
 
@@ -222,9 +287,9 @@ export default function FeedbackRequestForm({ sourceWindow, disabledReason, onSe
             <button
               type="button"
               className={`${STYLES.button} ${STYLES.secondary}`}
-              disabled={sending || (!title && !body)}
+              disabled={sending || (!title && !body && !screenshot)}
               data-kr-action="clear-feedback"
-              onClick={() => (body.trim() || title.trim() ? setClearOpen(true) : startOver())}
+              onClick={() => (body.trim() || title.trim() || screenshot ? setClearOpen(true) : startOver())}
             >
               Clear
             </button>
@@ -236,11 +301,24 @@ export default function FeedbackRequestForm({ sourceWindow, disabledReason, onSe
         </div>
       </form>
 
+      {/* The annotation editor, over the whole pop-out */}
+      {editorOpen && screenshot ? (
+        <ScreenshotEditor
+          screenshot={screenshot}
+          shapes={shapes}
+          onCancel={() => setEditorOpen(false)}
+          onDone={(next) => {
+            setShapes(next)
+            setEditorOpen(false)
+          }}
+        />
+      ) : null}
+
       {/* Clear asks first when there is text */}
       <U6ConfirmationDialog
         open={clearOpen}
         title="Clear this request?"
-        description="The title and text you typed will be removed. Nothing has been sent."
+        description="The title, the text and the screenshot will be removed. Nothing has been sent."
         confirmLabel="Clear"
         onCancel={() => setClearOpen(false)}
         onConfirm={() => {
