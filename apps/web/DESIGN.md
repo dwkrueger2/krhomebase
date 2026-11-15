@@ -185,8 +185,8 @@ components:
 
 # Design System: KR Homebase
 
-<small>Version 1.17</small><br>
-<small>Updated Nov 14, 2026 12:40am</small>
+<small>Version 1.18</small><br>
+<small>Updated Nov 15, 2026 5:50pm</small>
 
 This file records the visual system that is already in the code (`apps/web/styles/theme.css`, the component `STYLES` maps) and in the old app's reference pages (`/tests/krh/u/default-theme`, `/tests/krh/u5`, `/tests/krh/u1`). The YAML block above must stay at the very top of the file for design tools to read it, so this file's title and version sit below it. Product facts are in `PRODUCT.md`. Layout rules for code (widths, spacing, corners, label placement) are binding in `apps/web/AGENTS.md`; this file describes them and does not override them.
 
@@ -413,7 +413,7 @@ These are deliberate parts of this system. Generic design checks (including Impe
 - **The camel eyebrow.** The small uppercase Warm Camel label above a module title (module header, module placeholder, create dialogs) stays. It names the area the screen belongs to.
 - **The rainbow spinner.** `RainbowBusySpinner` is the busy signal everywhere, including while content loads. Skeleton placeholders are not used.
 - **Fluid titles.** The application title (clamp(20px, 2.4vw, 30px)) and the module title (clamp(19px, 2.1vw, 28px)) scale with the window. Body, small and label sizes stay fixed.
-- **Text glyph icons.** The ⚙, × and ✓ in the ledger settings, close and copy buttons stay until an icon set replaces them. New icons use `KRHomebaseIcons.<Name>` (`components/ui/KRHomebaseIcon.client.tsx`), the one place for icons (the requester, Nov 12, 2026). An emoji is not an icon.
+- **Text glyph icons.** The ⚙, × and ✓ in the ledger settings, close and copy buttons stay until an icon set replaces them. New icons are entries in the `ICONS` registry of `components/ui/KRHomebaseIcon.client.tsx`, drawn with `<KRHomebaseIcon name="..." />`, the one place for icons (the requester, Nov 12, 2026). An emoji is not an icon.
 - **The disclosure chevron.** Anything that folds open (a ledger, a group of rows, a card) shows `KRHomebaseIcons.Chevron`: it points down while folded and turns over (`rotate-180`, 160ms) when open. A +/- button may sit beside it for groups of rows, as in the theme ledger.
 
 ### Do:
