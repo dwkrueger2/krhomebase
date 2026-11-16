@@ -3,10 +3,15 @@
 // Ported unchanged from the old app (hb-components/KR-Billing/TrustTab.client.tsx) with Billing (plan stages 2 to 4).
 // Billing part 7f (Nov 16, 2026, `docs/API/Billing_Audit.md` section 5, item 5): `onCreate` is optional; without it (a
 // billing reader) the three Trust buttons are left out. The old tab showed them and the API refused the save with 403.
+// C3 (the requester, Nov 16, 2026, web patch 561): an [i] button beside the matter choice opens
+// `TrustInstructionsDialog` (how the trust account works, and how an invoice is paid from trust). Trust rows no longer
+// appear on the Billing Overview (API patch 43), so this tab is the trust account's only ledger.
 
 import { useState } from 'react'
 import { formatAccountingAmount } from '../formatAccountingAmount'
+import KRHomebaseIcon from '@/components/ui/KRHomebaseIcon.client'
 import BillingTabHeader from './BillingTabHeader.client'
+import TrustInstructionsDialog from './TrustInstructionsDialog.client'
 import type { BillingTrustEntry } from '../types'
 
 type TrustAction = 'request' | 'disbursement' | 'deposit' | null
@@ -33,6 +38,10 @@ const STYLES = {
   dialogIntro: 'mt-1 text-[9pt] text-[var(--kr-theme-text-muted,#526172)]',
   singleLineLabel:
     'whitespace-nowrap text-[9pt] font-semibold text-[var(--kr-theme-text-muted,#526172)]',
+  // C3: the [i] button that opens the trust instructions.
+  infoButton:
+    'inline-flex size-[22px] cursor-pointer items-center justify-center rounded-[2px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) text-(color:--kr-theme-brand-primary) hover:border-(--kr-theme-brand-primary)',
+  infoIcon: 'size-[14px]',
 } as const
 const LAYOUT_STYLES = {
   toolbar:
@@ -202,6 +211,8 @@ export default function TrustTab({
   const [action, setAction] = useState<TrustAction>(null)
   const [selectedMatter, setSelectedMatter] = useState('ALL')
   const [singleLineView, setSingleLineView] = useState(true)
+  /** C3: the [i] instructions dialog. */
+  const [instructionsOpen, setInstructionsOpen] = useState(false)
   const visibleEntries = entries.filter(
     (entry) => selectedMatter === 'ALL' || entry.matterNumber === selectedMatter,
   )
@@ -228,8 +239,13 @@ export default function TrustTab({
   return (
     <section className={STYLES.shell} data-kr-id="trust-tab-ledger">
       <div className={STYLES.panel}>
-        {/* Trust toolbar: separate request, receipt, and disbursement actions. */}
+        {/* Trust toolbar: separate request, receipt, and disbursement actions; [i] opens the trust instructions (C3). */}
         <BillingTabHeader
+          filters={
+            <button aria-label="How the trust account works" className={STYLES.infoButton} data-kr-action="trust-instructions-open" title="How the trust account works" type="button" onClick={() => setInstructionsOpen(true)}>
+              <KRHomebaseIcon className={STYLES.infoIcon} name="info" />
+            </button>
+          }
           actions={
             <div className={LAYOUT_STYLES.headerActions}>
               <label className={`${LAYOUT_STYLES.singleLineLabel} ${STYLES.singleLineLabel}`}>
@@ -334,6 +350,8 @@ export default function TrustTab({
           onSave={save}
         />
       ) : null}
+      {/* C3: how the trust account works. */}
+      <TrustInstructionsDialog open={instructionsOpen} onClose={() => setInstructionsOpen(false)} />
     </section>
   )
 }

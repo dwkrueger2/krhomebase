@@ -8,6 +8,13 @@
  * `run(statements)` once, so a write is one `db.batch`: all of it is kept or none of it.
  *
  * Every statement is fixed SQL with bound values. Id lists go through `json_each`. Lists select named columns.
+ *
+ * Decision C2 (the requester, Nov 16, 2026): `applyUnapplied` applies a payment's unapplied money to open invoices. It
+ * runs its own batch and re-reads inside the write, as the pay links post does (audit finding 8): its first statement
+ * is the payment's audit row, inserted only while the payment is not void and still has the unapplied amount read
+ * before, every unapplied register row drawn from is still unvoided, unattached and of the amount read, and every
+ * invoice still has the status, paid amount and balance read. Every later statement runs only if that audit row
+ * exists (the contact-maintenance guard), so a change made between the read and the write leaves nothing written.
  */
 
 import { auditStatement, type AuditEntry } from '../../platform/queries.ts'
@@ -58,6 +65,8 @@ export type PaymentRow = {
   client_id: string | null
   received_date: string
   amount: number
+  /** Decision C2: money of the payment not applied to an invoice. */
+  unapplied_amount: number | null
   payment_type_lookup_id: string | null
   reference_number: string | null
   memo: string | null
@@ -116,7 +125,7 @@ const TIME_ENTRY_COLUMNS =
 const INVOICE_COLUMNS =
   'id, matter_id, billed_to_client_id, invoice_number, invoice_date, due_date, subtotal_amount, discount_amount, tax_amount, total_amount, amount_paid, balance_due, status, notes, ivid'
 const PAYMENT_COLUMNS =
-  'id, payment_number, matter_id, client_id, received_date, amount, payment_type_lookup_id, reference_number, memo, voided_at, void_reason, source_system, source_record_id, refund_provider_id, refund_status, refund_amount, refund_reference, refund_reference_type, refund_reference_status, refunded_at'
+  'id, payment_number, matter_id, client_id, received_date, amount, unapplied_amount, payment_type_lookup_id, reference_number, memo, voided_at, void_reason, source_system, source_record_id, refund_provider_id, refund_status, refund_amount, refund_reference, refund_reference_type, refund_reference_status, refunded_at'
 const LEDGER_COLUMNS =
   'id, invoice_id, matter_id, client_id, payment_id, ledger_bucket, entry_type, entry_direction, amount, entry_date, reference_number, memo, notes, voided_at, void_reason'
 const MATTER_COLUMNS = 'id, matter_number, title, description'
@@ -222,6 +231,52 @@ export type PaymentRefundValues = {
   referenceStatus: string | null
 }
 
+/** One invoice's share of an apply of unapplied money (decision C2), worked out by `rules.ts`. */
+export interface ApplyAllocation {
+  invoiceId: string
+  matterId: string
+  amount: number
+  /** The invoice as read (status, and cents), checked again inside the write. */
+  readStatus: string
+  readPaidCents: number
+  readBalanceCents: number
+  /** The invoice after this apply. */
+  amountPaid: number
+  discount: number
+  total: number
+  balance: number
+  status: string
+  paidAt: string | null
+  /** The receivable credit attached to the invoice (it replaces part of the unapplied credit). */
+  ledger: NewLedgerEntry
+  applicationId: string
+  appliedDate: string
+  applicationNote: string
+  /** The invoice's own audit row. */
+  audit: AuditEntry
+}
+
+/** Everything one apply of unapplied money writes (decision C2; see the file header). */
+export interface ApplyPlan {
+  /** The id of the guarding audit row (the payment's APPLY_UNAPPLIED row). */
+  gateAuditId: string
+  /** The payment's audit row, inserted only while nothing changed since the read. */
+  audit: AuditEntry
+  paymentId: string
+  clientId: string
+  /** The payment's unapplied money as read (cents), and after this apply (dollars). */
+  readUnappliedCents: number
+  unappliedAfter: number
+  /** The unapplied register credits drawn from, with their amount as read (cents); each is voided. */
+  drawnRows: Array<{ id: string; readAmountCents: number }>
+  voidReason: string
+  /** What is left of the last row drawn from, as a new unapplied credit; null when the rows were used up. */
+  remainder: NewLedgerEntry | null
+  allocations: ApplyAllocation[]
+  userId: string
+  now: string
+}
+
 export interface BillingQueries {
   /** Runs the statements of one write as one batch. */
   run(statements: D1PreparedStatement[]): Promise<void>
@@ -292,17 +347,93 @@ export interface BillingQueries {
   insertPayment(row: NewPayment): D1PreparedStatement
   insertPaymentApplication(id: string, values: { paymentId: string; invoiceId: string; matterId: string; amount: number; appliedDate: string; notes: string | null; userId: string; now: string }): D1PreparedStatement
   markApplicationsVoided(applicationIds: string[], note: string, now: string): D1PreparedStatement
+  /** Adds a note to applications (the same text join as `markApplicationsVoided`); detach marks them `DETACHED`. */
+  noteApplications(applicationIds: string[], note: string, now: string): D1PreparedStatement
+  /** Sets a live payment's unapplied money (detach returns the detached credits to it). */
+  setPaymentUnapplied(id: string, unappliedAmount: number, now: string): D1PreparedStatement
   /** Voids the payment; with `refund` (part 7e) the Stripe refund's columns and `refunded_at` are written too. */
   voidPayment(id: string, userId: string, reason: string, now: string, refund?: PaymentRefundValues | null): D1PreparedStatement
   /** Stores a refund read again from Stripe (status and ARN; `refunded_at` is kept). */
   setPaymentRefund(id: string, refund: PaymentRefundValues, now: string): D1PreparedStatement
+  /**
+   * Decision C2: applies a payment's unapplied money to invoices in one guarded batch (see the file header). Runs the
+   * batch itself. True when this call wrote it; false when something changed since the read (nothing was written).
+   */
+  applyUnapplied(plan: ApplyPlan): Promise<boolean>
   insertTrustRequest(id: string, values: { matterId: string; clientId: string; requestNumber: string; amount: number; requestDate: string; memo: string | null; userId: string; now: string }): D1PreparedStatement
   updateTrustRequest(id: string, values: { amount: number; requestDate: string; memo: string | null; now: string }): D1PreparedStatement
 }
 
+/** The `audit_log` insert of `entry`, written only when `guard` (SQL with `?` values `guardValues`) holds (decision C2). */
+function guardedAudit(db: D1Database, id: string, entry: AuditEntry, now: string, guard: string, guardValues: Array<string | number | null>): D1PreparedStatement {
+  return db
+    .prepare(
+      `INSERT INTO audit_log (id, request_id, actor_user_id, actor_email, actor_role, source, resource, action, target_table, target_id,
+         matter_id, client_id, previous_json, new_json, idempotency_key, success, error_message, created_at)
+       SELECT ?, ?, ?, ?, ?, 'krhomebase-api', ?, ?, ?, ?, ?, ?, NULL, ?, ?, 1, NULL, ? WHERE ${guard}`,
+    )
+    .bind(
+      id,
+      entry.requestId,
+      entry.actorUserId,
+      entry.actorEmail,
+      entry.actorRole,
+      entry.resource,
+      entry.action,
+      entry.targetTable,
+      entry.targetId,
+      entry.matterId ?? null,
+      entry.clientId ?? null,
+      entry.newJson === undefined ? null : JSON.stringify(entry.newJson),
+      entry.idempotencyKey ?? null,
+      now,
+      ...guardValues,
+    )
+}
+
+/** The guard every later statement of an apply carries: the gate audit row exists (its id bound last). */
+const APPLY_GATE = 'EXISTS (SELECT 1 FROM audit_log WHERE id = ?)'
+
 export function createBillingQueries(db: D1Database): BillingQueries {
   const all = async <T,>(statement: D1PreparedStatement): Promise<T[]> => (await statement.all<T>()).results ?? []
   const ids = (list: string[]) => JSON.stringify([...new Set(list)])
+  /** Appends a note to payment applications (void marks them `VOIDED …`, detach `DETACHED …`). */
+  const noteApplications = (applicationIds: string[], note: string, now: string) =>
+    db
+      .prepare(
+        "UPDATE payment_application SET notes = CASE WHEN notes IS NULL OR notes = '' THEN ?2 ELSE notes || ' · ' || ?2 END, updated_at = ?3 WHERE id IN (SELECT value FROM json_each(?1))",
+      )
+      .bind(ids(applicationIds), note, now)
+  /** `insertLedgerEntry`, run only while the apply's gate row exists (decision C2). */
+  const gatedLedgerInsert = (r: NewLedgerEntry, gateAuditId: string) =>
+    db
+      .prepare(
+        `INSERT INTO ledger_entry (id, invoice_id, matter_id, client_id, payment_id, ledger_bucket, entry_type, entry_direction, payment_type_lookup_id, amount, amount_ex_tax,
+           tax_amount, amount_inc_tax, entry_date, reference_number, memo, created_by_user_id, created_at, source_system, source_record_id)
+         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${APPLY_GATE}`,
+      )
+      .bind(
+        r.id,
+        r.invoiceId,
+        r.matterId,
+        r.clientId,
+        r.paymentId,
+        r.bucket,
+        r.entryType,
+        r.direction,
+        r.paymentTypeLookupId,
+        r.amount,
+        r.amountExTax,
+        r.amount,
+        r.entryDate,
+        r.referenceNumber,
+        r.memo,
+        r.createdByUserId,
+        r.now,
+        r.sourceSystem ?? null,
+        r.sourceRecordId ?? null,
+        gateAuditId,
+      )
 
   return {
     async run(statements) {
@@ -603,11 +734,13 @@ export function createBillingQueries(db: D1Database): BillingQueries {
         .bind(id, v.paymentId, v.invoiceId, v.matterId, v.amount, v.appliedDate, v.notes, v.userId, v.now)
     },
     markApplicationsVoided(applicationIds, note, now) {
-      return db
-        .prepare(
-          "UPDATE payment_application SET notes = CASE WHEN notes IS NULL OR notes = '' THEN ?2 ELSE notes || ' · ' || ?2 END, updated_at = ?3 WHERE id IN (SELECT value FROM json_each(?1))",
-        )
-        .bind(ids(applicationIds), note, now)
+      return noteApplications(applicationIds, note, now)
+    },
+    noteApplications(applicationIds, note, now) {
+      return noteApplications(applicationIds, note, now)
+    },
+    setPaymentUnapplied(id, unappliedAmount, now) {
+      return db.prepare('UPDATE payment SET unapplied_amount = ?2, updated_at = ?3 WHERE id = ?1 AND voided_at IS NULL').bind(id, unappliedAmount, now)
     },
     voidPayment(id, userId, reason, now, refund) {
       if (!refund) return db.prepare('UPDATE payment SET voided_at = ?2, voided_by_user_id = ?3, void_reason = ?4, updated_at = ?2 WHERE id = ?1 AND voided_at IS NULL').bind(id, now, userId, reason)
@@ -626,6 +759,56 @@ export function createBillingQueries(db: D1Database): BillingQueries {
              updated_at = ?8 WHERE id = ?1`,
         )
         .bind(id, refund.refundId, refund.status, refund.amount, refund.reference, refund.referenceType, refund.referenceStatus, now)
+    },
+    async applyUnapplied(plan) {
+      const gate = plan.gateAuditId
+      const rowsRead = JSON.stringify(plan.drawnRows.map((row) => ({ id: row.id, amount: row.readAmountCents })))
+      const invoicesRead = JSON.stringify(plan.allocations.map((item) => ({ id: item.invoiceId, status: item.readStatus, paid: item.readPaidCents, balance: item.readBalanceCents })))
+      const statements: D1PreparedStatement[] = [
+        // The guard: the payment's own audit row, only while nothing changed since the read.
+        guardedAudit(
+          db,
+          gate,
+          plan.audit,
+          plan.now,
+          `EXISTS (SELECT 1 FROM payment WHERE id = ? AND client_id = ? AND voided_at IS NULL AND CAST(ROUND(unapplied_amount * 100) AS INTEGER) = ?)
+           AND NOT EXISTS (
+             SELECT 1 FROM json_each(?) AS e LEFT JOIN ledger_entry AS l ON l.id = json_extract(e.value, '$.id')
+             WHERE l.id IS NULL OR l.voided_at IS NOT NULL OR l.invoice_id IS NOT NULL OR l.payment_id IS NOT ?
+               OR CAST(ROUND(l.amount * 100) AS INTEGER) <> json_extract(e.value, '$.amount'))
+           AND NOT EXISTS (
+             SELECT 1 FROM json_each(?) AS e LEFT JOIN invoice AS i ON i.id = json_extract(e.value, '$.id')
+             WHERE i.id IS NULL OR i.status <> json_extract(e.value, '$.status')
+               OR CAST(ROUND(i.amount_paid * 100) AS INTEGER) <> json_extract(e.value, '$.paid')
+               OR CAST(ROUND(i.balance_due * 100) AS INTEGER) <> json_extract(e.value, '$.balance'))`,
+          [plan.paymentId, plan.clientId, plan.readUnappliedCents, rowsRead, plan.paymentId, invoicesRead],
+        ),
+        db.prepare(`UPDATE payment SET unapplied_amount = ?2, updated_at = ?3 WHERE id = ?1 AND ${APPLY_GATE.replace('?', '?4')}`).bind(plan.paymentId, plan.unappliedAfter, plan.now, gate),
+        db
+          .prepare(
+            `UPDATE ledger_entry SET voided_at = ?2, voided_by_user_id = ?3, void_reason = ?4
+              WHERE id IN (SELECT json_extract(value, '$.id') FROM json_each(?1)) AND voided_at IS NULL AND ${APPLY_GATE.replace('?', '?5')}`,
+          )
+          .bind(rowsRead, plan.now, plan.userId, plan.voidReason, gate),
+      ]
+      if (plan.remainder) statements.push(gatedLedgerInsert(plan.remainder, gate))
+      for (const item of plan.allocations) {
+        statements.push(
+          gatedLedgerInsert(item.ledger, gate),
+          db
+            .prepare(`UPDATE invoice SET amount_paid = ?2, discount_amount = ?3, total_amount = ?4, balance_due = ?5, status = ?6, paid_at = ?7, updated_at = ?8 WHERE id = ?1 AND ${APPLY_GATE.replace('?', '?9')}`)
+            .bind(item.invoiceId, item.amountPaid, item.discount, item.total, item.balance, item.status, item.paidAt, plan.now, gate),
+          db
+            .prepare(
+              `INSERT INTO payment_application (id, payment_id, invoice_id, matter_id, ledger_entry_id, amount, applied_date, notes, created_by_user_id, created_at, updated_at)
+               SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${APPLY_GATE}`,
+            )
+            .bind(item.applicationId, plan.paymentId, item.invoiceId, item.matterId, item.ledger.id, item.amount, item.appliedDate, item.applicationNote, plan.userId, plan.now, plan.now, gate),
+          guardedAudit(db, crypto.randomUUID(), item.audit, plan.now, APPLY_GATE, [gate]),
+        )
+      }
+      const results = await db.batch(statements)
+      return Number(results[0]?.meta?.changes ?? 0) === 1
     },
     insertTrustRequest(id, v) {
       return db

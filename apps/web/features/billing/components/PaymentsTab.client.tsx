@@ -80,6 +80,8 @@ const STYLES = {
   errorText: 'text-[8pt] font-semibold text-[var(--kr-theme-danger,#9d2c20)]',
   postedText: 'text-[9pt] text-[var(--kr-theme-text-muted,#526172)]',
   laterText: 'text-[9pt] text-[var(--kr-theme-text-muted,#526172)]',
+  /** The line under Open Invoices that says drafts are left out until finalized. */
+  draftsNote: 'text-[9pt] text-[var(--kr-theme-text-muted,#526172)]',
   ivid: 'text-[8.5pt] font-normal text-[var(--kr-theme-text-muted,#526172)]',
   warningText: 'text-[9pt] font-semibold text-(color:--kr-theme-danger)',
   checkLabel: 'gap-1.5 inline-flex items-center text-[9pt] font-semibold text-[var(--kr-theme-text-muted,#526172)]',
@@ -168,9 +170,15 @@ export default function PaymentsTab({
   payLinks = [],
 }: PaymentsTabProps) {
   const [selectedMatter, setSelectedMatter] = useState('ALL')
-  // Open = not void and something still due. Voided invoices are never open.
+  // Open = finalized (locked), not void and something still due. Voided invoices are never open; a draft takes no
+  // payment until it is finalized (the requester, Nov 16, 2026; the API refuses it with VALIDATION_INVOICE_IS_DRAFT).
   const openInvoices = useMemo(
-    () => invoices.filter((invoice) => (selectedMatter === 'ALL' || invoice.matterNumber === selectedMatter) && invoice.status !== 'Void' && invoice.amountDue > 0.005),
+    () => invoices.filter((invoice) => (selectedMatter === 'ALL' || invoice.matterNumber === selectedMatter) && invoice.locked && invoice.status !== 'Void' && invoice.amountDue > 0.005),
+    [invoices, selectedMatter],
+  )
+  // Drafts left out of the list, so the empty-list note can say why.
+  const draftsWaiting = useMemo(
+    () => invoices.filter((invoice) => (selectedMatter === 'ALL' || invoice.matterNumber === selectedMatter) && !invoice.locked && invoice.status !== 'Void' && invoice.amountDue > 0.005).length,
     [invoices, selectedMatter],
   )
   const [selectedId, setSelectedId] = useState(openInvoices[0]?.id ?? '')
@@ -397,6 +405,14 @@ export default function PaymentsTab({
     }
   }
 
+  /** Says how many drafts are left out of the lists until finalized; nothing when there are none. */
+  const draftsNote = (marker: string) =>
+    draftsWaiting ? (
+      <p className={STYLES.draftsNote} data-kr-element={marker}>
+        {draftsWaiting === 1 ? '1 draft invoice is' : `${draftsWaiting} draft invoices are`} not listed. Finalize (lock) an invoice before posting a payment to it.
+      </p>
+    ) : null
+
   const openInvoicesPanel = (
     <div className={LAYOUT_STYLES.grid} data-kr-id="open-invoices-grid">
       {/* Open Invoices tab: choose an invoice; its online payment links appear beside the list (part 7d). */}
@@ -421,6 +437,7 @@ export default function PaymentsTab({
             </button>
           ))}
           {!openInvoices.length ? <p className="text-[9pt] text-[var(--kr-theme-text-muted,#526172)]">No open invoices are available.</p> : null}
+          {draftsNote('open-invoices-drafts-note')}
         </div>
       </fieldset>
       <section className={STYLES.panel} aria-label="Invoice online payment link">
@@ -450,6 +467,7 @@ export default function PaymentsTab({
         {/* Proposed invoices: one payment can be split across several currently open invoices. */}
         <section className={LAYOUT_STYLES.fullRow} data-kr-id="proposed-payment-invoice-list" aria-label="Proposed payment invoice list">
           <h3 className={`${LAYOUT_STYLES.proposedTitle} ${STYLES.label}`}>Apply Payment to the Following Open Invoices</h3>
+          {draftsNote('post-payment-drafts-note')}
           <div className={LAYOUT_STYLES.proposedInvoiceList}>
             <div className={LAYOUT_STYLES.proposedInvoiceHeader}>
               <span>Apply</span>
@@ -517,12 +535,13 @@ export default function PaymentsTab({
           />
         </div>
 
-        {/* Payment Notes: free text from the person taking the payment (saved as the payment memo). */}
+        {/* Payment Notes: free text from the person taking the payment (saved as the payment memo). The receipt shows the
+            posted date only (C1, the requester, Nov 16, 2026), so the prompt asks for the day it was really received. */}
         <div className={LAYOUT_STYLES.notesRow} data-kr-element="payment-notes-row">
           <label className={STYLES.label} htmlFor="payment-notes">
             Payment Notes
           </label>
-          <textarea className={`${STYLES.field} min-h-[52px]`} disabled={busy} id="payment-notes" maxLength={500} onChange={(event) => setNotes(event.target.value)} placeholder="Notes from the person taking the payment" rows={2} value={notes} />
+          <textarea className={`${STYLES.field} min-h-[52px]`} disabled={busy} id="payment-notes" maxLength={500} onChange={(event) => setNotes(event.target.value)} placeholder={'Notes from the person taking the payment. Example: "Received payment last Wednesday but posted today."'} rows={2} value={notes} />
         </div>
 
         {/* Receipt: email a Payment Receipt (PDF attached) to the client after posting. */}
@@ -577,7 +596,10 @@ export default function PaymentsTab({
       <PaymentPostingDialog chargingCard={paymentType === 'Credit card'} error={postError} phase={postingPhase} posted={posted} receipt={postedReceipt} receiptWarning={receiptWarning} summary={postedSummary} onClose={closePostingDialog} />
     </section>
   ) : (
-    <p className="p-3 text-[9pt] text-[var(--kr-theme-text-muted,#526172)]">An open invoice is required to post a payment.</p>
+    <div className="p-3">
+      <p className="text-[9pt] text-[var(--kr-theme-text-muted,#526172)]">An open invoice is required to post a payment.</p>
+      {draftsNote('post-payment-drafts-note')}
+    </div>
   )
 
   const paymentMenuProps: MenuStyleOneProps = {

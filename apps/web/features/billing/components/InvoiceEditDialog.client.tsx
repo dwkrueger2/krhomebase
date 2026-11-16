@@ -18,6 +18,10 @@
 //    record's `viewer.canWrite` false) shows the invoice for review only: the lock shows its state as plain text, and
 //    Delete, Send, Add Open Time & Fees, the entry wastebaskets, the entry editor and Save Invoice are left out. Print
 //    opens the print view at once with no send context (no print-intent prompt, no Send, no pay link).
+//  - Tax line (the requester, Nov 16, 2026: some jurisdictions may require tax): a Tax field beside Write Off
+//    (`data-kr-element="invoice-tax"`), read-only like Write Off when the invoice is locked or the person only reads
+//    billing. The Invoice Total and Amount due include it, and the save, the print and the email dialog carry it as
+//    `taxAmount`. The old editor had no tax field (its save sent no tax).
 
 import { useMemo, useRef, useState, type PointerEvent } from 'react'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
@@ -99,6 +103,8 @@ const LAYOUT_STYLES = {
   summaryProvider: 'max-h-24 overflow-y-auto',
   summaryProviderRow: 'gap-2 flex justify-between text-[9pt]',
   summaryTotal: 'flex min-h-[76px] flex-col justify-center',
+  // Tax line: Tax and Write Off stacked in the summary's third column.
+  summaryAdjustments: 'gap-[3px] grid content-start',
   footer:
     'px-2 py-2 flex shrink-0 items-center justify-between gap-2 border-t border-[var(--kr-theme-line,#d7dee5)] bg-[var(--kr-theme-muted-surface,#f7f9fb)]',
   footerActions: 'gap-1 flex',
@@ -184,6 +190,8 @@ export default function InvoiceEditDialog({
   const [editingEntry, setEditingEntry] = useState<BillingTimeEntry | null>(null)
   // Write-off is held as a positive dollar amount for the currency input; it is saved as a negative adjustment.
   const [writeOff, setWriteOff] = useState(Math.abs(invoice.writeOff || 0))
+  // Tax line: tax is held as a positive dollar amount and added to the invoice total.
+  const [taxAmount, setTaxAmount] = useState(Math.max(0, invoice.taxAmount ?? 0))
   const [deliveryMessage, setDeliveryMessage] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -277,7 +285,11 @@ export default function InvoiceEditDialog({
     return Array.from(grouped.values())
   }, [entries, staffOptions])
   const entriesTotal = entries.reduce((sum, entry) => sum + entry.amount, 0)
-  const totalDue = Math.max(0, entriesTotal - Math.abs(writeOff || 0))
+  const totalDue = Math.max(0, entriesTotal + Math.max(0, taxAmount || 0) - Math.abs(writeOff || 0))
+  // Tax line: carried on the save, print and send copies. Left out when the record has no tax field and nothing was
+  // typed, so a save never clears a tax the API kept but did not send.
+  const taxField: Pick<BillingInvoice, 'taxAmount'> =
+    invoice.taxAmount !== undefined || taxAmount ? { taxAmount: Math.max(0, taxAmount || 0) } : {}
   const hasPayments = draft.status === 'Paid' || draft.status === 'Partially paid'
   const isVoid = draft.status === 'Void'
   const locked = draft.locked
@@ -322,7 +334,7 @@ export default function InvoiceEditDialog({
   /** Opens the print view for the current draft (no prompt). */
   function openPrintView(): void {
     const problem = printInvoiceFromBilling({
-      invoice: { ...draft, writeOff: -Math.abs(writeOff || 0), amountDue: totalDue, entryIds: entries.map((entry) => entry.id) },
+      invoice: { ...draft, ...taxField, writeOff: -Math.abs(writeOff || 0), amountDue: totalDue, entryIds: entries.map((entry) => entry.id) },
       entries,
       clientNumber,
       staffOptions,
@@ -356,6 +368,7 @@ export default function InvoiceEditDialog({
     try {
       await onSave({
         ...draft,
+        ...taxField,
         writeOff: -Math.abs(writeOff || 0),
         amountDue: totalDue,
         entryIds: entries.map((entry) => entry.id),
@@ -644,7 +657,7 @@ export default function InvoiceEditDialog({
           </div>
         </div>
 
-        {/* Invoice summary: provider totals, invoice total, and draft write-off. */}
+        {/* Invoice summary: provider totals, invoice total, and draft tax and write-off. */}
         <div className={LAYOUT_STYLES.summary}>
           <div className={`${STYLES.mutedBox} ${LAYOUT_STYLES.summaryProvider}`}>
             <h3 className={STYLES.summaryHeading}>Provider time and fees</h3>
@@ -671,17 +684,32 @@ export default function InvoiceEditDialog({
             <span className={STYLES.summaryLabel}>Invoice Total</span>
             <strong className={STYLES.summaryTotal}>{formatAccountingAmount(totalDue)}</strong>
           </div>
-          <label className={STYLES.label}>
-            Write Off
-            <U6CurrencyInput
-              aria-label="Write Off"
-              className={STYLES.field}
-              data-kr-element="invoice-write-off"
-              disabled={reviewOnly}
-              value={writeOff}
-              onChange={(dollars) => setWriteOff(dollars)}
-            />
-          </label>
+          {/* Invoice adjustments: tax (added to the total) and write-off (taken off it); read-only when locked or for readers. */}
+          <div className={LAYOUT_STYLES.summaryAdjustments} data-kr-element="invoice-adjustments">
+            <label className={STYLES.label}>
+              Tax
+              <U6CurrencyInput
+                aria-label="Tax"
+                className={STYLES.field}
+                data-kr-element="invoice-tax"
+                disabled={reviewOnly}
+                title="Tax charged on this invoice; added to the invoice total"
+                value={taxAmount}
+                onChange={(dollars) => setTaxAmount(Math.max(0, dollars))}
+              />
+            </label>
+            <label className={STYLES.label}>
+              Write Off
+              <U6CurrencyInput
+                aria-label="Write Off"
+                className={STYLES.field}
+                data-kr-element="invoice-write-off"
+                disabled={reviewOnly}
+                value={writeOff}
+                onChange={(dollars) => setWriteOff(dollars)}
+              />
+            </label>
+          </div>
         </div>
 
         {/* Invoice actions: only unlocked drafts can be persisted or sent. */}
@@ -806,7 +834,7 @@ export default function InvoiceEditDialog({
             clientId={clientId}
             clientNumber={clientNumber}
             entries={entries}
-            invoice={{ ...draft, writeOff: -Math.abs(writeOff || 0), amountDue: totalDue, entryIds: entries.map((entry) => entry.id) }}
+            invoice={{ ...draft, ...taxField, writeOff: -Math.abs(writeOff || 0), amountDue: totalDue, entryIds: entries.map((entry) => entry.id) }}
             staffOptions={staffOptions}
             onCancel={() => setSending(false)}
             onSent={() => {

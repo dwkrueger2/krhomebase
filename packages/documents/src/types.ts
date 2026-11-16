@@ -15,6 +15,8 @@
  *    built from (`letterhead.ts`, decision B5).
  *  - `FirmState` was the fixed pair `'TX' | 'KS'`; an office is now any firm location, so `state` is its two-letter
  *    state and `officeId` names the location the letterhead leads with.
+ *  - `InvoiceReportData.taxAmount` is new (the requester, Nov 16, 2026: a tax line, since some jurisdictions may
+ *    require tax): the invoice's tax, printed as its own totals row when above zero and included in `totalAmount`.
  */
 
 /** Visual template. Option 1 is the navy-banner layout; Option 2 is the centered lockup layout. */
@@ -98,9 +100,11 @@ export interface InvoiceReportData {
   lines: InvoiceReportLine[]
   /** Sum of every line (fees and costs). */
   professionalFeesAndCosts: number
+  /** Tax charged on this invoice (zero or more). Omitted or 0: no "Tax" row is printed. */
+  taxAmount?: number
   /** Balances carried from earlier invoices; null prints an em dash. */
   otherOutstandingBalances: number | null
-  /** professionalFeesAndCosts + otherOutstandingBalances. */
+  /** professionalFeesAndCosts + taxAmount + otherOutstandingBalances. */
   totalAmount: number
   /** Payments and credits already applied (positive number). */
   amountReceived: number

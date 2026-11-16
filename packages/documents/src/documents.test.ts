@@ -171,6 +171,26 @@ describe('invoice builder', () => {
     expect(applyAccountTotals(report, null, 400).balanceDue).toBe(0)
     expect(payOnlineHref({ url: 'pay.example.com/p/abc', urlNote: '' })).toBe('https://pay.example.com/p/abc')
   })
+
+  it('adds the invoice tax to the total (tax line, Nov 16, 2026)', () => {
+    // A draft with tax: 300 in fees + 24.75 tax − 50 write-off.
+    const draft = buildInvoiceReportData({ invoice: invoice({ taxAmount: 24.75, writeOff: -50 }), entries: [entry({})], clientNumber: '120', letterhead: TX })
+    expect(draft.professionalFeesAndCosts).toBe(300)
+    expect(draft.taxAmount).toBe(24.75)
+    expect(draft.totalAmount).toBe(324.75)
+    expect(draft.balanceDue).toBe(274.75)
+    // No tax on the record (an older reply) reads as 0.
+    const untaxed = buildInvoiceReportData({ invoice: invoice(), entries: [entry({})], clientNumber: '120', letterhead: TX })
+    expect(untaxed.taxAmount).toBe(0)
+    expect(untaxed.totalAmount).toBe(300)
+    // A partly paid taxed invoice: received = fees + tax − balance (324.75 − 100).
+    const paid = invoice({ taxAmount: 24.75, status: 'Partially paid', amountDue: 100, locked: true })
+    const report = buildInvoiceReportData({ invoice: paid, entries: [entry({})], clientNumber: '120', letterhead: TX, accountInvoices: [paid] })
+    expect(report.amountReceived).toBe(224.75)
+    expect(report.balanceDue).toBe(100)
+    // The send route's re-derivation keeps the tax in the total.
+    expect(applyAccountTotals(report, 10, 224.75)).toMatchObject({ totalAmount: 334.75, balanceDue: 110 })
+  })
 })
 
 // ---------------------------------------------------------------------------------------------------------------

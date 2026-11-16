@@ -18,7 +18,7 @@ const STYLES = {
   listDate: 'text-right text-[var(--kr-theme-text-muted,#526172)]',
   chipSucceeded: 'px-1 rounded-[4px] text-[7pt] font-bold uppercase text-white bg-[var(--kr-theme-success,#2e7d5b)]',
   chipFailed: 'px-1 rounded-[4px] text-[7pt] font-bold uppercase text-white bg-[var(--kr-theme-danger,#9d2c20)]',
-  chipPending: 'px-1 rounded-[4px] text-[7pt] font-bold uppercase text-white bg-[var(--kr-theme-warning,#b47a2a)]',
+  chipPending: 'px-1 rounded-[4px] text-[7pt] font-bold uppercase text-white bg-[var(--kr-theme-warning,#e45e25)]',
 // b1: ' border-red-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
 // b2: ' border-blue-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
 // b3: ' border-green-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className

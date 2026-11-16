@@ -14,7 +14,8 @@
  * - lock            any billing role; marks the invoice sent so it cannot be edited.
  * - unlock          super admin; refused while payments are attached; re-locks when sent.
  * - detachPayments  super admin; unlinks the payments from this invoice (they stay on the
- *                   client ledger) so it can then be unlocked or voided.
+ *                   client ledger) so it can then be unlocked or voided. Since API patch 44 the
+ *                   money returns to each payment's unapplied amount, to be applied again.
  * - void            super admin; refused while payments are attached; deletes the invoice
  *                   as a record — entries return to billable, the receivable posting is
  *                   voided; stored sent copies are kept.
@@ -39,7 +40,7 @@ export interface InvoiceLockConfirmProps {
 const COPY: Record<InvoiceConfirmMode, { title: string; confirm: string; busy: string; describe: (label: string) => string }> = {
   lock: { title: 'Lock invoice', confirm: 'Lock invoice', busy: 'Locking…', describe: (label) => `Lock ${label}? A locked invoice cannot be edited. Only a Super Admin can unlock it.` },
   unlock: { title: 'Unlock invoice', confirm: 'Unlock invoice', busy: 'Unlocking…', describe: (label) => `As Super Admin, do you want to unlock ${label}? It can then be edited, and it will lock again when it is sent.` },
-  detachPayments: { title: 'Detach payments', confirm: 'Detach payments', busy: 'Detaching…', describe: (label) => `${label} has payments attached, so it cannot be unlocked or voided. As Super Admin, do you want to detach them? The payments remain on the client's ledger, unattached; the invoice balance returns to its full amount. You can then unlock or void the invoice.` },
+  detachPayments: { title: 'Detach payments', confirm: 'Detach payments', busy: 'Detaching…', describe: (label) => `${label} has payments attached, so it cannot be unlocked or voided. As Super Admin, do you want to detach them? The payments remain on the client's ledger and their money returns to unapplied; the invoice balance returns to its full amount. You can then unlock or void the invoice, and once it is finalized again, apply the money back with Apply to invoice in Posted Payments.` },
   void: { title: 'Delete (void) invoice', confirm: 'Void invoice', busy: 'Voiding…', describe: (label) => `As Super Admin, do you want to void ${label}? Its time and fee entries return to the open list, its ledger posting is voided, and the invoice stays on file marked Void. Copies that were already sent are kept.` },
 }
 

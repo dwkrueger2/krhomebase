@@ -440,7 +440,7 @@ export async function cardPaymentConfig(ctx: CardPaymentContext, clientId: strin
  * @throws CardPaymentError `VALIDATION_CARD_PAYMENT_AMOUNT`, `VALIDATION_CARD_PAYMENT_ALLOCATION_TOTAL`,
  *   `VALIDATION_SANDBOX_TEST_CARD_REQUIRED`, `VALIDATION_LIVE_TEST_CARD_NOT_ALLOWED`,
  *   `VALIDATION_CARD_PAYMENT_DUPLICATE_INVOICE`, `VALIDATION_PAYMENT_INVOICE_NOT_FOUND`,
- *   `VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT`, `VALIDATION_PAYMENT_EXCEEDS_BALANCE` (422),
+ *   `VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT`, `VALIDATION_INVOICE_IS_DRAFT`, `VALIDATION_PAYMENT_EXCEEDS_BALANCE` (422),
  *   `VALIDATION_CLIENT_NOT_FOUND` (404), `STRIPE_REQUEST_FAILED` (502); the credentials' PaymentProviderError (503).
  */
 export async function createCardPaymentIntent(ctx: CardPaymentContext, clientId: string, body: CardPaymentIntentBody): Promise<CardPaymentIntentData> {
@@ -462,6 +462,8 @@ export async function createCardPaymentIntent(ctx: CardPaymentContext, clientId:
     const invoice = rows.get(allocation.invoiceId)
     if (!invoice || invoice.billed_to_client_id !== clientId) throw new CardPaymentError('VALIDATION_PAYMENT_INVOICE_NOT_FOUND', 422, 'An invoice is not on this client.')
     if (invoice.status === 'void') throw new CardPaymentError('VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT', 422, 'This invoice is void and cannot receive payments.')
+    // A card is never charged for a draft (the requester, Nov 16, 2026): the payment post would refuse it after the charge.
+    if (invoice.status === 'draft') throw new CardPaymentError('VALIDATION_INVOICE_IS_DRAFT', 422, `Invoice ${invoice.invoice_number} is a draft. Finalize it before attaching a payment.`)
     if (allocation.amountCents > Math.round(Number(invoice.balance_due || 0) * 100)) throw new CardPaymentError('VALIDATION_PAYMENT_EXCEEDS_BALANCE', 422, 'Payment is more than the invoice balance.')
     return { invoice, allocation }
   })

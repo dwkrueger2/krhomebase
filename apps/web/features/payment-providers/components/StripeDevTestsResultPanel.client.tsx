@@ -16,7 +16,7 @@ const STYLES = {
   panelTitle: 'text-[10pt] font-bold text-[var(--kr-theme-text,#243142)]',
   resultSucceeded: 'rounded-[4px] border border-[var(--kr-theme-success,#2e7d5b)] bg-[var(--kr-theme-card-surface,#ffffff)]',
   resultDeclined: 'rounded-[4px] border border-[var(--kr-theme-danger,#9d2c20)] bg-[var(--kr-theme-card-surface,#ffffff)]',
-  resultPending: 'rounded-[4px] border border-[var(--kr-theme-warning,#b47a2a)] bg-[var(--kr-theme-card-surface,#ffffff)]',
+  resultPending: 'rounded-[4px] border border-[var(--kr-theme-warning,#e45e25)] bg-[var(--kr-theme-card-surface,#ffffff)]',
   resultEmpty: 'rounded-[4px] border border-dashed border-[var(--kr-theme-line,#b8c3cd)] text-[9pt] text-[var(--kr-theme-text-muted,#526172)]',
   resultKey: 'text-[9pt] font-semibold text-[var(--kr-theme-text-muted,#526172)]',
   resultValue: 'font-mono text-[9pt] text-[var(--kr-theme-text,#243142)] break-all',

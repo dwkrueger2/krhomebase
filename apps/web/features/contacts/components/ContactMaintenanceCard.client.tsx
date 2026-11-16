@@ -73,7 +73,7 @@ const STYLES = {
   badge: 'inline-flex w-fit rounded-[2px] border px-1.5 py-0.5 text-[10px] font-extrabold',
   safeBadge: 'border-[var(--kr-theme-success,#2e7d5b)] text-[var(--kr-theme-success,#2e7d5b)]',
   dangerBadge: 'border-[var(--kr-theme-danger,#9d2c20)] text-[var(--kr-theme-danger,#9d2c20)]',
-  warningBadge: 'border-[var(--kr-theme-warning,#b47a2a)] text-[var(--kr-theme-warning,#b47a2a)]',
+  warningBadge: 'border-[var(--kr-theme-warning,#e45e25)] text-[var(--kr-theme-warning,#e45e25)]',
   primaryButton: 'min-h-[30px] rounded-[2px] border border-[var(--kr-theme-brand-primary-active,#0a4f9c)] bg-[var(--kr-theme-brand-primary-active,#0a4f9c)] px-2.5 py-1 text-[11px] font-extrabold text-[var(--kr-theme-text-inverse,#fff)] disabled:cursor-not-allowed disabled:opacity-50',
   dangerButton: 'min-h-[30px] rounded-[2px] border border-[var(--kr-theme-danger,#9d2c20)] bg-transparent px-2.5 py-1 text-[11px] font-extrabold text-[var(--kr-theme-danger,#9d2c20)] disabled:cursor-not-allowed disabled:opacity-50',
   ghostButton: 'min-h-[30px] rounded-[2px] border border-[var(--kr-theme-line,#d7dee5)] bg-transparent px-2.5 py-1 text-[11px] font-extrabold text-[var(--kr-theme-text,#243142)] disabled:cursor-not-allowed disabled:opacity-50',

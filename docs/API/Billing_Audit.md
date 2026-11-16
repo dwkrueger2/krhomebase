@@ -1,7 +1,7 @@
 # Billing Audit: Old KR-Billing Compared With the New Billing
 
-<small>Version 1.5</small><br>
-<small>Updated Nov 16, 2026 4:07pm</small>
+<small>Version 1.7</small><br>
+<small>Updated Nov 16, 2026 2:58pm</small>
 
 ## 1. Purpose and sources
 
@@ -194,6 +194,21 @@ C4 was not answered; the build follows the recommendation (7a to 7c, then 7d and
 - **B3:** the documents bucket is the old one, `krhomebase-media-dev`, with the old keys under `clients/` (client 306 holds the requester's own sample documents), so the copies the old app stored still open.
 
 **Progress:** 7a built Nov 15, 2026 (repository 47, API 37, web 551); 7b built Nov 15, 2026 (repository 48, web 552); 7c built Nov 16, 2026 (repository 49, API 38, web 553); 7d built Nov 16, 2026 (repository 51, API 40, web 555): pay links issued with the invoice email, the receipt and the print view, the pay link panel, posting paid links when Billing opens, void revokes, and the signed webhook through the pay Worker's service binding (live after the API and pay Worker deploys). The webhook stays open during a deploy window; the pay Worker also tries a failed notice twice more. Audit item 8 (re-read inside the write) is built for the paid-link post. The details: `apps/api/AGENTS.md`, "Pay links". 7e built Nov 16, 2026 (repository 52, API 41, web 556): the `card-payment` settings and `intent` routes (sandbox confirms a Stripe test card itself, live refuses one; the allocation checks), the payment post's Stripe-intent branch (re-read from Stripe, now also checking the environment; one payment per intent), refund on void (an earlier refund reused; a failed refund stops the void; `PAYMENT_VOID_DATABASE_SYNC_FAILED`), `refresh-refund`, the refund notice (preview, send, re-send, stored as `payment_refund_notice_sent`), and on screen the card fields, the sandbox test cards, the sandbox/live switch (a super admin on a localhost server only), ACH with its bank lookup (still never posted), "Record Charged Payment", the Void dialog's refund and refund notice, Refresh ARN and the refund notice icon. The environment is `KR_STRIPE_BILLING_ENVIRONMENT`, else sandbox on a localhost server and live otherwise. No table change. The details: `apps/api/AGENTS.md`, "Card payments and refunds". Plan 10 stage 8 (the Stripe check) is still to run on these screens. 7f built Nov 16, 2026 (repository 53, API 42, web 557): items 1, 4, 5 and 11 of section 5, item 2 confirmed (7c), the Overview tooltip confirmed true (7b), the "No billing records" line, the plan 06 wording, and the theme token `--kr-theme-warning` (used by several screens with the fallback `#b47a2a`, now defined in `apps/web/styles/theme.css`, light and dark, and in the theme editors). Items 6, 7, 9 and 10 wait for the requester (C1 to C3).
+
+**The requester's answers to C1 to C3 and the tax line (Nov 16, 2026; repository 54, API 43, web 561):**
+
+- **C1 (item 6):** the receipt reports the posted date only; the Payment Notes prompt now asks for the day the money was really received ("Received payment last Wednesday but posted today").
+- **C2 (item 7):** built: `POST .../payments/{paymentId}/apply` and "Apply to invoice" in Posted Payments (`apps/api/AGENTS.md`, Billing). Open for the requester: whether a draft invoice may take applied money (it follows the payment post's rule today), whether detaching payments should return the money to unapplied, and that applied credits keep the date the money was received.
+- **C3 (item 10):** the Overview and the Trust tab are not mixed: trust rows left the Overview register and the Statement of Account; the Trust tab has an [i] with how the trust account works and how an invoice is paid from trust (a disbursement and a matching payment). Proposed, not built: a one-step "Pay invoice from trust" that writes both in one batch.
+- **Tax:** invoices print a "Tax" row (both options and the email) when tax is above zero; the invoice editor has a Tax field; the record carries `taxAmount`.
+- **Item 9** (the unused `accountTotals`) is unchanged.
+
+**The requester's answers to the open C2 and C3 points (Nov 16, 2026; repository 55, API 44, web 562):**
+
+- **Pay invoice from trust in one step: no.** A distribution is made on the trust ledger and then applied to the account as a payment: two steps, as the Trust tab's [i] says. Not to be built.
+- **Drafts:** a draft invoice takes no money. The payment post, the apply and the card intent refuse it (`VALIDATION_INVOICE_IS_DRAFT`); the screens list only finalized (locked) invoices. The live database held no draft with money when this was decided.
+- **Detach payments** (super admin; the old app's action for correcting or voiding an invoice that has payments): the detached money now returns to the payment's unapplied amount and its applications are marked `DETACHED`, so it can be applied again once the invoice is finalized, and a later void of the payment no longer takes the amount off that invoice a second time. It had never been used on the live database.
+- **Dates:** the credit keeps the day the money was received; the application keeps the day it was applied (`applied_date`) and who applied it. A payment void still reverses everything, including later applies. There is no route to undo one apply without voiding the payment.
 
 ### 8.2 Can wait
 

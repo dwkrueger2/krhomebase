@@ -126,7 +126,7 @@ const STYLES = {
     'px-2 py-1 rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[9pt] font-semibold text-[var(--kr-theme-text,#243142)] disabled:cursor-not-allowed disabled:opacity-50',
   bankName: 'truncate text-[9pt] font-semibold text-[var(--kr-theme-text,#243142)]',
   note: 'text-[8pt] text-[var(--kr-theme-text-muted,#526172)]',
-  warning: 'text-[8pt] font-semibold text-[var(--kr-theme-warning,#b47a2a)]',
+  warning: 'text-[8pt] font-semibold text-[var(--kr-theme-warning,#e45e25)]',
   error: 'text-[8pt] font-semibold text-[var(--kr-theme-danger,#9d2c20)]',
   envToggle: 'gap-3 flex items-center text-[9pt] font-semibold text-[var(--kr-theme-text,#243142)]',
   envOption: 'gap-1 flex items-center',

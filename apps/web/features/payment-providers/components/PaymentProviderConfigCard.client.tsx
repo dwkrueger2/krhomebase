@@ -42,7 +42,7 @@ const STYLES = {
   primaryButton: 'px-2 py-0.5 rounded-[4px] border border-[var(--kr-theme-brand-primary,#21394f)] bg-[var(--kr-theme-brand-primary,#21394f)] text-[9pt] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50',
   secondaryButton: 'px-2 py-0.5 rounded-[4px] border border-[var(--kr-theme-line,#b8c3cd)] bg-[var(--kr-theme-card-surface,#ffffff)] text-[9pt] font-semibold text-[var(--kr-theme-text,#243142)] disabled:cursor-not-allowed disabled:opacity-50',
   status: 'text-[8pt] text-[var(--kr-theme-text-muted,#526172)]',
-  problem: 'text-[8pt] font-semibold text-[var(--kr-theme-warning,#b47a2a)]',
+  problem: 'text-[8pt] font-semibold text-[var(--kr-theme-warning,#e45e25)]',
 // b1: ' border-red-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
 // b2: ' border-blue-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
 // b3: ' border-green-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className

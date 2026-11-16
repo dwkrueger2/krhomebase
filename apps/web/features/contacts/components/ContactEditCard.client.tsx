@@ -81,7 +81,7 @@ const LAYOUT_STYLES = {
 
 /** Reusable visual treatments for the local contact editor controls. */
 const STYLES = {
-  identityNotice: 'rounded-[2px] border border-[var(--kr-theme-warning,#b47a2a)] bg-[var(--kr-theme-muted-surface,#eef3f7)] text-[12px] text-[var(--kr-theme-text,#243142)]',
+  identityNotice: 'rounded-[2px] border border-[var(--kr-theme-warning,#e45e25)] bg-[var(--kr-theme-muted-surface,#eef3f7)] text-[12px] text-[var(--kr-theme-text,#243142)]',
   // card: 'contact-edit-card',
   // fields: 'contact-edit-fields',
   field: 'text-[11px] font-[780] text-[var(--kr-theme-text-muted,#5a6775)]',
@@ -119,7 +119,7 @@ const STYLES = {
   clientNumberAvailable:
     'border-[var(--kr-theme-success,#2e7d5b)] text-[var(--kr-theme-success,#2e7d5b)]',
   clientNumberEstimated:
-    'inline-flex h-4 w-4 shrink-0 items-center justify-center text-[var(--kr-theme-warning,#b47a2a)]',
+    'inline-flex h-4 w-4 shrink-0 items-center justify-center text-[var(--kr-theme-warning,#e45e25)]',
   clientNumberConflict:
     'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--kr-theme-danger,#9d2c20)] text-[10px] font-black text-[var(--kr-theme-text-inverse,#fff)]',
   phoneNumbersBorder: 'border-solid border-grey-800 border-2 rounded-lg',

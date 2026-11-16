@@ -13189,6 +13189,10 @@
                               "writeOff": {
                                 "type": "number"
                               },
+                              "taxAmount": {
+                                "type": "number",
+                                "description": "Tax added to the invoice total (zero or more). Left out by an older API: read as 0."
+                              },
                               "ivid": {
                                 "type": [
                                   "string",
@@ -13363,6 +13367,10 @@
                                   "referenceStatus",
                                   "refundedAt"
                                 ]
+                              },
+                              "unappliedAmount": {
+                                "type": "number",
+                                "description": "Money of this payment not applied to any invoice yet (0 for a voided payment). It can be applied to open invoices later (`POST .../payments/{paymentId}/apply`). Left out by older callers; read as 0."
                               }
                             },
                             "required": [
@@ -16694,8 +16702,8 @@
     },
     "/v1/billing/clients/{clientId}/invoices/{invoiceId}/detach-payments": {
       "post": {
-        "summary": "Unlink every payment and write-off from the invoice (they stay on the register) and reset what was paid.",
-        "description": "Roles: super_admin.\n\nSide effects: Writes ledger_entry, invoice; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_INVOICE_NOT_FOUND, VALIDATION_INVOICE_HAS_NO_PAYMENTS, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
+        "summary": "Unlink every payment and write-off from the invoice (they stay on the register) and reset what was paid. Each payment's detached money returns to its unapplied amount, to be applied again.",
+        "description": "Roles: super_admin.\n\nSide effects: Writes ledger_entry, invoice, payment (unapplied amount), payment_application (marked detached); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_INVOICE_NOT_FOUND, VALIDATION_INVOICE_HAS_NO_PAYMENTS, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "billing"
         ],
@@ -17457,7 +17465,7 @@
     "/v1/billing/clients/{clientId}/payments": {
       "post": {
         "summary": "Post a payment (check, cash, wire, or a credit card charged through Stripe), applied to up to 10 invoices or left unapplied on a matter. A card payment is re-read from Stripe before anything is written; an intent already recorded answers its payment. ACH is not posted yet.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: Writes payment, ledger_entry, payment_application; Writes invoice (paid amount, balance, status); Calls Stripe (re-reads a card payment's PaymentIntent); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_STRIPE_PAYMENT_INTENT_REQUIRED, VALIDATION_STRIPE_ACH_NOT_IMPLEMENTED, VALIDATION_STRIPE_PAYMENT_TYPE_MISMATCH, VALIDATION_STRIPE_PAYMENT_REQUIRES_INVOICE, VALIDATION_STRIPE_PAYMENT_INTENT_INVALID, VALIDATION_STRIPE_PAYMENT_NOT_SUCCEEDED, VALIDATION_STRIPE_PAYMENT_INVOICE_MISMATCH, VALIDATION_STRIPE_PAYMENT_ENVIRONMENT_MISMATCH, VALIDATION_STRIPE_PAYMENT_AMOUNT_MISMATCH, STRIPE_REQUEST_FAILED, STRIPE_NETWORK_ERROR, STRIPE_SANDBOX_NOT_CONFIGURED, STRIPE_LIVE_NOT_CONFIGURED, VALIDATION_PAYMENT_INVOICE_ALLOCATIONS_DUPLICATE, VALIDATION_PAYMENT_WRITE_OFF_REQUIRES_SINGLE_INVOICE, VALIDATION_PAYMENT_INVOICE_NOT_FOUND, VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT, VALIDATION_PAYMENT_EXCEEDS_BALANCE, VALIDATION_PAYMENT_ALLOCATION_TOTAL, VALIDATION_MISSING_MATTER_ID, VALIDATION_MATTER_NOT_ASSIGNED_TO_CLIENT, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: Writes payment, ledger_entry, payment_application; Writes invoice (paid amount, balance, status); Calls Stripe (re-reads a card payment's PaymentIntent); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_STRIPE_PAYMENT_INTENT_REQUIRED, VALIDATION_STRIPE_ACH_NOT_IMPLEMENTED, VALIDATION_STRIPE_PAYMENT_TYPE_MISMATCH, VALIDATION_STRIPE_PAYMENT_REQUIRES_INVOICE, VALIDATION_STRIPE_PAYMENT_INTENT_INVALID, VALIDATION_STRIPE_PAYMENT_NOT_SUCCEEDED, VALIDATION_STRIPE_PAYMENT_INVOICE_MISMATCH, VALIDATION_STRIPE_PAYMENT_ENVIRONMENT_MISMATCH, VALIDATION_STRIPE_PAYMENT_AMOUNT_MISMATCH, STRIPE_REQUEST_FAILED, STRIPE_NETWORK_ERROR, STRIPE_SANDBOX_NOT_CONFIGURED, STRIPE_LIVE_NOT_CONFIGURED, VALIDATION_PAYMENT_INVOICE_ALLOCATIONS_DUPLICATE, VALIDATION_PAYMENT_WRITE_OFF_REQUIRES_SINGLE_INVOICE, VALIDATION_PAYMENT_INVOICE_NOT_FOUND, VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT, VALIDATION_INVOICE_IS_DRAFT, VALIDATION_PAYMENT_EXCEEDS_BALANCE, VALIDATION_PAYMENT_ALLOCATION_TOTAL, VALIDATION_MISSING_MATTER_ID, VALIDATION_MATTER_NOT_ASSIGNED_TO_CLIENT, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "billing"
         ],
@@ -18822,6 +18830,431 @@
           },
           "502": {
             "description": "Stripe refused or could not be reached (STRIPE_REQUEST_FAILED, STRIPE_REFUND_FAILED, STRIPE_NETWORK_ERROR), or the void could not be saved after the refund (PAYMENT_VOID_DATABASE_SYNC_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached (BILLING_UNAVAILABLE), or Stripe is not configured (STRIPE_<ENV>_NOT_CONFIGURED, PAYMENT_PROVIDER_…).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/clients/{clientId}/payments/{paymentId}/apply": {
+      "post": {
+        "summary": "Apply a payment's unapplied money to up to 10 open invoices of the client (decision C2). The register already counted the payment, so its unapplied credits are moved onto the invoices (dated the day the money came in) and the client's balance does not change.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: Writes payment (unapplied amount), ledger_entry (moves the unapplied credits onto the invoices), payment_application; Writes invoice (paid amount, balance, status); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_PAYMENT_NOT_FOUND, VALIDATION_PAYMENT_ALREADY_VOID, VALIDATION_PAYMENT_INVOICE_ALLOCATIONS_DUPLICATE, VALIDATION_PAYMENT_ALLOCATION_AMOUNT, VALIDATION_PAYMENT_INVOICE_NOT_FOUND, VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT, VALIDATION_INVOICE_IS_DRAFT, VALIDATION_PAYMENT_EXCEEDS_BALANCE, VALIDATION_PAYMENT_EXCEEDS_UNAPPLIED, VALIDATION_PAYMENT_UNAPPLIED_LEDGER_MISMATCH, BILLING_CHANGED_DURING_APPLY, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "billing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "The client account id."
+            },
+            "required": true,
+            "description": "The client account id.",
+            "name": "clientId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "required": true,
+            "name": "paymentId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "allocations": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "invoiceId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120,
+                          "description": "An open invoice of this client (not void, with a balance due)."
+                        },
+                        "amount": {
+                          "type": "number",
+                          "exclusiveMinimum": 0,
+                          "description": "Dollars to apply to this invoice, rounded to whole cents; at most the invoice's balance due."
+                        }
+                      },
+                      "required": [
+                        "invoiceId",
+                        "amount"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "description": "The invoices to apply the money to, at most 10, each once. Together at most the payment's unapplied amount."
+                  }
+                },
+                "required": [
+                  "allocations"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Done.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "The payment."
+                        },
+                        "applied": {
+                          "type": "number",
+                          "description": "Dollars applied by this call."
+                        },
+                        "unappliedAmount": {
+                          "type": "number",
+                          "description": "The payment's unapplied money left after this call."
+                        },
+                        "invoicesUpdated": {
+                          "type": "integer",
+                          "description": "Invoices whose paid amount and balance changed."
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "applied",
+                        "unappliedAmount",
+                        "invoicesUpdated"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such client, or the record is not this client's.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The record is locked or already in that state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A rule refused the write (VALIDATION_… code).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
             "content": {
               "application/json": {
                 "schema": {
@@ -29388,7 +29821,7 @@
     "/v1/billing/clients/{clientId}/card-payment/intent": {
       "post": {
         "summary": "Create a Stripe PaymentIntent for up to 10 invoices (at least $0.50, each amount within its balance, the amounts adding up). Live: the browser confirms it with Stripe.js. Sandbox: a Stripe test card is required and the server charges and confirms it.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: Calls Stripe (creates a PaymentIntent; in the sandbox charges a Stripe test card and confirms it).\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_CARD_PAYMENT_AMOUNT, VALIDATION_CARD_PAYMENT_ALLOCATION_TOTAL, VALIDATION_CARD_PAYMENT_DUPLICATE_INVOICE, VALIDATION_SANDBOX_TEST_CARD_REQUIRED, VALIDATION_LIVE_TEST_CARD_NOT_ALLOWED, VALIDATION_PAYMENT_INVOICE_NOT_FOUND, VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT, VALIDATION_PAYMENT_EXCEEDS_BALANCE, VALIDATION_STRIPE_PAYMENT_ALLOCATIONS_TOO_LARGE, STRIPE_REQUEST_FAILED, STRIPE_NETWORK_ERROR, STRIPE_SANDBOX_NOT_CONFIGURED, STRIPE_LIVE_NOT_CONFIGURED, CARD_PAYMENTS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: Calls Stripe (creates a PaymentIntent; in the sandbox charges a Stripe test card and confirms it).\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_CARD_PAYMENT_AMOUNT, VALIDATION_CARD_PAYMENT_ALLOCATION_TOTAL, VALIDATION_CARD_PAYMENT_DUPLICATE_INVOICE, VALIDATION_SANDBOX_TEST_CARD_REQUIRED, VALIDATION_LIVE_TEST_CARD_NOT_ALLOWED, VALIDATION_PAYMENT_INVOICE_NOT_FOUND, VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT, VALIDATION_INVOICE_IS_DRAFT, VALIDATION_PAYMENT_EXCEEDS_BALANCE, VALIDATION_STRIPE_PAYMENT_ALLOCATIONS_TOO_LARGE, STRIPE_REQUEST_FAILED, STRIPE_NETWORK_ERROR, STRIPE_SANDBOX_NOT_CONFIGURED, STRIPE_LIVE_NOT_CONFIGURED, CARD_PAYMENTS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "billing"
         ],

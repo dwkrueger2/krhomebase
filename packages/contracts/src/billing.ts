@@ -22,6 +22,8 @@
  *  - Billing part 7f (Nov 16, 2026, `docs/API/Billing_Audit.md` section 5): the invoice body takes `taxAmount` and
  *    `notes` again (item 1), and every register row also carries `matterBalance`, the running balance of its own
  *    matter (item 4), so the Overview's Ending balance is the chosen matter's balance.
+ *  - Tax line (the requester, Nov 16, 2026): an invoice on the record also carries its saved `taxAmount` (optional, so
+ *    a reply without it still parses), which the invoice editor and the printed and emailed invoice show.
  *
  * Dates go out as `MM/DD/YYYY` (as the old projection did) and come in as `MM/DD/YYYY` or `YYYY-MM-DD`.
  */
@@ -85,6 +87,11 @@ export const BillingInvoice = z.object({
   amountDue: z.number(),
   /** Zero or negative. */
   writeOff: z.number(),
+  /** Tax line (the requester, Nov 16, 2026): the invoice's saved tax, so the editor and the documents can show it. */
+  taxAmount: z
+    .number()
+    .optional()
+    .describe('Tax added to the invoice total (zero or more). Left out by an older API: read as 0.'),
   ivid: z.string().nullable(),
   locked: z.boolean(),
   lockedReason: z.string().optional(),
@@ -149,6 +156,11 @@ export const BillingPayment = z.object({
   voidedAt: z.string().nullable(),
   voidReason: z.string().nullable(),
   refund: BillingPaymentRefund.nullable(),
+  /** Decision C2: money of this payment not yet applied to an invoice. */
+  unappliedAmount: z
+    .number()
+    .optional()
+    .describe('Money of this payment not applied to any invoice yet (0 for a voided payment). It can be applied to open invoices later (`POST .../payments/{paymentId}/apply`). Left out by older callers; read as 0.'),
 })
 export type BillingPayment = z.infer<typeof BillingPayment>
 
@@ -299,6 +311,36 @@ export const PaymentRefundRefreshData = z.object({
   refund: BillingPaymentRefund.describe('The refund read again from Stripe: status, amount and the ARN when Stripe has one.'),
 })
 export type PaymentRefundRefreshData = z.infer<typeof PaymentRefundRefreshData>
+
+/**
+ * `POST .../payments/{paymentId}/apply` (decision C2, Nov 16, 2026): applies a payment's unapplied money to open invoices.
+ * The register already counted the whole payment when it was received, so this only moves money from the payment's
+ * unapplied part onto the invoices; the client's balance does not change.
+ */
+export const PaymentApplyBody = z
+  .object({
+    allocations: z
+      .array(
+        z
+          .object({
+            invoiceId: id.describe('An open invoice of this client (not void, with a balance due).'),
+            amount: money.positive().describe("Dollars to apply to this invoice, rounded to whole cents; at most the invoice's balance due."),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(10)
+      .describe("The invoices to apply the money to, at most 10, each once. Together at most the payment's unapplied amount."),
+  })
+  .strict()
+export type PaymentApplyBody = z.infer<typeof PaymentApplyBody>
+export const PaymentApplyData = z.object({
+  id: z.string().describe('The payment.'),
+  applied: z.number().describe('Dollars applied by this call.'),
+  unappliedAmount: z.number().describe("The payment's unapplied money left after this call."),
+  invoicesUpdated: z.number().int().describe('Invoices whose paid amount and balance changed.'),
+})
+export type PaymentApplyData = z.infer<typeof PaymentApplyData>
 
 export const TrustRequestParams = BillingClientParams.extend({ requestId: id })
 export const TrustRequestBody = z

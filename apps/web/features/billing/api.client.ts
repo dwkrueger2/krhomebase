@@ -34,6 +34,9 @@
  * the refund of `voidPayment`, `refreshPaymentRefund` (the old `refreshBillingPaymentRefund`) and the refund notice
  * email (`fetchRefundNoticeEmailInfo`, `previewRefundNoticeEmail`, `sendRefundNoticeEmail`; the old `payment-notice`
  * kind `refund`).
+ *
+ * Decision C2 (the requester, Nov 16, 2026): `applyUnappliedPayment` applies a payment's unapplied money to open
+ * invoices (`POST .../payments/{paymentId}/apply`); the record reloads after it like every other write.
  */
 
 import {
@@ -53,6 +56,7 @@ import {
   ErrorEnvelope,
   InvoiceCreateData,
   InvoiceEmailBody,
+  PaymentApplyData,
   PaymentRefundRefreshData,
   PaymentVoidData,
   PrintPayLinkData,
@@ -64,6 +68,7 @@ import {
   type BillingStripeEnvironment,
   type InvoiceBody,
   type LedgerEntryBody,
+  type PaymentApplyBody,
   type PaymentBody,
   type TimeEntryBody,
   type TrustEntryBody,
@@ -95,6 +100,7 @@ const ERROR_SENTENCES: Record<string, string> = {
   VALIDATION_FAILED: 'Some fields are not in the expected form.',
   VALIDATION_PAYMENT_EXCEEDS_BALANCE: 'Payment is more than the invoice balance.',
   VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT: 'This invoice is void and cannot receive payments.',
+  VALIDATION_INVOICE_IS_DRAFT: 'This invoice is a draft. Finalize (lock) it before attaching a payment.',
   VALIDATION_STRIPE_PAYMENT_INTENT_REQUIRED: 'A verified Stripe PaymentIntent is required before posting a card or ACH payment.',
   // Billing part 7e: card payments and refunds (the old Payments tab and Posted Payments wording).
   VALIDATION_STRIPE_ACH_NOT_IMPLEMENTED: 'Stripe ACH debit is not enabled yet. No ACH payment was posted.',
@@ -286,6 +292,10 @@ export function createPayment(clientId: string, body: PaymentBody) {
 /** Voids a payment (super admin). A Stripe card payment is refunded in full first when `refund` is true (part 7e). */
 export function voidPayment(clientId: string, paymentId: string, reason: string, refund: boolean) {
   return write(clientId, 'void payment', () => call(`${client(clientId)}/payments/${item(paymentId)}/void`, PaymentVoidData, { method: 'POST', body: { reason, refund } }))
+}
+/** Decision C2: applies a payment's unapplied money to open invoices (billing write roles); the record reloads after it. */
+export function applyUnappliedPayment(clientId: string, paymentId: string, allocations: PaymentApplyBody['allocations']) {
+  return write(clientId, 'apply unapplied payment', () => call(`${client(clientId)}/payments/${item(paymentId)}/apply`, PaymentApplyData, { method: 'POST', body: { allocations } }))
 }
 /** Re-reads a voided card payment's Stripe refund and its ARN (super admin); the record reloads with it. */
 export function refreshPaymentRefund(clientId: string, paymentId: string) {

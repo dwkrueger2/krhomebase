@@ -94,6 +94,19 @@ describe('invoice email', () => {
     expect(text).toContain('Pay here: https://pay.example.test/i/sample')
     expect(text).toContain('Pay online by card: https://pay.example.test/i/sample (unique link for this invoice).')
   })
+
+  it('prints a Tax row in the HTML and the text only when the invoice carries tax (tax line, Nov 16, 2026)', () => {
+    const taxed: InvoiceReportData = { ...report, taxAmount: 61.2, totalAmount: report.totalAmount + 61.2 }
+    const html = buildInvoiceEmailHtml({ report: taxed, message: MESSAGE })
+    expect(html).toContain('>Tax</td>')
+    expect(html).toContain(formatMoney(61.2))
+    expect(html.indexOf('Professional fees and costs')).toBeLessThan(html.indexOf('>Tax</td>'))
+    expect(html.indexOf('>Tax</td>')).toBeLessThan(html.indexOf('Other outstanding balances'))
+    const text = buildInvoiceEmailText({ report: taxed, message: MESSAGE })
+    expect(text).toContain(`Professional fees and costs: ${formatMoney(report.professionalFeesAndCosts)}\nTax: $61.20\nTotal amount:`)
+    expect(buildInvoiceEmailHtml({ report, message: MESSAGE })).not.toContain('>Tax</td>')
+    expect(buildInvoiceEmailText({ report, message: MESSAGE })).not.toContain('Tax:')
+  })
 })
 
 describe('statement email', () => {

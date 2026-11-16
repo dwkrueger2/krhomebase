@@ -17,6 +17,7 @@
  *   POST   /v1/billing/clients/{clientId}/payments                            post a payment entered by hand
  *   POST   /v1/billing/clients/{clientId}/payments/{paymentId}/void           (super admin; refunds a card first)
  *   POST   /v1/billing/clients/{clientId}/payments/{paymentId}/refresh-refund (super admin; re-reads the refund, part 7e)
+ *   POST   /v1/billing/clients/{clientId}/payments/{paymentId}/apply          apply unapplied money to invoices (decision C2)
  *   POST   /v1/billing/clients/{clientId}/trust-requests                      add a trust request
  *   PATCH  /v1/billing/clients/{clientId}/trust-requests/{requestId}          change one
  *   POST   /v1/billing/clients/{clientId}/trust-entries                       trust deposit or disbursement
@@ -47,6 +48,8 @@ import {
   InvoiceVoidBody,
   LedgerEntryBody,
   LedgerEntryParams,
+  PaymentApplyBody,
+  PaymentApplyData,
   PaymentBody,
   PaymentParams,
   PaymentRefundRefreshData,
@@ -71,6 +74,7 @@ import { payLinkContextFor, revokeInvoicePayLinks, type PayLinkEnv } from '../pa
 import { asProviderError } from '../payment-providers/rules.ts'
 import { billingQueriesFor, type BillingQueries } from './queries.ts'
 import {
+  applyUnappliedPayment,
   BillingError,
   createInvoice,
   createPayment,
@@ -236,10 +240,10 @@ export const unlockInvoiceRoute = writeRoute({
 export const detachInvoicePaymentsRoute = writeRoute({
   method: 'post',
   path: '/v1/billing/clients/{clientId}/invoices/{invoiceId}/detach-payments',
-  summary: 'Unlink every payment and write-off from the invoice (they stay on the register) and reset what was paid.',
+  summary: "Unlink every payment and write-off from the invoice (they stay on the register) and reset what was paid. Each payment's detached money returns to its unapplied amount, to be applied again.",
   superAdmin: true,
   errors: ['VALIDATION_INVOICE_NOT_FOUND', 'VALIDATION_INVOICE_HAS_NO_PAYMENTS'],
-  sideEffects: ['Writes ledger_entry, invoice'],
+  sideEffects: ['Writes ledger_entry, invoice, payment (unapplied amount), payment_application (marked detached)'],
   params: InvoiceParams,
   status: 200,
   data: BillingWriteData.extend({ detached: z.number().int() }),
@@ -282,6 +286,7 @@ export const createPaymentRoute = writeRoute({
     'VALIDATION_PAYMENT_WRITE_OFF_REQUIRES_SINGLE_INVOICE',
     'VALIDATION_PAYMENT_INVOICE_NOT_FOUND',
     'VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT',
+    'VALIDATION_INVOICE_IS_DRAFT',
     'VALIDATION_PAYMENT_EXCEEDS_BALANCE',
     'VALIDATION_PAYMENT_ALLOCATION_TOTAL',
     'VALIDATION_MISSING_MATTER_ID',
@@ -319,6 +324,30 @@ export const refreshPaymentRefundRoute = writeRoute({
   status: 200,
   data: PaymentRefundRefreshData,
   stripe: true,
+})
+export const applyPaymentRoute = writeRoute({
+  method: 'post',
+  path: '/v1/billing/clients/{clientId}/payments/{paymentId}/apply',
+  summary:
+    "Apply a payment's unapplied money to up to 10 open invoices of the client (decision C2). The register already counted the payment, so its unapplied credits are moved onto the invoices (dated the day the money came in) and the client's balance does not change.",
+  errors: [
+    'VALIDATION_PAYMENT_NOT_FOUND',
+    'VALIDATION_PAYMENT_ALREADY_VOID',
+    'VALIDATION_PAYMENT_INVOICE_ALLOCATIONS_DUPLICATE',
+    'VALIDATION_PAYMENT_ALLOCATION_AMOUNT',
+    'VALIDATION_PAYMENT_INVOICE_NOT_FOUND',
+    'VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT',
+    'VALIDATION_INVOICE_IS_DRAFT',
+    'VALIDATION_PAYMENT_EXCEEDS_BALANCE',
+    'VALIDATION_PAYMENT_EXCEEDS_UNAPPLIED',
+    'VALIDATION_PAYMENT_UNAPPLIED_LEDGER_MISMATCH',
+    'BILLING_CHANGED_DURING_APPLY',
+  ],
+  sideEffects: ['Writes payment (unapplied amount), ledger_entry (moves the unapplied credits onto the invoices), payment_application', 'Writes invoice (paid amount, balance, status)'],
+  params: PaymentParams,
+  body: PaymentApplyBody,
+  status: 200,
+  data: PaymentApplyData,
 })
 export const createTrustRequestRoute = writeRoute({
   method: 'post',
@@ -492,6 +521,10 @@ export function registerBilling(app: OpenAPIHono<AppEnv>) {
   handleWrite(app, refreshPaymentRefundRoute, 200, 'payment_refund_refreshed', async (q, c, a) => {
     const p = valid<ClientP & { paymentId: string }>(c, 'param')
     return { id: p.paymentId, refund: await refreshPaymentRefund(q, p.clientId, p.paymentId, a, stripeOf(c, a)) }
+  })
+  handleWrite(app, applyPaymentRoute, 200, 'payment_applied', async (q, c, a) => {
+    const p = valid<ClientP & { paymentId: string }>(c, 'param')
+    return applyUnappliedPayment(q, p.clientId, p.paymentId, valid(c, 'json'), a)
   })
   handleWrite(app, createTrustRequestRoute, 201, 'trust_request_created', async (q, c, a) => ({ id: await createTrustRequest(q, valid<ClientP>(c, 'param').clientId, valid(c, 'json'), a) }))
   handleWrite(app, updateTrustRequestRoute, 200, 'trust_request_updated', async (q, c, a) => {

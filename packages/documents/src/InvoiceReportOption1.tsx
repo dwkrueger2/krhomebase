@@ -14,7 +14,7 @@
  *   6. InvoiceDetailsLabel      "ITEMIZED DETAILS" with rule
  *   7. InvoiceDetailsTable      Date | Staff | Description | Rate | Amount; header repeats;
  *                               concludes with "Professional fees and costs"
- *   8. InvoiceTotals            invoice amount, other balances, total, less received, balance due
+ *   8. InvoiceTotals            invoice amount, tax (when charged), other balances, total, less received, balance due
  *   9. InvoiceFinePrint         closing statement
  * The running footer ("Krueger & Richard · Attorneys at Law" / "Invoice · Texas ·
  * Page n of N") is drawn by PaginatedPrintPreview on every page.
@@ -29,6 +29,10 @@
  * Ported from the old `KR-Billing/Invoicing/InvoiceReportOption1.tsx` (Billing part 7b of `docs/API/Billing_Audit.md`);
  * only the imports changed (this package's files). The print library named above is now `printDocument.tsx` here and
  * `apps/web/components/printing/` in the web app; the PDF render named above arrives with part 7c in the API.
+ *
+ * Tax line (the requester, Nov 16, 2026: "some jurisdictions may require tax payments"): the totals print a "Tax"
+ * row under "Invoice amount" when the invoice carries tax (`taxAmount` > 0), and "Total amount" includes it. An
+ * invoice without tax prints as before. The old template had no tax row.
  */
 
 import { PrintBleed, PrintDocument, PrintTable } from './printDocument.tsx'
@@ -337,8 +341,9 @@ function InvoiceDetailsTable({ data }: InvoiceReportOption1Props) {
   )
 }
 
-/** 8. Right-aligned totals: invoice amount, other balances, total, less received, balance due, trust balance. */
+/** 8. Right-aligned totals: invoice amount, tax (only when charged), other balances, total, less received, balance due, trust balance. */
 function InvoiceTotals({ data }: InvoiceReportOption1Props) {
+  const taxAmount = data.taxAmount ?? 0
   return (
     <div className={LAYOUT_STYLES.totals} data-kr-element="invoice-totals">
       <dl className={LAYOUT_STYLES.totalsGrid}>
@@ -346,6 +351,13 @@ function InvoiceTotals({ data }: InvoiceReportOption1Props) {
           <dt className={STYLES.totalsLabel}>Invoice amount</dt>
           <dd className={STYLES.totalsValue}>{formatMoney(data.professionalFeesAndCosts)}</dd>
         </div>
+        {/* Tax row: printed only when the invoice carries tax; "Total amount" below includes it */}
+        {taxAmount > 0 ? (
+          <div className={LAYOUT_STYLES.totalsRow} data-kr-element="invoice-tax-row">
+            <dt className={STYLES.totalsLabel}>Tax</dt>
+            <dd className={STYLES.totalsValue}>{formatMoney(taxAmount)}</dd>
+          </div>
+        ) : null}
         <div className={LAYOUT_STYLES.totalsRow}>
           <dt className={STYLES.totalsLabel}>Other outstanding balances</dt>
           <dd className={STYLES.totalsValue}>{formatMoneyOrDash(data.otherOutstandingBalances)}</dd>

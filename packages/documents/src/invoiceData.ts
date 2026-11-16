@@ -15,6 +15,8 @@
  *    dates in the firm's time zone (see that file's header). They are re-exported here under their old names.
  *  - `billToEmail` is new: the invoice's bill-to block has an email line (`BillToParty.email`) the old builder never
  *    filled.
+ *  - Tax line (the requester, Nov 16, 2026): the invoice's `taxAmount` (from the record; missing reads as 0) is carried
+ *    into the report and added to "Total amount", as the API adds it to the invoice total. The old builder had no tax.
  */
 
 import type { BillingInvoice, BillingTimeEntry } from '@krhomebase/contracts'
@@ -26,7 +28,7 @@ export { formatLongDate, formatShortDate, roundMoney }
 /** The invoice fields the builder reads. The web app's `BillingInvoice` (with `ivid` optional) fits. */
 export type InvoiceSource = Pick<
   BillingInvoice,
-  'id' | 'matterNumber' | 'invoiceNumber' | 'dateInvoiced' | 'dueDate' | 'clientLabel' | 'amountDue' | 'writeOff' | 'locked' | 'status'
+  'id' | 'matterNumber' | 'invoiceNumber' | 'dateInvoiced' | 'dueDate' | 'clientLabel' | 'amountDue' | 'writeOff' | 'taxAmount' | 'locked' | 'status'
 >
 
 /** The time entry fields the builder reads. `staffCode` may be missing (the web app's placeholder rows). */
@@ -57,7 +59,7 @@ export const DEFAULT_INVOICE_FINE_PRINT =
   'Questions about this invoice? Call the office listed above. Fees are billed under your engagement ' +
   'agreement; costs advanced on your behalf appear at the amount we paid.'
 
-/** Totals derived from the detail lines and the applied credits. */
+/** Totals derived from the detail lines, the invoice's tax and the applied credits. */
 export interface InvoiceTotals {
   professionalFeesAndCosts: number
   totalAmount: number
@@ -70,14 +72,16 @@ export interface InvoiceTotals {
  * @param lines Detail lines (fees and costs together).
  * @param otherOutstandingBalances Carried balances, or null when none.
  * @param amountReceived Payments and credits already applied (positive).
+ * @param taxAmount Tax charged on the invoice (default 0); added to the total amount.
  */
 export function computeInvoiceTotals(
   lines: InvoiceReportLine[],
   otherOutstandingBalances: number | null,
   amountReceived: number,
+  taxAmount = 0,
 ): InvoiceTotals {
   const professionalFeesAndCosts = roundMoney(lines.reduce((sum, line) => sum + line.amount, 0))
-  const totalAmount = roundMoney(professionalFeesAndCosts + (otherOutstandingBalances ?? 0))
+  const totalAmount = roundMoney(professionalFeesAndCosts + taxAmount + (otherOutstandingBalances ?? 0))
   const balanceDue = Math.max(0, roundMoney(totalAmount - amountReceived))
   const rVal: InvoiceTotals = { professionalFeesAndCosts, totalAmount, balanceDue }
   return rVal
@@ -160,12 +164,18 @@ function issuedBefore(other: Pick<InvoiceSource, 'dateInvoiced' | 'invoiceNumber
   return rVal
 }
 
+/** The invoice's tax as a non-negative amount (a record without `taxAmount` has none). */
+function taxOf(invoice: Pick<InvoiceSource, 'taxAmount'>): number {
+  const rVal = Math.max(0, roundMoney(invoice.taxAmount ?? 0))
+  return rVal
+}
+
 /**
  * Amounts that come from the rest of the account:
  * - `otherOutstandingBalances`: balances still open on the client's other sent
  *   invoices issued before this one (null when none);
  * - `amountReceived`: payments already applied to this invoice (for a partly
- *   or fully paid invoice: fees − write-off − balance).
+ *   or fully paid invoice: fees + tax − write-off − balance).
  */
 export function accountAmountsForInvoice(
   invoice: InvoiceSource,
@@ -176,7 +186,7 @@ export function accountAmountsForInvoice(
     .filter((row) => row.id !== invoice.id && row.locked && (row.status === 'Unpaid' || row.status === 'Partially paid') && row.amountDue > 0.004 && issuedBefore(row, invoice))
     .reduce((sum, row) => sum + row.amountDue, 0))
   const paid = invoice.status === 'Partially paid' || invoice.status === 'Paid'
-  const amountReceived = paid ? Math.max(0, roundMoney(professionalFeesAndCosts - Math.abs(invoice.writeOff) - invoice.amountDue)) : 0
+  const amountReceived = paid ? Math.max(0, roundMoney(professionalFeesAndCosts + taxOf(invoice) - Math.abs(invoice.writeOff) - invoice.amountDue)) : 0
   const rVal = { otherOutstandingBalances: other > 0 ? other : null, amountReceived }
   return rVal
 }
@@ -187,7 +197,7 @@ export function accountAmountsForInvoice(
  * write-off, as printed in "Less amount received".
  */
 export function applyAccountTotals(report: InvoiceReportData, otherOutstandingBalances: number | null, amountReceived: number): InvoiceReportData {
-  const totalAmount = roundMoney(report.professionalFeesAndCosts + (otherOutstandingBalances ?? 0))
+  const totalAmount = roundMoney(report.professionalFeesAndCosts + (report.taxAmount ?? 0) + (otherOutstandingBalances ?? 0))
   const rVal: InvoiceReportData = {
     ...report,
     otherOutstandingBalances,
@@ -248,7 +258,8 @@ export function buildInvoiceReportData({
   const paymentsReceived = amountReceived || account?.amountReceived || 0
   // A draft write-off reduces what the client owes; it prints inside "Less amount received".
   const received = roundMoney(paymentsReceived + Math.abs(invoice.writeOff))
-  const totals = computeInvoiceTotals(lines, otherOutstandingBalances, received)
+  const taxAmount = taxOf(invoice)
+  const totals = computeInvoiceTotals(lines, otherOutstandingBalances, received, taxAmount)
 
   const rVal: InvoiceReportData = {
     firm: letterhead,
@@ -263,6 +274,7 @@ export function buildInvoiceReportData({
     clientNumber,
     lines,
     professionalFeesAndCosts: totals.professionalFeesAndCosts,
+    taxAmount,
     otherOutstandingBalances,
     totalAmount: totals.totalAmount,
     amountReceived: received,

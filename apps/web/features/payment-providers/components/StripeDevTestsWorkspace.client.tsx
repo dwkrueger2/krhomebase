@@ -39,7 +39,7 @@ const STRIPE_TESTING_DOCS_URL = 'https://docs.stripe.com/testing'
 const STYLES = {
   intro: 'text-[10pt] text-[var(--kr-theme-text-muted,#526172)]',
   sandboxBadge: 'px-2 py-0.5 rounded-full border border-[var(--kr-theme-orange,#e45e25)] bg-[var(--kr-theme-orange,#e45e25)] text-[8pt] font-bold uppercase tracking-wide text-white',
-  notConfigured: 'text-[9pt] font-semibold text-[var(--kr-theme-warning,#b47a2a)]',
+  notConfigured: 'text-[9pt] font-semibold text-[var(--kr-theme-warning,#e45e25)]',
   panelTitle: 'text-[10pt] font-bold text-[var(--kr-theme-text,#243142)]',
   inlineLabel: 'whitespace-nowrap text-[9pt] font-semibold text-[var(--kr-theme-text,#243142)]',
   field: 'px-1.5 py-0.5 w-full min-w-0 rounded-[4px] border border-[var(--kr-theme-line,#b8c3cd)] bg-[var(--kr-theme-card-surface,#ffffff)] text-[9pt] text-[var(--kr-theme-text,#243142)]',

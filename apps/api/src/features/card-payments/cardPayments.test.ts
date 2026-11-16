@@ -236,6 +236,9 @@ describe('card settings and the PaymentIntent', () => {
     expect((await intent({ invoiceAllocations: Array.from({ length: 11 }, (_, index) => ({ invoiceId: `inv-${index}`, amountCents: 100 })), amountCents: 1100 })).status).toBe(422)
     // Live (a super admin's choice on a development server) never accepts a test card.
     expect(await codeOf(await call('POST', `${base}/card-payment/intent`, { invoiceAllocations: [{ invoiceId, amountCents: 10000 }], amountCents: 10000, environment: 'live', testScenarioId: 'visa-success' }, 'super_admin'))).toBe('VALIDATION_LIVE_TEST_CARD_NOT_ALLOWED')
+    // A draft is never charged (the requester, Nov 16, 2026: finalize the invoice first).
+    env.sqlite.prepare("UPDATE invoice SET status = 'draft' WHERE id = ?").run(invoiceId)
+    expect(await codeOf(await intent({}))).toBe('VALIDATION_INVOICE_IS_DRAFT')
     env.sqlite.prepare("UPDATE invoice SET status = 'void' WHERE id = ?").run(invoiceId)
     expect(await codeOf(await intent({}))).toBe('VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT')
     expect(stripeCalls).toEqual([])

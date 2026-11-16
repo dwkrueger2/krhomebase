@@ -41,6 +41,11 @@
  * stays. The columns no longer wrap: all but Reference are as wide as their widest entry, and the payment number is
  * one step smaller (8pt).
  *
+ * Decision C2 (the requester, Nov 16, 2026): a live payment with unapplied money (`unappliedAmount`, left on a matter
+ * when it was posted, or the rest of a pay link payment) shows it on a line under its row, with "Apply to invoice" for a
+ * billing writer (`canSend`) when the record is at hand (`receiptSource`). The button opens `ApplyUnappliedDialog`
+ * (choose open invoices and amounts, then the progress and result dialog); a success also shows the green line.
+ *
  * @returns The posted-payments ledger with its void dialog.
  */
 
@@ -59,6 +64,7 @@ import type { BillingPayment } from '../types'
 import PaymentDetailsDialog from './PaymentDetailsDialog.client'
 import PaymentNoticeDialog from './PaymentNoticeDialog.client'
 import PaymentPostingDialog, { type PaymentPostingPhase } from './PaymentPostingDialog.client'
+import ApplyUnappliedDialog from './ApplyUnappliedDialog.client'
 
 /** Friendly text for void failures (the old wording, part 7e). */
 function friendlyVoidError(code: string): string | null {
@@ -109,6 +115,10 @@ const STYLES = {
   empty: 'p-2 text-[9pt] text-[var(--kr-theme-text-muted,#526172)]',
   stripeTag: 'ml-1 px-1 rounded text-[7pt] font-bold uppercase text-white bg-[var(--kr-theme-brand-primary,#21394f)]',
   noticeOk: 'px-2 py-1 border-b border-emerald-300 bg-emerald-50 text-[9pt] text-emerald-800',
+  // Decision C2: the unapplied money line under a live row, and its Apply to invoice button.
+  unappliedDetail: 'px-2 py-[1px] border-b border-(--kr-theme-line) bg-(--kr-theme-muted-surface) text-[8.5pt] text-(color:--kr-theme-text)',
+  unappliedAmount: 'font-semibold tabular-nums',
+  applyButton: 'px-1.5 py-0.5 rounded-[3px] border border-(--kr-theme-brand-primary) bg-(--kr-theme-card-surface) text-[8pt] font-semibold text-(color:--kr-theme-brand-primary) hover:bg-(--kr-theme-table-row-hover)',
   // Part 7e: the refund's ARN tip, Refresh ARN and the refund notice icon on a voided row.
   infoIcon: 'h-3 w-3 shrink-0 cursor-help',
   linkButton: 'px-0.5 border-0 bg-transparent text-[8.5pt] font-semibold text-[var(--kr-theme-brand-primary,#21394f)] underline disabled:opacity-50',
@@ -250,6 +260,8 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
   /** The open details' sent receipts (newest first), and a sentence while they load or when they could not be read. */
   const [detailsSent, setDetailsSent] = useState<BillingSentDocument[]>([])
   const [detailsSentNote, setDetailsSentNote] = useState<string | null>(null)
+  /** Decision C2: the payment whose unapplied money is being applied to invoices. */
+  const [applying, setApplying] = useState<BillingPayment | null>(null)
   const rowRefs = useRef(new Map<string, HTMLDivElement>())
 
   const sorted = useMemo(() => [...payments].sort((a, b) => sortKey(b.receivedDate).localeCompare(sortKey(a.receivedDate))), [payments])
@@ -528,6 +540,19 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
                     ) : null}
                   </div>
                 ) : null}
+                {/* Decision C2: unapplied money on a live payment, with Apply to invoice for a billing writer. */}
+                {!payment.voided && (payment.unappliedAmount ?? 0) > 0.005 ? (
+                  <div className={`${STYLES.unappliedDetail} ${LAYOUT_STYLES.fullRow}`} data-kr-element="posted-payment-unapplied" role="cell">
+                    <span>
+                      Unapplied <span className={STYLES.unappliedAmount}>{formatAccountingAmount(payment.unappliedAmount ?? 0)}</span>
+                    </span>
+                    {canSend && receiptSource ? (
+                      <button className={STYLES.applyButton} data-kr-action="posted-payment-apply" onClick={() => setApplying(payment)} title="Apply this payment's unapplied money to open invoices" type="button">
+                        Apply to invoice
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             )
           })}
@@ -593,6 +618,16 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
       ) : null}
       {/* Void progress and answer (web patch 560): spinner while voiding (and emailing the refund notice), then the result until OK. */}
       <PaymentPostingDialog chargingCard={voidRefunding} error={voidError} kind="void" phase={voidPhase} posted={null} receiptWarning={voidWarning} summary={voidSummary} onClose={closeVoidDialog} />
+      {/* Decision C2: apply a payment's unapplied money to open invoices (form, then progress and result). */}
+      {applying && receiptSource ? (
+        <ApplyUnappliedDialog
+          clientId={receiptSource.client.id}
+          invoices={receiptSource.invoices}
+          payment={applying}
+          onApplied={(result, numbers) => setNotice({ tone: 'ok', text: `${formatAccountingAmount(result.applied)} of payment ${applying.paymentNumber} applied to Invoice #${numbers.join(', #')}.` })}
+          onClose={() => setApplying(null)}
+        />
+      ) : null}
       {/* Payment receipt details (part 7b), built from the record on screen. */}
       {detailsPayment && receiptSource ? (
         <PaymentDetailsDialog

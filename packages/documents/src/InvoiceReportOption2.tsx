@@ -12,7 +12,7 @@
  *   5. InvoiceMatterRow       Matter and Attorney between two thin rules
  *   6. InvoiceDetailsTable    Date | Staff | Description | Rate | Amount; header repeats;
  *                             concludes with "Professional fees and costs"
- *   7. InvoiceTotals          invoice amount, other balances, total, less received, balance due
+ *   7. InvoiceTotals          invoice amount, tax (when charged), other balances, total, less received, balance due
  *   8. InvoicePayStrip        camel rule, QR placeholder, "Pay online in under a minute", Pay now
  *   9. InvoiceFinePrint       closing statement
  * The running footer is drawn by PaginatedPrintPreview on every page.
@@ -21,6 +21,9 @@
  * `docs/API/Billing_Audit.md`). The old file was marked 'use client' but used no hooks or browser APIs; the mark is
  * dropped (and `.client` from the name) so it is pure like the other templates and can be rendered on the server.
  * Otherwise only the imports changed.
+ *
+ * Tax line (the requester, Nov 16, 2026): as in Option 1, a "Tax" row under "Invoice amount" when the invoice
+ * carries tax (`taxAmount` > 0); "Total amount" includes it. The old template had no tax row.
  */
 
 import { PrintBleed, PrintDocument, PrintTable } from './printDocument.tsx'
@@ -269,6 +272,7 @@ function InvoiceDetailsTable({ data }: InvoiceReportOption2Props) {
 
 /** 7. Right-aligned totals block (same arithmetic and rules as Option 1). */
 function InvoiceTotals({ data }: InvoiceReportOption2Props) {
+  const taxAmount = data.taxAmount ?? 0
   return (
     <div className={LAYOUT_STYLES.totals} data-kr-element="invoice-totals">
       <dl className={LAYOUT_STYLES.totalsGrid}>
@@ -276,6 +280,13 @@ function InvoiceTotals({ data }: InvoiceReportOption2Props) {
           <dt className={STYLES.totalsLabel}>Invoice amount</dt>
           <dd className={STYLES.totalsValue}>{formatMoney(data.professionalFeesAndCosts)}</dd>
         </div>
+        {/* Tax row: printed only when the invoice carries tax; "Total amount" below includes it */}
+        {taxAmount > 0 ? (
+          <div className={LAYOUT_STYLES.totalsRow} data-kr-element="invoice-tax-row">
+            <dt className={STYLES.totalsLabel}>Tax</dt>
+            <dd className={STYLES.totalsValue}>{formatMoney(taxAmount)}</dd>
+          </div>
+        ) : null}
         <div className={LAYOUT_STYLES.totalsRow}>
           <dt className={STYLES.totalsLabel}>Other outstanding balances</dt>
           <dd className={STYLES.totalsValue}>{formatMoneyOrDash(data.otherOutstandingBalances)}</dd>

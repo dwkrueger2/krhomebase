@@ -441,17 +441,17 @@
       },
       "warning": {
         "role": "tertiary",
-        "displayName": "Amber Warning (not yet ported)",
-        "canonical": "var(--kr-theme-warning, #d97706)",
+        "displayName": "Warning (Signal Orange)",
+        "canonical": "var(--kr-theme-warning, #e45e25)",
         "tonalRamp": [
-          "#352513",
-          "#5e3910",
-          "#874e0c",
-          "#b06209",
-          "#d97706",
-          "#e39f50",
-          "#edc69a",
-          "#f5e7d7"
+          "#372019",
+          "#622f1c",
+          "#8e3f1f",
+          "#b94e22",
+          "#e45e25",
+          "#eb8d66",
+          "#f1bca6",
+          "#f7e3dc"
         ]
       },
       "accent-strong": {

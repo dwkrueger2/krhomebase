@@ -4,7 +4,8 @@
  * Checks: the record (matters by party and by number, staff labels, the register's running balance, synthetic
  * invoice rows); time entries (create with a code, refuse another client's matter, delete only unbilled); an invoice
  * from create to lock, payment, void of the payment and void of the invoice; super-admin-only actions; card payments
- * waiting for Stripe; trust; manual register rows; and that every write leaves audit rows.
+ * waiting for Stripe; trust; manual register rows; and that every write leaves audit rows. Decision C2 (Nov 16, 2026):
+ * applying a payment's unapplied money to invoices later (the accounting, every refusal, and the re-read inside the write).
  *
  * Run: pnpm --dir apps/api exec vitest run src/features/billing/billing.test.ts
  */
@@ -15,7 +16,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../app.ts'
 import { clearSessionCache } from '../../platform/sessionClient.ts'
 import { createTestD1, SIGNED_IN_HEADERS, signedInEnv } from '../../../test/fakes.ts'
-import { dateForDatabase, dateForDisplay } from './rules.ts'
+import { createBillingQueries } from './queries.ts'
+import { applyUnappliedPayment, dateForDatabase, dateForDisplay } from './rules.ts'
 
 const app = createApp()
 const OLD = '2026-01-01T00:00:00.000Z'
@@ -200,6 +202,8 @@ describe('an invoice from draft to void', () => {
     expect(stored()).toEqual({ tax_amount: 12.5, notes: 'Quarterly bill', total_amount: 262.5, balance_due: 262.5 })
     // The register posting follows the total with the tax.
     expect((await record()).ledgerEntries.at(-1)).toMatchObject({ charges: 262.5, balance: 262.5 })
+    // The record carries the saved tax, for the editor and the invoice documents (API patch 43).
+    expect((await record()).invoices.find((invoice) => invoice.id === created.id)).toMatchObject({ taxAmount: 12.5 })
 
     // A save without the two keeps them.
     const save = { matterId: 'm-pat-0', invoiceDate: '03/05/2026', writeOff: 0, entryIds: [a.id] }
@@ -263,11 +267,198 @@ describe('payments, trust and the register', () => {
 
   it('edits a manual register row but not one posted by a payment', async () => {
     await send('POST', `${base}/trust-entries`, { matterId: 'm-pat-0', action: 'disbursement', amount: 25 })
-    const manual = (await record()).ledgerEntries.find((item) => item.editable)!
+    // C3 (Nov 16, 2026): trust rows stay out of the client register; the row is still changed through its id.
+    expect((await record()).ledgerEntries.some((item) => item.editable)).toBe(false)
+    const manual = row<{ id: string }>("SELECT id FROM ledger_entry WHERE ledger_bucket = 'trust'")
     expect((await send('PATCH', `${base}/ledger-entries/${manual.id}`, { matterId: 'm-pat-0', date: '03/08/2026', description: 'Filing fee', amount: 30 })).status).toBe(200)
     expect(row<{ memo: string; amount: number }>('SELECT memo, amount FROM ledger_entry WHERE id = ?1', manual.id)).toEqual({ memo: 'Filing fee', amount: 30 })
     await send('POST', `${base}/payments`, { matterId: 'm-pat-0', invoiceAllocations: [], amount: 5, receivedDate: '03/06/2026', paymentType: 'Wire' })
     const posted = (await record()).ledgerEntries.find((item) => item.paymentId)!
     expect(await code(await send('PATCH', `${base}/ledger-entries/${posted.id}`, { matterId: 'm-pat-0', date: '03/08/2026', description: 'x', amount: 1 }))).toBe('VALIDATION_SYSTEM_LEDGER_ENTRY_LOCKED')
+  })
+})
+
+describe('applying unapplied money to an invoice (decision C2)', () => {
+  const PAY_DATE = '03/06/2026'
+
+  /** A locked invoice of `amount` on matter 501.0, and its id. */
+  async function lockedInvoice(amount = 300): Promise<string> {
+    const a = await data<{ id: string }>(await send('POST', `${base}/time-entries`, entry({ amount, hours: amount / 200 })))
+    const created = await data<{ id: string }>(await send('POST', `${base}/invoices`, { matterId: 'm-pat-0', invoiceDate: '03/05/2026', writeOff: 0, entryIds: [a.id] }))
+    expect((await send('POST', `${base}/invoices/${created.id}/lock`)).status).toBe(200)
+    return created.id
+  }
+  /** A cash payment of `amount` left unapplied on matter 501.0, and its id. */
+  async function unappliedPayment(amount = 500): Promise<string> {
+    return (await data<{ id: string }>(await send('POST', `${base}/payments`, { matterId: 'm-pat-0', invoiceAllocations: [], amount, receivedDate: PAY_DATE, paymentType: 'Cash', paymentNumber: 'PAY-C2' }))).id
+  }
+  const apply = (paymentId: string, allocations: Array<{ invoiceId: string; amount: number }>, role = 'staff', userId = 'user-staff') => send('POST', `${base}/payments/${paymentId}/apply`, { allocations }, role, userId)
+  const lastBalance = (rows: BillingRecord['ledgerEntries']) => rows.filter((item) => !item.voided).at(-1)!.balance
+
+  it('moves the money onto the invoice without crediting the client again, and the void reverses it', async () => {
+    const invoiceId = await lockedInvoice(300)
+    const paymentId = await unappliedPayment(500)
+    let result = await record()
+    expect(result.payments[0]).toMatchObject({ unappliedAmount: 500, invoiceId: null })
+    const before = { balance: lastBalance(result.ledgerEntries), credits: result.accountTotals.receivableCredits }
+    expect(before).toEqual({ balance: -200, credits: 500 })
+
+    // Part of it: the invoice is partly paid, the payment keeps the rest unapplied.
+    const first = await apply(paymentId, [{ invoiceId, amount: 120 }])
+    expect(first.status).toBe(200)
+    expect(await data(first)).toEqual({ id: paymentId, applied: 120, unappliedAmount: 380, invoicesUpdated: 1 })
+    result = await record()
+    expect(result.invoices[0]).toMatchObject({ amountDue: 180, status: 'Partially paid' })
+    expect(result.payments[0]).toMatchObject({ unappliedAmount: 380, invoiceId, invoiceNumber: '121' })
+    expect(result.accountTotals).toMatchObject({ unappliedPayments: 380, openInvoiceBalance: 180, receivableCredits: 500 })
+    // The client's balance is unchanged: the unapplied credit was replaced, not added to, and dated the day it came in.
+    expect(lastBalance(result.ledgerEntries)).toBe(-200)
+    const paymentRows = result.ledgerEntries.filter((item) => item.paymentId === paymentId)
+    expect(paymentRows.filter((item) => !item.voided).map((item) => [item.date, item.payments]).sort()).toEqual([
+      [PAY_DATE, 120],
+      [PAY_DATE, 380],
+    ])
+    expect(paymentRows.filter((item) => item.voided)).toEqual([expect.objectContaining({ payments: 500, voidReason: expect.stringContaining('moved, not reversed') })])
+    const attached = row<{ invoice_id: string; amount: number }>('SELECT invoice_id, amount FROM ledger_entry WHERE payment_id = ?1 AND invoice_id IS NOT NULL AND voided_at IS NULL', paymentId)
+    expect(attached).toEqual({ invoice_id: invoiceId, amount: 120 })
+    expect(row<{ amount: number; linked: number }>('SELECT amount, ledger_entry_id IS NOT NULL AS linked FROM payment_application WHERE payment_id = ?1', paymentId)).toEqual({ amount: 120, linked: 1 })
+    expect(row<{ n: number }>("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'APPLY_UNAPPLIED' AND target_id = ?1", paymentId).n).toBe(1)
+
+    // The rest of the invoice pays it; then nothing more fits on it.
+    expect((await data<{ unappliedAmount: number }>(await apply(paymentId, [{ invoiceId, amount: 180 }]))).unappliedAmount).toBe(200)
+    result = await record()
+    expect(result.invoices[0]).toMatchObject({ amountDue: 0, status: 'Paid' })
+    expect(lastBalance(result.ledgerEntries)).toBe(-200)
+    expect(await code(await apply(paymentId, [{ invoiceId, amount: 1 }]))).toBe('VALIDATION_PAYMENT_EXCEEDS_BALANCE')
+
+    // A void of the payment reverses the applied money too: the invoice is open again at its whole balance.
+    expect((await send('POST', `${base}/payments/${paymentId}/void`, { reason: 'Wrong client', refund: false }, 'super_admin', 'user-admin')).status).toBe(200)
+    result = await record()
+    expect(result.invoices[0]).toMatchObject({ amountDue: 300, status: 'Unpaid' })
+    expect(result.payments[0]).toMatchObject({ voided: true, unappliedAmount: 0 })
+    expect(lastBalance(result.ledgerEntries)).toBe(300)
+    expect(await code(await apply(paymentId, [{ invoiceId, amount: 1 }]))).toBe('VALIDATION_PAYMENT_ALREADY_VOID')
+  })
+
+  it('splits the money over several invoices in one write', async () => {
+    const one = await lockedInvoice(300)
+    const two = await lockedInvoice(100)
+    const paymentId = await unappliedPayment(500)
+    expect(await data(await apply(paymentId, [{ invoiceId: one, amount: 300 }, { invoiceId: two, amount: 50.004 }]))).toMatchObject({ applied: 350, unappliedAmount: 150, invoicesUpdated: 2 })
+    const result = await record()
+    // Looked up by id: the two invoices share a date, so the record's order between them is not fixed.
+    const byId = (id: string) => result.invoices.find((invoice) => invoice.id === id)!
+    expect([byId(one), byId(two)].map((invoice) => [invoice.amountDue, invoice.status])).toEqual([
+      [0, 'Paid'],
+      [50, 'Partially paid'],
+    ])
+    expect(result.accountTotals.unappliedPayments).toBe(150)
+    expect(row<{ n: number }>("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'UPDATE' AND target_table = 'invoice' AND new_json LIKE ?1", `%${paymentId}%`).n).toBe(2)
+  })
+
+  it('refuses a draft invoice for a payment post and an apply (the requester, Nov 16, 2026)', async () => {
+    const a = await data<{ id: string }>(await send('POST', `${base}/time-entries`, entry()))
+    const draft = await data<{ id: string }>(await send('POST', `${base}/invoices`, { matterId: 'm-pat-0', invoiceDate: '03/05/2026', writeOff: 0, entryIds: [a.id] }))
+    expect(await code(await send('POST', `${base}/payments`, { invoiceAllocations: [{ invoiceId: draft.id, amount: 100 }], amount: 100, receivedDate: PAY_DATE, paymentType: 'Check' }))).toBe('VALIDATION_INVOICE_IS_DRAFT')
+    const paymentId = await unappliedPayment(100)
+    expect(await code(await apply(paymentId, [{ invoiceId: draft.id, amount: 50 }]))).toBe('VALIDATION_INVOICE_IS_DRAFT')
+    // Once finalized (locked), both take money.
+    expect((await send('POST', `${base}/invoices/${draft.id}/lock`)).status).toBe(200)
+    expect((await apply(paymentId, [{ invoiceId: draft.id, amount: 50 }])).status).toBe(200)
+  })
+
+  it('returns detached money to unapplied, so it can be applied again once the invoice is finalized', async () => {
+    const invoiceId = await lockedInvoice(300)
+    const payment = await data<{ id: string }>(await send('POST', `${base}/payments`, { invoiceAllocations: [{ invoiceId, amount: 100 }], amount: 100, receivedDate: PAY_DATE, paymentType: 'Check' }))
+    const balanceBefore = lastBalance((await record()).ledgerEntries)
+    expect(await data(await send('POST', `${base}/invoices/${invoiceId}/detach-payments`, {}, 'super_admin', 'user-admin'))).toMatchObject({ detached: 1 })
+    let result = await record()
+    expect(result.invoices.find((item) => item.id === invoiceId)).toMatchObject({ amountDue: 300, status: 'Unpaid' })
+    expect(result.payments.find((item) => item.id === payment.id)).toMatchObject({ unappliedAmount: 100 })
+    expect(result.accountTotals.unappliedPayments).toBe(100)
+    // The register credit stays as it was: the client's balance does not change.
+    expect(lastBalance(result.ledgerEntries)).toBe(balanceBefore)
+    expect(row<{ notes: string }>('SELECT notes FROM payment_application WHERE payment_id = ?1', payment.id).notes).toMatch(/DETACHED /)
+
+    // Unlock, correct, finalize again, then apply the money back.
+    expect((await send('POST', `${base}/invoices/${invoiceId}/unlock`, {}, 'super_admin', 'user-admin')).status).toBe(200)
+    expect((await send('POST', `${base}/invoices/${invoiceId}/lock`)).status).toBe(200)
+    expect(await data(await apply(payment.id, [{ invoiceId, amount: 100 }]))).toMatchObject({ applied: 100, unappliedAmount: 0 })
+    result = await record()
+    expect(result.invoices.find((item) => item.id === invoiceId)).toMatchObject({ amountDue: 200, status: 'Partially paid' })
+    expect(lastBalance(result.ledgerEntries)).toBe(balanceBefore)
+  })
+
+  it('voids a detached payment without touching the invoice it left', async () => {
+    const invoiceId = await lockedInvoice(300)
+    const first = await data<{ id: string }>(await send('POST', `${base}/payments`, { invoiceAllocations: [{ invoiceId, amount: 100 }], amount: 100, receivedDate: PAY_DATE, paymentType: 'Check' }))
+    expect((await send('POST', `${base}/invoices/${invoiceId}/detach-payments`, {}, 'super_admin', 'user-admin')).status).toBe(200)
+    // Another payment pays the invoice in full.
+    await send('POST', `${base}/payments`, { invoiceAllocations: [{ invoiceId, amount: 300 }], amount: 300, receivedDate: PAY_DATE, paymentType: 'Wire' })
+    expect((await send('POST', `${base}/payments/${first.id}/void`, { reason: 'Bounced', refund: false }, 'super_admin', 'user-admin')).status).toBe(200)
+    // Before the change the void took its 100 off this invoice a second time.
+    expect((await record()).invoices.find((item) => item.id === invoiceId)).toMatchObject({ amountDue: 0, status: 'Paid' })
+  })
+
+  it('refuses what the rules do not allow', async () => {
+    const invoiceId = await lockedInvoice(300)
+    const paymentId = await unappliedPayment(100)
+    // Readers may not; the body is checked (1 to 10 invoices, positive amounts).
+    expect((await apply(paymentId, [{ invoiceId, amount: 10 }], 'front_end_author')).status).toBe(403)
+    expect((await apply(paymentId, [])).status).toBe(422)
+    expect((await apply(paymentId, Array.from({ length: 11 }, (_, index) => ({ invoiceId: `inv-${index}`, amount: 1 })))).status).toBe(422)
+    expect((await apply(paymentId, [{ invoiceId, amount: -5 }])).status).toBe(422)
+    expect(await code(await apply(paymentId, [{ invoiceId, amount: 0.004 }]))).toBe('VALIDATION_PAYMENT_ALLOCATION_AMOUNT')
+    expect(await code(await apply('pay-nobody', [{ invoiceId, amount: 10 }]))).toBe('VALIDATION_PAYMENT_NOT_FOUND')
+    expect(await code(await apply(paymentId, [{ invoiceId, amount: 10 }, { invoiceId, amount: 5 }]))).toBe('VALIDATION_PAYMENT_INVOICE_ALLOCATIONS_DUPLICATE')
+    expect(await code(await apply(paymentId, [{ invoiceId: 'inv-old', amount: 5 }]))).toBe('VALIDATION_PAYMENT_INVOICE_NOT_FOUND')
+    expect(await code(await apply(paymentId, [{ invoiceId, amount: 100.01 }]))).toBe('VALIDATION_PAYMENT_EXCEEDS_UNAPPLIED')
+    expect(await code(await apply(paymentId, [{ invoiceId, amount: 300.01 }]))).toBe('VALIDATION_PAYMENT_EXCEEDS_BALANCE')
+    // Another client's payment is not found under this client.
+    env.sqlite.prepare("INSERT INTO payment (id, client_id, matter_id, received_date, amount, unapplied_amount, created_by_user_id) VALUES ('pay-lee', 'cl-lee', 'm-lee-0', '2026-03-06', 20, 20, 'user-staff')").run()
+    expect(await code(await apply('pay-lee', [{ invoiceId, amount: 5 }]))).toBe('VALIDATION_PAYMENT_NOT_FOUND')
+    // A void invoice takes nothing.
+    env.sqlite.prepare("UPDATE invoice SET status = 'void' WHERE id = ?1").run(invoiceId)
+    expect(await code(await apply(paymentId, [{ invoiceId, amount: 5 }]))).toBe('VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT')
+    // Nothing was written by any refusal.
+    expect(row<{ unapplied_amount: number }>('SELECT unapplied_amount FROM payment WHERE id = ?1', paymentId).unapplied_amount).toBe(100)
+    expect(row<{ n: number }>("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'APPLY_UNAPPLIED'").n).toBe(0)
+  })
+
+  it('refuses money the register never credited as unapplied, so the client is never credited twice', async () => {
+    const invoiceId = await lockedInvoice(300)
+    const paymentId = (await data<{ id: string }>(await send('POST', `${base}/payments`, { invoiceAllocations: [{ invoiceId, amount: 100 }], amount: 100, receivedDate: PAY_DATE, paymentType: 'Check' }))).id
+    // A payment row that says money is unapplied, with no unapplied register credit behind it.
+    env.sqlite.prepare('UPDATE payment SET unapplied_amount = 40 WHERE id = ?1').run(paymentId)
+    expect(await code(await apply(paymentId, [{ invoiceId, amount: 40 }]))).toBe('VALIDATION_PAYMENT_UNAPPLIED_LEDGER_MISMATCH')
+    expect((await record()).invoices[0]).toMatchObject({ amountDue: 200 })
+  })
+
+  it('reads again when the invoice changes during the write, and gives up after three tries', async () => {
+    const invoiceId = await lockedInvoice(300)
+    const paymentId = await unappliedPayment(200)
+    const actor = { userId: 'user-staff', email: 'sam@example.com', role: 'staff', requestId: 'req-c2' }
+    const real = createBillingQueries(env.db)
+    let changes = 0
+    // Another payment lands on the invoice between the read and the write (here: just before the batch), `times` times.
+    const racing = (times: number) => ({
+      ...real,
+      applyUnapplied: async (plan: Parameters<typeof real.applyUnapplied>[0]) => {
+        if (changes < times) {
+          changes += 1
+          env.sqlite.prepare('UPDATE invoice SET amount_paid = amount_paid + 1, balance_due = balance_due - 1 WHERE id = ?1').run(invoiceId)
+        }
+        return real.applyUnapplied(plan)
+      },
+    })
+    await expect(applyUnappliedPayment(racing(3), 'cl-pat', paymentId, { allocations: [{ invoiceId, amount: 50 }] }, actor)).rejects.toMatchObject({ code: 'BILLING_CHANGED_DURING_APPLY', status: 409 })
+    expect(row<{ unapplied_amount: number }>('SELECT unapplied_amount FROM payment WHERE id = ?1', paymentId).unapplied_amount).toBe(200)
+    expect(row<{ n: number }>('SELECT COUNT(*) AS n FROM ledger_entry WHERE payment_id = ?1 AND voided_at IS NULL', paymentId).n).toBe(1)
+    expect(row<{ n: number }>("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'APPLY_UNAPPLIED'").n).toBe(0)
+
+    // One change only: the second try reads the new balance and applies.
+    changes = 0
+    expect(await applyUnappliedPayment(racing(1), 'cl-pat', paymentId, { allocations: [{ invoiceId, amount: 50 }] }, actor)).toMatchObject({ applied: 50, unappliedAmount: 150 })
+    expect(row<{ amount_paid: number; balance_due: number }>('SELECT amount_paid, balance_due FROM invoice WHERE id = ?1', invoiceId)).toEqual({ amount_paid: 54, balance_due: 246 })
   })
 })

@@ -31,7 +31,7 @@ colors:
   button-secondary-background: "#eef3f7"
   link: "#004c7f"
   line-strong: "#b8c7d4"
-  warning: "#d97706"
+  warning: "#e45e25"
   accent-strong: "#d99b3d"
   primary-strong: "#102a3a"
   background-soft: "#fbfcfd"
@@ -185,8 +185,8 @@ components:
 
 # Design System: KR Homebase
 
-<small>Version 1.18</small><br>
-<small>Updated Nov 15, 2026 5:50pm</small>
+<small>Version 1.19</small><br>
+<small>Updated Nov 16, 2026 12:10pm</small>
 
 This file records the visual system that is already in the code (`apps/web/styles/theme.css`, the component `STYLES` maps) and in the old app's reference pages (`/tests/krh/u/default-theme`, `/tests/krh/u5`, `/tests/krh/u1`). The YAML block above must stay at the very top of the file for design tools to read it, so this file's title and version sit below it. Product facts are in `PRODUCT.md`. Layout rules for code (widths, spacing, corners, label placement) are binding in `apps/web/AGENTS.md`; this file describes them and does not override them.
 
@@ -227,6 +227,7 @@ A cool navy-and-slate palette with one warm camel accent from the K&R logo pack,
 - **Brick Red** (danger): errors, destructive confirmations, overdue dates.
 - **Ledger Green** (success): saved and paid states.
 - **Signal Orange** (orange): the one toolbar action that needs attention.
+- **Warning** (warning): a caution that is not an error (a setting not configured, a pending result, an identity notice). The same Signal Orange (`#e45e25`, dark `#ec6a32`) as the GPT gateway pages (the requester, Nov 16, 2026); defined in `theme.css` and the built-in theme, changeable per person like the other state colors.
 - **Sea Teal** (teal): secondary informational marks.
 - **Sync Green** and **Sync Amber** (sync-current, sync-stale): only the data sync light on the dark title bar.
 
@@ -241,7 +242,7 @@ A cool navy-and-slate palette with one warm camel accent from the K&R logo pack,
 - **Row Hover** and **Row Selected** (table-row-hover, table-row-selected): ledger row states.
 
 ### Not yet ported
-Old components read these names, each with a fixed fallback color, but no old theme ever set them (corrected Nov 11, 2026, from the survey of the old theme code), and `apps/web/styles/theme.css` does not define them yet: **Link Blue** (link), **Strong Hairline** (line-strong), **Amber Warning** (warning), **Brass** (accent-strong), **Deep Slate** (primary-strong), **Soft Background** (background-soft), **Text on Dark** (on-dark). The old theme also has aliases (`card`, `muted`, `primary`, `surface`, `button-primary-text`, `on-success`) and `sticky-review-top` (36px). Add a token to `theme.css` before a component uses it.
+Old components read these names, each with a fixed fallback color, but no old theme ever set them (corrected Nov 11, 2026, from the survey of the old theme code), and `apps/web/styles/theme.css` does not define them yet: **Link Blue** (link), **Strong Hairline** (line-strong), **Brass** (accent-strong), **Deep Slate** (primary-strong), **Soft Background** (background-soft), **Text on Dark** (on-dark). The old theme also has aliases (`card`, `muted`, `primary`, `surface`, `button-primary-text`, `on-success`) and `sticky-review-top` (36px). Add a token to `theme.css` before a component uses it. (Amber Warning left this list on Nov 16, 2026: `warning` is now defined, as Signal Orange.)
 
 ### Communications (dark layer)
 The Communications screens use their own dark set, modeled on a chat client: **Night** (communication-surface), **Night Raised** (communication-surface-elevated), **Night Line** (communication-line), **Night Text** (communication-text) and **Night Link** (communication-accent). The rest of the dark set is in `theme.css`. Use it only inside Communications.

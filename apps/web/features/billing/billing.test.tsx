@@ -192,6 +192,28 @@ describe('billing screens', () => {
     expect(html).toContain('<input data-kr-element="payment-email-receipt" type="checkbox" checked=""/>')
     expect(html).toContain('data-kr-element="payment-receipt-to"')
     expect(html).not.toContain('payment-receipt-later')
+    expect(html).not.toContain('open-invoices-drafts-note')
+  })
+
+  it('leaves a draft invoice out of Open Invoices and says why (the requester, Nov 16, 2026)', () => {
+    const draft = { ...RECORD.invoices[0]!, id: 'inv-9', invoiceNumber: '129', locked: false, lockedReason: undefined }
+    const html = renderToStaticMarkup(
+      <PaymentsTab
+        canPost
+        canVoidPayments={false}
+        clientDisplayName="Pat Sample"
+        clientId="cl-1"
+        clientNumber="501"
+        invoices={[...RECORD.invoices, draft]}
+        matterNumbers={['501.0']}
+        payments={[]}
+        onPost={async () => undefined}
+        onVoidPayment={async () => undefined}
+      />,
+    )
+    expect(html).toContain('Invoice #121')
+    expect(html).not.toContain('Invoice #129')
+    expect(html).toContain('1 draft invoice is not listed. Finalize (lock) an invoice before posting a payment to it.')
   })
 
   it('shows time entries with their status and amount', () => {

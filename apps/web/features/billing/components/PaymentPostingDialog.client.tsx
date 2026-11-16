@@ -19,6 +19,10 @@
  * "Voiding the payment..." (and refunding the card in Stripe), "Emailing the refund notice...", then "Payment voided"
  * with its list (the refund, the notice, where to see it) or "Payment not voided" with the reason. No receipt section.
  * The backdrop sits above the void form and the receipt dialog (z 1300).
+ *
+ * Decision C2 (the requester, Nov 16, 2026): `kind="apply"` shows unapplied money being applied to invoices (from Posted
+ * Payments, `ApplyUnappliedDialog`): "Applying the payment...", then "Payment applied" with its list (what went to each
+ * invoice, what is left unapplied) or "Payment not applied" with the reason. No receipt section, as for a void.
  */
 
 import type { PaymentDetails } from '@krhomebase/documents/types'
@@ -35,8 +39,8 @@ import { PaymentReceiptSummary } from './PaymentDetailsDialog.client'
 export type PaymentPostingPhase = 'posting' | 'receipt' | 'posted' | 'failed'
 
 export interface PaymentPostingDialogProps {
-  /** `post` (default): Post Payment. `void`: a void from Posted Payments (web patch 560). */
-  kind?: 'post' | 'void'
+  /** `post` (default): Post Payment. `void`: a void from Posted Payments (web patch 560). `apply`: unapplied money applied to invoices (decision C2). */
+  kind?: 'post' | 'void' | 'apply'
   /** Null: the dialog is closed. */
   phase: PaymentPostingPhase | null
   /** Credit card: the spinner says the card is charged (posting) or refunded (void) too. */
@@ -109,17 +113,23 @@ export default function PaymentPostingDialog({ chargingCard, error, kind = 'post
 
   if (!phase) return null
   const voiding = kind === 'void'
-  const title = voiding
-    ? working ? 'Voiding payment' : phase === 'posted' ? 'Payment voided' : 'Payment not voided'
-    : working ? 'Posting payment' : phase === 'posted' ? 'Payment posted' : 'Payment not posted'
-  const busyLabel = voiding
-    ? phase === 'receipt' ? 'Emailing the refund notice...' : chargingCard ? 'Voiding the payment and refunding the card in Stripe...' : 'Voiding the payment...'
-    : phase === 'receipt' ? 'Emailing receipt...' : chargingCard ? 'Charging the card and posting the payment...' : 'Posting payment...'
+  // A void and an apply show no receipt section (`voiding` below keeps that one rule).
+  const noReceipt = voiding || kind === 'apply'
+  const title = kind === 'apply'
+    ? working ? 'Applying payment' : phase === 'posted' ? 'Payment applied' : 'Payment not applied'
+    : voiding
+      ? working ? 'Voiding payment' : phase === 'posted' ? 'Payment voided' : 'Payment not voided'
+      : working ? 'Posting payment' : phase === 'posted' ? 'Payment posted' : 'Payment not posted'
+  const busyLabel = kind === 'apply'
+    ? 'Applying the payment to the invoices...'
+    : voiding
+      ? phase === 'receipt' ? 'Emailing the refund notice...' : chargingCard ? 'Voiding the payment and refunding the card in Stripe...' : 'Voiding the payment...'
+      : phase === 'receipt' ? 'Emailing receipt...' : chargingCard ? 'Charging the card and posting the payment...' : 'Posting payment...'
 
   return (
     <div className={`${LAYOUT_STYLES.backdrop} ${STYLES.backdrop}`} role="presentation" data-kr-id="payment-posting-backdrop">
       {/* Panel: the running step with its spinner, then the answer with OK. */}
-      <section aria-busy={working} aria-label={title} aria-live="polite" aria-modal="true" className={`${phase === 'posted' && summary && !voiding ? LAYOUT_STYLES.dialogWide : LAYOUT_STYLES.dialog} ${STYLES.dialog}`} data-kr-id="payment-posting-dialog" data-kr-state={phase} role="dialog">
+      <section aria-busy={working} aria-label={title} aria-live="polite" aria-modal="true" className={`${phase === 'posted' && summary && !noReceipt ? LAYOUT_STYLES.dialogWide : LAYOUT_STYLES.dialog} ${STYLES.dialog}`} data-kr-id="payment-posting-dialog" data-kr-state={phase} role="dialog">
         <h2 className={`${STYLES.title} ${phase === 'failed' ? STYLES.titleFailed : ''}`}>{title}</h2>
         {working ? (
           <div className={LAYOUT_STYLES.busy}>
@@ -137,7 +147,7 @@ export default function PaymentPostingDialog({ chargingCard, error, kind = 'post
                   ))}
                   {receiptWarning ? <li className={STYLES.warning}>{receiptWarning}</li> : null}
                 </ul>
-                {voiding ? null : receipt ? <PaymentReceiptSummary details={receipt} /> : <p className={STYLES.muted}>Loading the receipt...</p>}
+                {noReceipt ? null : receipt ? <PaymentReceiptSummary details={receipt} /> : <p className={STYLES.muted}>Loading the receipt...</p>}
               </>
             ) : null}
             {phase === 'posted' && !summary && posted ? <p className={STYLES.text}>{posted}</p> : null}

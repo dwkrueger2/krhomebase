@@ -27,6 +27,8 @@
  * statement or receipt email. A client the API does not know (`VALIDATION_CLIENT_NOT_FOUND`) shows the old "No billing
  * records are available for <name>." (old `BillingPanel:389-393`) instead of an error; the name comes from the data
  * store's billing client list.
+ * Tax line (the requester, Nov 16, 2026): an invoice save sends the editor's `taxAmount` when the editor gives one;
+ * left out, the API keeps the saved tax.
  */
 
 import type { PaymentVoidData } from '@krhomebase/contracts'
@@ -216,6 +218,8 @@ export default function BillingClientPanel() {
       ...(dueDate ? { dueDate } : {}),
       writeOff: invoice.writeOff,
       entryIds: invoice.entryIds,
+      // Tax line: sent only when the editor gives it (zero or more).
+      ...(typeof invoice.taxAmount === 'number' ? { taxAmount: Math.max(0, invoice.taxAmount) } : {}),
     }
     if (billing.invoices.some((current) => current.id === invoice.id)) await updateInvoice(clientId, invoice.id, body)
     else {

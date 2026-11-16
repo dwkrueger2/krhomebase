@@ -22,6 +22,8 @@
  *    pieces that call these builders (`sendKrHomebaseEmail`, `krEmailFooter.ts`, `krPayQrPng.ts`, `findPayQrHref`);
  *    they arrive with the email-sending parts of the port. The `[[PAY_LINK]]` token and the `payQrSrc` option are kept
  *    although pay links come later.
+ *  - Tax line (the requester, Nov 16, 2026): a "Tax" totals row (HTML and plain text) under "Professional fees and
+ *    costs" when the invoice carries tax, matching the printed invoice; "Total amount" already includes it.
  */
 
 import { payOnlineHref as sharedPayOnlineHref } from './invoiceData.ts'
@@ -139,6 +141,8 @@ export function buildInvoiceEmailHtml({ report, message, footerHtml, includeInvo
     .join('')
   const rows = report.lines.map(lineRow).join('')
   const otherBalances = typeof report.otherOutstandingBalances === 'number' ? money(report.otherOutstandingBalances) : '—'
+  // Tax line: a row only when the invoice carries tax (as on the printed invoice).
+  const taxAmount = report.taxAmount ?? 0
 
   const invoiceBody = includeInvoiceBody ? `
           <!-- Invoice identity -->
@@ -197,6 +201,7 @@ export function buildInvoiceEmailHtml({ report, message, footerHtml, includeInvo
             <td style="padding:12px 28px 0;">
               <table role="presentation" cellspacing="0" cellpadding="0" align="right" style="width:300px;">
                 ${totalsRow('Professional fees and costs', money(report.professionalFeesAndCosts), { strong: false })}
+                ${taxAmount > 0 ? totalsRow('Tax', money(taxAmount)) : ''}
                 ${totalsRow('Other outstanding balances', otherBalances)}
                 ${totalsRow('Total amount', money(report.totalAmount), { rule: 'tan' })}
                 ${totalsRow('Less amount received', money(-report.amountReceived))}
@@ -289,6 +294,8 @@ export function buildInvoiceEmailText({ report, message, footerText, includeInvo
     })
     .join('\n')
   const payHref = payOnlineHref(report)
+  // Tax line: printed only when the invoice carries tax (as on the printed invoice).
+  const taxLine = (report.taxAmount ?? 0) > 0 ? `Tax: ${money(report.taxAmount ?? 0)}\n` : ''
   const body = includeInvoiceBody
     ? `
 INVOICE ${report.invoiceNumber} — ${report.firm.legalName} (${report.firm.stateName})
@@ -299,7 +306,7 @@ Matter: ${report.matterNumber} ${report.matterTitle}
 ${lines}
 
 Professional fees and costs: ${money(report.professionalFeesAndCosts)}
-Total amount: ${money(report.totalAmount)}
+${taxLine}Total amount: ${money(report.totalAmount)}
 Less amount received: ${money(-report.amountReceived)}
 BALANCE DUE: ${money(report.balanceDue)}
 `

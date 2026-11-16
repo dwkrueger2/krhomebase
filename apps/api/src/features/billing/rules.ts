@@ -25,12 +25,18 @@
  *    and `notes` again (item 1; the save now stores the tax, which the old save only counted in the total, and the
  *    invoice's register posting follows the total with the tax), and each register row carries `matterBalance`, its
  *    matter's own running balance (item 4).
+ *  - Decision C2 (the requester, Nov 16, 2026, `docs/API/Billing_Audit.md` 8.2): `applyUnappliedPayment` applies a
+ *    payment's unapplied money to open invoices later (the old app could not). The register credited the whole payment
+ *    when it was received, so the apply moves money between credits and never credits the client a second time: the
+ *    unapplied credit rows drawn from are voided and replaced by one credit per invoice (and one for any rest), each
+ *    dated the day the money was received, so every running balance stays the same. See the function for the details.
  */
 
-import type { BillingInvoice, BillingLedgerEntry, BillingPayment, BillingRecord, BillingTimeEntry, BillingTrustEntry, InvoiceBody, LedgerEntryBody, PaymentBody, TimeEntryBody, TrustEntryBody, TrustRequestBody } from '@krhomebase/contracts'
+import type { BillingInvoice, BillingLedgerEntry, BillingPayment, BillingRecord, BillingTimeEntry, BillingTrustEntry, InvoiceBody, LedgerEntryBody, PaymentApplyBody, PaymentApplyData, PaymentBody, TimeEntryBody, TrustEntryBody, TrustRequestBody } from '@krhomebase/contracts'
+import type { AuditEntry } from '../../platform/queries.ts'
 import { logLine } from '../../platform/log.ts'
 import { generatePublicCode } from '../contact-edits/rules.ts'
-import type { BillingQueries, ClientRow, InvoiceLineRow, InvoiceRow, LedgerEntryRow, MatterRow, PaymentRow, StaffRow, TimeEntryRow, TrustRequestRow } from './queries.ts'
+import type { ApplyAllocation, ApplyPlan, BillingQueries, ClientRow, InvoiceLineRow, InvoiceRow, LedgerEntryRow, MatterRow, PaymentRow, StaffRow, TimeEntryRow, TrustRequestRow } from './queries.ts'
 
 /** A write refused for a reason the person can fix, with the old error code. */
 export class BillingError extends Error {
@@ -241,6 +247,8 @@ function projectInvoice(row: InvoiceRow, client: ClientRow, matters: Map<string,
     clientLabel: client.display_name,
     amountDue: num(row.balance_due, num(row.total_amount)),
     writeOff: -num(row.discount_amount),
+    // Tax line (the requester, Nov 16, 2026, API patch 43): the saved tax, for the editor and the invoice documents.
+    taxAmount: num(row.tax_amount),
     ivid: row.ivid || null,
     locked,
     ...(locked
@@ -290,12 +298,18 @@ function withSyntheticInvoiceLedger(rows: LedgerEntryRow[], invoices: InvoiceRow
  * The client register in date order with the running balance. Voided rows are listed but never move the balance.
  * Billing part 7f (audit 5, item 4): each row also carries `matterBalance`, the running balance of its own matter, so the
  * Overview can show one matter's balance (`balance` runs across the whole client, as in the old register).
+ * C3 (the requester, Nov 16, 2026, API patch 43): trust rows are left out. The register is the client's receivable
+ * account (invoices, payments, write-offs, credits); the trust account keeps its own ledger and balance on the Trust
+ * tab. Before, a trust deposit read here as a payment and lowered the balance, and a disbursement raised it, so the
+ * two accounts were mixed (plan 06 line 87, audit section 5 item 10). Trust money reaches this register only as a
+ * payment posted against an invoice.
  */
 function projectLedger(rows: LedgerEntryRow[], matters: Map<string, MatterRow>, invoices: Map<string, InvoiceRow>): BillingLedgerEntry[] {
   let balance = 0
   const matterBalances = new Map<string, number>()
-  // Trust rows are listed here too, as in the old register (a deposit reads as a payment).
-  return [...rows]
+  // C3: the receivable register only; trust rows stay on the Trust tab (the old register listed them here too).
+  return rows
+    .filter((row) => row.ledger_bucket !== 'trust')
     .sort((a, b) => `${a.entry_date}:${a.id}`.localeCompare(`${b.entry_date}:${b.id}`))
     .map((row) => {
       const voided = Boolean(row.voided_at)
@@ -350,6 +364,8 @@ function projectPayment(payment: PaymentRow, ledger: LedgerEntryRow[], invoices:
     // A voided payment shows the write-off that was reversed with it.
     writeOff: round(entries.filter((entry) => entry.entry_type === 'write_off' && (voided || !entry.voided_at)).reduce((sum, entry) => sum + num(entry.amount), 0)),
     sourceSystem: payment.source_system || null,
+    // Decision C2: the money still to apply (a voided payment has none).
+    unappliedAmount: voided ? 0 : round(num(payment.unapplied_amount)),
     voided,
     voidedAt: payment.voided_at || null,
     voidReason: payment.void_reason || null,
@@ -757,9 +773,19 @@ export async function unlockInvoice(queries: BillingQueries, clientId: string, i
   await queries.run([queries.setInvoiceStatus(invoiceId, 'draft', now), auditor(queries, actor, client.id)('UNLOCK', 'invoice', invoiceId, current.matter_id, { from: current.status })])
 }
 
+/** True for an application that no longer pays its invoice: voided with its payment, or detached from the invoice. */
+export const isClosedApplication = (row: { notes: string | null }) => /\b(VOIDED|DETACHED) /.test(row.notes ?? '')
+
 /**
  * Unlinks every payment and write-off ledger row from the invoice (the payments stay on the client's register) and
  * resets what was paid. Super admin. Usually followed by unlock.
+ *
+ * The money goes back to unapplied (the requester, Nov 16, 2026; new, the old app left it stuck): each live payment's
+ * `unapplied_amount` goes up by the receivable credits detached from it, and its applications to this invoice are
+ * marked `DETACHED`, so "Apply to invoice" (`applyUnappliedPayment`) can attach the money again once the invoice is
+ * corrected and finalized, and a later void of the payment no longer touches this invoice. The detached credits stay
+ * on the register as they are (dated the day the money came in), so the client's balance does not change. A legacy
+ * payment row with no payment record stays on the register only.
  */
 export async function detachInvoicePayments(queries: BillingQueries, clientId: string, invoiceId: string, actor: Actor): Promise<number> {
   const client = await requireClient(queries, clientId)
@@ -770,11 +796,32 @@ export async function detachInvoicePayments(queries: BillingQueries, clientId: s
   const status = current.status === 'draft' ? 'draft' : 'sent'
   const total = num(current.total_amount)
   const audit = auditor(queries, actor, client.id)
+
+  // The money each payment gets back as unapplied: its receivable payment credits on this invoice, in whole cents.
+  const returnedCents = new Map<string, number>()
+  for (const row of attached) {
+    if (!row.payment_id || row.entry_type !== 'payment' || row.entry_direction !== 'credit' || row.ledger_bucket !== 'receivable') continue
+    returnedCents.set(row.payment_id, (returnedCents.get(row.payment_id) ?? 0) + cents(num(row.amount)))
+  }
+  const unapplied: D1PreparedStatement[] = []
+  const returned: Array<{ paymentId: string; amount: number; applications: string[] }> = []
+  for (const [paymentId, amountCents] of returnedCents) {
+    const payment = await queries.paymentById(paymentId)
+    if (!payment || payment.voided_at || amountCents <= 0) continue
+    const applications = (await queries.applicationsOfPayment(paymentId)).filter((row) => row.invoice_id === invoiceId && !isClosedApplication(row)).map((row) => row.id)
+    const unappliedAfter = round(num(payment.unapplied_amount) + amountCents / 100)
+    unapplied.push(queries.setPaymentUnapplied(paymentId, unappliedAfter, now))
+    if (applications.length) unapplied.push(queries.noteApplications(applications, `DETACHED ${now}: from invoice ${current.invoice_number} by ${actor.email}`, now))
+    returned.push({ paymentId, amount: amountCents / 100, applications })
+  }
+
   await queries.run([
     ...attached.map((row) => queries.detachLedgerEntry(row.id, `${row.memo || row.entry_type} (detached from invoice ${current.invoice_number} by ${actor.email})`)),
+    ...unapplied,
     queries.setInvoicePayments(invoiceId, { amountPaid: 0, discount: num(current.discount_amount), total, balance: total, status, paidAt: null, now }),
-    audit('DETACH_PAYMENTS', 'invoice', invoiceId, current.matter_id, { detached: attached.map((row) => row.id) }),
+    audit('DETACH_PAYMENTS', 'invoice', invoiceId, current.matter_id, { detached: attached.map((row) => row.id), returnedToUnapplied: returned }),
   ])
+  logLine('BILLING:detach-payments', actor.requestId, { invoice: current.invoice_number, rows: attached.length, payments: returned.length })
   return attached.length
 }
 
@@ -818,6 +865,8 @@ export async function voidInvoice(queries: BillingQueries, clientId: string, inv
  * `source_system = stripe_<environment>` and `source_record_id = pi_…`. Card and ACH selections require a PaymentIntent;
  * ACH posting stays closed until its mandate and asynchronous status reconciliation exist.
  *
+ * A draft invoice is refused (`VALIDATION_INVOICE_IS_DRAFT`, the requester, Nov 16, 2026): finalize it first.
+ *
  * @throws BillingError the `VALIDATION_…` codes of the route; `stripe.verify`'s `CardPaymentError`.
  */
 export async function createPayment(queries: BillingQueries, clientId: string, body: PaymentBody, actor: Actor, stripe?: PaymentStripe | null): Promise<string> {
@@ -832,6 +881,8 @@ export async function createPayment(queries: BillingQueries, clientId: string, b
     const invoice = invoiceRows.get(allocation.invoiceId)
     if (!invoice || invoice.billed_to_client_id !== client.id) throw new BillingError('VALIDATION_PAYMENT_INVOICE_NOT_FOUND', 422)
     if (invoice.status === 'void') throw new BillingError('VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT', 422)
+    // Decision of the requester (Nov 16, 2026): a payment attaches only to a finalized (locked) invoice, never a draft.
+    if (invoice.status === 'draft') throw new BillingError('VALIDATION_INVOICE_IS_DRAFT', 422, `Invoice ${invoice.invoice_number} is a draft. Finalize it before attaching a payment.`)
     if (allocation.amount + (requested.length === 1 ? writeOff : 0) > Math.max(0, num(invoice.balance_due)) + 0.005) throw new BillingError('VALIDATION_PAYMENT_EXCEEDS_BALANCE', 422)
     return { invoice, amount: round(allocation.amount) }
   })
@@ -1018,7 +1069,8 @@ export async function voidPayment(
   }
   const [ledger, applicationsAll] = await Promise.all([queries.ledgerOfPayment(paymentId), queries.applicationsOfPayment(paymentId)])
   const ledgerRows = ledger.filter((row) => !row.voided_at)
-  const applications = applicationsAll.filter((row) => !(row.notes ?? '').includes('VOIDED '))
+  // Applications already voided, or detached from their invoice (`detachInvoicePayments`), no longer pay an invoice.
+  const applications = applicationsAll.filter((row) => !isClosedApplication(row))
   const invoiceIds = [...new Set(applications.map((row) => row.invoice_id).filter((id): id is string => Boolean(id)))]
   const invoices = await queries.invoicesByIds(invoiceIds)
   const audit = auditor(queries, actor, client.id)
@@ -1075,6 +1127,213 @@ export async function refreshPaymentRefund(queries: BillingQueries, clientId: st
   ])
   logLine('BILLING:refresh-refund', actor.requestId, { payment: payment.payment_number || paymentId, refund: refund.refundId, status: refund.status ?? '', arn: refund.referenceStatus ?? '' })
   return refundProjection(refund, payment.refunded_at)
+}
+
+/** Reads, checks and writes of one apply before `BILLING_CHANGED_DURING_APPLY` (as the pay links post tries three times). */
+const APPLY_MAX_ATTEMPTS = 3
+const cents = (dollars: number) => Math.round(dollars * 100)
+
+/**
+ * Works out one apply of unapplied money (decision C2) from what the database holds now, or refuses it. Writes
+ * nothing; `applyUnappliedPayment` writes the plan.
+ *
+ * @throws BillingError `VALIDATION_PAYMENT_NOT_FOUND` (404), `VALIDATION_PAYMENT_ALREADY_VOID` (409),
+ *   `VALIDATION_PAYMENT_INVOICE_ALLOCATIONS_DUPLICATE`, `VALIDATION_PAYMENT_ALLOCATION_AMOUNT`,
+ *   `VALIDATION_PAYMENT_INVOICE_NOT_FOUND`, `VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT`, `VALIDATION_INVOICE_IS_DRAFT`,
+ *   `VALIDATION_PAYMENT_EXCEEDS_BALANCE`, `VALIDATION_PAYMENT_EXCEEDS_UNAPPLIED` (422),
+ *   `VALIDATION_PAYMENT_UNAPPLIED_LEDGER_MISMATCH` (409).
+ */
+async function planApply(queries: BillingQueries, client: ClientRow, paymentId: string, body: PaymentApplyBody, actor: Actor): Promise<ApplyPlan> {
+  const payment = await queries.paymentById(paymentId)
+  if (!payment || payment.client_id !== client.id) throw new BillingError('VALIDATION_PAYMENT_NOT_FOUND', 404, 'No such payment for this client.')
+  if (payment.voided_at) throw new BillingError('VALIDATION_PAYMENT_ALREADY_VOID', 409, 'This payment is void; its money cannot be applied.')
+  const requested = body.allocations
+  if (new Set(requested.map((allocation) => allocation.invoiceId)).size !== requested.length) throw new BillingError('VALIDATION_PAYMENT_INVOICE_ALLOCATIONS_DUPLICATE', 422, 'Each invoice may be listed once.')
+  if (requested.some((allocation) => cents(allocation.amount) <= 0)) throw new BillingError('VALIDATION_PAYMENT_ALLOCATION_AMOUNT', 422, 'Each amount must be at least one cent.')
+
+  // The invoices: the payment post's rules (the client's, not void, not a draft, at most the balance due).
+  const invoiceRows = new Map((await queries.invoicesByIds(requested.map((allocation) => allocation.invoiceId))).map((row) => [row.id, row]))
+  const shares = requested.map((allocation) => {
+    const invoice = invoiceRows.get(allocation.invoiceId)
+    if (!invoice || invoice.billed_to_client_id !== client.id) throw new BillingError('VALIDATION_PAYMENT_INVOICE_NOT_FOUND', 422, 'That invoice is not one of this client\'s invoices.')
+    if (invoice.status === 'void' || invoice.status === 'voided') throw new BillingError('VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT', 422, `Invoice ${invoice.invoice_number} is void.`)
+    if (invoice.status === 'draft') throw new BillingError('VALIDATION_INVOICE_IS_DRAFT', 422, `Invoice ${invoice.invoice_number} is a draft. Finalize it before attaching a payment.`)
+    const amountCents = cents(allocation.amount)
+    if (amountCents > Math.max(0, cents(num(invoice.balance_due)))) throw new BillingError('VALIDATION_PAYMENT_EXCEEDS_BALANCE', 422, `Invoice ${invoice.invoice_number} has ${num(invoice.balance_due).toFixed(2)} due.`)
+    return { invoice, amountCents }
+  })
+  const totalCents = shares.reduce((sum, share) => sum + share.amountCents, 0)
+  const unappliedCents = Math.max(0, cents(num(payment.unapplied_amount)))
+  if (totalCents > unappliedCents) {
+    throw new BillingError('VALIDATION_PAYMENT_EXCEEDS_UNAPPLIED', 422, `Only ${(unappliedCents / 100).toFixed(2)} of this payment is unapplied.`, { unappliedAmount: (unappliedCents / 100).toFixed(2) })
+  }
+
+  // The register's unapplied credits of this payment, oldest first: the money is drawn from them in turn.
+  const unappliedRows = (await queries.ledgerOfPayment(payment.id))
+    .filter((row) => !row.voided_at && !row.invoice_id && row.ledger_bucket === 'receivable' && row.entry_type === 'payment' && row.entry_direction === 'credit')
+    .sort((a, b) => `${a.entry_date}:${a.id}`.localeCompare(`${b.entry_date}:${b.id}`))
+  const drawn: Array<{ row: LedgerEntryRow; amountCents: number }> = []
+  let remainingCents = totalCents
+  let restCents = 0
+  for (const row of unappliedRows) {
+    if (remainingCents <= 0) break
+    const rowCents = cents(num(row.amount))
+    if (rowCents <= 0) continue
+    const take = Math.min(rowCents, remainingCents)
+    drawn.push({ row, amountCents: rowCents })
+    remainingCents -= take
+    restCents = rowCents - take
+  }
+  if (remainingCents > 0) {
+    // `unapplied_amount` says there is money, but the register has no unapplied credit for it: applying would credit
+    // the client a second time, so it is refused for review.
+    logLine('BILLING:apply-ledger-mismatch', actor.requestId, { payment: payment.payment_number || payment.id, unapplied: unappliedCents, rows: unappliedRows.length })
+    throw new BillingError('VALIDATION_PAYMENT_UNAPPLIED_LEDGER_MISMATCH', 409, 'The register has no unapplied credit for this money. Nothing was applied; the payment needs review.')
+  }
+
+  const now = new Date().toISOString()
+  const today = dateForDatabase(undefined, now)
+  const number = payment.payment_number || payment.id
+  const receivedDate = dateForDatabase(payment.received_date, now)
+  const reference = payment.reference_number || number
+  const base = { requestId: actor.requestId, actorUserId: actor.userId, actorEmail: actor.email, actorRole: actor.role, resource: 'billing', clientId: client.id }
+  const allocations: ApplyAllocation[] = shares.map(({ invoice, amountCents }) => {
+    const amount = amountCents / 100
+    const amountPaid = round(num(invoice.amount_paid) + amount)
+    const discount = round(num(invoice.discount_amount))
+    const total = Math.max(0, round(num(invoice.subtotal_amount) + num(invoice.tax_amount) - discount))
+    const balance = Math.max(0, round(total - amountPaid))
+    const status = balance === 0 ? 'paid' : 'partially_paid'
+    return {
+      invoiceId: invoice.id,
+      matterId: invoice.matter_id,
+      amount,
+      readStatus: invoice.status,
+      readPaidCents: cents(num(invoice.amount_paid)),
+      readBalanceCents: cents(num(invoice.balance_due)),
+      amountPaid,
+      discount,
+      total,
+      balance,
+      status,
+      paidAt: balance === 0 ? now : null,
+      // The invoice's credit is dated the day the money came in, as the unapplied credit it replaces was.
+      ledger: {
+        id: newId('led'),
+        invoiceId: invoice.id,
+        matterId: invoice.matter_id,
+        clientId: client.id,
+        paymentId: payment.id,
+        bucket: 'receivable',
+        entryType: 'payment',
+        direction: 'credit',
+        paymentTypeLookupId: payment.payment_type_lookup_id,
+        amount,
+        amountExTax: null,
+        entryDate: receivedDate,
+        referenceNumber: reference,
+        memo: `Payment ${number} applied to invoice ${invoice.invoice_number} (unapplied money)`,
+        sourceSystem: payment.source_system,
+        sourceRecordId: payment.source_record_id,
+        createdByUserId: actor.userId,
+        now,
+      },
+      applicationId: newId('paya'),
+      appliedDate: today,
+      applicationNote: `Unapplied money applied ${today} by ${actor.email}`,
+      audit: { ...base, action: 'UPDATE', targetTable: 'invoice', targetId: invoice.id, matterId: invoice.matter_id, newJson: { amountPaid, discount, total, balance, status, appliedFrom: payment.id } } satisfies AuditEntry,
+    }
+  })
+  // What is left of the last row drawn from stays unapplied, as a new credit like the row it replaces.
+  const last = drawn.at(-1)?.row
+  const remainder = last && restCents > 0
+    ? {
+        id: newId('led'),
+        invoiceId: null,
+        matterId: last.matter_id,
+        clientId: client.id,
+        paymentId: payment.id,
+        bucket: 'receivable' as const,
+        entryType: 'payment' as const,
+        direction: 'credit' as const,
+        paymentTypeLookupId: payment.payment_type_lookup_id,
+        amount: restCents / 100,
+        amountExTax: null,
+        entryDate: last.entry_date,
+        referenceNumber: last.reference_number,
+        memo: last.memo || `Payment ${number}`,
+        sourceSystem: payment.source_system,
+        sourceRecordId: payment.source_record_id,
+        createdByUserId: actor.userId,
+        now,
+      }
+    : null
+  const invoiceNumbers = shares.map((share) => share.invoice.invoice_number).join(', ')
+  const unappliedAfter = (unappliedCents - totalCents) / 100
+  const gateAuditId = crypto.randomUUID()
+  return {
+    gateAuditId,
+    audit: {
+      ...base,
+      action: 'APPLY_UNAPPLIED',
+      targetTable: 'payment',
+      targetId: payment.id,
+      matterId: payment.matter_id,
+      newJson: {
+        applied: totalCents / 100,
+        unappliedBefore: unappliedCents / 100,
+        unappliedAfter,
+        allocations: allocations.map((item) => ({ invoiceId: item.invoiceId, amount: item.amount, ledgerId: item.ledger.id })),
+        ledgerReplaced: drawn.map((item) => item.row.id),
+        ...(remainder ? { ledgerRemainder: remainder.id } : {}),
+      },
+    },
+    paymentId: payment.id,
+    clientId: client.id,
+    readUnappliedCents: unappliedCents,
+    unappliedAfter,
+    drawnRows: drawn.map((item) => ({ id: item.row.id, readAmountCents: item.amountCents })),
+    voidReason: `Unapplied money applied to invoice ${invoiceNumbers} by ${actor.email} (moved, not reversed: see the invoice rows${remainder ? ' and the rest left unapplied' : ''})`,
+    remainder,
+    allocations,
+    userId: actor.userId,
+    now,
+  }
+}
+
+/**
+ * Applies a payment's unapplied money to open invoices (decision C2, the requester, Nov 16, 2026: "Unapplied money should
+ * be available to attach to a future invoice"). Billing write roles. New; the old app had no such action.
+ *
+ * Accounting: the payment post (or the pay link post) already credited the client register with the whole payment,
+ * the unapplied part as a receivable `payment` credit with no invoice. Applying it must not credit the client again, so
+ * it moves money between credits: the unapplied credits drawn from are voided ("moved, not reversed") and replaced by
+ * one receivable credit per invoice (carrying the invoice, its matter, the payment and its Stripe source) and, when a row
+ * is only partly used, a new unapplied credit for the rest. All of them keep the day the money was received, so the
+ * client's balance on every date is unchanged; only the matter balances follow the money to the invoice's matter. The
+ * payment's `unapplied_amount` goes down by the amount applied; each invoice gets its paid amount, balance and status
+ * (the payment post's arithmetic) and a `payment_application` row tied to its new credit. A later payment void reverses
+ * all of it, as it reverses a payment applied when it was posted.
+ *
+ * Re-read inside the write (audit finding 8, as the pay links post): one guarded batch (`queries.applyUnapplied`); when
+ * the payment, the rows drawn from or an invoice changed after the read, nothing is written and the apply reads again,
+ * three times, then answers `BILLING_CHANGED_DURING_APPLY` (409).
+ *
+ * @returns What was applied and what is left unapplied.
+ * @throws BillingError the codes of `planApply`, and `BILLING_CHANGED_DURING_APPLY`.
+ */
+export async function applyUnappliedPayment(queries: BillingQueries, clientId: string, paymentId: string, body: PaymentApplyBody, actor: Actor): Promise<PaymentApplyData> {
+  const client = await requireClient(queries, clientId)
+  for (let attempt = 1; attempt <= APPLY_MAX_ATTEMPTS; attempt += 1) {
+    const plan = await planApply(queries, client, paymentId, body, actor)
+    if (await queries.applyUnapplied(plan)) {
+      const applied = round(plan.allocations.reduce((sum, item) => sum + item.amount, 0))
+      logLine('BILLING:apply-unapplied', actor.requestId, { payment: paymentId, applied: applied.toFixed(2), left: plan.unappliedAfter.toFixed(2), invoices: plan.allocations.length, attempt })
+      return { id: paymentId, applied, unappliedAmount: plan.unappliedAfter, invoicesUpdated: plan.allocations.length }
+    }
+    logLine('BILLING:apply-changed', actor.requestId, { payment: paymentId, attempt })
+  }
+  throw new BillingError('BILLING_CHANGED_DURING_APPLY', 409, 'The payment or its invoices changed while the money was being applied. Nothing was applied; try again.')
 }
 
 export async function createTrustRequest(queries: BillingQueries, clientId: string, body: TrustRequestBody, actor: Actor): Promise<string> {

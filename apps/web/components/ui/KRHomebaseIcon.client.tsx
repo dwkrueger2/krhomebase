@@ -839,7 +839,7 @@ const ICONS = {
     'warning-orange': {
         kind: 'badge',
         shape: 'triangle',
-        color: 'var(--kr-theme-warning, var(--theme-kr-warning, #d97706))',
+        color: 'var(--kr-theme-warning, var(--theme-kr-warning, #e45e25))',
         markColor: '#ffffff',
         mark: '!',
         label: 'Orange warning',

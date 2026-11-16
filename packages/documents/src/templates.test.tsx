@@ -37,6 +37,21 @@ describe('templates', () => {
     expect(linked).toContain('href="https://pay.example.com/p/abc"')
   })
 
+  it('print a Tax row in both options only when the invoice carries tax (tax line, Nov 16, 2026)', () => {
+    const invoice = buildSampleInvoice(KS)
+    const taxed = { ...invoice, taxAmount: 123.45, totalAmount: invoice.totalAmount + 123.45 }
+    for (const Template of [InvoiceReportOption1, InvoiceReportOption2]) {
+      const html = renderToStaticMarkup(<Template data={taxed} />)
+      expect(html).toContain('data-kr-element="invoice-tax-row"')
+      expect(html).toMatch(/<dt[^>]*>Tax<\/dt><dd[^>]*>\$123\.45<\/dd>/)
+      // The row sits between "Invoice amount" and "Other outstanding balances".
+      expect(html.indexOf('Invoice amount')).toBeLessThan(html.indexOf('invoice-tax-row'))
+      expect(html.indexOf('invoice-tax-row')).toBeLessThan(html.indexOf('Other outstanding balances'))
+      expect(renderToStaticMarkup(<Template data={invoice} />)).not.toContain('invoice-tax-row')
+      expect(renderToStaticMarkup(<Template data={{ ...invoice, taxAmount: 0 }} />)).not.toContain('invoice-tax-row')
+    }
+  })
+
   it('render the statement and the receipt', () => {
     const statement = renderToStaticMarkup(<StatementOfAccountReport data={buildSampleStatement(KS)} />)
     expect(statement).toContain('Statement of Account')
