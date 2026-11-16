@@ -34,6 +34,13 @@
  * leaves out the Email receipt icon, the refund notice icon and the details dialog's Resend; the receipt details,
  * Print and the sent-email preview stay. Void and Refresh ARN were already super admin only (`canVoid`).
  *
+ * Web patch 560 (the requester, Nov 16, 2026): confirming a void closes the form and opens `PaymentPostingDialog`
+ * (`kind="void"`): the spinner while the payment is voided (and the card refunded, the notice emailed), then the
+ * answer until OK, "Payment voided" with a list (the refund, the notice, where to see it) or "Payment not voided" with
+ * the reason; OK on a failure brings the form back with the reason and the error. The green line under the toolbar
+ * stays. The columns no longer wrap: all but Reference are as wide as their widest entry, and the payment number is
+ * one step smaller (8pt).
+ *
  * @returns The posted-payments ledger with its void dialog.
  */
 
@@ -51,6 +58,7 @@ import { printReceiptFromBilling, receiptFromBilling } from '../printDocuments.c
 import type { BillingPayment } from '../types'
 import PaymentDetailsDialog from './PaymentDetailsDialog.client'
 import PaymentNoticeDialog from './PaymentNoticeDialog.client'
+import PaymentPostingDialog, { type PaymentPostingPhase } from './PaymentPostingDialog.client'
 
 /** Friendly text for void failures (the old wording, part 7e). */
 function friendlyVoidError(code: string): string | null {
@@ -89,6 +97,9 @@ const STYLES = {
   voidedAmount: 'line-through decoration-[#b3473b]',
   voidChip: 'px-1 rounded border border-[#b3473b] bg-white text-[7pt] font-bold uppercase text-[#9d2c20]',
   ivid: 'ml-0.5 text-[7.5pt] text-[var(--kr-theme-text-muted,#526172)]',
+  // Web patch 560: cells that never wrap; the payment number one step smaller.
+  nowrap: 'whitespace-nowrap',
+  paymentNumber: 'whitespace-nowrap text-[8pt] tabular-nums',
   amount: 'text-right tabular-nums',
   // Receipt icons on a payment row (Billing part 7b): 20px buttons, as icon buttons in rows are.
   receiptButton: 'inline-flex size-[20px] cursor-pointer items-center justify-center rounded-[2px] border-0 bg-transparent text-[var(--kr-theme-text-muted,#526172)] hover:enabled:bg-[var(--kr-theme-muted-surface,#eef3f7)] hover:enabled:text-[var(--kr-theme-brand-primary,#21394f)] disabled:cursor-help disabled:opacity-40',
@@ -119,8 +130,10 @@ const LAYOUT_STYLES = {
   toolbar: 'px-2 py-1 gap-2 flex items-center justify-end',
   toolbarToggle: 'gap-1 inline-flex items-center',
   viewport: 'overflow-x-auto',
-  // The last column holds the receipt icons (part 7b) and Void.
-  table: 'grid min-w-[820px] grid-cols-[80px_110px_120px_90px_minmax(0,1fr)_90px_80px_136px]',
+  // The last column holds the receipt icons (part 7b) and Void. Web patch 560 (the requester): every column but
+  // Reference is as wide as its widest entry (no wrapping: "Credit card SANDBOX", the payment number on one line, a
+  // narrower Invoice); Reference takes the rest and truncates.
+  table: 'grid min-w-[820px] grid-cols-[max-content_max-content_max-content_max-content_minmax(120px,1fr)_max-content_max-content_max-content]',
   fullRow: 'col-span-full gap-1.5 flex flex-wrap items-center',
   actions: 'gap-1 flex items-center justify-end',
   backdrop: 'p-3 fixed inset-0 z-[1200] flex items-center justify-center',
@@ -220,6 +233,13 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<KrRequestErrorInfo | null>(null)
   const [notice, setNotice] = useState<{ tone: 'ok' | 'warn'; text: string } | null>(null)
+  /** The void's progress and answer (web patch 560): the phase, the list, the reason when it failed, and the payment. */
+  const [voidPhase, setVoidPhase] = useState<PaymentPostingPhase | null>(null)
+  const [voidSummary, setVoidSummary] = useState<{ heading: string; points: string[] } | null>(null)
+  const [voidWarning, setVoidWarning] = useState<string | null>(null)
+  const [voidError, setVoidError] = useState<KrRequestErrorInfo | null>(null)
+  const [voidRefunding, setVoidRefunding] = useState(false)
+  const [voidFailedPayment, setVoidFailedPayment] = useState<BillingPayment | null>(null)
   const [openedId, setOpenedId] = useState<string | null>(null)
   /** The payment whose receipt details are open. */
   const [detailsPayment, setDetailsPayment] = useState<BillingPayment | null>(null)
@@ -315,28 +335,64 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
     setBusy(true)
     setError(null)
     const payment = voiding
+    // Web patch 560: the form closes and the progress dialog takes over (spinner, then the answer until OK).
+    setVoiding(null)
+    setVoidSummary(null)
+    setVoidWarning(null)
+    setVoidError(null)
+    setVoidFailedPayment(null)
+    setVoidRefunding(refundCard)
+    setVoidPhase('posting')
+    let succeeded = false
     try {
       const result = await onVoid(payment, reason.trim(), refundCard)
-      setVoiding(null)
+      succeeded = true
       const refunded = result ? result.refund : null
       const voidText = `Payment ${payment.paymentNumber} voided${refunded ? ` and ${formatAccountingAmount(refunded.amount ?? payment.amount)} refunded through Stripe (${refunded.id})` : isStripe(payment) ? '; the card was not refunded in Stripe' : ''}.`
-      if (!sendNotice || !refunded || !receiptClientId) {
+      const refundPoint = refunded
+        ? `${formatAccountingAmount(refunded.amount ?? payment.amount)} was refunded to the card through Stripe (${refunded.id}).`
+        : isStripe(payment)
+          ? 'The card was not refunded in Stripe.'
+          : `No card refund applies to a ${payment.paymentType.toLowerCase()} payment.`
+      const reviewPoint = 'You can see the voided payment under Clients > Billing > Payments > Posted Payments (Show voided payments).'
+      const willNotify = Boolean(sendNotice && refunded && receiptClientId)
+      setVoidSummary({
+        heading: `Payment ${payment.paymentNumber} of ${formatAccountingAmount(payment.amount)} voided.`,
+        points: [refundPoint, ...(willNotify ? ['Emailing the refund notice to the client...'] : []), reviewPoint],
+      })
+      if (!willNotify || !receiptClientId) {
         setNotice({ tone: 'ok', text: voidText })
         return
       }
       // The notice goes after the void: a mail failure is reported, the void stands.
+      setVoidPhase('receipt')
       try {
         const sent = await sendRefundNoticeEmail(receiptClientId, payment.id, { to, subject: '', message: '' })
         setNotice({ tone: 'ok', text: `${voidText} Refund notice emailed to ${sent.to.join(', ')}.` })
+        setVoidSummary((current) => (current ? { ...current, points: current.points.map((point) => (point.startsWith('Emailing the refund notice') ? `The refund notice has been sent to the client at ${sent.to.join(', ')}.` : point)) } : current))
       } catch (caught) {
         const info = describeKrRequestError(caught, 'KR_PAYMENTS', 'refund-notice')
         setNotice({ tone: 'warn', text: `${voidText} The void and the refund succeeded; only the refund notice failed (${info.message}). Use the send icon on the voided payment to try again.` })
+        setVoidWarning(`The refund notice was not emailed (${info.message}). Use the send icon on the voided payment to try again.`)
+        setVoidSummary((current) => (current ? { ...current, points: current.points.filter((point) => !point.startsWith('Emailing the refund notice')) } : current))
       }
     } catch (caught) {
-      setError(describeKrRequestError(caught, 'KR_PAYMENTS', 'void-payment', friendlyVoidError))
+      const info = describeKrRequestError(caught, 'KR_PAYMENTS', 'void-payment', friendlyVoidError)
+      setVoidError(info)
+      setError(info)
+      // OK on the failure brings the form back with the reason kept.
+      setVoidFailedPayment(payment)
     } finally {
       setBusy(false)
+      setVoidPhase(succeeded ? 'posted' : 'failed')
     }
+  }
+
+  /** Closes the void's answer; after a failure the form comes back with the reason and the error. */
+  function closeVoidDialog(): void {
+    setVoidPhase(null)
+    if (voidFailedPayment) setVoiding(voidFailedPayment)
+    setVoidFailedPayment(null)
   }
 
   /** Super Admin: re-reads a refund's ARN from Stripe (live usually has it a few days after the refund). */
@@ -397,13 +453,13 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
                 }}
                 role="row"
               >
-                <div className={cell} role="cell">
+                <div className={`${cell} ${STYLES.nowrap}`} role="cell">
                   {payment.receivedDate}
                 </div>
-                <div className={`${cell} truncate`} role="cell" title={payment.paymentNumber}>
+                <div className={`${cell} ${STYLES.paymentNumber}`} role="cell" title={payment.paymentNumber}>
                   {payment.paymentNumber}
                 </div>
-                <div className={`${cell} truncate`} role="cell" title={invoiceText(payment)}>
+                <div className={`${cell} ${STYLES.nowrap}`} role="cell" title={invoiceText(payment)}>
                   {payment.invoiceNumber ? (
                     <>
                       #{payment.invoiceNumber}
@@ -413,17 +469,17 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
                     '—'
                   )}
                 </div>
-                <div className={cell} role="cell">
+                <div className={`${cell} ${STYLES.nowrap}`} role="cell">
                   {payment.paymentType}
                   {isStripe(payment) ? <span className={STYLES.stripeTag}>{payment.sourceSystem === 'stripe_live' ? 'Stripe' : 'Sandbox'}</span> : null}
                 </div>
                 <div className={`${cell} truncate`} role="cell" title={[payment.referenceNumber, payment.memo].filter(Boolean).join(' · ')}>
                   {payment.referenceNumber || payment.memo || '—'}
                 </div>
-                <div className={`${cell} ${STYLES.amount}`} role="cell">
+                <div className={`${cell} ${STYLES.amount} ${STYLES.nowrap}`} role="cell">
                   <span className={struck}>{formatAccountingAmount(payment.amount)}</span>
                 </div>
-                <div className={`${cell} ${STYLES.amount}`} role="cell">
+                <div className={`${cell} ${STYLES.amount} ${STYLES.nowrap}`} role="cell">
                   {payment.writeOff ? <span className={struck}>{formatAccountingAmount(-payment.writeOff)}</span> : '—'}
                 </div>
                 <div className={cell} role="cell">
@@ -535,6 +591,8 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
           </section>
         </div>
       ) : null}
+      {/* Void progress and answer (web patch 560): spinner while voiding (and emailing the refund notice), then the result until OK. */}
+      <PaymentPostingDialog chargingCard={voidRefunding} error={voidError} kind="void" phase={voidPhase} posted={null} receiptWarning={voidWarning} summary={voidSummary} onClose={closeVoidDialog} />
       {/* Payment receipt details (part 7b), built from the record on screen. */}
       {detailsPayment && receiptSource ? (
         <PaymentDetailsDialog

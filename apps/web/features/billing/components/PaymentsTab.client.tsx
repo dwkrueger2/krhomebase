@@ -37,11 +37,17 @@
  * refund choice and answers the API's reply (the old shape).
  * Billing part 7f (Nov 16, 2026, audit item 5): Posted Payments gets `canSend={canPost}`, so a billing reader sees no
  * receipt or refund notice email icons and no Resend, and a reader's form does not load the Stripe card settings.
+ * Web patch 558 (the requester, Nov 16, 2026): Post opens `PaymentPostingDialog`, a modal with the spinner ("Posting
+ * payment...", then "Emailing receipt...") and then the answer (posted, with the receipt address, or not posted, with
+ * the reason) until OK; before, the only sign was a line under the form. A form error found before posting opens nothing.
+ * Web patch 559: the posted answer is a heading and a list (the invoices, where the receipt was emailed, where to review
+ * it) and the new payment's receipt as the Payment Receipt dialog shows it (found in the reloaded record by its id).
  *
  * @returns The Payments tab.
  */
 
 import type { BillingRecord, PaymentBody, PaymentVoidData } from '@krhomebase/contracts'
+import { paymentDetailsFor } from '@krhomebase/documents/receipt'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import KrRequestErrorNote from '@/components/ui/KrRequestErrorNote.client'
 import MenuStyleOne, { type MenuStyleOneProps } from '@/components/ui/MenuStyleOne.client'
@@ -49,11 +55,13 @@ import U6CurrencyInput from '@/components/ui/U6CurrencyInput.client'
 import { describeKrRequestError, type KrRequestErrorInfo } from '@/lib/krRequestError'
 import { fetchStatementEmailInfo, sendReceiptEmail } from '../api.client'
 import { formatAccountingAmount } from '../formatAccountingAmount'
+import { receiptFromBilling } from '../printDocuments.client'
 import type { BillingInvoice, BillingPayLink, BillingPayment } from '../types'
 import { cardAllocationKey, friendlyCardError, useCardPayment } from '../useCardPayment.client'
 import BillingTabHeader from './BillingTabHeader.client'
 import InvoicePayLinkPanel from './InvoicePayLinkPanel.client'
 import PaymentBankingDetails, { validateBankingDetails, type BankingDetailsField, type PaymentTypeOption } from './PaymentBankingDetails.client'
+import PaymentPostingDialog, { type PaymentPostingPhase } from './PaymentPostingDialog.client'
 import PostedPaymentsLedger from './PostedPaymentsLedger.client'
 
 const STYLES = {
@@ -192,6 +200,11 @@ export default function PaymentsTab({
   const [emailReceipt, setEmailReceipt] = useState(true)
   const [receiptTo, setReceiptTo] = useState('')
   const [receiptWarning, setReceiptWarning] = useState<string | null>(null)
+  /** The posting modal (web patch 558): open from Post until the person presses OK on the answer. */
+  const [postingPhase, setPostingPhase] = useState<PaymentPostingPhase | null>(null)
+  /** The posted answer's heading and list, and the new payment's id for its receipt (web patch 559). */
+  const [postedSummary, setPostedSummary] = useState<{ heading: string; points: string[] } | null>(null)
+  const [postedPaymentId, setPostedPaymentId] = useState<string | null>(null)
   // The card side (Stripe settings, Banking Details, the charge); the receipt address falls back to the payer's email.
   // Part 7f: a billing reader (no `canPost`) never loads the Stripe settings (a write-role route that would answer 403).
   const card = useCardPayment(canPost ? clientId : undefined, paymentType, (email) => setReceiptTo((current) => current || email))
@@ -289,6 +302,15 @@ export default function PaymentsTab({
     setPostError(null)
   }
 
+  /** The new payment's receipt for the modal, once the reloaded record has the payment. */
+  const postedReceipt = useMemo(() => {
+    const payment = postedPaymentId ? payments.find((item) => item.id === postedPaymentId) : null
+    return payment && receiptSource ? paymentDetailsFor(receiptFromBilling(payment, receiptSource)) : null
+  }, [payments, postedPaymentId, receiptSource])
+
+  /** Closes the posting modal's answer; the lines under the form keep it. */
+  const closePostingDialog = useCallback(() => setPostingPhase(null), [])
+
   /** Validates, charges (credit card), and posts the payment. */
   async function post(): Promise<void> {
     if (!selected || busy) return
@@ -296,10 +318,15 @@ export default function PaymentsTab({
     setPosted(null)
     setPostError(null)
     setReceiptWarning(null)
+    setPostedSummary(null)
+    setPostedPaymentId(null)
     if (Object.values(allErrors).some(Boolean)) return
     setBusy(true)
+    setPostingPhase('posting')
     /** Set once the card is charged, so an error after that point tells the user a retry only records it. */
     let cardCharged = false
+    /** The modal's answer: false when the charge or the post was refused. */
+    let succeeded = false
     try {
       const matterIds = new Set(invoiceAllocations.map((allocation) => allocation.matterId))
       const base: PostPaymentInput = {
@@ -327,7 +354,16 @@ export default function PaymentsTab({
         paymentId = await onPost({ ...base, ...(reference ? { referenceNumber: reference } : {}) })
       }
       const postedText = `Payment of ${formatAccountingAmount(amount)} posted across ${invoiceAllocations.length} invoice${invoiceAllocations.length === 1 ? '' : 's'}.`
+      succeeded = true
       setPosted(postedText)
+      // The modal's answer (web patch 559): which invoices, then the receipt line and where to find it again.
+      const invoiceNumbers = invoiceAllocations.map((allocation) => `#${allocation.invoice.invoiceNumber}`)
+      const invoiceLabel = `Invoice${invoiceNumbers.length === 1 ? '' : 's'} ${invoiceNumbers.length > 1 ? `${invoiceNumbers.slice(0, -1).join(', ')} and ${invoiceNumbers[invoiceNumbers.length - 1]}` : invoiceNumbers[0] ?? ''}`
+      const heading = `Payment of ${formatAccountingAmount(amount)} posted against ${invoiceLabel}.`
+      const reviewPoint = 'You can review and resend the payment receipt in Clients > Billing > Payments > Posted Payments.'
+      const willEmail = Boolean(clientId && emailReceipt && paymentId)
+      setPostedSummary({ heading, points: [willEmail ? 'Emailing the receipt to the client...' : 'No receipt email was sent (Email receipt to was not checked).', reviewPoint] })
+      if (paymentId) setPostedPaymentId(paymentId)
       setAllocationAmounts((current) => {
         const next = { ...current }
         invoiceAllocations.forEach((allocation) => {
@@ -338,13 +374,17 @@ export default function PaymentsTab({
       resetForm()
       // Receipt: sent after the post with the API's default subject and message; a mail failure is reported, the payment stays posted.
       if (clientId && emailReceipt && paymentId) {
+        setPostingPhase('receipt')
         try {
           const sent = await sendReceiptEmail(clientId, paymentId, { to: receiptAddresses, subject: '', message: '', includePdf: true })
           setPosted(`${postedText} Receipt emailed to ${sent.to.join(', ')}.`)
+          setPostedSummary((current) => (current ? { ...current, points: [`The receipt email has been sent to the client at ${sent.to.join(', ')}.`, ...current.points.slice(1)] } : current))
         } catch (error) {
           setReceiptWarning(
             `The payment is posted, but the receipt was not emailed (${describeKrRequestError(error, 'KR_PAYMENTS', 'email-receipt').message}). Use the send icon in Posted Payments to try again.`,
           )
+          // The warning takes the place of the "Emailing..." line in the modal's list.
+          setPostedSummary((current) => (current ? { ...current, points: current.points.slice(1) } : current))
         }
       }
     } catch (error) {
@@ -352,6 +392,8 @@ export default function PaymentsTab({
       setPostError(cardCharged ? { ...info, message: `${info.message} The card was charged; press Record Charged Payment to post it without charging again.` } : info)
     } finally {
       setBusy(false)
+      // The modal turns from the spinner to the answer; it stays until OK.
+      setPostingPhase(succeeded ? 'posted' : 'failed')
     }
   }
 
@@ -531,6 +573,8 @@ export default function PaymentsTab({
           {busy ? (paymentType === 'Credit card' ? 'Processing…' : 'Posting…') : charged ? 'Record Charged Payment' : 'Post Payment'}
         </button>
       </div>
+      {/* Posting modal: spinner while the payment posts, then its answer (web patch 558). */}
+      <PaymentPostingDialog chargingCard={paymentType === 'Credit card'} error={postError} phase={postingPhase} posted={posted} receipt={postedReceipt} receiptWarning={receiptWarning} summary={postedSummary} onClose={closePostingDialog} />
     </section>
   ) : (
     <p className="p-3 text-[9pt] text-[var(--kr-theme-text-muted,#526172)]">An open invoice is required to post a payment.</p>

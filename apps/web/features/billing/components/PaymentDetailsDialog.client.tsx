@@ -22,6 +22,9 @@
  *    drawn into <body> (apps/web/AGENTS.md, "Portals").
  *  - Billing part 7f (Nov 16, 2026, audit item 5): `canResend` false (a billing reader) leaves out Resend; Preview sent
  *    email and Print stay.
+ *  - Web patch 559 (Nov 16, 2026): the amount summary and the details table are `PaymentReceiptSummary`, also shown by
+ *    the posting dialog after a payment posts. "Processed By" no longer adds "(sandbox — test payment)" a second time:
+ *    the processor text from `paymentDetailsFor` already carries it ("Stripe (sandbox — test payment)").
  *
  * @returns The dialog, drawn into <body> once mounted.
  */
@@ -78,6 +81,48 @@ const LAYOUT_STYLES = {
   previewHeader: 'px-[8px] py-[4px] gap-[6px] flex shrink-0 items-center justify-between',
   previewFrame: 'h-full w-full min-h-0 flex-1',
 } as const
+
+/**
+ * The receipt's amount summary and its details table: this dialog's body, and the posting dialog's answer after a
+ * payment posts (`PaymentPostingDialog`), so both show the same receipt.
+ */
+export function PaymentReceiptSummary({ details }: { details: PaymentDetails }) {
+  const rows: Array<[string, string]> = [
+    ['Receipt Number', details.receiptNumber],
+    ['Payment Date', details.paymentDate],
+    ['Received From', details.receivedFrom],
+    ['Client / Matter', [details.clientNumber, details.matterNumber, details.matterTitle].filter(Boolean).join(' · ') || '—'],
+    ['Applied To', details.appliedTo],
+    ['Payment Method', details.paymentMethod],
+    // The processor already says "(sandbox — test payment)" for a sandbox card (`paymentDetailsFor`).
+    ['Processed By', details.processor ?? '—'],
+    ['Reference', details.reference ?? '—'],
+    ['Amount Received', money(details.amountReceived)],
+    ['Invoice Balance Before', money(details.invoiceBalanceBefore)],
+    ['Invoice Balance After', money(details.invoiceBalanceAfter)],
+  ]
+  return (
+    <>
+      <div className={`${LAYOUT_STYLES.summary} ${STYLES.summary}`} data-kr-element="payment-details-summary">
+        <div className={STYLES.summaryLabel}>Amount Received</div>
+        <div className={STYLES.summaryAmount}>{money(details.amountReceived)}</div>
+        <div>Invoice balance now {money(details.invoiceBalanceAfter)}</div>
+      </div>
+      <table className={`${STYLES.table} ${STYLES.body}`}>
+        <tbody>
+          {rows.map(([label, value]) => (
+            <tr key={label}>
+              <th className={STYLES.label} scope="row">
+                {label}
+              </th>
+              <td className={STYLES.value}>{value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
+  )
+}
 
 /** Why Preview sent email and Resend are disabled. */
 const NOTHING_SENT = 'No receipt email has been sent for this payment.'
@@ -144,20 +189,6 @@ export default function PaymentDetailsDialog({ paymentNumber, details, clientId,
 
   const previewUrl = latestSent?.hasHtml ? billingSentHtmlUrl(latestSent) : ''
 
-  const rows: Array<[string, string]> = [
-    ['Receipt Number', details.receiptNumber],
-    ['Payment Date', details.paymentDate],
-    ['Received From', details.receivedFrom],
-    ['Client / Matter', [details.clientNumber, details.matterNumber, details.matterTitle].filter(Boolean).join(' · ') || '—'],
-    ['Applied To', details.appliedTo],
-    ['Payment Method', details.paymentMethod],
-    ['Processed By', `${details.processor ?? '—'}${details.isTest ? ' (sandbox — test payment)' : ''}`],
-    ['Reference', details.reference ?? '—'],
-    ['Amount Received', money(details.amountReceived)],
-    ['Invoice Balance Before', money(details.invoiceBalanceBefore)],
-    ['Invoice Balance After', money(details.invoiceBalanceAfter)],
-  ]
-
   const content = (
     <div className={`${LAYOUT_STYLES.backdrop} ${STYLES.backdrop}`} data-kr-theme-scope="krhomebase" role="presentation">
       <section aria-label="Payment receipt details" aria-modal="true" className={STYLES.dialog} data-kr-id="payment-details-dialog" role="dialog">
@@ -183,23 +214,7 @@ export default function PaymentDetailsDialog({ paymentNumber, details, clientId,
         </header>
         {/* Body: amount summary, then the receipt details */}
         <div className={`${LAYOUT_STYLES.body} ${STYLES.body}`}>
-          <div className={`${LAYOUT_STYLES.summary} ${STYLES.summary}`} data-kr-element="payment-details-summary">
-            <div className={STYLES.summaryLabel}>Amount Received</div>
-            <div className={STYLES.summaryAmount}>{money(details.amountReceived)}</div>
-            <div>Invoice balance now {money(details.invoiceBalanceAfter)}</div>
-          </div>
-          <table className={STYLES.table}>
-            <tbody>
-              {rows.map(([label, value]) => (
-                <tr key={label}>
-                  <th className={STYLES.label} scope="row">
-                    {label}
-                  </th>
-                  <td className={STYLES.value}>{value}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <PaymentReceiptSummary details={details} />
           {status ? (
             <p className={STYLES.status} role="status">
               {status}
