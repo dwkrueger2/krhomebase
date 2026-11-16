@@ -1,4 +1,4 @@
--- file: docs/patch-notes/repository/Migration_Patch044_11_15_schema_migration.sql
+-- file: docs/Schema_8.0/migrations/Migration_Patch044_11_15_schema_migration.sql
 -- Migration 044 (repository patch 44, Nov 15, 2026): the migration log, kr_schema_migration.
 --
 -- Purpose (the requester, Nov 15, 2026): "when migrations are successful ... the final command applies some sort of
@@ -26,7 +26,7 @@
 --   $Repo = "D:\Repos\krhomebase"
 --   $Api  = Join-Path $Repo "apps\api"
 --   $Db   = "krhomebase"
---   $File = Join-Path $Repo "docs\patch-notes\repository\Migration_Patch044_11_15_schema_migration.sql"
+--   $File = Join-Path $Repo "docs\Schema_8.0\migrations\Migration_Patch044_11_15_schema_migration.sql"
 --   Set-Location $Api
 --   pnpm.cmd exec wrangler d1 execute $Db --remote --config kr-api-wrangler.jsonc --file $File
 --

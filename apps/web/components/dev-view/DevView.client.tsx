@@ -93,10 +93,15 @@ const FILTER_CLICK_DELAY_MS = 300
 export interface DevViewProps {
   /** The window to inspect. Leave it out for the main window; a pop-out passes its own window. */
   targetWindow?: DevViewWindow
+  /**
+   * Show the round Dev View button (default true). The deployed app passes false (the requester, Nov 15, 2026): there
+   * Dev View is driven only from the Feedback pop-out's own button (`DevViewRemote`).
+   */
+  showTrigger?: boolean
 }
 
 /** Development-only marker inspector. Renders nothing visible but the round button until it is switched on. */
-export default function DevView({ targetWindow }: DevViewProps = {}) {
+export default function DevView({ targetWindow, showTrigger = true }: DevViewProps = {}) {
   const [enabled, setEnabled] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)
   /** The panel's own browser window (the requester, Nov 13, 2026); null when blocked or closed (the page panel is used). */
@@ -234,22 +239,30 @@ export default function DevView({ targetWindow }: DevViewProps = {}) {
   }, [entries, selectedKeys, targetWindow])
 
   /**
-   * The Dev View button. Off: switch on and open the panel in its own window (opened here, in the click, or the
-   * browser blocks it; when it is blocked the panel draws in the page as before). On with the panel closed: open the
-   * panel again. On with the panel open: switch everything off and close the panel window.
+   * The Dev View button. Off: switch on and open the panel in its own window, beside the page (opened here, in the
+   * click, or the browser blocks it; when it is blocked the panel draws in the page as before). On: switch everything
+   * off and close the panel window (Nov 15, 2026, the requester: a click on the selected button closes the overlays).
+   *
+   * @param remotePanel - From a remote button: the panel window it already opened in its own click (null: blocked).
    */
-  function toggleEnabled(): void {
-    if (enabled && !panelOpen) {
-      setPanelWindow(openDevViewPanelWindow(currentWindow()))
-      setPanelOpen(true)
-      return
-    }
+  function toggleEnabled(remotePanel?: Window | null): void {
     const next = !enabled
-    if (next) setPanelWindow(openDevViewPanelWindow(currentWindow()))
-    else closePanelWindow()
+    if (next) setPanelWindow(remotePanel !== undefined ? remotePanel : openDevViewPanelWindow(currentWindow()))
+    else {
+      closePanelWindow()
+      if (remotePanel && !remotePanel.closed) remotePanel.close()
+    }
     setEnabled(next)
     setPanelOpen(next)
     if (!next) setPicking(false)
+  }
+
+  /** Switches everything off (the remote's 'off': the Feedback pop-out closed). */
+  function switchOff(): void {
+    closePanelWindow()
+    setEnabled(false)
+    setPanelOpen(false)
+    setPicking(false)
   }
 
   /** Closes the panel's own window, if it is open. */
@@ -264,18 +277,21 @@ export default function DevView({ targetWindow }: DevViewProps = {}) {
   const pickForRemoteRef = useRef(false)
   const toggleRef = useRef(toggleEnabled)
   toggleRef.current = toggleEnabled
+  const switchOffRef = useRef(switchOff)
+  switchOffRef.current = switchOff
   const enabledRef = useRef(enabled)
   enabledRef.current = enabled
   useEffect(() => {
     const win = targetWindow ?? window
     const onCommand = (event: Event) => {
       const command = readDevViewCommand(event)
-      if (command?.action === 'toggle') toggleRef.current()
+      if (command?.action === 'toggle') toggleRef.current(command.panelWindow)
       else if (command?.action === 'report') announceDevViewState(win, { enabled: enabledRef.current })
+      else if (command?.action === 'off') switchOffRef.current()
       else if (command?.action === 'pick') {
-        // Pick into the text (stage F4): turn Pick on; the next pick is also sent back to the remote.
+        // Pick into the text (stage F4): turn Pick on; the next pick is sent back to the remote. The overlays are not
+        // switched on (the requester, Nov 15, 2026): only the Dev View button does that.
         pickForRemoteRef.current = true
-        setEnabled(true)
         setPicking(true)
       }
     }
@@ -337,6 +353,17 @@ export default function DevView({ targetWindow }: DevViewProps = {}) {
    * @param keepPicking - True on Shift + click; otherwise Pick mode ends.
    */
   function pickMarker(element: HTMLElement, keepPicking: boolean): void {
+    if (pickForRemoteRef.current) {
+      // Prefer a marker the Feedback text turns into a chip (`data-kr-id="..."` or `data-kr-element="..."`).
+      const labels = pickLabelsForElement(element)
+      const label = labels.find((value) => /^data-kr-(id|element)="/.test(value)) ?? labels[0] ?? pickLabelForElement(element)
+      if (label) announceDevViewPicked(targetWindow ?? window, { label })
+      // With the overlays off, a pick for the Feedback text only reads the marker; it draws nothing.
+      if (!enabledRef.current) {
+        if (!keepPicking) setPicking(false)
+        return
+      }
+    }
     resetOverlayContext()
     setEnabled(true)
     setActiveFilters((current) => {
@@ -347,12 +374,6 @@ export default function DevView({ targetWindow }: DevViewProps = {}) {
       return next
     })
     setPickedElements((current) => (current.includes(element) ? current : [...current, element]))
-    if (pickForRemoteRef.current) {
-      // Prefer a marker the Feedback text turns into a chip (`data-kr-id="..."` or `data-kr-element="..."`).
-      const labels = pickLabelsForElement(element)
-      const label = labels.find((value) => /^data-kr-(id|element)="/.test(value)) ?? labels[0] ?? pickLabelForElement(element)
-      if (label) announceDevViewPicked(targetWindow ?? window, { label })
-    }
     const overlayId = pickOverlayId(element)
     setHiddenOverlayKeys((current) => {
       if (!current.has(overlayId)) return current
@@ -727,16 +748,18 @@ export default function DevView({ targetWindow }: DevViewProps = {}) {
         )
       ) : null}
 
-      {/* Dev View button: switches the overlays and the panel on and off */}
-      <button
-        className={`${STYLES.trigger} ${CORNER_LAYOUT_STYLES[corner].trigger} ${enabled ? STYLES.triggerActive : STYLES.triggerIdle}`}
-        type="button"
-        aria-expanded={panelOpen}
-        aria-pressed={enabled}
-        onClick={toggleEnabled}
-      >
-        Dev View
-      </button>
+      {/* Dev View button: switches the overlays and the panel on and off (not drawn in the deployed app) */}
+      {showTrigger ? (
+        <button
+          className={`${STYLES.trigger} ${CORNER_LAYOUT_STYLES[corner].trigger} ${enabled ? STYLES.triggerActive : STYLES.triggerIdle}`}
+          type="button"
+          aria-expanded={panelOpen}
+          aria-pressed={enabled}
+          onClick={() => toggleEnabled()}
+        >
+          Dev View
+        </button>
+      ) : null}
     </div>
   )
 }

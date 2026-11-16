@@ -1,7 +1,7 @@
 // file: apps/api/src/features/homebase-feedback/queries.ts
 /**
  * The only file of the Homebase Feedback area that talks to D1 (`test/databaseAccess.test.ts` checks this). Tables
- * (migration `docs/patch-notes/repository/Migration_Patch033_11_13_homebase_feedback.sql`, plan 12 section 4.1):
+ * (migration `docs/Schema_8.0/migrations/Migration_Patch033_11_13_homebase_feedback.sql`, plan 12 section 4.1):
  *
  * - `homebase_feedback`: one row per request; `number` is UNIQUE (12 is FB-0012), so a save that loses a race for the
  *   next number answers false and the caller tries the next one.

@@ -8,7 +8,7 @@
  *
  * The old app kept these only in the browser (`localStorage` key `kr_homebase_user_settings_v1`), so they did not
  * follow a person to another computer. They now live in the table `user_preference` (one row per person and key,
- * JSON value; migration `docs/patch-notes/repository/Migration_Patch026_11_11_user_preference.sql`). On the wire they
+ * JSON value; migration `docs/Schema_8.0/migrations/Migration_Patch026_11_11_user_preference.sql`). On the wire they
  * are one flat object; the API stores them under these keys:
  *
  *   appearance   {"theme": "light" | "dark"}

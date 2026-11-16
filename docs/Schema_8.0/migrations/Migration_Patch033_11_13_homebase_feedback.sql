@@ -1,4 +1,4 @@
--- file: docs/patch-notes/repository/Migration_Patch033_11_13_homebase_feedback.sql
+-- file: docs/Schema_8.0/migrations/Migration_Patch033_11_13_homebase_feedback.sql
 --
 -- Homebase Feedback, stage F1 (repository patch 33, Nov 13, 2026; plan docs/12_Homebase_Feedback_Plan.md, section 4.1
 -- and the requester's answers in section 7.1). Creates the four feedback tables in the `krhomebase` D1 database and the
@@ -32,7 +32,7 @@
 -- Apply (PowerShell, from D:\Repos\krhomebase):
 --   $Repo = "D:\Repos\krhomebase"
 --   $Db   = "krhomebase"
---   $Sql  = Join-Path $Repo "docs\patch-notes\repository\Migration_Patch033_11_13_homebase_feedback.sql"
+--   $Sql  = Join-Path $Repo "docs\Schema_8.0\migrations\Migration_Patch033_11_13_homebase_feedback.sql"
 --   Set-Location (Join-Path $Repo "apps\api")
 --   pnpm.cmd exec wrangler d1 execute $Db --remote --config kr-api-wrangler.jsonc --file $Sql
 --

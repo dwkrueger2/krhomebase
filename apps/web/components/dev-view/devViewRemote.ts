@@ -10,7 +10,11 @@
  *   kr-dev-view:command   { action: 'toggle' }   the remote asks Dev View to do what its own button does
  *                         { action: 'report' }   the remote asks Dev View to say whether it is on
  *                         { action: 'pick' }     the remote asks for one element (stage F4, Pick into the text): Dev
- *                                                View turns on Pick; the next pick is also sent back as 'picked'
+ *                                                View turns on Pick (the overlays stay as they are); the next pick is
+ *                                                sent back as 'picked'
+ *                         { action: 'off' }      the remote closed (the Feedback pop-out): switch everything off
+ *                         { action: 'toggle', panelWindow }   as toggle, with the panel window the remote already
+ *                                                opened in its own click (the main window's click would be blocked)
  *   kr-dev-view:state     { enabled }            Dev View says whether it is on (after every change and on 'report')
  *   kr-dev-view:picked    { label }              Dev View says which marker was picked for the remote
  *                                                (`data-kr-element="related-contacts-list"`)
@@ -28,7 +32,9 @@ export const DEV_VIEW_STATE_EVENT = 'kr-dev-view:state'
 export const DEV_VIEW_PICKED_EVENT = 'kr-dev-view:picked'
 
 export interface DevViewCommand {
-  action: 'toggle' | 'report' | 'pick'
+  action: 'toggle' | 'report' | 'pick' | 'off'
+  /** With 'toggle' from a remote: the panel window it opened in its own click, or null when the browser blocked it. */
+  panelWindow?: Window | null
 }
 
 export interface DevViewPicked {
@@ -53,7 +59,9 @@ export function announceDevViewState(target: Window, state: DevViewState): void 
 /** Reads a command event; anything malformed reads as null. */
 export function readDevViewCommand(event: Event): DevViewCommand | null {
   const detail = (event as CustomEvent<unknown>).detail as Partial<DevViewCommand> | null | undefined
-  return detail && (detail.action === 'toggle' || detail.action === 'report' || detail.action === 'pick') ? { action: detail.action } : null
+  if (!detail || !(detail.action === 'toggle' || detail.action === 'report' || detail.action === 'pick' || detail.action === 'off')) return null
+  const panelWindow = detail.panelWindow && typeof detail.panelWindow === 'object' && 'document' in detail.panelWindow ? detail.panelWindow : null
+  return detail.action === 'toggle' && 'panelWindow' in detail ? { action: 'toggle', panelWindow } : { action: detail.action }
 }
 
 /** Reads a state event; anything malformed reads as null. */

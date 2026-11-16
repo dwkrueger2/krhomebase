@@ -1,7 +1,7 @@
 # AGENTS 06: Cloudflare D1 Migration Procedures
 
-<small>Version 1.3</small><br>
-<small>Updated Nov 15, 2026 10:55pm</small>
+<small>Version 1.4</small><br>
+<small>Updated Nov 15, 2026 11:30pm</small>
 
 This guide defines the SQL compatibility rules for Cloudflare D1 migrations, data imports and read-only schema verification in this repository.
 
@@ -25,7 +25,7 @@ This guide defines the SQL compatibility rules for Cloudflare D1 migrations, dat
 | `krhomebase_dev` | Source of the baseline copy. | Read-only. |
 | `krhomebase_05_2026_v5` | Old live database. | Do not touch unless the requester names it in the prompt. |
 
-Only `apps/api` binds `krhomebase`. Migrations are planned to live in `packages/db/migrations` (open decision 10 in `docs/01_Architecture_Proposal.md`). Until that folder exists, give the requester the SQL in the reply or in a `docs/patch-notes` entry and name the file it should be saved as. Never put a migration into a folder that is applied automatically.
+Only `apps/api` binds `krhomebase`. **Migration files live in `docs/Schema_8.0/migrations/`** (the requester, Nov 15, 2026): each one changes the database Schema 8.0 documents, so it sits beside that documentation. The name is `Migration_Patch<repository patch>_<MM>_<DD>_<topic>.sql` (`Migration_Patch044_11_15_schema_migration.sql`). They moved there from `docs/patch-notes/repository/` in repository patch 45; older task lists still name the old place. `packages/db/migrations` (open decision 10 in `docs/01_Architecture_Proposal.md`) may replace this folder later. Never put a migration into a folder that is applied automatically.
 
 ## Verification and execution
 

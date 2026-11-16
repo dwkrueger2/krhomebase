@@ -1,7 +1,7 @@
 # Homebase Feedback Plan (feature requests and issues for the app itself)
 
-<small>Version 1.5</small><br>
-<small>Updated Nov 15, 2026 9:10pm</small>
+<small>Version 1.6</small><br>
+<small>Updated Nov 15, 2026 11:30pm</small>
 
 **Status:** decided (section 7.1, Nov 13, 2026). Stages F1, F2 and F6 are built (repository patch 33, API patch 30, web patch 542); F5, the viewer (an outside tool, decision 3 changed), is built and not deployed (repository patch 37, API patch 32, Nov 14, 2026); F3, the screenshots, is built and deployed (repository patch 40, API patch 34, web patch 545, Nov 14, 2026); F4, Dev View for developers, is built and not deployed (repository patch 42, web patch 548, Nov 15, 2026). Written from the requester's brief of Nov 13, 2026 ("FEED BACK FEATURE").
 
@@ -141,7 +141,7 @@ The requester's instruction: "follow recommendations in the decisions section 7"
 
 What F1, F2 and F6 built (Nov 13, 2026):
 
-- **F1:** migration `docs/patch-notes/repository/Migration_Patch033_11_13_homebase_feedback.sql` (the four tables of 4.1 and the Internal Developer role set), the `developer_tools` resource, and the routes of 4.3 except image upload, in `apps/api/src/features/homebase-feedback/`. Until the migration is applied the routes answer 503 `HOMEBASE_FEEDBACK_MIGRATION_REQUIRED`.
+- **F1:** migration `docs/Schema_8.0/migrations/Migration_Patch033_11_13_homebase_feedback.sql` (the four tables of 4.1 and the Internal Developer role set), the `developer_tools` resource, and the routes of 4.3 except image upload, in `apps/api/src/features/homebase-feedback/`. Until the migration is applied the routes answer 503 `HOMEBASE_FEEDBACK_MIGRATION_REQUIRED`.
 - **F2:** the Feedback button in the top bar and the Feedback pop-out (`apps/web/features/homebase-feedback/`): kind, title, text with marker chips, the captured context, Send, My requests, and the full list for developers.
 - **F6:** `scripts/Get-Feedback.ps1 -Number <n>` (root script `feedback:get`) writes `feedback-cache/FB-000n/FB-000n.md`; how to ask Claude is in the root `AGENTS.md` ("Homebase Feedback: asking Claude").
 

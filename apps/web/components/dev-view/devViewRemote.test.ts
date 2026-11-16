@@ -47,4 +47,13 @@ describe('devViewRemote', () => {
     expect(readDevViewPicked(new CustomEvent(DEV_VIEW_PICKED_EVENT, { detail: { label: '<script>' } }))).toBeNull()
     expect(readDevViewPicked(new CustomEvent(DEV_VIEW_PICKED_EVENT, { detail: { label: 'data-kr-id="a" onload="x"' } }))).toBeNull()
   })
+
+  it('carries the panel window a remote opened, and switches off (Nov 15, 2026)', () => {
+    const panel = { document: {}, closed: false } as unknown as Window
+    expect(readDevViewCommand(new CustomEvent(DEV_VIEW_COMMAND_EVENT, { detail: { action: 'toggle', panelWindow: panel } }))).toEqual({ action: 'toggle', panelWindow: panel })
+    expect(readDevViewCommand(new CustomEvent(DEV_VIEW_COMMAND_EVENT, { detail: { action: 'toggle', panelWindow: null } }))).toEqual({ action: 'toggle', panelWindow: null })
+    expect(readDevViewCommand(new CustomEvent(DEV_VIEW_COMMAND_EVENT, { detail: { action: 'toggle', panelWindow: 'x' } }))).toEqual({ action: 'toggle', panelWindow: null })
+    expect(readDevViewCommand(new CustomEvent(DEV_VIEW_COMMAND_EVENT, { detail: { action: 'toggle' } }))).toEqual({ action: 'toggle' })
+    expect(readDevViewCommand(new CustomEvent(DEV_VIEW_COMMAND_EVENT, { detail: { action: 'off' } }))).toEqual({ action: 'off' })
+  })
 })

@@ -11,9 +11,10 @@
  * (`report`). Loaded only in development, by `DevViewLoader` with `controlWindow`.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CORNER_LAYOUT_STYLES, DEFAULT_DEV_VIEW_CORNER, readStoredCorner, type DevViewCorner } from './corner'
 import { DEV_VIEW_STATE_EVENT, readDevViewState, sendDevViewCommand } from './devViewRemote'
+import { openDevViewPanelWindow } from './DevViewPanelWindow.client'
 import type { DevViewWindow } from './markers'
 
 /** The same look as Dev View's own round button (`DevView.client.tsx`). */
@@ -42,6 +43,20 @@ const STYLES = {
 export default function DevViewRemote({ controlWindow }: { controlWindow: DevViewWindow }) {
   const [enabled, setEnabled] = useState(false)
   const [corner, setCorner] = useState<DevViewCorner>(DEFAULT_DEV_VIEW_CORNER)
+  const buttonRef = useRef<HTMLButtonElement | null>(null)
+
+  /**
+   * Switching on opens the panel window here, in this window's click (Nov 15, 2026): the main window did not receive
+   * the click, so a window it opened was blocked and the panel drew inside the page. Switching off needs no window.
+   */
+  function toggle(): void {
+    const ownWindow = buttonRef.current?.ownerDocument.defaultView
+    if (enabled || !ownWindow) {
+      sendDevViewCommand(controlWindow, { action: 'toggle' })
+      return
+    }
+    sendDevViewCommand(controlWindow, { action: 'toggle', panelWindow: openDevViewPanelWindow(controlWindow, ownWindow) })
+  }
 
   // The saved corner is read after mount, so the server and the first browser render agree.
   useEffect(() => {
@@ -63,12 +78,13 @@ export default function DevViewRemote({ controlWindow }: { controlWindow: DevVie
     <div data-dev-view-root="">
       {/* Remote Dev View button: switches Dev View on the source window */}
       <button
+        ref={buttonRef}
         className={`${STYLES.trigger} ${CORNER_LAYOUT_STYLES[corner].trigger} ${enabled ? STYLES.triggerActive : STYLES.triggerIdle}`}
         type="button"
         aria-pressed={enabled}
         data-kr-action="dev-view-source-window"
         title="Dev View on the source window: overlays and the panel appear over the page this window was opened from"
-        onClick={() => sendDevViewCommand(controlWindow, { action: 'toggle' })}
+        onClick={toggle}
       >
         Dev View
       </button>

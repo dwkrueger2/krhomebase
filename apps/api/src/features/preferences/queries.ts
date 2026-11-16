@@ -2,7 +2,7 @@
 /**
  * The only file of the preferences area that talks to D1 (`test/databaseAccess.test.ts` checks this). It reads and
  * writes the table `user_preference` (one row per person and preference key; migration
- * `docs/patch-notes/repository/Migration_Patch026_11_11_user_preference.sql`), and maps its snake_case columns to
+ * `docs/Schema_8.0/migrations/Migration_Patch026_11_11_user_preference.sql`), and maps its snake_case columns to
  * camelCase.
  *
  * A save is one `db.batch`: the upsert of each changed key with its `audit_log` row (`auditStatement`), so a change

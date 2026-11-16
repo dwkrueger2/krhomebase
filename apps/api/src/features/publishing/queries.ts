@@ -17,7 +17,7 @@
  *   `content_sequence`; this file never writes either. UNIQUE: `canonical_path`, an article's `slug`, an answer's
  *   `(pillar, topic_slug)`; a clash on insert answers `'conflict'`.
  * - `content_asset`: the item's images; `r2_key` UNIQUE; id `asset_<32 hex>` of the key, so the same file is the same
- *   row. The license columns come from migration 031 (`docs/patch-notes/repository/
+ *   row. The license columns come from migration 031 (`docs/Schema_8.0/migrations/
  *   Migration_Patch031_11_13_content_asset_license.sql`); until it is applied every read and write that names them
  *   fails with "no such column", which answers `PublishingMigrationRequiredError` (503
  *   `PUBLISHING_MIGRATION_REQUIRED`). The package check, the source ZIP download and the article prompt do not name

@@ -23,15 +23,15 @@ const here = dirname(fileURLToPath(import.meta.url))
 export const SCHEMA_8_0 = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'schema_d1_v8_0.sql')
 
 /** The migration that creates the outside-tool tables. */
-export const WORKSPACE_TOOLS_MIGRATION = join(here, '..', '..', '..', 'docs', 'patch-notes', 'repository', 'Migration_Patch016_11_09_workspace_tools.sql')
+export const WORKSPACE_TOOLS_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch016_11_09_workspace_tools.sql')
 /** The user preference table (Settings plan, decision 1). It refers to `user`, so it is added only with the full schema. */
-export const USER_PREFERENCE_MIGRATION = join(here, '..', '..', '..', 'docs', 'patch-notes', 'repository', 'Migration_Patch026_11_11_user_preference.sql')
+export const USER_PREFERENCE_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch026_11_11_user_preference.sql')
 /** The image license columns of `content_asset` (Front End Publishing, D25). Added only with the full schema. */
-export const CONTENT_ASSET_LICENSE_MIGRATION = join(here, '..', '..', '..', 'docs', 'patch-notes', 'repository', 'Migration_Patch031_11_13_content_asset_license.sql')
+export const CONTENT_ASSET_LICENSE_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch031_11_13_content_asset_license.sql')
 /** The Homebase Feedback tables and the Internal Developer role set (plan 12, stage F1). Added only with the full schema. */
-export const HOMEBASE_FEEDBACK_MIGRATION = join(here, '..', '..', '..', 'docs', 'patch-notes', 'repository', 'Migration_Patch033_11_13_homebase_feedback.sql')
+export const HOMEBASE_FEEDBACK_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch033_11_13_homebase_feedback.sql')
 /** Migration 034: the deploy window columns on kr_maintenance_gate (repository patch 34). Built with fullSchema. */
-export const DEPLOY_WINDOW_MIGRATION = join(here, '..', '..', '..', 'docs', 'patch-notes', 'repository', 'Migration_Patch034_11_14_deploy_window.sql')
+export const DEPLOY_WINDOW_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch034_11_14_deploy_window.sql')
 
 /** Headers that make the sign-in middleware ask the Session Worker. */
 export const SIGNED_IN_HEADERS = { cookie: 'kr_session=test-session-token' } as const

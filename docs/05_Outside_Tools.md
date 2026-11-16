@@ -1,7 +1,7 @@
 # Outside Tools: Design, Security and Operation
 
-<small>Version 1.4</small><br>
-<small>Updated Nov 15, 2026 7:40pm</small>
+<small>Version 1.5</small><br>
+<small>Updated Nov 15, 2026 11:30pm</small>
 
 **Headline:** other developers can add a tool to the left menu without a redeploy. A super admin registers the tool's address and grants it permissions. KR Homebase shows the tool in a sealed frame, in the workspace or popped out. The tool reaches data only through KR Homebase, and only within its grant.
 
@@ -110,7 +110,7 @@ Each business area opens its routes when it is built, by adding `toolAccess: '<a
 | Server-path door | `apps/external-api/` (`src/gateway.ts`, `kr-external-api-wrangler.jsonc`) |
 | Menu, frame, host bridge | `apps/web/components/shell/` (`navigation.ts`, `ExternalToolFrame.client.tsx`, `toolHost.ts`, `ApplicationShell.client.tsx`) and `apps/web/lib/toolRelay.ts` |
 | Super-admin screen | `apps/web/features/tools/components/OutsideToolsAdmin.client.tsx` (under Settings, Application Settings) |
-| Tables | `docs/patch-notes/repository/Migration_Patch016_11_09_workspace_tools.sql` |
+| Tables | `docs/Schema_8.0/migrations/Migration_Patch016_11_09_workspace_tools.sql` |
 
 ## 6. Tables
 
@@ -129,7 +129,7 @@ Run these in order from `D:\Repos\krhomebase`. Claude does not run them.
 ```powershell
 $Repo = "D:\Repos\krhomebase"
 $Db   = "krhomebase"
-$Sql  = Join-Path $Repo "docs\patch-notes\repository\Migration_Patch016_11_09_workspace_tools.sql"
+$Sql  = Join-Path $Repo "docs\Schema_8.0\migrations\Migration_Patch016_11_09_workspace_tools.sql"
 Set-Location $Repo
 
 # 1. Tables (writes to the live database)

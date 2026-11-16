@@ -1,7 +1,7 @@
 # Settings and Dashboard Port Plan
 
-<small>Version 1.8</small><br>
-<small>Updated Nov 12, 2026 5:48pm</small>
+<small>Version 1.9</small><br>
+<small>Updated Nov 15, 2026 11:30pm</small>
 
 This plan covers the Settings tab (User, Application and Firm Settings) and the Dashboard with its widgets. It records what exists today, the requester's direction, a recommended structure, the stages, and the decisions that belong to the requester. Nothing in it is built yet. It follows the same pattern as `06_Contacts_Billing_Port_Plan.md` (roadmap phase D: Dashboard, Settings) and `07_Attendance_Port_Plan.md`.
 
@@ -141,7 +141,7 @@ The requester answered in the stage 0 prompt and confirmed the restated decision
 
 | # | Answer |
 |---|---|
-| 1 | **As recommended.** Table `user_preference` (one row per user and key, JSON value), `GET` and `PUT /v1/me/preferences`, `localStorage` only for a fast first paint. The migration is `docs/patch-notes/repository/Migration_Patch026_11_11_user_preference.sql` (the requester applies it; the only earlier migration, patch 16, was confirmed applied). |
+| 1 | **As recommended.** Table `user_preference` (one row per user and key, JSON value), `GET` and `PUT /v1/me/preferences`, `localStorage` only for a fast first paint. The migration is `docs/Schema_8.0/migrations/Migration_Patch026_11_11_user_preference.sql` (the requester applies it; the only earlier migration, patch 16, was confirmed applied). |
 | 2 | **As recommended.** A dark `--kr-theme-*` set app-wide; the viewer's choice is the `appearance` key in `user_preference`. |
 | 3 | **Confirmed:** keep the old behavior. A browser idle timer with the old choices (15, 30, 60, 120, 480 minutes; default 60) and the warning **5 minutes** before logout as the old app does (the plan had said 1 minute), shown as a `U6ConfirmationDialog` with "Stay signed in"; the API session lengths (8 hours, 30 days) do not change. New: the value follows the person (decision 1) and takes effect without a reload. |
 | 4 | Decide in stage 7, and add a feature task: a Worker that manages GPT use. Stage 0 found that this Worker already exists in the repository (`workers/gpt-workers/gpt-models-worker.ts`, copied Nov 4, not deployed, no database id); the task is to review it, choose its transport (service binding from the API instead of the old public HTTPS address), give it its database, and deploy it. |

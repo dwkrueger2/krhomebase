@@ -1,4 +1,4 @@
--- file: docs/patch-notes/repository/Migration_Patch034_11_14_deploy_window.sql
+-- file: docs/Schema_8.0/migrations/Migration_Patch034_11_14_deploy_window.sql
 -- Migration 034 (repository patch 34, Nov 14, 2026): the deploy window on the maintenance gate.
 --
 -- Purpose: `pnpm deploy:warn` (scripts/Deploy-Krhomebase.ps1) warns everyone signed in, signs them out at a set
@@ -21,7 +21,7 @@
 --   $Repo = "D:\Repos\krhomebase"
 --   $Api  = Join-Path $Repo "apps\api"
 --   $Db   = "krhomebase"
---   $File = Join-Path $Repo "docs\patch-notes\repository\Migration_Patch034_11_14_deploy_window.sql"
+--   $File = Join-Path $Repo "docs\Schema_8.0\migrations\Migration_Patch034_11_14_deploy_window.sql"
 --   Set-Location $Api
 --   pnpm.cmd exec wrangler d1 execute $Db --remote --config kr-api-wrangler.jsonc --file $File
 --

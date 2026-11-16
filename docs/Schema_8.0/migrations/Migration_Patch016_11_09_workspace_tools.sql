@@ -1,4 +1,4 @@
--- file: docs/patch-notes/repository/Migration_Patch016_11_09_workspace_tools.sql
+-- file: docs/Schema_8.0/migrations/Migration_Patch016_11_09_workspace_tools.sql
 --
 -- Outside tools (repository patch 16, Nov 9, 2026). Adds three new tables to the `krhomebase` D1 database.
 -- The requester applies this file; agents never run it (AGENTS_06). It lives under docs/patch-notes because

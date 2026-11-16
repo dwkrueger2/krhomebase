@@ -219,7 +219,7 @@ function Clear-DeployWindow([string]$Why) {
 <# Stops unless migration 034 (the deploy window columns) is applied. Read-only. #>
 function Assert-DeployWindowColumns {
     $raw = Invoke-Pnpm $Api @("exec", "wrangler", "d1", "execute", $Database, "--remote", "--config", $Config, "--json", "--command", "SELECT COUNT(*) AS n FROM pragma_table_info('kr_maintenance_gate') WHERE name LIKE 'deploy_%';") -Quiet
-    if ($raw -notmatch '"n":\s*5') { throw "Migration 034 is not applied (the deploy window columns are missing). Apply docs\patch-notes\repository\Migration_Patch034_11_14_deploy_window.sql first, or use pnpm deploy:hot." }
+    if ($raw -notmatch '"n":\s*5') { throw "Migration 034 is not applied (the deploy window columns are missing). Apply docs\Schema_8.0\migrations\Migration_Patch034_11_14_deploy_window.sql first, or use pnpm deploy:hot." }
 }
 
 function Read-Pending { if (Test-Path $PendingFile) { return Get-Content $PendingFile -Raw | ConvertFrom-Json } else { return $null } }

@@ -14,6 +14,10 @@
  * Feedback pop-out has heard from the API that the person is an Internal Developer. Everyone else renders nothing
  * here and never downloads the Dev View code.
  *
+ * In the deployed app the round Dev View button is not drawn on the main window or on other pop-outs (the requester,
+ * Nov 15, 2026): Dev View there is driven only from the Feedback pop-out's own button (`controlWindow`), so it is
+ * seen only while Feedback is open, and closing Feedback switches it off. In development every button stays.
+ *
  * Check after `pnpm build:web`: `Dev-View-Marker-Controls` must appear only in a Dev View chunk, never in the page's
  * main chunk (command in `Readme-dev-view.md`).
  */
@@ -24,6 +28,8 @@ import type { DevViewWindow } from './markers'
 
 const DevView = lazy(() => import('./DevView.client'))
 const DevViewRemote = lazy(() => import('./DevViewRemote.client'))
+/** The round button on every window in development; in the deployed app only the Feedback pop-out's. */
+const SHOW_OWN_BUTTON = process.env.NODE_ENV === 'development'
 
 /**
  * Renders Dev View when it is allowed.
@@ -43,7 +49,7 @@ export default function DevViewLoader({ targetWindow, controlWindow }: { targetW
   }
   return (
     <Suspense fallback={null}>
-      <DevView targetWindow={targetWindow} />
+      <DevView targetWindow={targetWindow} showTrigger={SHOW_OWN_BUTTON} />
     </Suspense>
   )
 }

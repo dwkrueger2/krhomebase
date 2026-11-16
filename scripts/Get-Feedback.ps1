@@ -64,7 +64,7 @@ function Invoke-ReadOnlyQuery([string]$Sql) {
     try {
         return ,($json | ConvertFrom-Json)
     } catch {
-        if ($raw -match 'no such table: homebase_feedback') { throw "The feedback tables do not exist yet. Apply migration 033 first (docs/patch-notes/repository/Migration_Patch033_11_13_homebase_feedback.sql)." }
+        if ($raw -match 'no such table: homebase_feedback') { throw "The feedback tables do not exist yet. Apply migration 033 first (docs/Schema_8.0/migrations/Migration_Patch033_11_13_homebase_feedback.sql)." }
         throw "wrangler's reply could not be read:`n$raw"
     }
 }

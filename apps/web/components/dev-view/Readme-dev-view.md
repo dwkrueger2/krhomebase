@@ -1,7 +1,7 @@
 # Readme: Dev View
 
-<small>Version 1.9</small><br>
-<small>Updated Nov 15, 2026 8:05pm</small>
+<small>Version 2.0</small><br>
+<small>Updated Nov 15, 2026 11:55pm</small>
 
 Ported from the old `README - Dev Overlay.md` (v1.3, krueger-richard-website, `apps/kr-homebase/src/hb-components/dev-view`). Version continues from it.
 
@@ -14,6 +14,21 @@ Since Nov 13, 2026 (the requester) the Dev View button opens the control panel i
 Since Nov 13, 2026 (the requester), a pop-out that is about the main window's page can show a Dev View button that drives the **main window's** Dev View instead of inspecting itself. The Feedback pop-out does this (`PopOutBrowserWindow` with `devViewFor="opener"`): its round Dev View button switches the overlays and the panel on and off over the page the request is about. Other pop-outs keep their own Dev View.
 
 How: `DevViewLoader` with `controlWindow` loads `DevViewRemote.client.tsx` (the button only). The button and the main window's Dev View talk through two DOM events on the main window (`devViewRemote.ts`): `kr-dev-view:command` (`toggle` does what Dev View's own button does; `report` asks for the state) and `kr-dev-view:state` (`enabled`, announced after every change). The panel's own window is opened from the main window, which did not receive the click, so the browser may block it; the panel then draws in the main page, as when any panel window is blocked. Development only, like the rest of Dev View.
+
+## The button's behavior (Nov 15, 2026)
+
+The requester's changes after using Dev View in the deployed app:
+
+- **Deployed app:**
+  - No round Dev View button on the main window or on other pop-outs (`DevView` with `showTrigger` false).
+  - The only button is the Feedback window's: in its own browser window, or in the in-page window when pop-ups are blocked. So Dev View is seen only while Feedback is open.
+  - Closing Feedback switches Dev View off (the `off` command).
+- **Development:** every button stays.
+- **A click on the pressed button** switches the overlays and the panel off. Before, with the panel closed, it opened the panel again.
+- **The panel window:**
+  - It opens from the window that was clicked. The Feedback window's button opens it itself and hands it over with `toggle`, because a window the main window opened after a click elsewhere was blocked, and the panel drew inside the page.
+  - It opens beside the page and beside the Feedback window, on the first side with room (`panelWindowPosition`), not over the page.
+- **Pick from page** (the Feedback form) reads the picked marker into the text without switching the overlays on. With the overlays already on, the picked element is outlined as before.
 
 ## Purpose
 

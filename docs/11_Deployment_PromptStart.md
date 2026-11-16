@@ -1,7 +1,7 @@
 # 11_Deployment_PromptStart
 
-<small>Version 1.5</small><br>
-<small>Updated Nov 14, 2026 9:45pm</small>
+<small>Version 1.6</small><br>
+<small>Updated Nov 15, 2026 11:30pm</small>
 
 **Purpose:** Drop this file into a new chat to start a **deployment session** for the `krhomebase` repository. It holds the project summary, the rules, what is live now, what is waiting to go live, and the deploy process in order. Read it first, then follow section 9.
 
@@ -154,7 +154,7 @@ The API and the web app go live with `scripts\Deploy-Krhomebase.ps1` (root scrip
    $Repo = "D:\Repos\krhomebase"
    $Api  = Join-Path $Repo "apps\api"
    $Db   = "krhomebase"
-   $File = Join-Path $Repo "docs\patch-notes\repository\Migration_Patch034_11_14_deploy_window.sql"
+   $File = Join-Path $Repo "docs\Schema_8.0\migrations\Migration_Patch034_11_14_deploy_window.sql"
    Set-Location $Api
    pnpm.cmd exec wrangler d1 execute $Db --remote --config kr-api-wrangler.jsonc --file $File
    ```

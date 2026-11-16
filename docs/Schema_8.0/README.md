@@ -47,3 +47,16 @@ pnpm exec wrangler d1 execute krhomebase_dev --remote --json --command $Sql | Ou
 ```
 
 Descriptions are hand-written; new tables and columns need a description added before the pages are rebuilt.
+
+## Migrations after 8.0 (`migrations/`)
+
+Schema 8.0 documents the database as it was when this folder was written. Every change since then is a migration file in `migrations/`, applied by the requester (`AGENTS_06_d1-migration-procedures.md`).
+
+- Each file is named `Migration_Patch<repository patch>_<MM>_<DD>_<topic>.sql`. It says at the top what it changes, what it expects first, and the commands to check, apply and verify it.
+- Since migration 044, the live database records every applied migration in `kr_schema_migration`, and each new file ends by writing its own row there. To see what is applied (read-only, from `apps\api`):
+
+  ```powershell
+  pnpm.cmd exec wrangler d1 execute krhomebase --remote --config kr-api-wrangler.jsonc --command "SELECT id, file_name, applied_at FROM kr_schema_migration ORDER BY id;"
+  ```
+
+- The pages in this folder do not describe the migrations yet (for example `workspace_tool`, `user_preference`, `homebase_feedback`, the deploy window columns and `kr_schema_migration`). They are added when Schema 8.0 is next refreshed from the live database.

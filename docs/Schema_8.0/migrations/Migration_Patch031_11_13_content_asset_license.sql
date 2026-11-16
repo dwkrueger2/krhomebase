@@ -1,4 +1,4 @@
--- file: docs/patch-notes/repository/Migration_Patch031_11_13_content_asset_license.sql
+-- file: docs/Schema_8.0/migrations/Migration_Patch031_11_13_content_asset_license.sql
 --
 -- Image licenses for Front End Publishing (repository patch 31, Nov 13, 2026). Adds six columns to `content_asset`
 -- in the `krhomebase` D1 database. Decision D25 of docs/API/WorkStream_AsIs_Reference.md (section 8.1, the
@@ -29,7 +29,7 @@
 -- Apply (PowerShell, from D:\Repos\krhomebase):
 --   $Repo = "D:\Repos\krhomebase"
 --   $Db   = "krhomebase"
---   $Sql  = Join-Path $Repo "docs\patch-notes\repository\Migration_Patch031_11_13_content_asset_license.sql"
+--   $Sql  = Join-Path $Repo "docs\Schema_8.0\migrations\Migration_Patch031_11_13_content_asset_license.sql"
 --   Set-Location (Join-Path $Repo "apps\api")
 --   pnpm.cmd exec wrangler d1 execute $Db --remote --config kr-api-wrangler.jsonc --file $Sql
 --

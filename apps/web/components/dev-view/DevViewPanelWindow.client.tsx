@@ -24,16 +24,47 @@ const STYLES = {
   root: 'min-h-dvh bg-[color:var(--kr-theme-card-surface,#ffffff)] font-sans text-[color:var(--kr-theme-text,#243142)] antialiased',
 } as const
 
+/** A window's box on the screen. */
+interface ScreenBox {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+const boxOf = (win: Window): ScreenBox => ({ left: win.screenX, top: win.screenY, width: win.outerWidth, height: win.outerHeight })
+
 /**
- * Opens the empty panel window beside the inspected window's right edge.
+ * Where the panel window goes (Nov 15, 2026, the requester: it used to open over the page and had to be dragged
+ * aside): beside the inspected window, and beside `avoid` (the Feedback pop-out) too, on the first side with room on
+ * the screen; when no side has room, at the screen's right edge.
+ */
+export function panelWindowPosition(inspected: ScreenBox, area: ScreenBox, size: { width: number; height: number }, avoid?: ScreenBox): { left: number; top: number } {
+  const top = Math.max(area.top, Math.min(inspected.top + 40, area.top + area.height - size.height))
+  const fits = (left: number) => left >= area.left && left + size.width <= area.left + area.width
+  const rightOf = (box: ScreenBox) => box.left + box.width
+  const candidates = [
+    avoid ? Math.max(rightOf(inspected), rightOf(avoid)) : rightOf(inspected),
+    avoid ? Math.min(inspected.left, avoid.left) - size.width : inspected.left - size.width,
+  ]
+  const left = candidates.find(fits) ?? area.left + area.width - size.width
+  return { left: Math.round(left), top: Math.round(top) }
+}
+
+/**
+ * Opens the empty panel window beside the inspected window, never over it when the screen has room.
  *
  * @param inspected - The window Dev View inspects (the main window or a pop-out).
+ * @param opener - The window that received the click (default `inspected`). A remote button in the Feedback pop-out
+ *   passes its own window: a browser lets only the clicked window open another one.
  * @returns The new window, or null when the browser blocked it (the panel then stays in the page).
  */
-export function openDevViewPanelWindow(inspected: Window): Window | null {
-  const left = Math.max(0, Math.round(inspected.screenX + inspected.outerWidth - PANEL_WINDOW_WIDTH_PX - 24))
-  const top = Math.max(0, Math.round(inspected.screenY + 80))
-  const popup = inspected.open('', `krh-dev-view-panel-${Date.now()}`, `popup=yes,width=${PANEL_WINDOW_WIDTH_PX},height=${PANEL_WINDOW_HEIGHT_PX},left=${left},top=${top}`)
+export function openDevViewPanelWindow(inspected: Window, opener: Window = inspected): Window | null {
+  const screenArea = inspected.screen as Screen & { availLeft?: number; availTop?: number }
+  const area = { left: screenArea.availLeft ?? 0, top: screenArea.availTop ?? 0, width: screenArea.availWidth, height: screenArea.availHeight }
+  const size = { width: PANEL_WINDOW_WIDTH_PX, height: Math.min(PANEL_WINDOW_HEIGHT_PX, area.height) }
+  const { left, top } = panelWindowPosition(boxOf(inspected), area, size, opener === inspected ? undefined : boxOf(opener))
+  const popup = opener.open('', `krh-dev-view-panel-${Date.now()}`, `popup=yes,width=${size.width},height=${size.height},left=${left},top=${top}`)
   return popup && !popup.closed ? popup : null
 }
 

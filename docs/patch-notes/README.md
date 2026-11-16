@@ -29,6 +29,6 @@ File name: `Outstanding Task List_PatchXXX_MM_DD.md`, where `XXX` is the track's
 | API | `api/Outstanding Task List_Patch006_11_09.md` |
 | Web | `web/Outstanding Task List_Patch508_11_09.md` |
 
-`repository/Migration_Patch016_11_09_workspace_tools.sql` is a migration for the requester to apply (`AGENTS_06`); it holds no data.
+Migration files are not kept here: they live in `docs/Schema_8.0/migrations/` (`AGENTS_06`; moved in repository patch 45, Nov 15, 2026). Older lists still name the old place, `repository/Migration_Patch...sql`.
 
 Earlier lists stay in place as history.

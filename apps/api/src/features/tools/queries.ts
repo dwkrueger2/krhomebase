@@ -8,7 +8,7 @@
  *  - `workspace_tool_token`  short-lived server-path access tokens (hashes only)
  *  - `workspace_tool_audit`  every tool call and every super-admin change (no bodies)
  *
- * The tables are created by `docs/patch-notes/repository/Migration_Patch016_11_09_workspace_tools.sql`,
+ * The tables are created by `docs/Schema_8.0/migrations/Migration_Patch016_11_09_workspace_tools.sql`,
  * which the requester applies. Columns are snake_case; this file maps them to the camelCase records the
  * rules and routes use. JSON columns that do not parse are read as empty lists, so a bad row hides a tool
  * rather than crashing the menu.

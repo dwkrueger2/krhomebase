@@ -16,7 +16,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import PopOutBrowserWindow, { openPopoutBrowserWindow } from '@/components/shell/PopOutBrowserWindow.client'
 import PopOutWindow from '@/components/shell/PopOutWindow.client'
+import DevViewLoader from '@/components/dev-view/DevViewLoader.client'
 import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
+import { sendDevViewCommand } from '@/components/dev-view/devViewRemote'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import { L } from '@/lib/KRUtilities'
 import { clearMarkerHighlight } from '../markerHighlight'
@@ -92,6 +94,8 @@ export default function HomebaseFeedbackButton() {
 
   function close(): void {
     clearMarkerHighlight(window)
+    // In the deployed app Dev View has no button of its own on the main window: it ends with Feedback (Nov 15, 2026).
+    if (process.env.NODE_ENV !== 'development') sendDevViewCommand(window, { action: 'off' })
     setAskDiscard(false)
     setDirty(false)
     setPlace(null)
@@ -131,6 +135,8 @@ export default function HomebaseFeedbackButton() {
       {place?.kind === 'in-page' ? (
         <PopOutWindow title="Feedback" onClose={requestClose}>
           {panel}
+          {/* Deployed app, pop-ups blocked: the Feedback window's Dev View button (the main window has none there) */}
+          {process.env.NODE_ENV !== 'development' ? <DevViewLoader controlWindow={window} /> : null}
         </PopOutWindow>
       ) : null}
 

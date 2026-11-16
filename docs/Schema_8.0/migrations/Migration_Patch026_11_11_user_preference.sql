@@ -1,4 +1,4 @@
--- file: docs/patch-notes/repository/Migration_Patch026_11_11_user_preference.sql
+-- file: docs/Schema_8.0/migrations/Migration_Patch026_11_11_user_preference.sql
 --
 -- User preferences (repository patch 26, Nov 11, 2026). Adds one table to the `krhomebase` D1 database.
 -- Decision 1 of docs/08_Settings_Dashboard_Plan.md: preferences follow the person between computers, so they are
@@ -23,7 +23,7 @@
 -- Apply (PowerShell, from D:\Repos\krhomebase):
 --   $Repo = "D:\Repos\krhomebase"
 --   $Db   = "krhomebase"
---   $Sql  = Join-Path $Repo "docs\patch-notes\repository\Migration_Patch026_11_11_user_preference.sql"
+--   $Sql  = Join-Path $Repo "docs\Schema_8.0\migrations\Migration_Patch026_11_11_user_preference.sql"
 --   Set-Location (Join-Path $Repo "apps\api")
 --   pnpm.cmd exec wrangler d1 execute $Db --remote --config kr-api-wrangler.jsonc --file $Sql
 --
