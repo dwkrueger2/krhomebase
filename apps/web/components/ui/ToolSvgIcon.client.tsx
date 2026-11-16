@@ -5,8 +5,8 @@
  *
  * The icon text is checked again here with `checkToolIcon` (contracts), and drawn from the checked elements with
  * React, never as raw HTML: only the allowed shapes and drawing attributes can reach the page. `fill` and `stroke`
- * are `none` or `currentColor`, so the icon takes the color of the menu row it sits in (light, dark, selected), as
- * the built-in `KRHomebaseIcon` does. When the text does not pass, `fallback` is drawn instead (the tool's built-in
+ * are `none`, `currentColor` (the color of the menu row it sits in: light, dark, selected, as the built-in
+ * `KRHomebaseIcon` does), a hex color, or a KR theme color (`var(--kr-theme-orange)`), which follows the theme. When the text does not pass, `fallback` is drawn instead (the tool's built-in
  * icon).
  *
  * Used by the left menu (`components/shell/LeftPanelNavList.client.tsx`) and the Outside tools screen (preview).

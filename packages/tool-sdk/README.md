@@ -1,7 +1,7 @@
 # KR Homebase Tool Kit: Developer Guide
 
-<small>Version 1.4</small><br>
-<small>Updated Nov 14, 2026 3:56pm</small>
+<small>Version 1.5</small><br>
+<small>Updated Nov 15, 2026 7:40pm</small>
 
 **Who this is for:** a developer building an outside tool for KR Homebase without access to the KR Homebase code.
 
@@ -142,9 +142,10 @@ The icon must be of the **tool icon** type, which `checkToolIcon` (in `@krhomeba
 | Root | One `<svg>` with `viewBox="0 0 24 24"`. `xmlns` may be given; `width` and `height` are dropped. |
 | Elements | Only `g`, `path`, `circle`, `ellipse`, `rect`, `line`, `polyline`, `polygon`; at most 48. |
 | Attributes | Shape positions (`d`, `cx`, `cy`, `r`, `rx`, `ry`, `x`, `y`, `width`, `height`, `x1`, `y1`, `x2`, `y2`, `points`) and `fill`, `stroke`, `stroke-width` (0 to 6), `stroke-linecap`, `stroke-linejoin`, `fill-rule`, `clip-rule`, `opacity`. |
-| Colors | `fill` and `stroke` are `none` or `currentColor` only, so the icon takes the menu's colors (light, dark, selected). |
-| Not allowed | Text (draw letters as strokes), `style`, `class`, `id`, scripts, event attributes, links, images, comments, entities (`&...;`), single quotes. |
-| Size | At most 4000 characters (and 4096 bytes as served). |
+| Colors | `fill` and `stroke` are `none`, `currentColor`, a hex color (`#e45e25`, `#fff`, or the 4- and 8-digit forms with transparency) or a KR Homebase theme color (`var(--kr-theme-orange)`, optionally with a hex fallback: `var(--kr-theme-orange, #e45e25)`). `currentColor` takes the menu's color (light, dark, selected) and is the usual choice. A theme color follows the light and dark themes. A hex color stays the same in every theme and on a selected row, so check that it reads on both. |
+| Comments | `<!-- ... -->` comments are allowed anywhere and are **removed**: KR Homebase stores and draws the icon without them. They still count toward the 4096 bytes as served. |
+| Not allowed | Text (draw letters as strokes), `style`, `class`, `id`, scripts, event attributes, links, images, declarations (`<?xml`, `<!DOCTYPE`), an unclosed comment, entities (`&...;`), single quotes. |
+| Size | At most 4000 characters without comments, and 4096 bytes as served. |
 
 Draw like the KR Homebase menu icons: a 24 by 24 grid, strokes of about 1.8, round caps and joins, about 2px clear at the edges. The example tool's `public/tool-icon.svg` is one.
 

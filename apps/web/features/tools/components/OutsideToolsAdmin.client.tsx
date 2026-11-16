@@ -135,6 +135,8 @@ export default function OutsideToolsAdmin() {
       const result = await deleteTool(confirm.tool.id)
       setConfirmBusy(false)
       if (!result.ok) return setConfirmError(result.message)
+      // A removed tool can no longer be changed: close its registration form if it is open.
+      if (editing?.id === confirm.tool.id) setEditing(undefined)
     } else {
       const result = await rotateToolSecret(confirm.tool.id, overlapHours)
       setConfirmBusy(false)
@@ -171,8 +173,10 @@ export default function OutsideToolsAdmin() {
       )}
       {audit && <ToolAuditList label={audit.label} entries={audit.entries} onClose={() => setAudit(null)} />}
 
-      {/* Registered tools */}
-      <div className={`${STYLES.card} ${LAYOUT_STYLES.scroller}`}>
+      {/* Registered tools: hidden while the registration form is open, so a tool cannot be removed or changed from the
+          list while it is being edited (the requester, Nov 15, 2026) */}
+      {editing === undefined && (
+      <div className={`${STYLES.card} ${LAYOUT_STYLES.scroller}`} data-kr-id={'registered-outside-tool-list'}>
         {tools === null ? (
           loadError ? null : <RainbowBusySpinner busy hideWhenIdle={false} label="Loading tools..." size={18} />
         ) : tools.length === 0 ? (
@@ -229,6 +233,7 @@ export default function OutsideToolsAdmin() {
           </table>
         )}
       </div>
+      )}
 
       {/* Confirmation for removing a tool or replacing its secret */}
       <U6ConfirmationDialog

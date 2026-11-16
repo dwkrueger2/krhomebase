@@ -121,8 +121,8 @@ const RoleName = z.enum(ToolRoleNames).describe('A role name as stored on user a
 
 /**
  * A tool's own menu icon: SVG text of the "tool icon" type (`checkToolIcon` in `toolIcon.ts`: viewBox 0 0 24 24,
- * shapes only, fill and stroke none or currentColor, at most 4000 characters). Stored as the standard text
- * `checkToolIcon` writes.
+ * shapes only, fill and stroke none, currentColor, a hex color or a KR theme color, comments removed, at most 4000
+ * characters). Stored as the standard text `checkToolIcon` writes.
  */
 export const ToolIconSvg = z
   .string()
@@ -131,7 +131,7 @@ export const ToolIconSvg = z
     const icon = checkToolIcon(value)
     if (!icon.ok) context.addIssue({ code: 'custom', message: icon.problem })
   })
-  .describe('The menu icon of the tool: an SVG with viewBox="0 0 24 24", only g, path, circle, ellipse, rect, line, polyline and polygon, fill and stroke none or currentColor.')
+  .describe('The menu icon of the tool: an SVG with viewBox="0 0 24 24", only g, path, circle, ellipse, rect, line, polyline and polygon, fill and stroke none, currentColor, a hex color (#e45e25) or a KR theme color (var(--kr-theme-orange)). Comments are removed.')
 
 /** The route every tool must answer on its own origin (the kit's `TOOL_HEALTH_PATH`): `{ status, version }`. */
 export const TOOL_HEALTH_PATH = '/health-check'

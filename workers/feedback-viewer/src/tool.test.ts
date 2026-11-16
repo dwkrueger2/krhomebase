@@ -25,10 +25,11 @@ describe('the tool description', () => {
     expect(served).toEqual(healthDocument(tool))
   })
 
-  it('serves its own icon at /tool-icon.svg, in the standard form of the tool icon rules', () => {
-    const served = readFileSync(join(here, '..', 'public', 'tool-icon.svg'), 'utf8').trim()
-    const icon = checkToolIcon(served)
-    expect(icon.ok && icon.svg).toBe(served)
+  it('serves its own icon at /tool-icon.svg, and it passes the tool icon rules', () => {
+    // The file is kept readable (spread over lines, with comments); KR Homebase stores the standard form checkToolIcon
+    // writes, without the comments.
+    const served = readFileSync(join(here, '..', 'public', 'tool-icon.svg'), 'utf8')
+    expect(checkToolIcon(served)).toMatchObject({ ok: true })
   })
 
   it('matches the registration sheet in README.md', () => {

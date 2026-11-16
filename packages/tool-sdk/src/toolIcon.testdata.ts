@@ -14,11 +14,22 @@ export const ICON_SAMPLES: string[] = [
   '<svg viewBox="0 0 16 16"><path d="M0 0"/></svg>',
   '<svg viewBox="0 0 24 24"><text>Hi</text></svg>',
   '<svg viewBox="0 0 24 24"><path d="M0 0"/></svg><path d="M1 1"/>',
-  '<!-- x --><svg viewBox="0 0 24 24"><path d="M0 0"/></svg>',
+  '<svg viewBox="0 0 24 24"><!-- not closed <path d="M0 0"/></svg>',
   '<svg viewBox="0 0 24 24"><path d="M0 0&#x41;"/></svg>',
   "<svg viewBox='0 0 24 24'><path d='M0 0'/></svg>",
   '<svg viewBox="0 0 24 24"><g><path d="M0 0"/></svg>',
   '<svg viewBox="0 0 24 24"></svg>',
   '<svg viewBox="0 0 24 24"><path d="url(#x)"/></svg>',
   '',
+]
+
+/**
+ * Icons with colors and comments, all accepted: the hex forms, theme colors with and without a fallback, and
+ * comments anywhere (removed from the stored icon). Also checked by contractSync.test.ts.
+ */
+export const ICON_COLOR_SAMPLES: string[] = [
+  '<!-- The Feedback Viewer icon --><svg viewBox="0 0 24 24" fill="none" stroke="#ec6a32"><!-- the bubble --><path d="M4 6h16"/></svg>',
+  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#FFF"/><rect x="1" y="1" width="4" height="4" fill="#e45e2580"/><line x1="0" y1="0" x2="1" y2="1" stroke="#abcd"/></svg>',
+  '<svg viewBox="0 0 24 24"><g fill="var(--kr-theme-orange)" stroke="var(--kr-theme-brand-primary, #00305b)"><path d="M4 6h16"/></g></svg>',
+  '<svg viewBox="0 0 24 24" stroke="currentColor"><path d="M4 6h16" stroke="var(--kr-theme-orange,#e45e25)"/></svg>',
 ]

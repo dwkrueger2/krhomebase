@@ -9,8 +9,16 @@
  *  - Inside it only `g`, `path`, `circle`, `ellipse`, `rect`, `line`, `polyline` and `polygon`, at most 48 of them.
  *  - Only drawing attributes: shape positions (`d`, `cx`, `r`, `x`, `points` and so on) and `fill`, `stroke`,
  *    `stroke-width`, `stroke-linecap`, `stroke-linejoin`, `fill-rule`, `clip-rule`, `opacity`.
- *  - `fill` and `stroke` are `none` or `currentColor`, so the icon takes the menu's color (light, dark, selected).
- *  - No text, styles, scripts, links, images, comments or entities (`&...;`). At most 4000 characters.
+ *  - `fill` and `stroke` are one of:
+ *      `none`;
+ *      `currentColor`, the menu's own color (light, dark, selected; the usual choice);
+ *      a hex color (`#e45e25`, `#fff`, and the 4- and 8-digit forms with transparency);
+ *      a KR Homebase theme color (`var(--kr-theme-orange)`, with an optional hex fallback:
+ *      `var(--kr-theme-orange, #e45e25)`), which follows the light and dark themes.
+ *    A fixed hex color does not change with the theme or when the menu row is selected.
+ *  - Comments (`<!-- ... -->`) are allowed and removed: the stored icon never contains them.
+ *  - No text, styles, scripts, links, images, declarations or entities (`&...;`). At most 4000 characters,
+ *    not counting comments.
  *
  * Draw on the 24 by 24 grid with strokes of about 1.8, as the KR Homebase menu icons are, for example
  * `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
@@ -43,7 +51,11 @@ export type ToolIconCheck = { ok: true; svg: string; root: ToolIconNode } | { ok
 
 const NUMBER = /^-?(?:\d+(?:\.\d*)?|\.\d+)(?:e-?\d+)?$/i
 const isNumber = (value: string) => NUMBER.test(value)
-const isPaint = (value: string) => value === 'none' || value === 'currentColor'
+/** A hex color: 3, 4, 6 or 8 digits. */
+const HEX_COLOR = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i
+/** A KR Homebase theme color, `var(--kr-theme-<name>)`, with an optional hex fallback. */
+const THEME_COLOR = /^var\(--kr-theme-[a-z0-9-]+(?:,\s*#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8}))?\)$/i
+const isPaint = (value: string) => value === 'none' || value === 'currentColor' || HEX_COLOR.test(value) || THEME_COLOR.test(value)
 const between = (low: number, high: number) => (value: string) => isNumber(value) && Number(value) >= low && Number(value) <= high
 
 /** Drawing attributes allowed on every element (the `svg` and `g` pass them on to their children). */
@@ -91,10 +103,13 @@ function writeNode(node: ToolIconNode): string {
  * @returns The icon written in one standard way (`svg`) and its elements (`root`), or the first problem in words.
  */
 export function checkToolIcon(text: string): ToolIconCheck {
-  const source = String(text ?? '').trim()
+  // Comments are allowed and removed before anything else is checked, so the stored icon never holds one.
+  const source = String(text ?? '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .trim()
   if (!source) return { ok: false, problem: 'The icon is empty.' }
   if (source.length > TOOL_ICON_MAX_LENGTH) return { ok: false, problem: `The icon is longer than ${TOOL_ICON_MAX_LENGTH} characters.` }
-  if (/<[!?]/.test(source) || source.includes('&')) return { ok: false, problem: 'The icon may not contain comments, declarations or entities (& ... ;).' }
+  if (/<[!?]/.test(source) || source.includes('&')) return { ok: false, problem: 'The icon may not contain declarations, entities (& ... ;) or an unclosed comment.' }
 
   const stack: ToolIconNode[] = []
   let root: ToolIconNode | null = null
@@ -145,7 +160,7 @@ export function checkToolIcon(text: string): ToolIconCheck {
           ok: false,
           problem:
             attrName === 'fill' || attrName === 'stroke'
-              ? `${attrName} must be none or currentColor, so the icon takes the menu's color.`
+              ? `${attrName} must be none, currentColor, a hex color (#e45e25) or a KR theme color (var(--kr-theme-orange)).`
               : `The value of ${attrName} on <${tag}> is not allowed.`,
         }
       }

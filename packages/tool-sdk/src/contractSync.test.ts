@@ -7,7 +7,7 @@
 import { checkToolIcon as contractCheckToolIcon, TOOL_HEALTH_PATH as CONTRACT_HEALTH_PATH, ToolIconNames, ToolRoleNames, ToolScopes, WidgetSizes, type ToolContextData, type ToolTokenData, type WidgetDefinition as ContractWidgetDefinition } from '@krhomebase/contracts'
 import { describe, expect, it } from 'vitest'
 import { checkToolIcon } from './toolIcon.ts'
-import { ICON_SAMPLES } from './toolIcon.testdata.ts'
+import { ICON_COLOR_SAMPLES, ICON_SAMPLES } from './toolIcon.testdata.ts'
 import { TOOL_HEALTH_PATH, TOOL_ICONS, TOOL_ROLES, TOOL_SCOPES, WIDGET_SIZES, type TokenReply, type ToolContext, type WidgetDefinition } from './types.ts'
 
 // Type checks, both ways: `pnpm typecheck` fails if a field is added, removed or changed on either side.
@@ -35,6 +35,6 @@ describe('kit and API agree', () => {
   })
 
   it('on every sample tool icon (the check is written out in both packages)', () => {
-    for (const sample of ICON_SAMPLES) expect(contractCheckToolIcon(sample), sample).toEqual(checkToolIcon(sample))
+    for (const sample of [...ICON_SAMPLES, ...ICON_COLOR_SAMPLES]) expect(contractCheckToolIcon(sample), sample).toEqual(checkToolIcon(sample))
   })
 })
