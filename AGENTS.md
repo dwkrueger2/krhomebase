@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.25</small><br>
-<small>Updated Nov 16, 2026 8:25am</small>
+<small>Version 2.26</small><br>
+<small>Updated Nov 16, 2026 4:39pm</small>
 
 ## Agent Guide Index
 
@@ -153,6 +153,7 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 | 3001 | Not used here. The old `apps/kr-homebase` runs on it. | | `pnpm stop:port:3001` |
 | 3000, 3002, 3003 | Not assigned in this repository. Kept from the old repository's scripts. | | `pnpm stop:port:3000`, `:3002`, `:3003` |
 
+- **`pnpm dev` works on live data.** The API's D1 binding is `remote: true`, so a save made while testing locally writes the live `krhomebase` database, and the local API uses the live crud, session and GPT Workers and the live Stripe keys saved in Settings. Before reproducing a bug by clicking through a screen, say what it will write; prefer a `SELECT`, the automated tests and a test client, and never post a payment or charge a card without the requester's go-ahead.
 - `pnpm stop:ports:all` first runs `stop:dev:servers`, then stops every port in the table.
 - `pnpm stop:dev:servers` (`scripts/stop-dev-servers.windows.ps1`) stops every `wrangler dev` and `vite dev` started from this repository's folder, listening or not. On Windows a server can outlive the terminal or pnpm run that started it; such an orphan starts a new workerd and takes port 8787 back, so the next `pnpm dev` says "Ready" but the API never answers, or vinext refuses to start ("Another vinext dev server is already running"). Run `pnpm stop:ports:all` before `pnpm dev` when either happens.
 - A `stop:port:<number>` script stops the whole dev server tree that owns the listener (the `wrangler dev` or `vite dev` above it), not only the listening process, because wrangler restarts a stopped workerd at once.
@@ -177,10 +178,10 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 - `docs/Schema_GPT_Usage_1.1` is the canonical GPT gateway schema documentation (database `krhomebase_gpt_usage_dev`).
 - `docs/06_Contacts_Billing_Port_Plan.md` is the plan and the requester's decisions for porting Contacts Manager and Billing, including the open single-database question.
 - `docs/10_WorkStream_Leads_Publishing_Plan.md` is the next port plan (Projects & Matters, WorkStream, Leads, Tasks, Front End Publishing, the Billing and Stripe checks, deploy). `docs/08_Settings_Dashboard_Plan.md` is the finished Settings port.
-- `docs/11_Deployment_PromptStart.md` starts a deployment session in a new chat: the project summary, what is live, what is waiting, and the deploy process in order. `docs/12_Homebase_Feedback_Plan.md` is the plan for feedback about KR Homebase itself, with the requester's decisions (section 7.1, Nov 13, 2026; decision 3 changed Nov 14, 2026); stages F1 to F6 are built (F3 screenshots and F5 the viewer are deployed; F4, Dev View for Internal Developers in the deployed app and Pick from page, is built and not deployed). How to ask Claude about a request: "Homebase Feedback: asking Claude" below.
+- `docs/11_Deployment_PromptStart.md` starts a deployment session in a new chat: the project summary, what is live, what is waiting, and the deploy process in order. `docs/12_Homebase_Feedback_Plan.md` is the plan for feedback about KR Homebase itself, with the requester's decisions (section 7.1, Nov 13, 2026; decision 3 changed Nov 14, 2026); stages F1 to F6 are built and deployed (F3 the screenshots, F4 Dev View for Internal Developers in the deployed app and Pick from page, F5 the viewer as the registered outside tool "KRH FB Viewer"; checked Nov 16, 2026). How to ask Claude about a request: "Homebase Feedback: asking Claude" below.
 - `docs/09_ENV_KeyMappings.md` maps each environment key to its key file in `private\dev-private-keys` (file names only) and to its binding. The `.dev.vars.example` files point to it.
 - `docs/05_Outside_Tools.md` is the design, security model and go-live steps for outside tools. The guide for outside developers is `packages/tool-sdk/README.md`; do not repeat it elsewhere.
-- `docs/04_Deployed_Architecture.md` states what is deployed now: the four Workers, addresses, bindings, settings and deploy commands. Update it whenever one of those changes.
+- `docs/04_Deployed_Architecture.md` states what is deployed now: every Worker (ten on Nov 16, 2026), addresses, bindings, settings and deploy commands. Update it whenever one of those changes.
 - `docs/01_Architecture_Proposal.md` is the build plan and the list of open decisions.
 - `docs/02_AGENTS_Review.md` records how each old AGENTS rule was kept, changed or dropped.
 - `docs/03_Workers_And_Login_Plan.md` is the plan for copying the old workers and keys and porting the login (done in patch 13).

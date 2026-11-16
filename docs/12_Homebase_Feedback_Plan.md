@@ -1,9 +1,9 @@
 # Homebase Feedback Plan (feature requests and issues for the app itself)
 
-<small>Version 1.6</small><br>
-<small>Updated Nov 15, 2026 11:30pm</small>
+<small>Version 1.7</small><br>
+<small>Updated Nov 16, 2026 4:39pm</small>
 
-**Status:** decided (section 7.1, Nov 13, 2026). Stages F1, F2 and F6 are built (repository patch 33, API patch 30, web patch 542); F5, the viewer (an outside tool, decision 3 changed), is built and not deployed (repository patch 37, API patch 32, Nov 14, 2026); F3, the screenshots, is built and deployed (repository patch 40, API patch 34, web patch 545, Nov 14, 2026); F4, Dev View for developers, is built and not deployed (repository patch 42, web patch 548, Nov 15, 2026). Written from the requester's brief of Nov 13, 2026 ("FEED BACK FEATURE").
+**Status:** decided (section 7.1, Nov 13, 2026). Stages F1, F2 and F6 are built (repository patch 33, API patch 30, web patch 542); F5, the viewer (an outside tool, decision 3 changed), is built (repository patch 37, API patch 32, Nov 14, 2026), deployed Nov 15, 2026 and registered as the outside tool "KRH FB Viewer"; F3, the screenshots, is built and deployed (repository patch 40, API patch 34, web patch 545, Nov 14, 2026); F4, Dev View for developers, is built (repository patch 42, web patch 548, Nov 15, 2026) and live with the web app (every web deploy since commit `16a209f`; all stages checked live Nov 16, 2026). Written from the requester's brief of Nov 13, 2026 ("FEED BACK FEATURE").
 
 **Headline:** people inside KR Homebase can send a numbered request (`FB-0012`) from a pop-out window: text with clickable `data-kr-*` markers, an annotated screenshot, and the page's address and deployed version, all captured automatically. A separate viewer Worker lists and works them. Claude Code reads a request by its number with a read-only script and answers with a plan. Nearly everything asked for is workable; four points need a change of rule or a choice (section 3).
 
