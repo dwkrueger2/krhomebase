@@ -30,6 +30,11 @@
         KR_CF_BROWSER_RENDERING_TOKEN from cloudflare-custom-token\cloudflare-browser-rendering.token, only when that file
                                       exists (Billing part 7c, added Nov 16, 2026: the PDFs of emailed invoices,
                                       statements and receipts)
+        KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY
+                                      from krhomebase-google-workspace-mailer-key.json, only when that file exists
+                                      (added Nov 16, 2026: invitation, WorkStream and billing email from `pnpm dev`).
+                                      The whole JSON key file on one line, in single quotes so its double quotes and
+                                      its \n markers reach the API unchanged.
         KR_SUPER_ADMIN_EMAILS         only when -SuperAdminEmails is given
 
   The script prints setting names and character counts only. It never prints a value.
@@ -89,6 +94,19 @@ function Read-KeyValue {
   return ($text -replace "`r`n", '\n' -replace "`n", '\n')
 }
 
+# Reads a JSON key file (the Google service account key) and returns it on one line. A JSON file has line breaks
+# only between its parts, never inside a value, so joining the lines keeps it the same JSON. The value is written in
+# single quotes (see Write-DevVarsFile), so it must not contain a single quote.
+function Read-JsonKeyValue {
+  param([string]$FileName)
+  $path = Join-Path $KeysFolder $FileName
+  if (-not (Test-Path -LiteralPath $path)) { throw "Key file not found: $FileName (looked in $KeysFolder)" }
+  $text = ((Get-Content -LiteralPath $path -Raw) -replace "`r?`n", ' ').Trim()
+  if (-not $text.StartsWith('{')) { throw "$FileName must be a JSON key file." }
+  if ($text.Contains("'")) { throw "Key file contains a single quote, which cannot be stored safely in .dev.vars: $FileName" }
+  return $text
+}
+
 # Writes one .dev.vars file. $Settings is an ordered list of name/value pairs.
 function Write-DevVarsFile {
   param([string]$RelativeFolder, [System.Collections.IDictionary]$Settings)
@@ -100,7 +118,11 @@ function Write-DevVarsFile {
     if ($first -ne $marker) { throw "$RelativeFolder\.dev.vars exists and was not written by this script. Use -Force to replace it." }
   }
   $lines = @($marker)
-  foreach ($name in $Settings.Keys) { $lines += ('{0}="{1}"' -f $name, $Settings[$name]) }
+  # A JSON value goes in single quotes (taken as written); every other value in double quotes (\n becomes a line break).
+  foreach ($name in $Settings.Keys) {
+    $value = $Settings[$name]
+    if ($value.StartsWith('{')) { $lines += ("{0}='{1}'" -f $name, $value) } else { $lines += ('{0}="{1}"' -f $name, $value) }
+  }
   [System.IO.File]::WriteAllText($target, (($lines -join "`n") + "`n"), $utf8NoBom)
   foreach ($name in $Settings.Keys) {
     '{0}\.dev.vars  {1}  {2} characters' -f $RelativeFolder, $name, $Settings[$name].Length
@@ -136,6 +158,11 @@ if (Test-Path -LiteralPath (Join-Path $KeysFolder 'gpt-worker-shared-secret.txt'
 # copied into this repository's keys folder (docs/09_ENV_KeyMappings.md). Without it documents are emailed without a PDF.
 if (Test-Path -LiteralPath (Join-Path $KeysFolder 'cloudflare-custom-token\cloudflare-browser-rendering.token')) {
   $apiSettings['KR_CF_BROWSER_RENDERING_TOKEN'] = (Read-KeyValue -FileName 'cloudflare-custom-token\cloudflare-browser-rendering.token' -Kind Secret)
+}
+# Email from this computer (Nov 16, 2026): the Gmail service account key, when its file has been copied into this
+# repository's keys folder (docs/09_ENV_KeyMappings.md). Without it every send answers *_EMAIL_NOT_CONFIGURED.
+if (Test-Path -LiteralPath (Join-Path $KeysFolder 'krhomebase-google-workspace-mailer-key.json')) {
+  $apiSettings['KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY'] = (Read-JsonKeyValue -FileName 'krhomebase-google-workspace-mailer-key.json')
 }
 if (-not [string]::IsNullOrWhiteSpace($SuperAdminEmails)) {
   if ($SuperAdminEmails -match '["$`\s]') { throw 'SuperAdminEmails: use plain addresses separated by commas, with no spaces or quotes.' }

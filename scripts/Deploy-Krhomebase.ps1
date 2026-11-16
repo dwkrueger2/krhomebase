@@ -5,6 +5,7 @@
 #   pnpm deploy:hot                      upload both, make both live now (API first). No warning.
 #   pnpm deploy:warn 5 -Estimate 3       upload both, warn everyone for 5 minutes (banner above the top bar), sign
 #                                        everyone out and close the API, make both live, open the API (green)
+#   pnpm deploy:hotDelay3 / :hotDelay5   the same warn deploy with 3 or 5 minutes of warning (-Mode warn 3 / 5)
 #   pnpm deploy:status                   the pending deploy, the deploy window, and what is live
 #   pnpm deploy:finish                   continue a warn deploy whose terminal was closed (or clear a stuck window)
 #   pnpm deploy:cancel                   end the warning; the uploaded versions are never made live

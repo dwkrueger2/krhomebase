@@ -78,6 +78,7 @@ function context(storage = true): DocumentContext {
     docs: createBillingDocumentQueries(env.db),
     storage: storage ? documentStorage(bucket) : null,
     mailer,
+    mailReady: () => true,
     pdfEnv: { KR_CF_ACCOUNT_ID: 'acct', KR_CF_BROWSER_RENDERING_TOKEN: 'token' },
     fetcher,
     actor: { userId: 'user-staff', email: 'sam@example.com', role: 'staff', displayName: 'Sam Staffer', requestId: 'req-1' },
@@ -204,9 +205,11 @@ describe('routes', () => {
     const refused = await call('POST', `${base}/invoices/${invoiceId}/email`, emailBody())
     expect(refused.status).toBe(503)
     expect(ErrorEnvelope.parse(await refused.json()).error.code).toBe('BILLING_DOCUMENT_STORAGE_UNAVAILABLE')
-    // With storage but no mailbox key: the copy is stored, the send is refused, the copy is superseded.
+    // With storage but no mailbox key: refused before anything is built or stored (Nov 16, 2026).
     const notConfigured = await call('POST', `${base}/invoices/${invoiceId}/email`, emailBody({ includePdf: false }), 'staff', { DOCUMENTS: bucket })
+    expect(notConfigured.status).toBe(503)
     expect(ErrorEnvelope.parse(await notConfigured.json()).error.code).toBe('BILLING_EMAIL_NOT_CONFIGURED')
-    expect(one<{ storage_status: string }>('SELECT storage_status FROM document_record').storage_status).toBe('superseded')
+    expect(one<{ count: number }>('SELECT COUNT(*) AS count FROM document_record').count).toBe(0)
+    expect(objects.size).toBe(0)
   })
 })

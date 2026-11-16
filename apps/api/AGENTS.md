@@ -1,7 +1,7 @@
 # KR Homebase API Agent Guide
 
-<small>Version 1.40</small><br>
-<small>Updated Nov 16, 2026 1:35am</small>
+<small>Version 1.41</small><br>
+<small>Updated Nov 16, 2026 8:25am</small>
 
 ## Purpose
 
@@ -162,7 +162,7 @@ The contract test gives write routes a full-schema test database (the maintenanc
 `src/features/billing-documents/` (Billing part 7c, `docs/API/Billing_Audit.md`; old `kr-api-v1/billing/send-invoice`, `send-statement`, `payment-notice` (receipt), `sample-pdf` and the document reader): for an invoice, the Statement of Account (whole client or one matter) and a payment receipt, `GET .../email` (recipients and the sent copies), `POST .../email/preview` and `POST .../email`; `POST /v1/billing/clients/{clientId}/documents/{documentNumber}/resend` (the exact stored email again), `GET .../documents/{documentNumber}/file` (a stored PDF or, with `format=html`, the email) and `POST /v1/billing/document-samples/pdf` (super admin, admin; returned, not stored). Reading uses the billing read roles, sending the billing write roles. The route list and every change from the old routes are in `packages/contracts/src/billingDocuments.ts`; the flow is in the header of `rules.ts`.
 
 - **Documents are built here** from the Billing record (`loadBillingRecord`) and the firm profile (`readFirmProfile`, the letterhead office from `officeId`) with `@krhomebase/documents` (the builders, the email builders and `renderDocument.tsx`); the browser sends only the choices. The PDF stylesheet is generated (`pnpm documents:css`).
-- **Order (old, kept):** build, PDF (a failure is reported, not fatal), store (R2 first, then `media_asset`, `document_record` with its seven-character `generatePublicCode` number, retried on a clash, and the audit row in one batch; a failed batch removes the objects), send (billing mailbox, subject tagged, `X-KR-*` headers; a refusal marks the copy `superseded`), an invoice's `sent_at` and lock, then the WorkStream "Emails" entry linked to the copy (`createActivity`; a failure is `workstreamError`). No storage (`DOCUMENTS` binding missing) answers 503 before anything is sent.
+- **Order (old, kept):** build, PDF (a failure is reported, not fatal), store (R2 first, then `media_asset`, `document_record` with its seven-character `generatePublicCode` number, retried on a clash, and the audit row in one batch; a failed batch removes the objects), send (billing mailbox, subject tagged, `X-KR-*` headers; a refusal marks the copy `superseded`), an invoice's `sent_at` and lock, then the WorkStream "Emails" entry linked to the copy (`createActivity`; a failure is `workstreamError`). No storage (`DOCUMENTS` binding missing) answers 503 `BILLING_DOCUMENT_STORAGE_UNAVAILABLE`, and no billing mailbox (no mailer key: `mailConfigFor(env, 'billing')`) 503 `BILLING_EMAIL_NOT_CONFIGURED`, both before anything is built or stored (`requireReadyToSend`, API patch 39).
 - **Storage:** bucket `krhomebase-media-dev` (the old app's), keys `clients/<client>/matters/<matter>/invoices/<n>/<version>/<file>`, `clients/<client>/[matters/<matter>/]statements/...`, `clients/<client>/matters/<matter>/payments/...`; document types `invoice_sent`, `statement_sent`, `payment_receipt_sent`, so the copies the old app stored open and re-send too.
 - **Not here yet:** pay links in the invoice email and the receipt (part 7d), refund notices (part 7e).
 

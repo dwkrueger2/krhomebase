@@ -1,7 +1,7 @@
 # Environment Key Mappings
 
-<small>Version 1.3</small><br>
-<small>Updated Nov 16, 2026 1:30am</small>
+<small>Version 1.4</small><br>
+<small>Updated Nov 16, 2026 8:25am</small>
 
 ## What this is
 
@@ -32,7 +32,7 @@ This page maps each environment key (secret or setting) to the key file that hol
 | `KR_WORKER_JWT_PRIVATE_KEY` | `private-dev-dan-2.pem` | Yes | API secret. Signs the API's calls to `krhomebase-crud-worker`. The key id `KR_WORKER_JWT_KEY_ID` is `public-dev-dan-2.pem`, the public half the CRUD Worker checks. |
 | `KR_CRUD_WORKER_PUBLIC_KEY` | `public-worker-crud-operations-2.pem` | Yes | API secret. Checks the CRUD Worker's signed replies. |
 | `KR_SESSION_WORKER_SECRET` | `session-symmetric-hashkey.key` | Yes | API secret, and the same value on `krhomebase-session-worker`. Shared HMAC key for the session calls. |
-| `KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY` | `krhomebase-google-workspace-mailer-key.json` | No (old folder only) | API secret: the whole service-account JSON file. Invitation and billing email. Set on the deployed API on Nov 12, 2026; not in `.dev.vars` unless added by hand. |
+| `KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY` | `krhomebase-google-workspace-mailer-key.json` | No (old folder only) | API secret: the whole service-account JSON file. Invitation, WorkStream and billing email. Set on the deployed API on Nov 12, 2026. `.dev.vars` by `Write-DevVars.ps1` once the file is copied here (Nov 16, 2026; one line, in single quotes); without it every email from `pnpm dev` answers `*_EMAIL_NOT_CONFIGURED`. |
 | `KR_PAYMENT_PROVIDER_KEK` | `payment-provider-kek.key` | Yes | API secret, and the same value on `kr-pay-worker-live`. Encrypts the Stripe keys in `payment_provider`. It is not the Stripe webhook secret (`whsec_...`), which is entered on the Stripe Payment Configuration page. |
 | `KR_GPT_WORKER_SECRET` | `gpt-worker-shared-secret.txt` (made Nov 14, 2026; `workers/gpt-workers/README.md`) | — | API secret, and the same value as `GPT_WORKER_SHARED_SECRET` on the GPT models Worker. Set on the deployed API by the requester on Nov 14, 2026 (piped from the file; `workers/gpt-workers/README.md` step 6). |
 | `KR_CF_BROWSER_RENDERING_TOKEN` | `cloudflare-custom-token\cloudflare-browser-rendering.token` | No (old folder only) | API secret (Billing part 7c, Nov 16, 2026): Cloudflare Browser Rendering for the PDFs of emailed invoices, statements and receipts (the old app's token, the requester's choice). `.dev.vars` by `Write-DevVars.ps1` once the file is copied here. The account id `KR_CF_ACCOUNT_ID` is a plain setting in the wrangler file. |

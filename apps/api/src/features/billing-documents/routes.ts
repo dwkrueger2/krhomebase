@@ -46,7 +46,7 @@ import { z } from 'zod'
 import { defineRoute } from '../../platform/defineRoute.ts'
 import { documentStorageFor } from '../../platform/documentStorage.ts'
 import { failure } from '../../platform/envelope.ts'
-import { mailerFor } from '../../platform/googleWorkspaceMailer.ts'
+import { mailConfigFor, mailerFor } from '../../platform/googleWorkspaceMailer.ts'
 import { logLine } from '../../platform/log.ts'
 import type { AppEnv } from '../../platform/types.ts'
 import { billingQueriesFor } from '../billing/queries.ts'
@@ -210,6 +210,7 @@ function contextOf(c: Context<AppEnv>): DocumentContext | null {
     docs,
     storage: documentStorageFor(env as never),
     mailer: mailerFor(env as never),
+    mailReady: () => mailConfigFor(env as never, 'billing') !== null,
     pdfEnv: { KR_CF_ACCOUNT_ID: env.KR_CF_ACCOUNT_ID as string | undefined, KR_CF_BROWSER_RENDERING_TOKEN: env.KR_CF_BROWSER_RENDERING_TOKEN as string | undefined, KR_PDF_RENDERER: env.KR_PDF_RENDERER as string | undefined },
     actor: { userId: session?.userId ?? '', email: session?.email ?? null, role: session?.role ?? null, displayName: session?.displayName || session?.email || session?.userId || '', requestId: c.get('requestId') },
     now: () => new Date(),

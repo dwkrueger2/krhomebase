@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.24</small><br>
-<small>Updated Nov 16, 2026 1:35am</small>
+<small>Version 2.25</small><br>
+<small>Updated Nov 16, 2026 8:25am</small>
 
 ## Agent Guide Index
 
@@ -224,6 +224,7 @@ pnpm documents:css    # rewrite the PDF stylesheet (packages/documents/src/gener
 pnpm build:web        # build the web app (apps/web)
 pnpm deploy:hot       # API and web as Worker versions, live at once (nobody else working); the requester runs it
 pnpm deploy:warn 5 -Estimate 3  # warn 5 minutes, sign everyone out, deploy API and web, open again (needs migration 034)
+pnpm deploy:hotDelay3   # the same warn deploy with 3 minutes of warning (deploy:hotDelay5: 5 minutes)
 pnpm deploy:status    # pending deploy, deploy window, live versions (deploy:finish and deploy:cancel: docs/11_Deployment_PromptStart.md 6.2)
 pnpm deploy:api       # deploy the API Worker (apps/api); the requester runs it
 pnpm deploy:web       # deploy the web Worker (apps/web); needs the cf sign-in
@@ -263,7 +264,7 @@ pnpm listScripts      # show the root scripts
 | `dev:feedback-viewer` | `workers/feedback-viewer` | `vite dev --port 5174 --strictPort` |
 | `deploy:feedback-viewer` | `workers/feedback-viewer` | `vite build`, then `wrangler deploy --config feedback-viewer.jsonc` |
 | `deploy:public-article` | root | `wrangler deploy --config workers/r2-workers/public-article-worker/public-article-worker.jsonc` |
-| `deploy:hot`, `deploy:warn`, `deploy:status`, `deploy:finish`, `deploy:cancel` | root | `scripts/Deploy-Krhomebase.ps1 -Mode <mode>` (`hot`, `warn`, `status`, `finish` or `cancel`): Worker versions uploaded (`wrangler versions upload`, `vinext-cloudflare deploy --no-promote`), then made live (`wrangler versions deploy`), API first; `warn` writes and clears the deploy window on `kr_maintenance_gate` (repository patch 34). Pending and last deploy in the git-ignored `deploy-state/`. |
+| `deploy:hot`, `deploy:warn`, `deploy:status`, `deploy:finish`, `deploy:cancel` | root | `scripts/Deploy-Krhomebase.ps1 -Mode <mode>` (`hot`, `warn`, `status`, `finish` or `cancel`; `deploy:hotDelay3` and `deploy:hotDelay5` are `-Mode warn 3` and `-Mode warn 5`, repository patch 50): Worker versions uploaded (`wrangler versions upload`, `vinext-cloudflare deploy --no-promote`), then made live (`wrangler versions deploy`), API first; `warn` writes and clears the deploy window on `kr_maintenance_gate` (repository patch 34). Pending and last deploy in the git-ignored `deploy-state/`. |
 | `pack:tool-sdk` | `packages/tool-sdk` | build, then `pnpm pack` into `dist/tool-sdk` |
 | `openapi` | `apps/api` | `tsx scripts/write-openapi.ts` |
 | `documents:css` | `packages/documents` | `node scripts/write-document-css.mjs` |

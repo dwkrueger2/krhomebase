@@ -5,6 +5,9 @@
  * stored-copy reader `app/krhomebase/document/[documentNumber]`. The routes are in `routes.ts`; SQL in `queries.ts`.
  *
  * Sending one document (the old order, kept):
+ *   0. refuse at once, before anything is built or stored, when this server has no document storage or no billing
+ *      mailbox (`requireReadyToSend`; added Nov 16, 2026: a send without the mailer key used to store a copy first and
+ *      then mark it superseded);
  *   1. build the document from the database (the Billing record and the firm profile, `@krhomebase/documents`), then
  *      the email HTML and text (+ the PDF through Cloudflare Browser Rendering when asked; a PDF failure is reported,
  *      not fatal);
@@ -89,6 +92,8 @@ export interface DocumentContext {
   docs: BillingDocumentQueries
   storage: DocumentStorage | null
   mailer: Mailer
+  /** Whether the billing mailbox is set up on this server (the mailer key and a sender); asked before a send. */
+  mailReady: () => boolean
   pdfEnv: PdfEnv
   /** `fetch` for Browser Rendering (tests pass a stand-in). */
   fetcher?: typeof fetch
@@ -252,6 +257,12 @@ async function storeDocument(ctx: DocumentContext, out: Outgoing, sentAt: string
   }
 }
 
+/** Refuses a send before anything is built or stored when storage or the billing mailbox is missing (step 0). */
+function requireReadyToSend(ctx: DocumentContext): void {
+  if (!ctx.storage) throw new BillingDocumentError('BILLING_DOCUMENT_STORAGE_UNAVAILABLE', 503, 'Document storage is not set up on this server, so nothing was sent.')
+  if (!ctx.mailReady()) throw new BillingDocumentError('BILLING_EMAIL_NOT_CONFIGURED', 503, 'The billing mailbox is not set up on this server.')
+}
+
 /** Sends through the billing mailbox; a refusal is a `BillingDocumentError`. */
 async function sendMail(ctx: DocumentContext, kind: Kind, input: { to: string[]; cc: string[]; subject: string; html: string; text: string; clientNumber: string; matterNumber: string; attachments: MailAttachment[] }): Promise<string | null> {
   const footer = emailFooter()
@@ -356,6 +367,7 @@ export async function previewInvoiceEmail(ctx: DocumentContext, clientId: string
 
 /** Sends the invoice: PDF, stored copy, email, `sent_at` (locks it), WorkStream entry. */
 export async function sendInvoiceEmail(ctx: DocumentContext, clientId: string, invoiceId: string, body: InvoiceEmailBody): Promise<BillingEmailSentData> {
+  requireReadyToSend(ctx)
   const to = recipientsOf(body.to)
   if (!body.subject.trim()) throw new BillingDocumentError('VALIDATION_MISSING_SUBJECT', 422, 'The email needs a subject.')
   const { record, invoice, letterhead, report, html, text, subject } = await prepareInvoice(ctx, clientId, invoiceId, body)
@@ -429,6 +441,7 @@ export async function previewStatementEmail(ctx: DocumentContext, clientId: stri
 
 /** Sends the Statement of Account: PDF, stored copy, email, WorkStream entry (no lock). */
 export async function sendStatementEmail(ctx: DocumentContext, clientId: string, body: StatementEmailBody): Promise<BillingEmailSentData> {
+  requireReadyToSend(ctx)
   const to = recipientsOf(body.to)
   if (!body.subject.trim()) throw new BillingDocumentError('VALIDATION_MISSING_SUBJECT', 422, 'The email needs a subject.')
   const { record, matter, letterhead, report, html, text, subject, tagMatter } = await prepareStatement(ctx, clientId, body)
@@ -500,6 +513,7 @@ export async function previewReceiptEmail(ctx: DocumentContext, clientId: string
 
 /** Sends the payment receipt: PDF, stored copy, email, WorkStream entry. */
 export async function sendReceiptEmail(ctx: DocumentContext, clientId: string, paymentId: string, body: ReceiptEmailBody): Promise<BillingEmailSentData> {
+  requireReadyToSend(ctx)
   const to = recipientsOf(body.to)
   const { record, payment, letterhead, receipt } = await prepareReceipt(ctx, clientId, paymentId, body.officeId)
   const subject = tagEmailSubject(body.subject || defaultReceiptSubject(receipt), payment.matterNumber)
@@ -556,6 +570,7 @@ async function readStored(ctx: DocumentContext, key: string): Promise<ArrayBuffe
 
 /** Sends the exact stored HTML and PDF of an earlier copy again (no re-render, no new document). */
 export async function resendDocument(ctx: DocumentContext, clientId: string, numberOrId: string, body: BillingDocumentResendBody): Promise<BillingEmailSentData> {
+  requireReadyToSend(ctx)
   const { row, notes, files } = await storedFiles(ctx, clientId, numberOrId)
   const kind = TYPE_TO_KIND[row.document_type ?? '']
   if (!kind) throw new BillingDocumentError('BILLING_DOCUMENT_NOT_FOUND', 404, 'That stored document is not an invoice, statement or receipt.')

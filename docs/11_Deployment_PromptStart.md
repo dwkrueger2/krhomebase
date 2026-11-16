@@ -1,7 +1,7 @@
 # 11_Deployment_PromptStart
 
-<small>Version 1.6</small><br>
-<small>Updated Nov 15, 2026 11:30pm</small>
+<small>Version 1.7</small><br>
+<small>Updated Nov 16, 2026 8:25am</small>
 
 **Purpose:** Drop this file into a new chat to start a **deployment session** for the `krhomebase` repository. It holds the project summary, the rules, what is live now, what is waiting to go live, and the deploy process in order. Read it first, then follow section 9.
 
@@ -126,6 +126,7 @@ The API and the web app go live with `scripts\Deploy-Krhomebase.ps1` (root scrip
 |---|---|---|
 | `pnpm deploy:hot` | Nobody else is working (usually the requester alone) | Upload both, make both live now. Open pages show "KR Homebase was updated" with Reload. |
 | `pnpm deploy:warn 5 -Estimate 3` | Others may be working | Upload both; the banner above the top bar warns for 5 minutes ("Server Maintenance in 5 minutes. Estimated shutdown time < 3 minutes. Save your work, you will be logged out in 4:59"); at 0:00 everyone is signed out and the API closes (503 `MAINTENANCE_IN_PROGRESS`; health, the login settings and log-out stay open); both go live; the API opens again (green) and the login pages reload with "Server status: Green". |
+| `pnpm deploy:hotDelay3`, `pnpm deploy:hotDelay5` | Others may be working | Short names for `pnpm deploy:warn 3` and `pnpm deploy:warn 5`: the same warn deploy with 3 or 5 minutes of warning (estimate 5 minutes; add `-Estimate 3` to change it). Repository patch 50, Nov 16, 2026. |
 | `pnpm deploy:status` | Any time | The pending deploy, the deploy window, the live version ids. |
 | `pnpm deploy:finish` | The warn deploy's terminal was closed | Continues the wait and the deploy (or clears a window left behind). |
 | `pnpm deploy:cancel` | Change of plan | Ends the warning; the uploaded versions are never made live. |

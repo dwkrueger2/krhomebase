@@ -1,7 +1,7 @@
 {
   "name": "krhomebase",
   "version": "1.0.0",
-  "patchNum": "49",
+  "patchNum": "50",
   "patchDate": "11-16",
   "private": true,
   "description": "KR Homebase: web (Next.js on vinext) and api (Hono on Cloudflare Workers).",
@@ -24,6 +24,8 @@
     "deploy:public-article": "wrangler deploy --config workers/r2-workers/public-article-worker/public-article-worker.jsonc",
     "deploy:hot": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Deploy-Krhomebase.ps1 -Mode hot",
     "deploy:warn": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Deploy-Krhomebase.ps1 -Mode warn",
+    "deploy:hotDelay3": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Deploy-Krhomebase.ps1 -Mode warn 3",
+    "deploy:hotDelay5": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Deploy-Krhomebase.ps1 -Mode warn 5",
     "deploy:status": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Deploy-Krhomebase.ps1 -Mode status",
     "deploy:finish": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Deploy-Krhomebase.ps1 -Mode finish",
     "deploy:cancel": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Deploy-Krhomebase.ps1 -Mode cancel",
