@@ -1,7 +1,7 @@
 {
   "name": "@krhomebase/web",
   "version": "1.1.5",
-  "patchNum": "548",
+  "patchNum": "549",
   "patchDate": "11-15",
   "private": true,
   "type": "module",

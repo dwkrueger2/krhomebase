@@ -13,9 +13,10 @@
  * window's Dev View (`devViewFor="opener"`), so the overlays appear on the page the request is about.
  */
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import PopOutBrowserWindow, { openPopoutBrowserWindow } from '@/components/shell/PopOutBrowserWindow.client'
 import PopOutWindow from '@/components/shell/PopOutWindow.client'
+import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import { L } from '@/lib/KRUtilities'
 import { clearMarkerHighlight } from '../markerHighlight'
@@ -60,6 +61,23 @@ const STYLES = {
  */
 export default function HomebaseFeedbackButton() {
   const [place, setPlace] = useState<FeedbackPlace>(null)
+  // Unsent work in New request (the requester, Nov 15, 2026): closing asks "Discard changes without saving?" first.
+  const [dirty, setDirty] = useState(false)
+  const [askDiscard, setAskDiscard] = useState(false)
+  const onDirtyChange = useCallback((value: boolean) => setDirty(value), [])
+
+  // The pop-out in its own browser window is closed with the window's own X, which no page can stop with a dialog of
+  // its own: while there is unsent work, the browser asks with its "Leave site?" prompt instead. The main window asks
+  // too, because closing or reloading it closes the pop-out.
+  useEffect(() => {
+    if (!dirty || !place) return
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault()
+    const windows: Window[] = place.kind === 'window' ? [place.popup, window] : [window]
+    for (const target of windows) target.addEventListener('beforeunload', warn)
+    return () => {
+      for (const target of windows) target.removeEventListener('beforeunload', warn)
+    }
+  }, [dirty, place])
 
   function open(): void {
     if (place?.kind === 'window' && !place.popup.closed) {
@@ -74,11 +92,19 @@ export default function HomebaseFeedbackButton() {
 
   function close(): void {
     clearMarkerHighlight(window)
+    setAskDiscard(false)
+    setDirty(false)
     setPlace(null)
   }
 
+  /** The in-page pop-out's X (or Escape): ask first when New request holds unsent work. */
+  function requestClose(): void {
+    if (dirty) setAskDiscard(true)
+    else close()
+  }
+
   // Made only once open (after a click, in the browser): `window` does not exist while the server draws the page.
-  const panel = place ? <HomebaseFeedbackPanel sourceWindow={window} /> : null
+  const panel = place ? <HomebaseFeedbackPanel sourceWindow={window} onDirtyChange={onDirtyChange} /> : null
 
   return (
     <>
@@ -103,10 +129,20 @@ export default function HomebaseFeedbackButton() {
         </PopOutBrowserWindow>
       ) : null}
       {place?.kind === 'in-page' ? (
-        <PopOutWindow title="Feedback" onClose={close}>
+        <PopOutWindow title="Feedback" onClose={requestClose}>
           {panel}
         </PopOutWindow>
       ) : null}
+
+      {/* Closing with unsent work: discard it, or keep writing */}
+      <U6ConfirmationDialog
+        open={askDiscard}
+        title="Discard changes without saving?"
+        description="The request has not been sent. Closing removes its title, text and screenshots."
+        confirmLabel="Discard"
+        onCancel={() => setAskDiscard(false)}
+        onConfirm={close}
+      />
     </>
   )
 }

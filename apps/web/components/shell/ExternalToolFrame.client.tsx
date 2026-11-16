@@ -17,6 +17,12 @@
  * frame is replaced by a notice that names the problem, with Try again and Open anyway. A health check that could
  * not be made (no answer from the API) or a local address (`not_checked`) leaves the frame in place.
  *
+ * Dev Mode (the requester, Nov 15, 2026): when this KR Homebase runs on the developer's own computer (`localhost`) and
+ * the tool is deployed elsewhere, the frame is not drawn at first. A deployed tool lets only `https://krhomebase.com`
+ * show it in a frame (its `frame-ancestors`, for example the Feedback Viewer's `public/_headers`), so the browser would
+ * refuse it here with "refused to connect". A notice says so and shows the health answer the API read from the deployed
+ * tool in a text box; Open anyway still tries the frame. A tool run locally (`localhost` too) is framed as usual.
+ *
  * Each time the tool moves between the workspace and a pop-out, React draws a new frame, so the tool page
  * loads again. The tool kit's guide tells developers to save often for this reason.
  */
@@ -54,6 +60,7 @@ const LAYOUT_STYLES = {
   caption: 'h-[22px] gap-[6px] px-[8px] flex shrink-0 items-center',
   frame: 'min-h-0 w-full flex-1',
   notice: 'gap-[6px] p-[8px] m-[8px] flex flex-col items-start',
+  devAnswer: 'h-[140px] w-full px-[6px] py-[4px]',
   noticeActions: 'gap-[6px] flex',
 } as const
 
@@ -69,12 +76,32 @@ const STYLES = {
   buttonMain: 'border-(--kr-theme-button-primary-background) bg-(--kr-theme-button-primary-background) text-(color:--kr-theme-text-inverse)',
   buttonQuiet: 'border-(--kr-theme-line) bg-transparent text-(color:--kr-theme-text)',
   checking: 'text-(color:--kr-theme-text-muted)',
+  devAnswer: 'resize-y rounded-[3px] border border-(--kr-theme-line) bg-(--kr-theme-muted-surface) font-mono text-[11px] leading-[1.35] text-(color:--kr-theme-text)',
   // b1: ' border-red-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
   // b2: ' border-blue-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
 } as const
 
 // const b1 = STYLES.b1
 // const b2 = STYLES.b2
+
+/** Host names of the developer's own computer. */
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+/** True for an address on the developer's own computer. */
+function isLocalAddress(address: string): boolean {
+  try {
+    return LOCAL_HOSTS.has(new URL(address).hostname)
+  } catch {
+    return false
+  }
+}
+
+/** The health answer as shown in the Dev Mode text box: the API's reading of the deployed tool, or why there is none. */
+function healthAnswerText(health: ToolHealthData | null, checking: boolean): string {
+  if (checking && !health) return "Asking KR Homebase to read the tool's health address..."
+  if (!health) return 'No health answer: KR Homebase could not be asked.'
+  return JSON.stringify(health, null, 2)
+}
 
 /**
  * Renders one outside tool.
@@ -92,6 +119,9 @@ export default function ExternalToolFrame({ clientId, label, origin, entryUrl, m
   const [openAnyway, setOpenAnyway] = useState(false)
   const [attempt, setAttempt] = useState(0)
   const showNotice = health?.state === 'failed' && !openAnyway
+  // Dev Mode: this page on the developer's computer, the tool deployed elsewhere (see the file comment).
+  const devMode = typeof window !== 'undefined' && isLocalAddress(window.location.href) && !isLocalAddress(origin)
+  const showDevNotice = devMode && !openAnyway
   // Keeps the latest callback without restarting the bridge, which would make the tool reconnect.
   const onDirtyRef = useRef(onDirtyChange)
   useEffect(() => {
@@ -121,7 +151,7 @@ export default function ExternalToolFrame({ clientId, label, origin, entryUrl, m
       onDirtyRef.current?.(false)
     }
     // showNotice: the frame is removed while the notice shows, so the bridge starts again when it comes back.
-  }, [clientId, origin, mode, showNotice])
+  }, [clientId, origin, mode, showNotice, showDevNotice])
 
   // Stage 4: ask whether the tool answers its health address, without waiting before drawing the frame.
   useEffect(() => {
@@ -160,7 +190,33 @@ export default function ExternalToolFrame({ clientId, label, origin, entryUrl, m
         {checking && <span className={STYLES.checking} data-kr-element="external-tool-health-checking">checking...</span>}
       </div>
 
-      {showNotice ? (
+      {showDevNotice ? (
+        /* Dev Mode notice: a deployed tool refuses to be framed by a KR Homebase on localhost */
+        <div className={`${LAYOUT_STYLES.notice} ${STYLES.notice}`} role="status" data-kr-element="external-tool-dev-mode-notice">
+          <p className={STYLES.noticeTitle}>Dev Mode: {label} is not loaded here</p>
+          <p className={STYLES.noticeText}>
+            This KR Homebase runs on localhost, and the tool is deployed at {origin}. A deployed tool lets only https://krhomebase.com show it in a frame,
+            so calling it from localhost fails (the browser says it refused to connect). Use the deployed KR Homebase, or run the tool locally.
+          </p>
+          <p className={STYLES.noticeAddress}>The tool's health answer, read by KR Homebase:</p>
+          <textarea
+            className={`${LAYOUT_STYLES.devAnswer} ${STYLES.devAnswer}`}
+            readOnly
+            aria-label="The tool's health answer"
+            data-kr-element="external-tool-dev-mode-answer"
+            value={healthAnswerText(health, checking)}
+          />
+          {/* Dev Mode actions */}
+          <div className={LAYOUT_STYLES.noticeActions}>
+            <button type="button" className={`${STYLES.button} ${STYLES.buttonMain}`} disabled={checking} onClick={() => setAttempt((value) => value + 1)}>
+              Check again
+            </button>
+            <button type="button" className={`${STYLES.button} ${STYLES.buttonQuiet}`} onClick={() => setOpenAnyway(true)}>
+              Open anyway
+            </button>
+          </div>
+        </div>
+      ) : showNotice ? (
         /* Health notice: the tool did not answer its health address, so it is not loaded */
         <div className={`${LAYOUT_STYLES.notice} ${STYLES.notice}`} role="alert" data-kr-element="external-tool-health-notice">
           <p className={STYLES.noticeTitle}>{label} is not answering</p>

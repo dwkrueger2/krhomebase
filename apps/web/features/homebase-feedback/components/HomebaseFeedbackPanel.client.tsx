@@ -29,6 +29,8 @@ import FeedbackRequestList from './FeedbackRequestList.client'
 export interface HomebaseFeedbackPanelProps {
   /** The window the pop-out was opened from (the main KR Homebase window). */
   sourceWindow: Window
+  /** Told whether New request holds work not sent yet (`FeedbackRequestForm`), so closing can ask first. */
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 const LAYOUT_STYLES = {
@@ -62,7 +64,7 @@ type FeedbackTab = 'new' | 'mine' | 'all'
  * @param props - The source window.
  * @returns `<div data-kr-id="HomebaseFeedbackPanel">` with the header and the tabs.
  */
-export default function HomebaseFeedbackPanel({ sourceWindow }: HomebaseFeedbackPanelProps) {
+export default function HomebaseFeedbackPanel({ sourceWindow, onDirtyChange }: HomebaseFeedbackPanelProps) {
   const [tab, setTab] = useState<FeedbackTab>('new')
   const [isDeveloper, setIsDeveloper] = useState(false)
   const [disabledReason, setDisabledReason] = useState<string | null>(null)
@@ -98,7 +100,7 @@ export default function HomebaseFeedbackPanel({ sourceWindow }: HomebaseFeedback
     {
       id: 'new',
       label: 'New request',
-      card: <FeedbackRequestForm sourceWindow={sourceWindow} disabledReason={disabledReason} isDeveloper={isDeveloper} onSent={() => setRefreshKey((value) => value + 1)} />,
+      card: <FeedbackRequestForm sourceWindow={sourceWindow} disabledReason={disabledReason} isDeveloper={isDeveloper} onDirtyChange={onDirtyChange} onSent={() => setRefreshKey((value) => value + 1)} />,
     },
     {
       id: 'mine',

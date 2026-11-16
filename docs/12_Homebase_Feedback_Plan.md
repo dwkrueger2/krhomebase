@@ -1,7 +1,7 @@
 # Homebase Feedback Plan (feature requests and issues for the app itself)
 
-<small>Version 1.4</small><br>
-<small>Updated Nov 15, 2026 8:10pm</small>
+<small>Version 1.5</small><br>
+<small>Updated Nov 15, 2026 9:10pm</small>
 
 **Status:** decided (section 7.1, Nov 13, 2026). Stages F1, F2 and F6 are built (repository patch 33, API patch 30, web patch 542); F5, the viewer (an outside tool, decision 3 changed), is built and not deployed (repository patch 37, API patch 32, Nov 14, 2026); F3, the screenshots, is built and deployed (repository patch 40, API patch 34, web patch 545, Nov 14, 2026); F4, Dev View for developers, is built and not deployed (repository patch 42, web patch 548, Nov 15, 2026). Written from the requester's brief of Nov 13, 2026 ("FEED BACK FEATURE").
 
@@ -169,6 +169,7 @@ What F4 built (Nov 15, 2026; repository patch 42, web patch 548; the requester a
 - **Dev View ships for Internal Developers only (decision 1).** `DevViewLoader` draws nothing until `useDevViewAccess` (`apps/web/components/dev-view/devViewAccess.ts`) allows it. In development it always does. In the deployed app the Feedback pop-out allows it (`grantDevViewAccess`) once `GET /v1/homebase-feedback/mine` answers `viewer.isDeveloper` (the `developer_tools` permission). Dev View and its remote button are separate chunks loaded on first draw (`lazy`), so nobody else downloads them; the built Dev View chunk is about 36 KB. The grant lasts until the page reloads: a developer opens Feedback once, and Dev View's own button then appears on the main window as well. It only reads the page's markers, so the grant is a convenience, not a security boundary.
 - **The guide rule changed with it:** `apps/web/AGENTS.md` and `Readme-dev-view.md` no longer say Dev View never ships; the build check now confirms that the Dev View code is only in its lazily loaded chunk.
 - **Pick from page (Pick into the text):** developers see a Pick from page button above the request text. It sends `pick` to the main window's Dev View (`devViewRemote.ts`), which turns Pick on; the element the developer clicks in the main window is outlined as usual, and its first marker comes back (`kr-dev-view:picked`, checked to be a `data-kr-*="..."` label) and goes into the text where the cursor was.
-- **Also in this change (F3 fixes):** the annotation editor's Text tool works (the click that placed the field took the focus back, so the field blurred and was dropped at once), and each tool has a hover tip; the footer repeats the chosen tool's tip.
+- **Also with F4 (F3 fixes):** each annotation tool has a hover tip, and the footer repeats the chosen tool's tip. The Text tool now takes its words in a field beside the tools, and each click on the screenshot places them (web patch 549). A field drawn on the picture lost its focus in the real pop-out window. Pick from page prefers a `data-kr-id` or `data-kr-element` marker, because only those become chips. The editor gained an Eraser (a click removes a mark, a drag removes every mark its box touches), and a request may now carry up to five screenshots from the pop-out (the API's limit since F3).
+- **`pnpm dev` and the viewer (web patch 549):** the deployed viewer lets only `https://krhomebase.com` frame it, and that stays (the requester, Nov 15, 2026: the deployed viewer must not be shown by localhost). A local KR Homebase shows a Dev Mode notice instead of the frame, with the health answer the API read from the deployed viewer (`ExternalToolFrame`).
 
 Left for later: showing a screenshot in My requests (the sender's own view) is not built.

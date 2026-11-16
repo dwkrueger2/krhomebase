@@ -51,6 +51,7 @@ import {
   measureOverlays,
   mutationIsInsideDevView,
   pickLabelForElement,
+  pickLabelsForElement,
   pickOverlayId,
   readMarkerEntries,
   type DevViewWindow,
@@ -347,7 +348,9 @@ export default function DevView({ targetWindow }: DevViewProps = {}) {
     })
     setPickedElements((current) => (current.includes(element) ? current : [...current, element]))
     if (pickForRemoteRef.current) {
-      const label = pickLabelForElement(element)
+      // Prefer a marker the Feedback text turns into a chip (`data-kr-id="..."` or `data-kr-element="..."`).
+      const labels = pickLabelsForElement(element)
+      const label = labels.find((value) => /^data-kr-(id|element)="/.test(value)) ?? labels[0] ?? pickLabelForElement(element)
       if (label) announceDevViewPicked(targetWindow ?? window, { label })
     }
     const overlayId = pickOverlayId(element)

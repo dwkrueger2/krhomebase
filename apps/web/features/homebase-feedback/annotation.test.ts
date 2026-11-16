@@ -8,7 +8,7 @@
 
 import { HomebaseFeedbackMarkerMap, HomebaseFeedbackShapeList } from '@krhomebase/contracts'
 import { describe, expect, it } from 'vitest'
-import { arrowHead, clampUnit, drawShapes, REDACTION_COLOR, shapeFromDrag, shapeMetrics, textShape, type ShapeCanvas } from './annotation'
+import { arrowHead, clampUnit, drawShapes, REDACTION_COLOR, shapeFromDrag, shapeHit, shapeMetrics, shapesInBox, textShape, topShapeAt, type ShapeCanvas } from './annotation'
 import { readMarkerMap } from './screenshot'
 
 describe('shapes', () => {
@@ -102,5 +102,34 @@ describe('readMarkerMap', () => {
       { attribute: 'data-kr-element', value: 'contacts-grid', box: { x: 0, y: 0.1, width: 0.5, height: 0.9 } },
     ])
     expect(HomebaseFeedbackMarkerMap.safeParse(map).success).toBe(true)
+  })
+})
+
+describe('the eraser', () => {
+  const W = 1000
+  const H = 500
+  const box = { type: 'rectangle', x: 0.1, y: 0.1, width: 0.2, height: 0.2 } as const
+  const arrow = { type: 'arrow', x1: 0.5, y1: 0.5, x2: 0.9, y2: 0.5 } as const
+  const words = { type: 'text', x: 0.6, y: 0.1, text: 'Too tall' } as const
+
+  it('hits a box on or inside it, and an arrow near its line, within the reach', () => {
+    expect(shapeHit(box, { x: 0.2, y: 0.2 }, W, H, 10)).toBe(true)
+    expect(shapeHit(box, { x: 0.305, y: 0.2 }, W, H, 10)).toBe(true)
+    expect(shapeHit(box, { x: 0.33, y: 0.2 }, W, H, 10)).toBe(false)
+    expect(shapeHit(arrow, { x: 0.7, y: 0.51 }, W, H, 10)).toBe(true)
+    expect(shapeHit(arrow, { x: 0.7, y: 0.6 }, W, H, 10)).toBe(false)
+    expect(shapeHit(words, { x: 0.61, y: 0.11 }, W, H, 10)).toBe(true)
+  })
+
+  it('removes the topmost mark under a click', () => {
+    const inner = { type: 'rectangle', x: 0.15, y: 0.15, width: 0.05, height: 0.05 } as const
+    expect(topShapeAt([box, inner], { x: 0.17, y: 0.17 }, W, H, 10)).toBe(1)
+    expect(topShapeAt([box, inner], { x: 0.9, y: 0.9 }, W, H, 10)).toBe(-1)
+  })
+
+  it('removes every mark a dragged box touches, an arrow when the box crosses its line', () => {
+    expect(shapesInBox([box, arrow, words], { x: 0, y: 0 }, { x: 0.15, y: 0.15 }, W, H)).toEqual([0])
+    expect(shapesInBox([box, arrow, words], { x: 0.65, y: 0.45 }, { x: 0.7, y: 0.55 }, W, H)).toEqual([1])
+    expect(shapesInBox([box, arrow, words], { x: 0.4, y: 0.7 }, { x: 0.45, y: 0.9 }, W, H)).toEqual([])
   })
 })

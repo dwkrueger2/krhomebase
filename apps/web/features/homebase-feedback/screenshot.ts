@@ -18,7 +18,7 @@
 import { HOMEBASE_FEEDBACK_MAX_MAP_ENTRIES, type HomebaseFeedbackMapEntry } from '@krhomebase/contracts'
 import { domToCanvas } from 'modern-screenshot'
 import { clampUnit } from './annotation'
-import { isFeedbackOwn } from './sourcePage'
+import { FEEDBACK_PANEL_ID, isFeedbackOwn } from './sourcePage'
 
 /** A screenshot ready for the editor. */
 export interface SourceScreenshot {
@@ -61,6 +61,11 @@ export function readMarkerMap(doc: Pick<Document, 'querySelectorAll'>, width: nu
   return entries
 }
 
+/** True for the in-page pop-out window (pop-ups blocked) that holds the Feedback panel. */
+function holdsFeedbackPanel(element: Element): boolean {
+  return element.getAttribute('data-kr-id') === 'KRH-PopOutWindow' && Boolean(element.querySelector(`[data-kr-id="${FEEDBACK_PANEL_ID}"]`))
+}
+
 /**
  * Draws the source window as it is now.
  *
@@ -79,8 +84,9 @@ export async function captureSourceScreenshot(source: Window): Promise<SourceScr
     height,
     scale: 1,
     backgroundColor: background && background !== 'rgba(0, 0, 0, 0)' ? background : '#ffffff',
-    // Leave out the Feedback panel and the outline layer (nodeType 1 is an element).
-    filter: (node) => !(node.nodeType === 1 && isFeedbackOwn(node as Element)),
+    // Leave out the Feedback panel and the outline layer (nodeType 1 is an element), and, when pop-ups are blocked,
+    // the in-page window around the panel (`KRH-PopOutWindow` holding it), which would otherwise show as an empty box.
+    filter: (node) => !(node.nodeType === 1 && (isFeedbackOwn(node as Element) || holdsFeedbackPanel(node as Element))),
     timeout: 8000,
     features: { restoreScrollPosition: true },
   })

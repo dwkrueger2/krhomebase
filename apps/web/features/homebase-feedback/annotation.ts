@@ -56,6 +56,95 @@ export function textShape(at: UnitPoint, words: string): HomebaseFeedbackShapeIn
   return text ? { type: 'text', x: clampUnit(at.x), y: clampUnit(at.y), text } : null
 }
 
+/**
+ * The eraser (the requester, Nov 15, 2026): a click removes the topmost mark under the pointer; a drag removes every
+ * mark its box touches. Distances are in image pixels.
+ */
+
+/** A box in image pixels. */
+export interface PixelBox {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
+/** How far from a mark a click still counts as on it, in screen pixels (the editor scales it to image pixels). */
+export const ERASER_REACH_SCREEN_PX = 10
+
+/** The box a shape covers in image pixels; text is estimated from its letters (bold, about 0.62 of the font per letter). */
+export function shapeBounds(shape: HomebaseFeedbackShapeInput, width: number, height: number): PixelBox {
+  if (shape.type === 'arrow') {
+    const [x1, y1, x2, y2] = [shape.x1 * width, shape.y1 * height, shape.x2 * width, shape.y2 * height]
+    return { left: Math.min(x1, x2), top: Math.min(y1, y2), right: Math.max(x1, x2), bottom: Math.max(y1, y2) }
+  }
+  if (shape.type === 'text') {
+    const font = shapeMetrics(width).font
+    const left = shape.x * width
+    const top = shape.y * height
+    return { left, top, right: left + shape.text.length * font * 0.62, bottom: top + font * 1.2 }
+  }
+  const left = shape.x * width
+  const top = shape.y * height
+  return { left, top, right: left + shape.width * width, bottom: top + shape.height * height }
+}
+
+/** Distance from point (px, py) to the segment (x1, y1)-(x2, y2). */
+function distanceToSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
+  const dx = x2 - x1
+  const dy = y2 - y1
+  const length = dx * dx + dy * dy
+  const t = length ? Math.min(1, Math.max(0, ((px - x1) * dx + (py - y1) * dy) / length)) : 0
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy))
+}
+
+/**
+ * Whether a click at `point` is on the shape: on or inside a rectangle, redaction or text box, or near an arrow's
+ * line or head, within `reach` image pixels.
+ */
+export function shapeHit(shape: HomebaseFeedbackShapeInput, point: UnitPoint, width: number, height: number, reach: number): boolean {
+  const px = point.x * width
+  const py = point.y * height
+  if (shape.type === 'arrow') {
+    const [x1, y1, x2, y2] = [shape.x1 * width, shape.y1 * height, shape.x2 * width, shape.y2 * height]
+    if (distanceToSegment(px, py, x1, y1, x2, y2) <= reach) return true
+    return arrowHead(x1, y1, x2, y2, shapeMetrics(width).head).some(([hx, hy]) => distanceToSegment(px, py, x2, y2, hx, hy) <= reach)
+  }
+  const box = shapeBounds(shape, width, height)
+  return px >= box.left - reach && px <= box.right + reach && py >= box.top - reach && py <= box.bottom + reach
+}
+
+/** The index of the topmost (last drawn) shape under the click, or -1. */
+export function topShapeAt(shapes: readonly HomebaseFeedbackShapeInput[], point: UnitPoint, width: number, height: number, reach: number): number {
+  for (let index = shapes.length - 1; index >= 0; index -= 1) if (shapeHit(shapes[index]!, point, width, height, reach)) return index
+  return -1
+}
+
+/** The indexes of the shapes an eraser box (two corners, 0 to 1) touches. An arrow counts when its line crosses the box. */
+export function shapesInBox(shapes: readonly HomebaseFeedbackShapeInput[], start: UnitPoint, end: UnitPoint, width: number, height: number): number[] {
+  const box: PixelBox = {
+    left: Math.min(start.x, end.x) * width,
+    top: Math.min(start.y, end.y) * height,
+    right: Math.max(start.x, end.x) * width,
+    bottom: Math.max(start.y, end.y) * height,
+  }
+  const touches = (shape: HomebaseFeedbackShapeInput): boolean => {
+    if (shape.type === 'arrow') {
+      const [x1, y1, x2, y2] = [shape.x1 * width, shape.y1 * height, shape.x2 * width, shape.y2 * height]
+      // Sample along the line: enough for a box drawn by hand.
+      for (let step = 0; step <= 20; step += 1) {
+        const x = x1 + ((x2 - x1) * step) / 20
+        const y = y1 + ((y2 - y1) * step) / 20
+        if (x >= box.left && x <= box.right && y >= box.top && y <= box.bottom) return true
+      }
+      return false
+    }
+    const b = shapeBounds(shape, width, height)
+    return b.left <= box.right && b.right >= box.left && b.top <= box.bottom && b.bottom >= box.top
+  }
+  return shapes.flatMap((shape, index) => (touches(shape) ? [index] : []))
+}
+
 /** Line, arrow head and text sizes for an image of this width, in image pixels (the editor and the PNG use the same). */
 export function shapeMetrics(imageWidth: number): { line: number; head: number; font: number; halo: number } {
   const line = Math.max(2, Math.round(imageWidth / 480))

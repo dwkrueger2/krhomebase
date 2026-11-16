@@ -7,18 +7,20 @@
  *
  * - Shapes are kept in coordinates 0 to 1 of the screenshot (`annotation.ts`) and drawn here as SVG over the image,
  *   with the same line, head and letter sizes the sent PNG uses (`shapeMetrics`), so what is seen is what is saved.
- * - Rectangle, Arrow and Redact draw by dragging; Text places a small field where the person clicks (Enter keeps it,
- *   Escape drops it). Each tool button has a hover tip on how to use it, and the footer repeats the chosen tool's tip. Undo removes the last shape. Done hands the shapes to the form; Cancel keeps the earlier ones.
+ * - Eraser (Nov 15, 2026): a click removes the topmost mark within `ERASER_REACH_SCREEN_PX` of the pointer; a drag
+ *   removes every mark its box touches. The marks it would remove are outlined in dashed red first. Undo steps back
+ *   through every change, erasing included.
+ * - Rectangle, Arrow and Redact draw by dragging. Text: the words are typed in a field beside the tools, then each click
+ *   on the screenshot places them (Nov 15, 2026; a field on the picture lost its focus in the real pop-out window). Each tool button has a hover tip on how to use it, and the footer repeats the chosen tool's tip. Undo removes the last shape. Done hands the shapes to the form; Cancel keeps the earlier ones.
  * - A redaction is solid black here and in the PNG: the covered pixels are not sent (plan 3.5). The footer says so.
  *
- * The positions of the text field are measured values, set inline (as `markerHighlight.ts` does); every other look
- * is in the style maps.
+ * Every look is in the style maps.
  */
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { HOMEBASE_FEEDBACK_MAX_SHAPES, type HomebaseFeedbackShapeInput } from '@krhomebase/contracts'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
-import { arrowHead, shapeFromDrag, shapeMetrics, textShape, type AnnotationTool, type UnitPoint } from '../annotation'
+import { arrowHead, ERASER_REACH_SCREEN_PX, shapeBounds, shapeFromDrag, shapeMetrics, shapesInBox, textShape, topShapeAt, type AnnotationTool, type UnitPoint } from '../annotation'
 import type { SourceScreenshot } from '../screenshot'
 
 export interface ScreenshotEditorProps {
@@ -31,14 +33,18 @@ export interface ScreenshotEditorProps {
   onCancel: () => void
 }
 
-const TOOLS: readonly AnnotationTool[] = ['rectangle', 'arrow', 'text', 'redact']
+/** The editor's tools: the four that draw a shape, and the eraser (the requester, Nov 15, 2026). */
+type EditorTool = AnnotationTool | 'eraser'
+
+const TOOLS: readonly EditorTool[] = ['rectangle', 'arrow', 'text', 'redact', 'eraser']
 /** The tool buttons' words. */
-const TOOL_LABELS: Record<AnnotationTool, string> = { rectangle: 'Rectangle', arrow: 'Arrow', text: 'Text', redact: 'Redact' }
+const TOOL_LABELS: Record<EditorTool, string> = { rectangle: 'Rectangle', arrow: 'Arrow', text: 'Text', redact: 'Redact', eraser: 'Eraser' }
 /** How to use each tool: the button's hover tip, and the footer hint while the tool is chosen (the requester, Nov 15, 2026). */
-const TOOL_TIPS: Record<AnnotationTool, string> = {
+const TOOL_TIPS: Record<EditorTool, string> = {
+  eraser: 'Eraser: click a mark to remove it, or drag a box to remove every mark it touches. The mark turns red before it goes.',
   rectangle: 'Rectangle: drag on the screenshot to draw a box around what you mean.',
   arrow: 'Arrow: drag from where the arrow starts to the thing it points at.',
-  text: 'Text: click where the words go, type them, then press Enter. Escape drops them.',
+  text: 'Text: type the words in the box beside the tools, then click the screenshot where they go.',
   redact: 'Redact: drag over client names and numbers. A solid black box replaces them in the saved image.',
 }
 
@@ -51,7 +57,7 @@ const LAYOUT_STYLES = {
   frame: 'relative',
   image: 'block w-full h-auto',
   overlay: 'absolute inset-0 w-full h-full',
-  textField: 'absolute w-[220px]',
+  textField: 'w-[220px]',
   footer: 'gap-[6px] px-[8px] py-[5px] flex items-center justify-between',
   footerActions: 'gap-[6px] flex items-center',
   icon: 'size-[12px]',
@@ -68,6 +74,8 @@ const STYLES = {
   shapeLine: 'fill-none stroke-(--kr-theme-orange)',
   shapeRedact: 'fill-black',
   shapeText: 'fill-(--kr-theme-orange) stroke-white font-bold [paint-order:stroke]',
+  textFieldNeeded:
+    'h-[24px] px-[4px] py-[2px] rounded-[3px] border-2 border-(--kr-theme-danger) bg-(--kr-theme-card-surface) text-[12px] text-(color:--kr-theme-text) focus:outline-2 focus:outline-(--kr-theme-brand-primary-active)',
   textField:
     'h-[24px] px-[4px] py-[2px] rounded-[3px] border border-(--kr-theme-orange) bg-(--kr-theme-card-surface) text-[12px] text-(color:--kr-theme-text) focus:outline-2 focus:outline-(--kr-theme-brand-primary-active)',
   footer: 'border-t border-(--kr-theme-line)',
@@ -88,6 +96,15 @@ const STYLES = {
 // const b2 = STYLES.b2
 // const b3 = STYLES.b3
 // const b4 = STYLES.b4
+
+/**
+ * The eraser's paint (the requester, Nov 15, 2026): the marks it would remove get a dashed red outline, and its box a
+ * dashed red border with a light red tint. Set as SVG attributes, not classes: in development a pop-out window keeps
+ * the stylesheet it copied when it opened, so a class added later had no rule there and the box drew solid black.
+ */
+const ERASER_RED = 'var(--kr-theme-danger, #b42318)'
+const ERASE_MARK_PAINT = { fill: 'none', stroke: ERASER_RED, strokeDasharray: '6 4' } as const
+const ERASE_BOX_PAINT = { fill: ERASER_RED, fillOpacity: 0.12, stroke: ERASER_RED, strokeDasharray: '6 4' } as const
 
 /**
  * One shape as SVG in image pixels.
@@ -120,11 +137,19 @@ function ShapeSvg({ shape, width, height }: { shape: HomebaseFeedbackShapeInput;
  */
 export default function ScreenshotEditor({ screenshot, shapes: initial, onDone, onCancel }: ScreenshotEditorProps) {
   const { dataUrl, width, height } = screenshot
-  const [tool, setTool] = useState<AnnotationTool>('rectangle')
+  const [tool, setTool] = useState<EditorTool>('rectangle')
   const [shapes, setShapes] = useState<HomebaseFeedbackShapeInput[]>(() => [...initial])
+  // Undo steps back through every change (a new mark, or marks erased), not only the last mark drawn.
+  const [history, setHistory] = useState<HomebaseFeedbackShapeInput[][]>([])
+  // The eraser: the mark under the pointer (a click would remove it), while no box is being dragged.
+  const [eraseHover, setEraseHover] = useState(-1)
+  const overlayRef = useRef<SVGSVGElement | null>(null)
   const [drag, setDrag] = useState<{ start: UnitPoint; end: UnitPoint } | null>(null)
-  const [textAt, setTextAt] = useState<UnitPoint | null>(null)
+  // The Text tool (the requester, Nov 15, 2026): the words are typed first, in a field in the tool bar, then each
+  // click on the screenshot places them. An earlier version put a field on the picture at the click; in the real
+  // pop-out window the click took the focus back and the field was dropped before anything could be typed.
   const [words, setWords] = useState('')
+  const [needWords, setNeedWords] = useState(false)
   const firstToolRef = useRef<HTMLButtonElement | null>(null)
   const textFieldRef = useRef<HTMLInputElement | null>(null)
   const full = shapes.length >= HOMEBASE_FEEDBACK_MAX_SHAPES
@@ -133,11 +158,35 @@ export default function ScreenshotEditor({ screenshot, shapes: initial, onDone, 
     firstToolRef.current?.focus()
   }, [])
 
-  // Focus the text field once it is drawn. The click that placed it must not take the focus back (see onPointerDown),
-  // or the field would lose focus at once and `onBlur` would drop it before anything is typed.
+  // Choosing Text puts the cursor in its field.
   useEffect(() => {
-    if (textAt) textFieldRef.current?.focus()
-  }, [textAt])
+    if (tool === 'text') textFieldRef.current?.focus()
+  }, [tool])
+
+  /** Replaces the marks and keeps the old list for Undo. */
+  function change(next: HomebaseFeedbackShapeInput[]): void {
+    setHistory((steps) => [...steps, shapes])
+    setShapes(next)
+  }
+
+  function undo(): void {
+    const previous = history[history.length - 1]
+    if (!previous) return
+    setHistory((steps) => steps.slice(0, -1))
+    setShapes(previous)
+  }
+
+  /** The eraser's reach in image pixels: `ERASER_REACH_SCREEN_PX` on screen, at the size the picture is shown. */
+  function eraserReach(): number {
+    const shown = overlayRef.current?.getBoundingClientRect().width ?? width
+    return ERASER_REACH_SCREEN_PX * (width / Math.max(1, shown))
+  }
+
+  /** True when a drag moved less than a few screen pixels: the eraser treats it as a click. */
+  function isClick(start: UnitPoint, end: UnitPoint): boolean {
+    const shown = overlayRef.current?.getBoundingClientRect()
+    return Math.hypot((end.x - start.x) * (shown?.width ?? width), (end.y - start.y) * (shown?.height ?? height)) < 4
+  }
 
   /** The pointer's place on the screenshot, 0 to 1. */
   function pointOf(event: ReactPointerEvent<SVGSVGElement>): UnitPoint {
@@ -145,22 +194,20 @@ export default function ScreenshotEditor({ screenshot, shapes: initial, onDone, 
     return { x: (event.clientX - rect.left) / Math.max(1, rect.width), y: (event.clientY - rect.top) / Math.max(1, rect.height) }
   }
 
-  function keepText(): void {
-    const shape = textAt ? textShape(textAt, words) : null
-    if (shape && !full) setShapes((list) => [...list, shape])
-    setTextAt(null)
-    setWords('')
-  }
-
   function onPointerDown(event: ReactPointerEvent<SVGSVGElement>): void {
-    if (event.button !== 0 || full) return
+    if (event.button !== 0 || (full && tool !== 'eraser')) return
     const point = pointOf(event)
     if (tool === 'text') {
-      // Without this the browser moves the focus to the page on mousedown, the new field blurs and is dropped.
-      event.preventDefault()
-      if (textAt) keepText()
-      setTextAt(point)
+      const shape = textShape(point, words)
+      if (!shape) {
+        // Nothing typed yet: send the person to the field.
+        setNeedWords(true)
+        textFieldRef.current?.focus()
+        return
+      }
+      change([...shapes, shape])
       setWords('')
+      setNeedWords(false)
       return
     }
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -169,12 +216,23 @@ export default function ScreenshotEditor({ screenshot, shapes: initial, onDone, 
 
   function onPointerUp(): void {
     if (!drag || tool === 'text') return
+    if (tool === 'eraser') {
+      // A click removes the topmost mark under it; a drag removes every mark its box touches.
+      const gone = isClick(drag.start, drag.end) ? [topShapeAt(shapes, drag.start, width, height, eraserReach())].filter((index) => index >= 0) : shapesInBox(shapes, drag.start, drag.end, width, height)
+      if (gone.length) change(shapes.filter((_, index) => !gone.includes(index)))
+      setEraseHover(-1)
+      setDrag(null)
+      return
+    }
     const shape = shapeFromDrag(tool, drag.start, drag.end)
-    if (shape) setShapes((list) => [...list, shape])
+    if (shape) change([...shapes, shape])
     setDrag(null)
   }
 
-  const draft = drag && tool !== 'text' ? shapeFromDrag(tool, drag.start, drag.end) : null
+  const draft = drag && tool !== 'text' && tool !== 'eraser' ? shapeFromDrag(tool, drag.start, drag.end) : null
+  // The marks the eraser would remove now: those its box touches while dragging, else the one under the pointer.
+  const doomed = tool !== 'eraser' ? [] : drag && !isClick(drag.start, drag.end) ? shapesInBox(shapes, drag.start, drag.end, width, height) : eraseHover >= 0 ? [eraseHover] : []
+  const lineWidth = shapeMetrics(width).line
 
   return (
     <div
@@ -184,7 +242,7 @@ export default function ScreenshotEditor({ screenshot, shapes: initial, onDone, 
       aria-labelledby="homebase-feedback-editor-title"
       data-kr-id="HomebaseFeedbackScreenshotEditor"
       onKeyDown={(event) => {
-        if (event.key === 'Escape' && !textAt) onCancel()
+        if (event.key === 'Escape') onCancel()
       }}
     >
       {/* Tools: one at a time, then Undo */}
@@ -201,18 +259,40 @@ export default function ScreenshotEditor({ screenshot, shapes: initial, onDone, 
             aria-pressed={tool === value}
             title={TOOL_TIPS[value]}
             data-kr-action={`feedback-editor-tool-${value}`}
-            onClick={() => {
-              if (textAt) keepText()
-              setTool(value)
-            }}
+            onClick={() => setTool(value)}
           >
             {TOOL_LABELS[value]}
           </button>
         ))}
-        <button type="button" className={`${STYLES.button} ${STYLES.secondary}`} disabled={!shapes.length} data-kr-action="feedback-editor-undo" onClick={() => setShapes((list) => list.slice(0, -1))}>
+        <button type="button" className={`${STYLES.button} ${STYLES.secondary}`} disabled={!history.length} data-kr-action="feedback-editor-undo" onClick={undo}>
           <KRHomebaseIcons.Undo className={LAYOUT_STYLES.icon} />
           Undo
         </button>
+        {/* The Text tool's words: typed here, then placed by clicking the screenshot */}
+        {tool === 'text' ? (
+          <input
+            ref={textFieldRef}
+            className={`${LAYOUT_STYLES.textField} ${needWords ? STYLES.textFieldNeeded : STYLES.textField}`}
+            aria-label="Words to place on the screenshot"
+            data-kr-element="feedback-editor-text-field"
+            maxLength={300}
+            value={words}
+            placeholder="Type the words, then click the picture"
+            onChange={(event) => {
+              setWords(event.target.value)
+              setNeedWords(false)
+            }}
+            onKeyDown={(event) => {
+              // Escape here clears the words instead of closing the editor.
+              if (event.key === 'Escape' && words) {
+                event.preventDefault()
+                event.stopPropagation()
+                setWords('')
+              }
+              if (event.key === 'Enter') event.preventDefault()
+            }}
+          />
+        ) : null}
       </div>
 
       {/* The screenshot with the shapes over it */}
@@ -220,6 +300,7 @@ export default function ScreenshotEditor({ screenshot, shapes: initial, onDone, 
         <div className={`${LAYOUT_STYLES.frame} ${STYLES.frame}`}>
           <img className={LAYOUT_STYLES.image} src={dataUrl} width={width} height={height} alt="Screenshot of the KR Homebase window" draggable={false} />
           <svg
+            ref={overlayRef}
             className={`${LAYOUT_STYLES.overlay} ${STYLES.overlay}`}
             viewBox={`0 0 ${width} ${height}`}
             preserveAspectRatio="none"
@@ -227,47 +308,40 @@ export default function ScreenshotEditor({ screenshot, shapes: initial, onDone, 
             onPointerDown={onPointerDown}
             onPointerMove={(event) => {
               if (drag) setDrag({ start: drag.start, end: pointOf(event) })
+              else if (tool === 'eraser') setEraseHover(topShapeAt(shapes, pointOf(event), width, height, eraserReach()))
             }}
             onPointerUp={onPointerUp}
+            onPointerLeave={() => setEraseHover(-1)}
             onPointerCancel={() => setDrag(null)}
           >
             {shapes.map((shape, index) => (
               <ShapeSvg key={index} shape={shape} width={width} height={height} />
             ))}
             {draft ? <ShapeSvg shape={draft} width={width} height={height} /> : null}
+            {/* Eraser: the marks it would remove, outlined in dashed red, and its box while dragging */}
+            {doomed.map((index) => {
+              const box = shapeBounds(shapes[index]!, width, height)
+              const pad = lineWidth * 2
+              return <rect key={`erase-${index}`} {...ERASE_MARK_PAINT} x={box.left - pad} y={box.top - pad} width={box.right - box.left + pad * 2} height={box.bottom - box.top + pad * 2} strokeWidth={lineWidth} />
+            })}
+            {tool === 'eraser' && drag && !isClick(drag.start, drag.end) ? (
+              <rect
+                {...ERASE_BOX_PAINT}
+                x={Math.min(drag.start.x, drag.end.x) * width}
+                y={Math.min(drag.start.y, drag.end.y) * height}
+                width={Math.abs(drag.end.x - drag.start.x) * width}
+                height={Math.abs(drag.end.y - drag.start.y) * height}
+                strokeWidth={lineWidth}
+              />
+            ) : null}
           </svg>
-          {textAt ? (
-            <input
-              ref={textFieldRef}
-              className={`${LAYOUT_STYLES.textField} ${STYLES.textField}`}
-              style={{ left: `${Math.min(textAt.x, 0.7) * 100}%`, top: `${textAt.y * 100}%` }}
-              aria-label="Text on the screenshot"
-              data-kr-element="feedback-editor-text-field"
-              maxLength={300}
-              value={words}
-              placeholder="Type, then Enter"
-              onChange={(event) => setWords(event.target.value)}
-              onBlur={keepText}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  keepText()
-                } else if (event.key === 'Escape') {
-                  event.preventDefault()
-                  event.stopPropagation()
-                  setTextAt(null)
-                  setWords('')
-                }
-              }}
-            />
-          ) : null}
         </div>
       </div>
 
       {/* Footer: the privacy reminder, Cancel and Done */}
       <div className={`${LAYOUT_STYLES.footer} ${STYLES.footer}`} data-kr-element="feedback-editor-footer">
         <span className={STYLES.hint}>
-          {full ? `${HOMEBASE_FEEDBACK_MAX_SHAPES} shapes at most.` : tool === 'redact' ? TOOL_TIPS.redact : `${TOOL_TIPS[tool]} Redact client names and numbers before Done.`}
+          {full && tool !== 'eraser' ? `${HOMEBASE_FEEDBACK_MAX_SHAPES} shapes at most. The Eraser makes room.` : tool === 'redact' || tool === 'eraser' ? TOOL_TIPS[tool] : `${TOOL_TIPS[tool]} Redact client names and numbers before Done.`}
         </span>
         <div className={LAYOUT_STYLES.footerActions}>
           <button type="button" className={`${STYLES.button} ${STYLES.secondary}`} data-kr-action="feedback-editor-cancel" onClick={onCancel}>
@@ -277,10 +351,7 @@ export default function ScreenshotEditor({ screenshot, shapes: initial, onDone, 
             type="button"
             className={`${STYLES.button} ${STYLES.primary}`}
             data-kr-action="feedback-editor-done"
-            onClick={() => {
-              const pending = textAt ? textShape(textAt, words) : null
-              onDone(pending && !full ? [...shapes, pending] : shapes)
-            }}
+            onClick={() => onDone(shapes)}
           >
             <KRHomebaseIcons.Check className={LAYOUT_STYLES.icon} />
             Done
