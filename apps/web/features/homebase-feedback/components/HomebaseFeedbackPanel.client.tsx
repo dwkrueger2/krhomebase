@@ -17,6 +17,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { grantDevViewAccess } from '@/components/dev-view/devViewAccess'
 import MenuStyleOne from '@/components/ui/MenuStyleOne.client'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import { L } from '@/lib/KRUtilities'
@@ -75,6 +76,8 @@ export default function HomebaseFeedbackPanel({ sourceWindow }: HomebaseFeedback
       .then((page) => {
         if (cancelled) return
         setIsDeveloper(page.viewer.isDeveloper)
+        // Stage F4: an Internal Developer gets Dev View in the deployed app (the chunk loads only now).
+        if (page.viewer.isDeveloper) grantDevViewAccess()
         setDisabledReason(null)
       })
       .catch((caught) => {
@@ -95,7 +98,7 @@ export default function HomebaseFeedbackPanel({ sourceWindow }: HomebaseFeedback
     {
       id: 'new',
       label: 'New request',
-      card: <FeedbackRequestForm sourceWindow={sourceWindow} disabledReason={disabledReason} onSent={() => setRefreshKey((value) => value + 1)} />,
+      card: <FeedbackRequestForm sourceWindow={sourceWindow} disabledReason={disabledReason} isDeveloper={isDeveloper} onSent={() => setRefreshKey((value) => value + 1)} />,
     },
     {
       id: 'mine',

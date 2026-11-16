@@ -33,7 +33,7 @@
 import { type MouseEvent, useEffect, useMemo, useRef, useState } from 'react'
 import DevViewPanelWindow, { openDevViewPanelWindow } from './DevViewPanelWindow.client'
 import { CORNER_LAYOUT_STYLES, DEFAULT_DEV_VIEW_CORNER, readStoredCorner, storeCorner, type DevViewCorner } from './corner'
-import { announceDevViewState, DEV_VIEW_COMMAND_EVENT, readDevViewCommand } from './devViewRemote'
+import { announceDevViewPicked, announceDevViewState, DEV_VIEW_COMMAND_EVENT, readDevViewCommand } from './devViewRemote'
 import DevOverlay, { type DevOverlayData } from './DevOverlay.client'
 import DevPickHighlight from './DevPickHighlight.client'
 import DevViewPanel, { type HoverMetadata } from './DevViewPanel.client'
@@ -50,6 +50,7 @@ import {
   markerLabelsForElement,
   measureOverlays,
   mutationIsInsideDevView,
+  pickLabelForElement,
   pickOverlayId,
   readMarkerEntries,
   type DevViewWindow,
@@ -258,6 +259,8 @@ export default function DevView({ targetWindow }: DevViewProps = {}) {
 
   // Remote control (`devViewRemote.ts`): a remote button in another window sends commands to this window. The refs
   // keep the latest button action and state, so the listener is added once per window.
+  // True while Pick runs for a remote's "pick" command, so the picked marker is sent back (`kr-dev-view:picked`).
+  const pickForRemoteRef = useRef(false)
   const toggleRef = useRef(toggleEnabled)
   toggleRef.current = toggleEnabled
   const enabledRef = useRef(enabled)
@@ -268,10 +271,21 @@ export default function DevView({ targetWindow }: DevViewProps = {}) {
       const command = readDevViewCommand(event)
       if (command?.action === 'toggle') toggleRef.current()
       else if (command?.action === 'report') announceDevViewState(win, { enabled: enabledRef.current })
+      else if (command?.action === 'pick') {
+        // Pick into the text (stage F4): turn Pick on; the next pick is also sent back to the remote.
+        pickForRemoteRef.current = true
+        setEnabled(true)
+        setPicking(true)
+      }
     }
     win.addEventListener(DEV_VIEW_COMMAND_EVENT, onCommand)
     return () => win.removeEventListener(DEV_VIEW_COMMAND_EVENT, onCommand)
   }, [targetWindow])
+
+  // A remote Pick (stage F4) lasts until Pick mode ends, by a plain click or by Escape.
+  useEffect(() => {
+    if (!picking) pickForRemoteRef.current = false
+  }, [picking])
 
   // Tell any remote button whether Dev View is on, after every change.
   useEffect(() => {
@@ -332,6 +346,10 @@ export default function DevView({ targetWindow }: DevViewProps = {}) {
       return next
     })
     setPickedElements((current) => (current.includes(element) ? current : [...current, element]))
+    if (pickForRemoteRef.current) {
+      const label = pickLabelForElement(element)
+      if (label) announceDevViewPicked(targetWindow ?? window, { label })
+    }
     const overlayId = pickOverlayId(element)
     setHiddenOverlayKeys((current) => {
       if (!current.has(overlayId)) return current

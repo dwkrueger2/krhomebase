@@ -8,7 +8,7 @@
  * - Shapes are kept in coordinates 0 to 1 of the screenshot (`annotation.ts`) and drawn here as SVG over the image,
  *   with the same line, head and letter sizes the sent PNG uses (`shapeMetrics`), so what is seen is what is saved.
  * - Rectangle, Arrow and Redact draw by dragging; Text places a small field where the person clicks (Enter keeps it,
- *   Escape drops it). Undo removes the last shape. Done hands the shapes to the form; Cancel keeps the earlier ones.
+ *   Escape drops it). Each tool button has a hover tip on how to use it, and the footer repeats the chosen tool's tip. Undo removes the last shape. Done hands the shapes to the form; Cancel keeps the earlier ones.
  * - A redaction is solid black here and in the PNG: the covered pixels are not sent (plan 3.5). The footer says so.
  *
  * The positions of the text field are measured values, set inline (as `markerHighlight.ts` does); every other look
@@ -34,6 +34,13 @@ export interface ScreenshotEditorProps {
 const TOOLS: readonly AnnotationTool[] = ['rectangle', 'arrow', 'text', 'redact']
 /** The tool buttons' words. */
 const TOOL_LABELS: Record<AnnotationTool, string> = { rectangle: 'Rectangle', arrow: 'Arrow', text: 'Text', redact: 'Redact' }
+/** How to use each tool: the button's hover tip, and the footer hint while the tool is chosen (the requester, Nov 15, 2026). */
+const TOOL_TIPS: Record<AnnotationTool, string> = {
+  rectangle: 'Rectangle: drag on the screenshot to draw a box around what you mean.',
+  arrow: 'Arrow: drag from where the arrow starts to the thing it points at.',
+  text: 'Text: click where the words go, type them, then press Enter. Escape drops them.',
+  redact: 'Redact: drag over client names and numbers. A solid black box replaces them in the saved image.',
+}
 
 const LAYOUT_STYLES = {
   // The whole pop-out: tool bar, the scrolling picture, the footer.
@@ -119,11 +126,18 @@ export default function ScreenshotEditor({ screenshot, shapes: initial, onDone, 
   const [textAt, setTextAt] = useState<UnitPoint | null>(null)
   const [words, setWords] = useState('')
   const firstToolRef = useRef<HTMLButtonElement | null>(null)
+  const textFieldRef = useRef<HTMLInputElement | null>(null)
   const full = shapes.length >= HOMEBASE_FEEDBACK_MAX_SHAPES
 
   useEffect(() => {
     firstToolRef.current?.focus()
   }, [])
+
+  // Focus the text field once it is drawn. The click that placed it must not take the focus back (see onPointerDown),
+  // or the field would lose focus at once and `onBlur` would drop it before anything is typed.
+  useEffect(() => {
+    if (textAt) textFieldRef.current?.focus()
+  }, [textAt])
 
   /** The pointer's place on the screenshot, 0 to 1. */
   function pointOf(event: ReactPointerEvent<SVGSVGElement>): UnitPoint {
@@ -142,6 +156,8 @@ export default function ScreenshotEditor({ screenshot, shapes: initial, onDone, 
     if (event.button !== 0 || full) return
     const point = pointOf(event)
     if (tool === 'text') {
+      // Without this the browser moves the focus to the page on mousedown, the new field blurs and is dropped.
+      event.preventDefault()
       if (textAt) keepText()
       setTextAt(point)
       setWords('')
@@ -183,6 +199,7 @@ export default function ScreenshotEditor({ screenshot, shapes: initial, onDone, 
             type="button"
             className={`${STYLES.button} ${tool === value ? STYLES.toolOn : STYLES.tool}`}
             aria-pressed={tool === value}
+            title={TOOL_TIPS[value]}
             data-kr-action={`feedback-editor-tool-${value}`}
             onClick={() => {
               if (textAt) keepText()
@@ -221,11 +238,11 @@ export default function ScreenshotEditor({ screenshot, shapes: initial, onDone, 
           </svg>
           {textAt ? (
             <input
+              ref={textFieldRef}
               className={`${LAYOUT_STYLES.textField} ${STYLES.textField}`}
               style={{ left: `${Math.min(textAt.x, 0.7) * 100}%`, top: `${textAt.y * 100}%` }}
               aria-label="Text on the screenshot"
               data-kr-element="feedback-editor-text-field"
-              autoFocus
               maxLength={300}
               value={words}
               placeholder="Type, then Enter"
@@ -250,7 +267,7 @@ export default function ScreenshotEditor({ screenshot, shapes: initial, onDone, 
       {/* Footer: the privacy reminder, Cancel and Done */}
       <div className={`${LAYOUT_STYLES.footer} ${STYLES.footer}`} data-kr-element="feedback-editor-footer">
         <span className={STYLES.hint}>
-          {full ? `${HOMEBASE_FEEDBACK_MAX_SHAPES} shapes at most.` : 'Redact client names and numbers: the black box replaces them in the saved image.'}
+          {full ? `${HOMEBASE_FEEDBACK_MAX_SHAPES} shapes at most.` : tool === 'redact' ? TOOL_TIPS.redact : `${TOOL_TIPS[tool]} Redact client names and numbers before Done.`}
         </span>
         <div className={LAYOUT_STYLES.footerActions}>
           <button type="button" className={`${STYLES.button} ${STYLES.secondary}`} data-kr-action="feedback-editor-cancel" onClick={onCancel}>

@@ -15,13 +15,16 @@
  *   editor (`ScreenshotEditor`) opens at once over the pop-out. Send saves the request first, then uploads the PNG
  *   with the shapes drawn in (`flattenScreenshot`) and the marker map (`uploadHomebaseFeedbackImage`). When only the
  *   upload fails, the request stands and the footer says so with its number.
+ * - Pick from page (stage F4, Internal Developers only): asks the main window's Dev View for one element
+ *   (`kr-dev-view:command` `pick`); the picked element's marker comes back (`kr-dev-view:picked`) and is put into the
+ *   text where the cursor was. Dev View itself is allowed by the panel once the API says the person is a developer.
  * - Clear asks first in `U6ConfirmationDialog` when there is text or a screenshot. A sent request shows its number (`FB-0012`) and
  *   the form starts again. `disabledReason` (the migration not applied yet) keeps Send off and says why.
  *
  * The parent (`HomebaseFeedbackPanel`) owns the source window and is told about each sent request.
  */
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   findFeedbackMarkers,
   HOMEBASE_FEEDBACK_KIND_LABELS,
@@ -30,6 +33,7 @@ import {
   type HomebaseFeedbackKind,
   type HomebaseFeedbackShapeInput,
 } from '@krhomebase/contracts'
+import { DEV_VIEW_PICKED_EVENT, readDevViewPicked, sendDevViewCommand } from '@/components/dev-view/devViewRemote'
 import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
@@ -50,6 +54,8 @@ export interface FeedbackRequestFormProps {
   sourceWindow: Window
   /** Why nothing can be sent right now (for example the migration is not applied); null when sending works. */
   disabledReason: string | null
+  /** An Internal Developer (the API's `viewer.isDeveloper`): shows Pick from page (stage F4). */
+  isDeveloper: boolean
   /** Called with each request the API saved. */
   onSent: (feedback: HomebaseFeedbackDetail) => void
 }
@@ -64,6 +70,7 @@ const LAYOUT_STYLES = {
   footer: 'gap-[6px] flex items-center justify-between',
   footerActions: 'gap-[6px] flex items-center',
   buttonIcon: 'size-[12px]',
+  pickRow: 'gap-[6px] flex items-center',
 } as const
 
 const STYLES = {
@@ -78,6 +85,7 @@ const STYLES = {
     'h-[26px] gap-[4px] px-[10px] py-[2px] inline-flex items-center rounded-[3px] border text-[12px] font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-55 focus-visible:outline-2 focus-visible:outline-(--kr-theme-brand-primary-active)',
   secondary: 'border-(--kr-theme-line) bg-transparent text-(color:--kr-theme-text) hover:bg-(--kr-theme-table-row-hover)',
   primary: 'border-(--kr-theme-button-primary-background) bg-(--kr-theme-button-primary-background) text-(color:--kr-theme-text-inverse) hover:bg-(--kr-theme-button-primary-hover-background)',
+  pickOn: 'border-(--kr-theme-orange) bg-(--kr-theme-orange) text-white',
   // b1: ' border-red-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
   // b2: ' border-blue-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
   // b3: ' border-green-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
@@ -97,7 +105,7 @@ const PLACEHOLDER = 'What should change, or what went wrong? To point at a part 
  * @param props - The source window, why sending is off (if it is) and the sent callback.
  * @returns `<form data-kr-element="feedback-request-form">` and the Clear confirmation.
  */
-export default function FeedbackRequestForm({ sourceWindow, disabledReason, onSent }: FeedbackRequestFormProps) {
+export default function FeedbackRequestForm({ sourceWindow, disabledReason, isDeveloper, onSent }: FeedbackRequestFormProps) {
   const [kind, setKind] = useState<HomebaseFeedbackKind>('issue')
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
@@ -119,6 +127,39 @@ export default function FeedbackRequestForm({ sourceWindow, disabledReason, onSe
   // Selected chips and their lasting outlines in the source window.
   const selection = useMarkerSelection(sourceWindow, markers, presence, pageVersion)
   const canSend = !disabledReason && !sending && !capturing && Boolean(title.trim()) && Boolean(body.trim())
+  // Pick from page (stage F4): waiting for the main window's Dev View to send back a picked marker.
+  const [picking, setPicking] = useState(false)
+  const textRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // Stage F4: a picked marker goes into the text at the cursor (or at the end), with a space on each side.
+  useEffect(() => {
+    if (!picking) return
+    const onPicked = (event: Event) => {
+      const picked = readDevViewPicked(event)
+      if (!picked) return
+      const field = textRef.current
+      setBody((current) => {
+        const at = field && field.selectionStart <= current.length ? field.selectionStart : current.length
+        const before = current.slice(0, at)
+        const after = current.slice(at)
+        const lead = before && !/\s$/.test(before) ? ' ' : ''
+        const tail = after && !/^\s/.test(after) ? ' ' : ''
+        return `${before}${lead}${picked.label}${tail}${after}`
+      })
+      setSentCode('')
+      setPicking(false)
+      L(`[HOMEBASE_FEEDBACK_FORM:150] picked ${picked.label.slice(0, 80)}`)
+    }
+    sourceWindow.addEventListener(DEV_VIEW_PICKED_EVENT, onPicked)
+    return () => sourceWindow.removeEventListener(DEV_VIEW_PICKED_EVENT, onPicked)
+  }, [picking, sourceWindow])
+
+  /** Asks the main window's Dev View for one element; a second click stops waiting. */
+  function pickFromPage(): void {
+    if (picking) return setPicking(false)
+    setPicking(true)
+    sendDevViewCommand(sourceWindow, { action: 'pick' })
+  }
 
   function startOver(): void {
     setTitle('')
@@ -235,8 +276,28 @@ export default function FeedbackRequestForm({ sourceWindow, disabledReason, onSe
           emptyHint='None yet. Paste data-kr-id="..." or data-kr-element="..." into the text.'
         />
 
+        {/* Pick from page (stage F4, Internal Developers): put a marker from the main window into the text */}
+        {isDeveloper ? (
+          <div className={LAYOUT_STYLES.pickRow} data-kr-element="feedback-pick-row">
+            <button
+              type="button"
+              className={`${STYLES.button} ${picking ? STYLES.pickOn : STYLES.secondary}`}
+              aria-pressed={picking}
+              disabled={sending}
+              data-kr-action="feedback-pick-from-page"
+              title="Pick from page: click an element in the main window, and its marker goes into the text where the cursor is. Up and Down arrows climb to a parent; Escape stops."
+              onClick={pickFromPage}
+            >
+              <KRHomebaseIcons.OutlineTarget className={LAYOUT_STYLES.buttonIcon} />
+              Pick from page
+            </button>
+            <span className={STYLES.status}>{picking ? 'Click an element in the main window. Escape there stops.' : 'Internal Developers: Dev View and Pick work on the main window.'}</span>
+          </div>
+        ) : null}
+
         {/* The request text: a tall field, so its label is the placeholder and the chips above */}
         <textarea
+          ref={textRef}
           aria-label="Request"
           className={`${LAYOUT_STYLES.text} ${STYLES.text}`}
           data-kr-element="feedback-request-text"

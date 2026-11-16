@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.20</small><br>
-<small>Updated Nov 14, 2026 9:45pm</small>
+<small>Version 2.21</small><br>
+<small>Updated Nov 15, 2026 8:10pm</small>
 
 ## Agent Guide Index
 
@@ -171,7 +171,7 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 - `docs/Schema_GPT_Usage_1.1` is the canonical GPT gateway schema documentation (database `krhomebase_gpt_usage_dev`).
 - `docs/06_Contacts_Billing_Port_Plan.md` is the plan and the requester's decisions for porting Contacts Manager and Billing, including the open single-database question.
 - `docs/10_WorkStream_Leads_Publishing_Plan.md` is the next port plan (Projects & Matters, WorkStream, Leads, Tasks, Front End Publishing, the Billing and Stripe checks, deploy). `docs/08_Settings_Dashboard_Plan.md` is the finished Settings port.
-- `docs/11_Deployment_PromptStart.md` starts a deployment session in a new chat: the project summary, what is live, what is waiting, and the deploy process in order. `docs/12_Homebase_Feedback_Plan.md` is the plan for feedback about KR Homebase itself, with the requester's decisions (section 7.1, Nov 13, 2026; decision 3 changed Nov 14, 2026); stages F1, F2, F3 (screenshots, not deployed), F5 (the viewer, an outside tool, not deployed) and F6 are built, F4 waits. How to ask Claude about a request: "Homebase Feedback: asking Claude" below.
+- `docs/11_Deployment_PromptStart.md` starts a deployment session in a new chat: the project summary, what is live, what is waiting, and the deploy process in order. `docs/12_Homebase_Feedback_Plan.md` is the plan for feedback about KR Homebase itself, with the requester's decisions (section 7.1, Nov 13, 2026; decision 3 changed Nov 14, 2026); stages F1 to F6 are built (F3 screenshots and F5 the viewer are deployed; F4, Dev View for Internal Developers in the deployed app and Pick from page, is built and not deployed). How to ask Claude about a request: "Homebase Feedback: asking Claude" below.
 - `docs/09_ENV_KeyMappings.md` maps each environment key to its key file in `private\dev-private-keys` (file names only) and to its binding. The `.dev.vars.example` files point to it.
 - `docs/05_Outside_Tools.md` is the design, security model and go-live steps for outside tools. The guide for outside developers is `packages/tool-sdk/README.md`; do not repeat it elsewhere.
 - `docs/04_Deployed_Architecture.md` states what is deployed now: the four Workers, addresses, bindings, settings and deploy commands. Update it whenever one of those changes.

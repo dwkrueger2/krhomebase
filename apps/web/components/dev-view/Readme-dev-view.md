@@ -1,7 +1,7 @@
 # Readme: Dev View
 
-<small>Version 1.8</small><br>
-<small>Updated Nov 13, 2026 10:55pm</small>
+<small>Version 1.9</small><br>
+<small>Updated Nov 15, 2026 8:05pm</small>
 
 Ported from the old `README - Dev Overlay.md` (v1.3, krueger-richard-website, `apps/kr-homebase/src/hb-components/dev-view`). Version continues from it.
 
@@ -19,7 +19,7 @@ How: `DevViewLoader` with `controlWindow` loads `DevViewRemote.client.tsx` (the 
 
 Dev View is the development-only inspection layer for KR Homebase. It finds named `data-kr-*` attributes in the rendered page, lets a developer select useful groups of markers, and draws a visual boundary around each selected element.
 
-It runs only in development. `app/layout.tsx` places `DevViewLoader`, which loads Dev View when `process.env.NODE_ENV` is `development` and renders nothing in a production build.
+It runs in development, and in the deployed app for Internal Developers only (stage F4 of `docs/12_Homebase_Feedback_Plan.md`, Nov 15, 2026). `app/layout.tsx` places `DevViewLoader`, which draws Dev View when `useDevViewAccess` (`devViewAccess.ts`) allows it: always in development; in the deployed app only after the Feedback pop-out has heard from the API that the person holds `developer_tools` (`grantDevViewAccess`). Dev View and the remote button are separate chunks, loaded on first draw, so nobody else downloads them. The grant lasts until the page reloads: a developer opens Feedback once, and the Dev View button then appears on the main window too.
 
 ## What changed in the port (web patch 507)
 
@@ -223,14 +223,17 @@ Dev View ignores its own elements (everything inside `data-dev-view-root`), exce
 
 ## Checking that production has no Dev View code
 
-After a production build, the built files must not contain the panel's marker. Run:
+After a production build, the panel's marker must appear only in the lazily loaded Dev View chunk, never in the code every page loads. Run:
 
 ```powershell
 $Repo = "D:\Repos\krhomebase"
 $Web  = Join-Path $Repo "apps\web"
 Set-Location $Repo
 pnpm build:web
-Get-ChildItem (Join-Path $Web "dist") -Recurse -Include *.js | Select-String -Pattern "Dev-View-Marker-Controls" -List | Select-Object Path
+$Chunks = Join-Path $Web ".cloudflare\output\v0\workers\default\assets\_next\static\chunks"
+$DevViewChunk = Get-ChildItem $Chunks -Recurse -Include *.js | Select-String -Pattern "Dev-View-Marker-Controls" -List
+$DevViewChunk | Select-Object Path
+Get-ChildItem $Chunks -Recurse -Include *.js | Select-String -SimpleMatch -Pattern $DevViewChunk[0].Filename -List | Select-Object Path
 ```
 
-No output means no Dev View code was bundled. Tailwind still writes Dev View's utility classes into the shared stylesheet, because it scans every source file; those are style rules only (about 3 KB compressed), not code.
+The first command must list exactly one file: the Dev View chunk (about 36 KB). The second lists every file that names that chunk: only the loader, where the name appears inside `lazy(() => import(...))` (its `Line` shows the `import`). (Web patch 548 checked this: one chunk, reached only by the lazy import.) Tailwind still writes Dev View's utility classes into the shared stylesheet, because it scans every source file; those are style rules only (about 3 KB compressed), not code.

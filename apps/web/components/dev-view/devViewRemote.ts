@@ -9,19 +9,31 @@
  *
  *   kr-dev-view:command   { action: 'toggle' }   the remote asks Dev View to do what its own button does
  *                         { action: 'report' }   the remote asks Dev View to say whether it is on
+ *                         { action: 'pick' }     the remote asks for one element (stage F4, Pick into the text): Dev
+ *                                                View turns on Pick; the next pick is also sent back as 'picked'
  *   kr-dev-view:state     { enabled }            Dev View says whether it is on (after every change and on 'report')
+ *   kr-dev-view:picked    { label }              Dev View says which marker was picked for the remote
+ *                                                (`data-kr-element="related-contacts-list"`)
  *
  * Events, not imports, so the remote button and Dev View share no state and either can be absent: with no Dev View in
- * the controlled window the command is simply not heard. Both sides load only in development (`DevViewLoader`).
+ * the controlled window the command is simply not heard. Both sides load only where Dev View is allowed
+ * (`DevViewLoader`, `devViewAccess.ts`: development, or an Internal Developer in the deployed app).
  */
 
 /** The remote asks Dev View to act. */
 export const DEV_VIEW_COMMAND_EVENT = 'kr-dev-view:command'
 /** Dev View says whether it is on. */
 export const DEV_VIEW_STATE_EVENT = 'kr-dev-view:state'
+/** Dev View says which marker was picked for the remote (stage F4). */
+export const DEV_VIEW_PICKED_EVENT = 'kr-dev-view:picked'
 
 export interface DevViewCommand {
-  action: 'toggle' | 'report'
+  action: 'toggle' | 'report' | 'pick'
+}
+
+export interface DevViewPicked {
+  /** The picked element's first marker, written as in the page: `data-kr-element="related-contacts-list"`. */
+  label: string
 }
 
 export interface DevViewState {
@@ -41,11 +53,22 @@ export function announceDevViewState(target: Window, state: DevViewState): void 
 /** Reads a command event; anything malformed reads as null. */
 export function readDevViewCommand(event: Event): DevViewCommand | null {
   const detail = (event as CustomEvent<unknown>).detail as Partial<DevViewCommand> | null | undefined
-  return detail && (detail.action === 'toggle' || detail.action === 'report') ? { action: detail.action } : null
+  return detail && (detail.action === 'toggle' || detail.action === 'report' || detail.action === 'pick') ? { action: detail.action } : null
 }
 
 /** Reads a state event; anything malformed reads as null. */
 export function readDevViewState(event: Event): DevViewState | null {
   const detail = (event as CustomEvent<unknown>).detail as Partial<DevViewState> | null | undefined
   return detail && typeof detail.enabled === 'boolean' ? { enabled: detail.enabled } : null
+}
+
+/** Sends the picked marker back to the remote, on the controlled window. */
+export function announceDevViewPicked(target: Window, picked: DevViewPicked): void {
+  target.dispatchEvent(new (target as Window & typeof globalThis).CustomEvent<DevViewPicked>(DEV_VIEW_PICKED_EVENT, { detail: picked }))
+}
+
+/** Reads a picked event; anything malformed (or not a marker label) reads as null. */
+export function readDevViewPicked(event: Event): DevViewPicked | null {
+  const detail = (event as CustomEvent<unknown>).detail as Partial<DevViewPicked> | null | undefined
+  return detail && typeof detail.label === 'string' && /^data-kr-[a-z0-9-]+="[^"]+"$/.test(detail.label) ? { label: detail.label } : null
 }
