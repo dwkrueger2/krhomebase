@@ -64,9 +64,12 @@ $Repo     = Split-Path -Parent $PSScriptRoot
 $Api      = Join-Path $Repo "apps\api"
 $Web      = Join-Path $Repo "apps\web"
 $Config   = "kr-api-wrangler.jsonc"
-$State    = Join-Path $Repo "deploy-state"
-$Pending  = Join-Path $State "pending.json"
-$Last     = Join-Path $State "last.json"
+# File paths end in File or Dir: PowerShell variable names ignore case, so a data variable such as $pending must never
+# share a name with a path (Nov 15, 2026: `$pending = Read-Pending` emptied $Pending, and warn mode stopped with
+# "Cannot bind argument to parameter 'Path' because it is null").
+$StateDir    = Join-Path $Repo "deploy-state"
+$PendingFile = Join-Path $StateDir "pending.json"
+$LastFile    = Join-Path $StateDir "last.json"
 # Uncommitted files that do not stop a deploy (not part of the build): one pattern per line, reasons in the file.
 $IgnoreFile = Join-Path $PSScriptRoot "Deploy-Krhomebase-ps1-ignore.txt"
 $Database = "krhomebase"
@@ -219,11 +222,11 @@ function Assert-DeployWindowColumns {
     if ($raw -notmatch '"n":\s*5') { throw "Migration 034 is not applied (the deploy window columns are missing). Apply docs\patch-notes\repository\Migration_Patch034_11_14_deploy_window.sql first, or use pnpm deploy:hot." }
 }
 
-function Read-Pending { if (Test-Path $Pending) { return Get-Content $Pending -Raw | ConvertFrom-Json } else { return $null } }
+function Read-Pending { if (Test-Path $PendingFile) { return Get-Content $PendingFile -Raw | ConvertFrom-Json } else { return $null } }
 
 function Save-Pending($Data) {
-    if (-not (Test-Path $State)) { New-Item -ItemType Directory -Path $State | Out-Null }
-    $Data | ConvertTo-Json -Depth 5 | Set-Content -Path $Pending -Encoding UTF8
+    if (-not (Test-Path $StateDir)) { New-Item -ItemType Directory -Path $StateDir | Out-Null }
+    $Data | ConvertTo-Json -Depth 5 | Set-Content -Path $PendingFile -Encoding UTF8
 }
 
 <# The patterns of Deploy-Krhomebase-ps1-ignore.txt (comments and empty lines skipped). A missing file ignores nothing. #>
@@ -307,8 +310,8 @@ function Publish-Release($Release) {
     $message = "deploy: $($Release.commit)"
     if ($Release.api) { Publish-Version $ApiName $Release.api $message }
     if ($Release.web) { Publish-Version $WebName $Release.web $message }
-    if (-not (Test-Path $State)) { New-Item -ItemType Directory -Path $State | Out-Null }
-    $Release | ConvertTo-Json -Depth 5 | Set-Content -Path $Last -Encoding UTF8
+    if (-not (Test-Path $StateDir)) { New-Item -ItemType Directory -Path $StateDir | Out-Null }
+    $Release | ConvertTo-Json -Depth 5 | Set-Content -Path $LastFile -Encoding UTF8
     Write-Host ""
     Write-Host "Live. Rollback, if needed (web first if a screen fails, the API if a route fails):" -ForegroundColor Green
     if ($Release.previousWeb) { Write-Host "  pnpm.cmd exec wrangler versions deploy $($Release.previousWeb)@100% --name $WebName --yes" }
@@ -345,7 +348,7 @@ function Complete-WarnDeploy {
         throw
     }
     Clear-DeployWindow "deployed"
-    Remove-Item $Pending -Force
+    Remove-Item $PendingFile -Force
 }
 
 switch ($Mode) {
@@ -365,7 +368,7 @@ switch ($Mode) {
     }
 
     "cancel" {
-        if (Test-Path $Pending) { Remove-Item $Pending -Force }
+        if (Test-Path $PendingFile) { Remove-Item $PendingFile -Force }
         Clear-DeployWindow "cancelled"
         Write-Host "Cancelled. Uploaded versions stay unused; nothing new went live."
     }
@@ -374,7 +377,7 @@ switch ($Mode) {
         $pending = Read-Pending
         if ($pending) {
             if (-not $Force) { throw "A warn deploy is pending (sign-out at $($pending.logoutAt)). Wait for it, run pnpm deploy:cancel, or add -Force." }
-            Remove-Item $Pending -Force
+            Remove-Item $PendingFile -Force
             Clear-DeployWindow "replaced by a hot deploy"
         }
         $release = Send-Release

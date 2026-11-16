@@ -1,7 +1,7 @@
 # AGENTS 06: Cloudflare D1 Migration Procedures
 
-<small>Version 1.2</small><br>
-<small>Updated Nov 7, 2026 10:40am</small>
+<small>Version 1.3</small><br>
+<small>Updated Nov 15, 2026 10:55pm</small>
 
 This guide defines the SQL compatibility rules for Cloudflare D1 migrations, data imports and read-only schema verification in this repository.
 
@@ -41,6 +41,31 @@ pnpm.cmd exec wrangler d1 execute $Db --remote --command "PRAGMA table_info(work
 Before and after a migration, inspect `PRAGMA table_info`, `PRAGMA foreign_key_list`, and `PRAGMA foreign_key_check` for affected tables. Do not retry a failed remote migration until the failing statement or D1 constraint behavior has been isolated. Wrangler can surface the opaque `D1_RESET_DO` response when a remote execution is reset; that response is not itself a useful SQL diagnostic, so inspect the Wrangler log and validate the migration's statement order and foreign-key graph.
 
 When a migration changes a table's shape, test it against the actual current schema or a disposable D1-compatible SQLite database before asking the owner to run it remotely. Never claim that a migration was applied unless the owner's command and a read-only post-migration verification both succeed.
+
+## The migration log (`kr_schema_migration`)
+
+The requester's rule (Nov 15, 2026): a successful migration records itself in the database, so anyone can ask which migrations are applied. The table is `kr_schema_migration` (migration 044): `id` (the three-digit repository patch number), `file_name`, `applied_at`, `recorded_at`, `applied_by`, `summary`.
+
+- **The last statement of every migration file** is its own row:
+
+  ```sql
+  INSERT OR IGNORE INTO kr_schema_migration (id, file_name, applied_at, recorded_at, applied_by, summary) VALUES
+    ('045', 'Migration_Patch045_11_16_example.sql', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 'wrangler d1 execute --file (the requester)', 'What it changed, in one line.');
+  ```
+
+  D1 runs an uploaded file inside one implicit transaction, so the row exists only when every statement before it succeeded.
+- **Before writing a migration,** check the log read-only, and name what it depends on:
+
+  ```powershell
+  $Repo = "D:\Repos\krhomebase"
+  $Api  = Join-Path $Repo "apps\api"
+  $Db   = "krhomebase"
+  Set-Location $Api
+  pnpm.cmd exec wrangler d1 execute $Db --remote --config kr-api-wrangler.jsonc --command "SELECT id, file_name, applied_at FROM kr_schema_migration ORDER BY id;"
+  ```
+
+- **After the requester applies one,** the same read-only query must list its row. That, with the usual `PRAGMA` checks, is the verification. A migration is reported as applied only after both.
+- **Migrations before the log** (016, 026, 031, 033 and 034) were recorded by migration 044 with `applied_at` NULL, after a read-only check that each one's tables or columns exist.
 
 ## Data imports and exports (snapshots)
 
