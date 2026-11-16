@@ -1,7 +1,7 @@
 # Billing Audit: Old KR-Billing Compared With the New Billing
 
-<small>Version 1.0</small><br>
-<small>Updated Nov 14, 2026 4:40am</small>
+<small>Version 1.1</small><br>
+<small>Updated Nov 15, 2026 10:35pm</small>
 
 ## 1. Purpose and sources
 
@@ -176,6 +176,18 @@ Stage 7 of plan 10 becomes these parts. 7a to 7c are plan 06 stage 5; 7d and 7e 
 | B4 | How does `kr-pay-worker-live` reach the API when a link is paid? | A service binding from the pay Worker to `krhomebase-api` instead of a public address, keeping the signature check. It changes the pay Worker's configuration and code (a `workers/` change the requester approves). Posting on Billing open covers the gap until then. |
 | B5 | Letterhead: keep the old hard-coded text, or add the tagline, website, licensing sentence and each office's state badge to the firm profile row? | Add them to the firm profile row (`lk_kr_firm_locations_profile`) and its Firm Settings card, so a change of office does not need a deploy. |
 
+### 8.1.1 The requester's answers (Nov 15, 2026)
+
+The requester accepted the recommendations for B1 to B5:
+
+1. **B1:** a new package, `packages/documents`, holds the document templates and builders (depends only on `react` and `contracts`). This adds a package to the folder layout; the root `AGENTS.md` (project shape and dependency direction) and the root `typecheck` and `test` scripts name it in the same change (the root scripts list every folder by hand).
+2. **B2:** PDFs through a Cloudflare Browser Rendering `browser` binding on the API, not the REST address and token.
+3. **B3:** one documents bucket bound to the API (`DOCUMENTS`); the requester names and creates it. Following `FEEDBACK_STORAGE`, it is one bucket for `pnpm dev` and deployed (`"remote": true`, no preview bucket), because `pnpm dev` writes the live database.
+4. **B4:** a service binding from `kr-pay-worker-live` to `krhomebase-api`, keeping the signature check. Posting paid links when Billing opens covers the gap until the pay Worker change is deployed.
+5. **B5:** the tagline, website, licensing sentence and each office's state badge are added to the firm profile row `lk_kr_firm_locations_profile` and its Firm Settings card.
+
+C4 was not answered; the build follows the recommendation (7a to 7c, then 7d and 7e) unless the requester says otherwise.
+
 ### 8.2 Can wait
 
 | # | Question | Recommendation |
@@ -184,3 +196,18 @@ Stage 7 of plan 10 becomes these parts. 7a to 7c are plan 06 stage 5; 7d and 7e 
 | C2 | Should unapplied money be applicable to a later invoice? | Yes, as a later small route; it was missing in the old app too. |
 | C3 | Trust rows in the Overview register (open since plan 06). | Keep them listed but leave them out of the Overview's "Ending balance". |
 | C4 | Plan 10 decision 4 said Billing print and email should be in place before the deploy. The app has since been deployed. Build 7a to 7c next, then 7d and 7e? | Yes. 7d (pay links) matters most for money already paid, so it could also go first if the requester prefers posting the waiting paid links before printing. |
+
+## 9. Review before the build (Nov 15, 2026)
+
+The requester asked for the audit to be checked against the work committed since it was written (commits `2a9040c` to `bc3ac8c`, repository patches 36 to 45, API 32 to 36, web 543 to 550).
+
+**Still accurate.** No file the audit cites changed: `apps/api/src/features/billing/`, `payment-providers/`, `firm/`, `packages/contracts/src/billing.ts`, `paymentProviders.ts`, `firm.ts`, `platform/googleWorkspaceMailer.ts`, `platform/stripeApi.ts`, `apps/web/features/billing/`, `apps/web/features/payment-providers/` and `workers/d1-workers/kr-pay-worker/` are as they were on Nov 14, 2026, so its findings and line numbers stand. The work in between was Homebase Feedback (F3 to F6), the feedback viewer Worker, the deploy scripts and the icon registry.
+
+**New rules the build must follow:**
+
+- **Migrations** live in `docs/Schema_8.0/migrations/` as `Migration_Patch<repository patch>_<MM>_<DD>_<topic>.sql`, and each ends with its own `kr_schema_migration` row (`AGENTS_06`, version 1.4). Check the log read-only before writing one. The audit expects no table changes for 7a to 7e (`payment_request`, `document_record`, `media_asset` and the payment refund columns exist; the letterhead fields are JSON in a `lookup` row), so a migration would only be needed if the build finds otherwise.
+- **Icons:** new screens use `<KRHomebaseIcon name="..." />` from the `ICONS` registry (web patch 546). `KRHomebaseIcons.<Name>` (eight uses in Billing today) is a legacy shortcut; leave those unless a screen is being changed anyway.
+- **R2 buckets:** the API now has three (`EMPLOYEE_STORAGE`, `ARTICLES`, `FEEDBACK_STORAGE`). `platform/feedbackImages.ts` (write the object, then the rows and audit row in one batch, remove the object if the batch fails) is the closest pattern for stored billing documents, beside `employee-documents`.
+- **Workspace:** `pnpm-workspace.yaml` now also lists `workers/feedback-viewer`; `packages/documents` is picked up by the existing `packages/*` line.
+- **Deploys** go through `pnpm deploy:hot` and `pnpm deploy:warn` (`docs/11_Deployment_PromptStart.md`), with a maintenance gate during the deploy window. The paid-link webhook route (7d) must answer during that window or be retried by the pay Worker; check the gate's rules when building it.
+

@@ -64,6 +64,26 @@ describe('Firm Profile', () => {
   })
 })
 
+describe('Firm Profile letterhead fields (Billing part 7a, decision B5)', () => {
+  it('reads a profile saved before them with the defaults, and saves them', async () => {
+    const { legalName, tagline, website, licensingSentence, ...older } = DEFAULT_FIRM_PROFILE
+    const stored = { schemaVersion: 'kr-firm-settings-v1', ...older, locations: older.locations.map(({ badgeLabel, ...row }) => ({ ...row, city: 'McKinney' })) }
+    env.sqlite.prepare(`INSERT INTO lookup (id, category, value, label, description, is_active) VALUES ('lk_kr_firm_locations_profile', 'kr_firm_locations', 'firm_locations', 'Firm Locations', ?, 1)`).run(JSON.stringify(stored))
+    const read = FirmProfileData.parse(await dataOf(await call('GET', '/v1/firm/profile')))
+    expect(read.saved).toBe(true)
+    expect(read.profile).toMatchObject({ legalName, tagline, website, licensingSentence, locations: [{ city: 'McKinney', badgeLabel: '' }, { badgeLabel: '' }] })
+
+    const changed = { ...read.profile, tagline: 'Lawyers', locations: read.profile.locations.map((row, index) => ({ ...row, badgeLabel: index === 0 ? 'Lone Star' : '' })) }
+    expect((await call('PUT', '/v1/firm/profile', changed)).status).toBe(200)
+    const again = FirmProfileData.parse(await dataOf(await call('GET', '/v1/firm/profile')))
+    expect(again.profile.tagline).toBe('Lawyers')
+    expect(again.profile.locations[0]?.badgeLabel).toBe('Lone Star')
+    // A save that leaves them out (an older screen) gets the defaults rather than a refusal.
+    const { tagline: _t, ...withoutTagline } = changed
+    expect((await call('PUT', '/v1/firm/profile', withoutTagline)).status).toBe(200)
+  })
+})
+
 describe('Employee Policies', () => {
   it('reads a stored row field by field', () => {
     const policies = readEmployeePolicies(JSON.stringify({ employeeClockEditWindowDays: 4, ptoPolicies: [{ yearsOfService: '5', accrualMultiplier: 0.08, maxUnusedPtoHours: 160 }], holidays: [{ id: 'x', name: 'Floater', ruleType: 'floating-weekday', month: 3, ordinal: '9th', weekday: 'Funday', dayOfMonth: 4 }] }))

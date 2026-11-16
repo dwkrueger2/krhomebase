@@ -11,6 +11,12 @@
  * Old routes: `GET`/`POST /krhomebase/api/kr-api-v1/firm-settings` and `/employee-policies`. The shapes, defaults,
  * limits and error sentences are the old `hb-components/firm/KRFirmSettings.ts` and `KREmployeePolicies.ts`; the
  * problem lists below are shared, so the screen and the API refuse the same things with the same words.
+ *
+ * Letterhead fields (Billing part 7a, decision B5 of `docs/API/Billing_Audit.md`, the requester, Nov 15, 2026): the
+ * printed invoice, statement and receipt read their letterhead from this profile (`packages/documents`,
+ * `letterhead.ts`) instead of text written in the old code (`KR-Billing/Invoicing/firmProfiles.ts`). The profile gains
+ * `legalName`, `tagline`, `website` and `licensingSentence`, and each location a `badgeLabel`. Each has a default (the
+ * old letterhead text), so a profile saved before them still reads, and a save that leaves them out keeps working.
  */
 
 import { z } from 'zod'
@@ -30,6 +36,14 @@ export const FIRM_TIME_ZONES = [
 
 const text = (max: number) => z.string().trim().max(max)
 
+/** The letterhead text the old code wrote in (`KR-Billing/Invoicing/firmProfiles.ts`), used until a profile saves its own. */
+export const FIRM_LETTERHEAD_DEFAULTS = {
+  legalName: 'Krueger & Richard, PLLC',
+  tagline: 'Attorneys at Law',
+  website: 'www.krueger-richard.com',
+  licensingSentence: 'Krueger & Richard, PLLC is licensed in Texas, Kansas, and Oklahoma.',
+} as const
+
 export const FirmLocation = z.object({
   id: z.string().trim().min(1).max(80).describe('Location id (`firm-location-<…>`).'),
   name: text(120).describe('Location name.'),
@@ -41,6 +55,9 @@ export const FirmLocation = z.object({
   phone: text(40).describe('Phone.'),
   email: text(200).describe('Email.'),
   isPrimary: z.boolean().describe('The primary office (exactly one).'),
+  badgeLabel: text(40)
+    .default('')
+    .describe('Letterhead badge for this office, such as `Texas`. Empty: the full name of the location state.'),
 })
 export type FirmLocation = z.infer<typeof FirmLocation>
 
@@ -51,6 +68,14 @@ export const FirmProfile = z.object({
   timeZone: text(60).describe('Time zone (IANA name).'),
   matterNumberFormat: text(120).describe('Matter numbering format, such as `[000]-LName,FName`.'),
   locations: z.array(FirmLocation).max(50).describe('Offices; exactly one is primary.'),
+  legalName: text(200)
+    .default(FIRM_LETTERHEAD_DEFAULTS.legalName)
+    .describe('Legal name printed on billing documents, such as the payee for mailed checks.'),
+  tagline: text(120).default(FIRM_LETTERHEAD_DEFAULTS.tagline).describe('Letterhead tagline under the firm name.'),
+  website: text(200).default(FIRM_LETTERHEAD_DEFAULTS.website).describe('Website printed on the letterhead.'),
+  licensingSentence: text(500)
+    .default(FIRM_LETTERHEAD_DEFAULTS.licensingSentence)
+    .describe('Licensing sentence printed in the fine print of billing documents.'),
 })
 export type FirmProfile = z.infer<typeof FirmProfile>
 
@@ -62,9 +87,10 @@ export const DEFAULT_FIRM_PROFILE: FirmProfile = {
   timeZone: 'America/Chicago',
   matterNumberFormat: '[000]-LName,FName',
   locations: [
-    { id: 'firm-location-primary', name: 'Primary Office', addressLine1: '', addressLine2: '', city: '', state: 'TX', postalCode: '', phone: '972-688-6760', email: 'service@krueger-richard.com', isPrimary: true },
-    { id: 'firm-location-secondary', name: 'Second Office', addressLine1: '', addressLine2: '', city: '', state: '', postalCode: '', phone: '', email: '', isPrimary: false },
+    { id: 'firm-location-primary', name: 'Primary Office', addressLine1: '', addressLine2: '', city: '', state: 'TX', postalCode: '', phone: '972-688-6760', email: 'service@krueger-richard.com', isPrimary: true, badgeLabel: '' },
+    { id: 'firm-location-secondary', name: 'Second Office', addressLine1: '', addressLine2: '', city: '', state: '', postalCode: '', phone: '', email: '', isPrimary: false, badgeLabel: '' },
   ],
+  ...FIRM_LETTERHEAD_DEFAULTS,
 }
 
 /** What stops a profile from being saved, in the old validator's words (empty when it may be saved). */

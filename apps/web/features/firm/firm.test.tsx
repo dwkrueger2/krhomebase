@@ -61,6 +61,10 @@ describe('Firm Settings cards', () => {
     expect(editable).toContain('data-kr-id="firm-profile-KRModuleCard"')
     expect(editable).toContain('Add location')
     expect(editable).toContain('value="Primary Office"')
+    // Letterhead fields (Billing part 7a, decision B5).
+    expect(editable).toContain('value="Attorneys at Law"')
+    expect(editable).toContain('value="Krueger &amp; Richard, PLLC"')
+    expect(editable).toContain('aria-label="Location 1 Badge"')
     const readOnly = renderToStaticMarkup(<FirmProfileCard initial={{ profile: DEFAULT_FIRM_PROFILE, canEdit: false }} />)
     expect(readOnly).toContain('Only Super Admin can change the firm profile.')
     expect(readOnly).not.toContain('Add location')

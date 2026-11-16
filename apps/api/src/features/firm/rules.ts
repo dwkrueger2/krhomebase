@@ -16,6 +16,9 @@
  *   The profile is still all or nothing: a stored profile that fails the checks shows the built-in one.
  * - A floating holiday keeps only its ordinal and weekday, and a dated one only its day, so the JSON holds no stale
  *   fields.
+ * - Billing part 7a (decision B5, Nov 15, 2026): the profile carries the letterhead fields (`legalName`, `tagline`,
+ *   `website`, `licensingSentence`, and each location's `badgeLabel`). A stored profile without them reads with
+ *   their defaults (the contract's `.default()`), so the profile saved before them is still shown.
  */
 
 import {
@@ -51,6 +54,8 @@ function parseObject(json: string | null): Record<string, unknown> | null {
 }
 
 const str = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
+/** A stored text, or undefined when the key is missing, so the contract's default fills it (the letterhead fields). */
+const optionalStr = (value: unknown) => (typeof value === 'string' ? value.trim() : undefined)
 
 function numberIn(value: unknown, min: number, max: number): number | null {
   const number = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN
@@ -80,8 +85,13 @@ export function readFirmProfile(json: string | null): FirmProfile | null {
         phone: str(row.phone),
         email: str(row.email),
         isPrimary: row.isPrimary === true,
+        badgeLabel: optionalStr(row.badgeLabel),
       }
     }),
+    legalName: optionalStr(value.legalName),
+    tagline: optionalStr(value.tagline),
+    website: optionalStr(value.website),
+    licensingSentence: optionalStr(value.licensingSentence),
   }
   const parsed = FirmProfile.safeParse(candidate)
   return parsed.success && !firmProfileProblems(parsed.data).length ? parsed.data : null

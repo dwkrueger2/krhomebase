@@ -46039,6 +46039,12 @@
                                   "isPrimary": {
                                     "type": "boolean",
                                     "description": "The primary office (exactly one)."
+                                  },
+                                  "badgeLabel": {
+                                    "type": "string",
+                                    "maxLength": 40,
+                                    "default": "",
+                                    "description": "Letterhead badge for this office, such as `Texas`. Empty: the full name of the location state."
                                   }
                                 },
                                 "required": [
@@ -46056,6 +46062,30 @@
                               },
                               "maxItems": 50,
                               "description": "Offices; exactly one is primary."
+                            },
+                            "legalName": {
+                              "type": "string",
+                              "maxLength": 200,
+                              "default": "Krueger & Richard, PLLC",
+                              "description": "Legal name printed on billing documents, such as the payee for mailed checks."
+                            },
+                            "tagline": {
+                              "type": "string",
+                              "maxLength": 120,
+                              "default": "Attorneys at Law",
+                              "description": "Letterhead tagline under the firm name."
+                            },
+                            "website": {
+                              "type": "string",
+                              "maxLength": 200,
+                              "default": "www.krueger-richard.com",
+                              "description": "Website printed on the letterhead."
+                            },
+                            "licensingSentence": {
+                              "type": "string",
+                              "maxLength": 500,
+                              "default": "Krueger & Richard, PLLC is licensed in Texas, Kansas, and Oklahoma.",
+                              "description": "Licensing sentence printed in the fine print of billing documents."
                             }
                           },
                           "required": [
@@ -46366,6 +46396,12 @@
                         "isPrimary": {
                           "type": "boolean",
                           "description": "The primary office (exactly one)."
+                        },
+                        "badgeLabel": {
+                          "type": "string",
+                          "maxLength": 40,
+                          "default": "",
+                          "description": "Letterhead badge for this office, such as `Texas`. Empty: the full name of the location state."
                         }
                       },
                       "required": [
@@ -46383,6 +46419,30 @@
                     },
                     "maxItems": 50,
                     "description": "Offices; exactly one is primary."
+                  },
+                  "legalName": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "default": "Krueger & Richard, PLLC",
+                    "description": "Legal name printed on billing documents, such as the payee for mailed checks."
+                  },
+                  "tagline": {
+                    "type": "string",
+                    "maxLength": 120,
+                    "default": "Attorneys at Law",
+                    "description": "Letterhead tagline under the firm name."
+                  },
+                  "website": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "default": "www.krueger-richard.com",
+                    "description": "Website printed on the letterhead."
+                  },
+                  "licensingSentence": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "default": "Krueger & Richard, PLLC is licensed in Texas, Kansas, and Oklahoma.",
+                    "description": "Licensing sentence printed in the fine print of billing documents."
                   }
                 },
                 "required": [
@@ -46496,6 +46556,12 @@
                                   "isPrimary": {
                                     "type": "boolean",
                                     "description": "The primary office (exactly one)."
+                                  },
+                                  "badgeLabel": {
+                                    "type": "string",
+                                    "maxLength": 40,
+                                    "default": "",
+                                    "description": "Letterhead badge for this office, such as `Texas`. Empty: the full name of the location state."
                                   }
                                 },
                                 "required": [
@@ -46513,6 +46579,30 @@
                               },
                               "maxItems": 50,
                               "description": "Offices; exactly one is primary."
+                            },
+                            "legalName": {
+                              "type": "string",
+                              "maxLength": 200,
+                              "default": "Krueger & Richard, PLLC",
+                              "description": "Legal name printed on billing documents, such as the payee for mailed checks."
+                            },
+                            "tagline": {
+                              "type": "string",
+                              "maxLength": 120,
+                              "default": "Attorneys at Law",
+                              "description": "Letterhead tagline under the firm name."
+                            },
+                            "website": {
+                              "type": "string",
+                              "maxLength": 200,
+                              "default": "www.krueger-richard.com",
+                              "description": "Website printed on the letterhead."
+                            },
+                            "licensingSentence": {
+                              "type": "string",
+                              "maxLength": 500,
+                              "default": "Krueger & Richard, PLLC is licensed in Texas, Kansas, and Oklahoma.",
+                              "description": "Licensing sentence printed in the fine print of billing documents."
                             }
                           },
                           "required": [

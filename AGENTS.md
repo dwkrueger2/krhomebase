@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.21</small><br>
-<small>Updated Nov 15, 2026 8:10pm</small>
+<small>Version 2.22</small><br>
+<small>Updated Nov 15, 2026 11:15pm</small>
 
 ## Agent Guide Index
 
@@ -18,6 +18,7 @@
   - `apps/web/AGENTS.md` for screens.
   - `packages/contracts/AGENTS.md` for the zod descriptions shared by both.
   - `packages/tool-sdk/AGENTS.md` for the outside-tool kit (its `README.md` is the guide for outside developers).
+  - `packages/documents/AGENTS.md` for the printable billing documents shared by both apps.
 - Read `docs/00_PromptMemoryStart.md` (response header, command format, strict rules), `docs/04_Deployed_Architecture.md` (what is deployed now) and `docs/01_Architecture_Proposal.md` (why the repository is built this way).
 - Read a guide before starting work of the kind it covers. When two guides disagree, the stricter rule wins and the disagreement is reported to the requester.
 - **The requester.** Throughout these guides, "the requester" means the coder or prompt writer who is giving the instructions in the current session. Every decision, approval, override or hand-off that a guide reserves for a person belongs to the requester, whoever that is. A guide never means one named person.
@@ -97,7 +98,7 @@ Impeccable (`.claude/skills/impeccable`, run as `/impeccable <command>`) is a de
 
 ## Current Project Shape
 
-KR Homebase is a pnpm monorepo of three Cloudflare Workers and two shared packages. It is the migration target for the old `apps/kr-homebase`.
+KR Homebase is a pnpm monorepo of three Cloudflare Workers and three shared packages. It is the migration target for the old `apps/kr-homebase`.
 
 ```text
 apps/web/            Screens. Next.js on vinext, deployed as the krhomebase-web Worker. No database, no business rules.
@@ -107,6 +108,9 @@ apps/api/            API. Hono on a Cloudflare Worker (krhomebase-api). All busi
 apps/external-api/   krhomebase-external-api Worker: the public door for outside tool servers. Forwards to the API; no rules.
 packages/contracts/  zod descriptions of every request, response and error. Shared by api, external-api and web.
 packages/tool-sdk/   Kit for outside tools (docs/05_Outside_Tools.md). Its README.md is the outside developers' guide.
+packages/documents/  Printable billing documents (invoice, statement, receipt): data shapes, builders, formatters, letterhead,
+                     file name rule and samples; the React templates arrive with Billing part 7b. Shared by api and web
+                     (decision B1 of docs/API/Billing_Audit.md, Nov 15, 2026).
 workers/             Cloudflare Workers copied from the old repository. Not part of the apps. Rules: "Workers" below and workers/Readme-workers.md.
                      workers/feedback-viewer is new (not copied): the Homebase Feedback viewer, an outside tool built with only the tool kit (a test of the kit), checked by pnpm check.
 docs/                Documentation: schema spaces, architecture, API notes, patch notes, help documents.
@@ -120,10 +124,11 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 
 ### Dependency direction (enforced by review)
 
-- `web` may import `contracts`, `tool-sdk` (the bridge protocol) and (later) `api-client`. It must not import from `apps/api`.
-- `api` may import `contracts`. It must not import from `apps/web`.
+- `web` may import `contracts`, `tool-sdk` (the bridge protocol), `documents` and (later) `api-client`. It must not import from `apps/api`.
+- `api` may import `contracts` and `documents`. It must not import from `apps/web`.
 - `external-api` may import `contracts`. It must not import from either app.
 - `contracts` imports nothing from the apps and nothing but `zod`.
+- `documents` imports only `contracts` (and `react` once the templates arrive); nothing from the apps. It runs in a Worker and in a browser.
 - `tool-sdk` has no runtime dependencies (it installs on its own from a `.tgz`); `contracts` is a development-only dependency for its sync test.
 - Only `apps/api` has the D1 `krhomebase` binding. `web` never queries the database.
 - `api` has no public address (`workers_dev` and `preview_urls` are off). Only another Worker can call it through a service binding.
@@ -241,8 +246,8 @@ pnpm listScripts      # show the root scripts
 |---|---|---|
 | `dev` | root | `dev:api` and `dev:web`, together |
 | `build` | root | `build:web` |
-| `typecheck` | `packages/contracts`, `packages/tool-sdk`, `apps/api`, `apps/external-api`, `workers/feedback-viewer`, `apps/web` | `typecheck` in each, in that order, joined by `&&` |
-| `test` | `packages/contracts`, `packages/tool-sdk`, `apps/api`, `apps/external-api`, `workers/feedback-viewer`, `apps/web` | `test` in each, in that order, joined by `&&` |
+| `typecheck` | `packages/contracts`, `packages/tool-sdk`, `packages/documents`, `apps/api`, `apps/external-api`, `workers/feedback-viewer`, `apps/web` | `typecheck` in each, in that order, joined by `&&` |
+| `test` | `packages/contracts`, `packages/tool-sdk`, `packages/documents`, `apps/api`, `apps/external-api`, `workers/feedback-viewer`, `apps/web` | `test` in each, in that order, joined by `&&` |
 | `check` | root | `typecheck`, then `test` |
 | `types:cf` | `apps/api` | `wrangler types --config kr-api-wrangler.jsonc` |
 | `dev:api` | `apps/api` | `wrangler dev --port 8787 --inspector-port 9339` |

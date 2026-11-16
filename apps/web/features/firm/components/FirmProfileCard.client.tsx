@@ -20,6 +20,10 @@
  *   who cannot change it the fields are read-only (not disabled), so their text can be selected. The card loads with
  *   the rainbow spinner and offers Try again; Undo and Save sit in the header and, after a save, the result shows
  *   there ("Firm settings saved."); leaving the tab with changes asks first (`useReportUnsavedChanges`).
+ * - Nov 15, 2026 (Billing part 7a, decision B5 of `docs/API/Billing_Audit.md`): the letterhead fields the printed
+ *   invoice, statement and receipt read (Legal name, Letterhead tagline, Website, Licensing sentence, and each
+ *   location's Badge). They were written into the old code (`KR-Billing/Invoicing/firmProfiles.ts`); an empty Badge
+ *   prints the full name of the location's state.
  *
  * @returns The card (`data-kr-id="firm-profile-KRModuleCard"`).
  */
@@ -71,7 +75,7 @@ const STYLES = {
 /** A new location as the old "Add location" made it (`firm-location-<base36 time>-<5 random>`). */
 export function newFirmLocation(): FirmLocation {
   const id = `firm-location-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
-  return { id, name: 'New Location', addressLine1: '', addressLine2: '', city: '', state: '', postalCode: '', phone: '', email: '', isPrimary: false }
+  return { id, name: 'New Location', addressLine1: '', addressLine2: '', city: '', state: '', postalCode: '', phone: '', email: '', isPrimary: false, badgeLabel: '' }
 }
 
 /** Removes a location by the old rules: the first remaining one becomes primary when the primary goes. */
@@ -84,7 +88,7 @@ export function removeFirmLocation(locations: readonly FirmLocation[], id: strin
 }
 
 /** The location columns and their widths (the narrow ones fixed, so the row fits a 1280 window with the menu open). */
-const LOCATION_COLUMNS: Array<{ key: keyof FirmLocation; label: string; max: number; width: string }> = [
+const LOCATION_COLUMNS: Array<{ key: keyof FirmLocation; label: string; max: number; width: string; title?: string }> = [
   { key: 'name', label: 'Location name', max: 120, width: 'w-[15%]' },
   { key: 'phone', label: 'Phone', max: 40, width: 'w-[110px]' },
   { key: 'email', label: 'Email', max: 200, width: 'w-[18%]' },
@@ -93,6 +97,7 @@ const LOCATION_COLUMNS: Array<{ key: keyof FirmLocation; label: string; max: num
   { key: 'city', label: 'City', max: 100, width: 'w-[11%]' },
   { key: 'state', label: 'State', max: 2, width: 'w-[42px]' },
   { key: 'postalCode', label: 'Postal code', max: 20, width: 'w-[76px]' },
+  { key: 'badgeLabel', label: 'Badge', max: 40, width: 'w-[70px]', title: "Letterhead badge for this office on printed billing documents. Empty prints the state's full name." },
 ]
 
 export interface FirmProfileCardProps {
@@ -216,6 +221,24 @@ export default function FirmProfileCard({ initial }: FirmProfileCardProps) {
                 Matter numbering format
               </label>
               <input className={STYLES.field} disabled={busy} id="firm-matter-format" readOnly={readOnly} title="How a new matter number is written: [000] is the client number, then the client's last and first name." maxLength={120} onChange={(event) => patch({ matterNumberFormat: event.target.value })} value={form.matterNumberFormat} />
+
+              {/* Letterhead of printed billing documents (invoice, statement, receipt) */}
+              <label className={STYLES.label} htmlFor="firm-legal-name" title="Printed on billing documents, such as the payee for mailed checks.">
+                Legal name
+              </label>
+              <input className={STYLES.field} data-kr-element="firm-letterhead-legal-name" disabled={busy} id="firm-legal-name" readOnly={readOnly} maxLength={200} onChange={(event) => patch({ legalName: event.target.value })} value={form.legalName} />
+              <label className={STYLES.label} htmlFor="firm-tagline" title="Printed under the firm name on the letterhead.">
+                Letterhead tagline
+              </label>
+              <input className={STYLES.field} data-kr-element="firm-letterhead-tagline" disabled={busy} id="firm-tagline" readOnly={readOnly} maxLength={120} onChange={(event) => patch({ tagline: event.target.value })} value={form.tagline} />
+              <label className={STYLES.label} htmlFor="firm-website" title="Printed on the letterhead.">
+                Website
+              </label>
+              <input className={STYLES.field} data-kr-element="firm-letterhead-website" disabled={busy} id="firm-website" readOnly={readOnly} maxLength={200} onChange={(event) => patch({ website: event.target.value })} value={form.website} />
+              <label className={STYLES.label} htmlFor="firm-licensing" title="Printed in the fine print of billing documents.">
+                Licensing sentence
+              </label>
+              <input className={STYLES.field} data-kr-element="firm-letterhead-licensing" disabled={busy} id="firm-licensing" readOnly={readOnly} maxLength={500} onChange={(event) => patch({ licensingSentence: event.target.value })} title={form.licensingSentence} value={form.licensingSentence} />
             </div>
 
             {/* Firm Locations: one register row per office */}
@@ -223,7 +246,7 @@ export default function FirmProfileCard({ initial }: FirmProfileCardProps) {
               <div className={LAYOUT_STYLES.locationsHead}>
                 <div className={LAYOUT_STYLES.titleLine}>
                   <p className={STYLES.title}>Firm Locations</p>
-                  <p className={STYLES.sub}>One office is the primary office. State is two letters.</p>
+                  <p className={STYLES.sub}>One office is the primary office. State is two letters. Badge names the office on printed billing documents.</p>
                 </div>
                 {canEdit ? (
                   <button className={STYLES.ghostButton} data-kr-action="add-firm-location" disabled={busy} onClick={() => patch({ locations: [...form.locations, newFirmLocation()] })} type="button">
@@ -237,7 +260,7 @@ export default function FirmProfileCard({ initial }: FirmProfileCardProps) {
                     <tr>
                       <th className={`${STYLES.th} w-[58px]`}>Primary</th>
                       {LOCATION_COLUMNS.map((column) => (
-                        <th className={`${STYLES.th} ${column.width}`} key={column.key}>
+                        <th className={`${STYLES.th} ${column.width}`} key={column.key} title={column.title}>
                           {column.label}
                         </th>
                       ))}

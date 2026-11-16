@@ -1,0 +1,28 @@
+{
+  "name": "@krhomebase/documents",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Printable billing documents (invoice, statement, receipt): data shapes, builders, formatters and templates. Shared by api and web.",
+  "exports": {
+    "./types": "./src/types.ts",
+    "./format": "./src/format.ts",
+    "./file-name": "./src/fileName.ts",
+    "./letterhead": "./src/letterhead.ts",
+    "./invoice": "./src/invoiceData.ts",
+    "./statement": "./src/statementData.ts",
+    "./receipt": "./src/receiptData.ts",
+    "./samples": "./src/sampleData.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@krhomebase/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.0"
+  }
+}

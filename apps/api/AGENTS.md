@@ -1,7 +1,7 @@
 # KR Homebase API Agent Guide
 
-<small>Version 1.38</small><br>
-<small>Updated Nov 15, 2026 11:30pm</small>
+<small>Version 1.39</small><br>
+<small>Updated Nov 15, 2026 11:15pm</small>
 
 ## Purpose
 
@@ -216,7 +216,7 @@ Articles and answers (plan 10, stage 6; old `api/front-end-publishing` and its `
 
 ## Firm Settings
 
-`src/features/firm/` (Settings plan, stage 5) replaces the old `kr-api-v1/firm-settings` and `/employee-policies`: `GET /v1/firm/profile` and `GET /v1/firm/employee-policies` (anyone signed in), `PUT` on both (super admin). Both are `lookup` settings rows (`lk_kr_firm_locations_profile`, `lk_kr_employee_policies`; see `docs/Schema_8.0/table_lookup.html`); the profile save also sets the firm entity's `legal_name` (`ent_krueger_richard_firm`, created as an active partnership when missing). The shapes, defaults, limits and the old error sentences are in `packages/contracts/src/firm.ts` (`firmProfileProblems`, `employeePoliciesProblems`, shared with the screens); a refused save answers 422 `FIRM_SETTINGS_INVALID` with the sentences in `details.problems`. Policies are read field by field, as Attendance reads the same row; the fixed PTO bands and holiday-pay tiers can change their numbers only. Each save is one batch with its `audit_log` row (resource `firm_details`).
+`src/features/firm/` (Settings plan, stage 5) replaces the old `kr-api-v1/firm-settings` and `/employee-policies`: `GET /v1/firm/profile` and `GET /v1/firm/employee-policies` (anyone signed in), `PUT` on both (super admin). Both are `lookup` settings rows (`lk_kr_firm_locations_profile`, `lk_kr_employee_policies`; see `docs/Schema_8.0/table_lookup.html`); the profile save also sets the firm entity's `legal_name` (`ent_krueger_richard_firm`, created as an active partnership when missing). The shapes, defaults, limits and the old error sentences are in `packages/contracts/src/firm.ts` (`firmProfileProblems`, `employeePoliciesProblems`, shared with the screens); a refused save answers 422 `FIRM_SETTINGS_INVALID` with the sentences in `details.problems`. Policies are read field by field, as Attendance reads the same row; the fixed PTO bands and holiday-pay tiers can change their numbers only. Each save is one batch with its `audit_log` row (resource `firm_details`). The profile also carries the letterhead of printed billing documents (Billing part 7a, decision B5: `legalName`, `tagline`, `website`, `licensingSentence`, each location's `badgeLabel`); a stored profile without them reads with their defaults (the contract's `.default()`), and `packages/documents` (`letterhead.ts`) builds the letterhead from it.
 
 ## Employee Documents
 
