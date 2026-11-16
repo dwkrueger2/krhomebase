@@ -13,6 +13,15 @@
  *  - Not here yet: card payments, refunds and pay links (stage 6), and invoice and statement email and print
  *    (stage 5). A credit-card or ACH payment is refused until stage 6, as the old route refused one without a
  *    Stripe payment.
+ *  - Billing part 7e (Nov 16, 2026, `docs/API/Billing_Audit.md` 6.4): card payments and refunds are back. A credit-card
+ *    payment carries the Stripe PaymentIntent it was charged with (`stripePaymentIntentId`, `stripeEnvironment`); the
+ *    API re-reads it from Stripe before writing anything. A payment void may refund the card (`refund`), and a voided
+ *    payment's refund can be read again from Stripe (`POST .../refresh-refund`, the old PATCH action `refreshRefund`).
+ *    ACH stays closed, as it was: an ACH payment is refused (`VALIDATION_STRIPE_ACH_NOT_IMPLEMENTED` with an intent,
+ *    `VALIDATION_STRIPE_PAYMENT_INTENT_REQUIRED` without). The card routes are in `cardPayments.ts`.
+ *  - Billing part 7f (Nov 16, 2026, `docs/API/Billing_Audit.md` section 5): the invoice body takes `taxAmount` and
+ *    `notes` again (item 1), and every register row also carries `matterBalance`, the running balance of its own
+ *    matter (item 4), so the Overview's Ending balance is the chosen matter's balance.
  *
  * Dates go out as `MM/DD/YYYY` (as the old projection did) and come in as `MM/DD/YYYY` or `YYYY-MM-DD`.
  */
@@ -34,7 +43,7 @@ export const BillingEntryKind = z.enum(['Time', 'Flat Fee Service'])
 export type BillingEntryKind = z.infer<typeof BillingEntryKind>
 export const BillingInvoiceStatus = z.enum(['Paid', 'Unpaid', 'Partially paid', 'Void'])
 export type BillingInvoiceStatus = z.infer<typeof BillingInvoiceStatus>
-/** Payment types a person may post by hand. Credit card and ACH need Stripe (stage 6). */
+/** Payment types. Credit card needs a Stripe PaymentIntent (part 7e); ACH is listed but not posted yet. */
 export const BillingPaymentType = z.enum(['Credit card', 'ACH', 'Check', 'Cash', 'Wire'])
 export type BillingPaymentType = z.infer<typeof BillingPaymentType>
 
@@ -95,6 +104,11 @@ export const BillingLedgerEntry = z.object({
   payments: z.number().optional(),
   writeOff: z.number().optional(),
   balance: z.number(),
+  /** Billing part 7f (audit 5, item 4): the running balance of this row's matter alone. */
+  matterBalance: z
+    .number()
+    .optional()
+    .describe('The running balance of this row\'s matter only (rows of other matters left out). `balance` runs across the whole client; the Overview shows this one when a single matter is chosen. Voided rows carry the balance before them.'),
   matterNumber: z.string().optional(),
   matterId: z.string().optional(),
   editable: z.boolean().optional(),
@@ -222,6 +236,14 @@ export const InvoiceBody = z
     /** Zero or negative: the write-off shown on the invoice. */
     writeOff: money.max(0),
     entryIds: z.array(id).max(500),
+    /** Billing part 7f (audit 5, item 1): the old create and save took these two again. */
+    taxAmount: money
+      .min(0)
+      .optional()
+      .describe('Tax added to the invoice total (zero or more). Left out: 0 on create, the saved tax on a save.'),
+    notes: text(4000)
+      .optional()
+      .describe('Notes kept with the invoice (not printed). Left out: none on create, the saved notes on a save; an empty text clears them.'),
   })
   .strict()
 export type InvoiceBody = z.infer<typeof InvoiceBody>
@@ -244,18 +266,39 @@ export const PaymentBody = z
     referenceNumber: text(120).optional(),
     memo: text(1000).optional(),
     paymentNumber: text(60).optional(),
+    /** Billing part 7e: the card payment's Stripe PaymentIntent (`pi_…`); re-read from Stripe before anything is written. */
+    stripePaymentIntentId: z
+      .string()
+      .trim()
+      .regex(/^pi_[A-Za-z0-9]{8,64}$/, 'A Stripe PaymentIntent id (pi_…).')
+      .optional()
+      .describe('Credit card only: the Stripe PaymentIntent the card was charged with. The API re-reads it from Stripe (succeeded, the same invoices and amounts, the same environment) before posting.'),
+    stripeEnvironment: z
+      .enum(['sandbox', 'live'])
+      .optional()
+      .describe('The Stripe environment the card was charged in, as the card-payment settings answered; the server decides (`GET .../card-payment`).'),
   })
   .strict()
 export type PaymentBody = z.infer<typeof PaymentBody>
 export const PaymentVoidBody = z
   .object({
     reason: text(500),
-    /** Stripe card payments: refund the card first. Refunds arrive in stage 6; until then only `false` is accepted for them. */
-    refund: z.boolean(),
+    /** Stripe card payments: refund the card in full first (part 7e). A failed refund stops the void. */
+    refund: z.boolean().describe('A Stripe card payment: refund the card in full through Stripe before the void (a failed refund stops the void). Ignored for other payments.'),
   })
   .strict()
-export const PaymentVoidData = z.object({ id: z.string(), invoicesUpdated: z.number().int(), refund: BillingPaymentRefund.nullable() })
+export const PaymentVoidData = z.object({
+  id: z.string().describe('The payment.'),
+  invoicesUpdated: z.number().int().describe('Invoices whose paid amount was reduced.'),
+  refund: BillingPaymentRefund.nullable().describe('The Stripe refund made (or found) for a card payment; null when none.'),
+})
 export type PaymentVoidData = z.infer<typeof PaymentVoidData>
+/** `POST .../payments/{paymentId}/refresh-refund` (super admin): the voided payment's refund as Stripe has it now. */
+export const PaymentRefundRefreshData = z.object({
+  id: z.string().describe('The payment.'),
+  refund: BillingPaymentRefund.describe('The refund read again from Stripe: status, amount and the ARN when Stripe has one.'),
+})
+export type PaymentRefundRefreshData = z.infer<typeof PaymentRefundRefreshData>
 
 export const TrustRequestParams = BillingClientParams.extend({ requestId: id })
 export const TrustRequestBody = z

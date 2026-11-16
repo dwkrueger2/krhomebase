@@ -14,6 +14,10 @@
 //  - Status is shown, not chosen: the old select saved "Paid" or "Partially paid" on a draft without a payment. A
 //    status now changes only through a payment, a void, or the lock.
 //  - The four dashed layout-check borders (b1 to b4) were removed.
+//  - Billing part 7f (Nov 16, 2026, `docs/API/Billing_Audit.md` section 5, item 5): `readOnly` (a billing reader, the
+//    record's `viewer.canWrite` false) shows the invoice for review only: the lock shows its state as plain text, and
+//    Delete, Send, Add Open Time & Fees, the entry wastebaskets, the entry editor and Save Invoice are left out. Print
+//    opens the print view at once with no send context (no print-intent prompt, no Send, no pay link).
 
 import { useMemo, useRef, useState, type PointerEvent } from 'react'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
@@ -123,6 +127,8 @@ export interface InvoiceEditDialogProps {
   onInvoiceAction?: (invoice: BillingInvoice, action: InvoiceRecordAction, reason?: string) => Promise<void>
   /** Every invoice on the account (print shows prior open balances and payments received). */
   accountInvoices?: readonly BillingInvoice[]
+  /** Part 7f: a billing reader; the invoice is shown for review only (see the header). Default false. */
+  readOnly?: boolean
 }
 
 /** Shows whether the current invoice can be changed, with the accessible reason on its parent. */
@@ -167,6 +173,7 @@ export default function InvoiceEditDialog({
   onToggleLock,
   onInvoiceAction,
   accountInvoices,
+  readOnly = false,
 }: InvoiceEditDialogProps) {
   const [draft, setDraft] = useState(invoice)
   const [entries, setEntries] = useState(() =>
@@ -274,6 +281,8 @@ export default function InvoiceEditDialog({
   const hasPayments = draft.status === 'Paid' || draft.status === 'Partially paid'
   const isVoid = draft.status === 'Void'
   const locked = draft.locked
+  /** Part 7f: nothing may change, because the invoice is locked or the person only reads billing. */
+  const reviewOnly = locked || readOnly
   const isNew = draft.id.startsWith('new_')
   // Why the invoice is locked; the API sends the reason, this is the fallback for older payloads.
   const lockReason =
@@ -293,7 +302,7 @@ export default function InvoiceEditDialog({
   }
 
   function returnToTimeFees(id: string): void {
-    if (!locked) setEntries((current) => current.filter((entry) => entry.id !== id))
+    if (!reviewOnly) setEntries((current) => current.filter((entry) => entry.id !== id))
   }
 
   /**
@@ -304,7 +313,7 @@ export default function InvoiceEditDialog({
    * surface as a delivery message.
    */
   function printInvoice(): void {
-    if (!locked && !isNew && !isVoid && onToggleLock) {
+    if (!reviewOnly && !isNew && !isVoid && onToggleLock) {
       setPrintIntent(true)
       return
     }
@@ -318,7 +327,7 @@ export default function InvoiceEditDialog({
       clientNumber,
       staffOptions,
       accountInvoices,
-      send: clientId ? { clientId, clientDisplayName: clientDisplayName ?? draft.clientLabel } : undefined,
+      send: clientId && !readOnly ? { clientId, clientDisplayName: clientDisplayName ?? draft.clientLabel } : undefined,
     })
     if (problem) setDeliveryMessage(problem)
   }
@@ -389,6 +398,13 @@ export default function InvoiceEditDialog({
                 [{clientNumber}] {draft.clientLabel}
               </span>
               {/* Lock icon: click to lock (any role) or unlock (super admin); paid invoices stay locked. */}
+              {/* Part 7f: a reader sees the lock state only. */}
+              {readOnly ? (
+                <span className={STYLES.lockStatus} data-kr-element="invoice-lock-state" title={isVoid ? 'Voided invoice' : locked ? lockReason : 'Unlocked invoice'}>
+                  <InvoiceStatusIcon locked={locked} />
+                  {locked ? <span>{lockReason}</span> : null}
+                </span>
+              ) : (
               <button
                 className={`${STYLES.lockStatus} ${STYLES.lockButton}`}
                 data-kr-action="invoice-toggle-lock"
@@ -412,7 +428,9 @@ export default function InvoiceEditDialog({
                 <InvoiceStatusIcon locked={locked} />
                 {locked ? <span>{lockReason}</span> : null}
               </button>
+              )}
               {/* Delete (void): same flow as saving with no entries — Super Admin confirms; entries return to the open list. */}
+              {readOnly ? null : (
               <button
                 aria-label="Delete (void) this invoice"
                 className={STYLES.deleteButton}
@@ -434,6 +452,7 @@ export default function InvoiceEditDialog({
               >
                 <KRHomebaseIcons.Trash className={STYLES.deleteIcon} />
               </button>
+              )}
             </div>
             {saveError ? (
               <p className={STYLES.statusError} role="alert">
@@ -446,16 +465,18 @@ export default function InvoiceEditDialog({
             <button className={STYLES.button} data-kr-action="invoice-print" title="Open the invoice in the print view" type="button" onClick={printInvoice}>
               Print
             </button>
-            <button
-              className={STYLES.button}
-              data-kr-action="invoice-send"
-              disabled={busy || isNew || !clientId}
-              title={isNew ? SAVE_BEFORE_SENDING : clientId ? 'Email the saved invoice to the client' : 'Sending is unavailable for this account'}
-              type="button"
-              onClick={sendInvoice}
-            >
-              Send
-            </button>
+            {readOnly ? null : (
+              <button
+                className={STYLES.button}
+                data-kr-action="invoice-send"
+                disabled={busy || isNew || !clientId}
+                title={isNew ? SAVE_BEFORE_SENDING : clientId ? 'Email the saved invoice to the client' : 'Sending is unavailable for this account'}
+                type="button"
+                onClick={sendInvoice}
+              >
+                Send
+              </button>
+            )}
             <button
               aria-label="Close"
               className={STYLES.closeButton}
@@ -473,7 +494,7 @@ export default function InvoiceEditDialog({
             Invoice date
             <input
               className={STYLES.field}
-              disabled={locked}
+              disabled={reviewOnly}
               value={draft.dateInvoiced}
               onChange={(event) => setDraft({ ...draft, dateInvoiced: event.target.value })}
             />
@@ -510,22 +531,24 @@ export default function InvoiceEditDialog({
           <div className={LAYOUT_STYLES.middleToolbar}>
             <h3 className={STYLES.sectionTitle}>Time &amp; Fee entries on invoice</h3>
             <div className={LAYOUT_STYLES.headerActions}>
-              <button
-                className={STYLES.accentButton}
-                data-kr-element="invoice-add-open-time-fees"
-                disabled={locked || !availableEntries.length}
-                title={
-                  locked
-                    ? lockReason
-                    : availableEntries.length
-                      ? 'Attach unbilled time and fee entries to this invoice'
-                      : 'No open entries to add'
-                }
-                type="button"
-                onClick={() => setOpenTimeFees(true)}
-              >
-                Add Open Time &amp; Fees
-              </button>
+              {readOnly ? null : (
+                <button
+                  className={STYLES.accentButton}
+                  data-kr-element="invoice-add-open-time-fees"
+                  disabled={locked || !availableEntries.length}
+                  title={
+                    locked
+                      ? lockReason
+                      : availableEntries.length
+                        ? 'Attach unbilled time and fee entries to this invoice'
+                        : 'No open entries to add'
+                  }
+                  type="button"
+                  onClick={() => setOpenTimeFees(true)}
+                >
+                  Add Open Time &amp; Fees
+                </button>
+              )}
               <button
                 className={STYLES.button}
                 type="button"
@@ -548,19 +571,23 @@ export default function InvoiceEditDialog({
                 className={`${LAYOUT_STYLES.entryGrid} ${STYLES.entryRow}`}
                 key={entry.id}
                 onDoubleClick={() => {
-                  if (!locked) setEditingEntry(entry)
+                  if (!reviewOnly) setEditingEntry(entry)
                 }}
                 title={entry.description}
               >
-                <button
-                  aria-label={`Return ${entry.id} to Time & Fees`}
-                  className={STYLES.trashButton}
-                  disabled={locked}
-                  type="button"
-                  onClick={() => returnToTimeFees(entry.id)}
-                >
-                  🗑️
-                </button>
+                {readOnly ? (
+                  <span />
+                ) : (
+                  <button
+                    aria-label={`Return ${entry.id} to Time & Fees`}
+                    className={STYLES.trashButton}
+                    disabled={locked}
+                    type="button"
+                    onClick={() => returnToTimeFees(entry.id)}
+                  >
+                    🗑️
+                  </button>
+                )}
                 <span className={STYLES.cell}>{entry.date}</span>
                 <span
                   className={`${STYLES.cell} ${expanded ? 'whitespace-pre-line break-words' : 'truncate'}`}
@@ -650,7 +677,7 @@ export default function InvoiceEditDialog({
               aria-label="Write Off"
               className={STYLES.field}
               data-kr-element="invoice-write-off"
-              disabled={locked}
+              disabled={reviewOnly}
               value={writeOff}
               onChange={(dollars) => setWriteOff(dollars)}
             />
@@ -660,7 +687,7 @@ export default function InvoiceEditDialog({
         {/* Invoice actions: only unlocked drafts can be persisted or sent. */}
         <footer className={LAYOUT_STYLES.footer}>
           <span className={STYLES.actionText}>
-            {locked ? 'Locked invoice · review only' : 'Changes save to the Billing API.'}
+            {readOnly ? 'Review only · your role may read billing but not change it' : locked ? 'Locked invoice · review only' : 'Changes save to the Billing API.'}
             {draft.ivid ? (
               <span
                 className={STYLES.publicCode}
@@ -674,16 +701,18 @@ export default function InvoiceEditDialog({
           </span>
           <div className={LAYOUT_STYLES.footerActions}>
             <button className={STYLES.button} type="button" onClick={onCancel}>
-              Cancel
+              {readOnly ? 'Close' : 'Cancel'}
             </button>
-            <button
-              className={STYLES.primaryButton}
-              disabled={locked || busy}
-              type="button"
-              onClick={() => void saveInvoice()}
-            >
-              {busy ? 'Saving…' : 'Save Invoice'}
-            </button>
+            {readOnly ? null : (
+              <button
+                className={STYLES.primaryButton}
+                disabled={locked || busy}
+                type="button"
+                onClick={() => void saveInvoice()}
+              >
+                {busy ? 'Saving…' : 'Save Invoice'}
+              </button>
+            )}
           </div>
         </footer>
         {openTimeFees ? (

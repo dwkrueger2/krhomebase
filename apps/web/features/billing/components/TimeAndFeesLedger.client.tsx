@@ -1,6 +1,9 @@
 'use client'
 // file: apps/web/features/billing/components/TimeAndFeesLedger.client.tsx
 // Ported unchanged from the old app (hb-components/KR-Billing/TimeAndFeesLedger.client.tsx) with Billing (plan stages 2 to 4).
+// Billing part 7f (Nov 16, 2026, `docs/API/Billing_Audit.md` section 5, item 5): `canWrite` (the record's
+// `viewer.canWrite`) hides "Add billing entry" from a billing reader and opens an entry read only (no Save, Move, Copy
+// or Delete); the old tab showed them and the API refused the save with 403.
 
 import { useMemo, useState } from 'react'
 import EditTimeAndFeeDialog from './EditTimeAndFeeDialog.client'
@@ -55,10 +58,12 @@ export interface TimeAndFeesLedgerProps {
   onOpenInvoice?: (invoiceId: string) => void
   onSave: (entry: BillingTimeEntry) => Promise<void>
   onDelete: (id: string) => Promise<void>
+  /** Part 7f: the person may add and change entries (`viewer.canWrite`). False: no Add, entries open read only. Default true. */
+  canWrite?: boolean
 }
 
 /** Renders persisted time and flat-fee entries with the billing filters and edit workflow. */
-export default function TimeAndFeesLedger({ clientDisplayName, clientNumber, entries, matterNumbers, staffOptions, invoices = [], onOpenInvoice, onSave, onDelete }: TimeAndFeesLedgerProps) {
+export default function TimeAndFeesLedger({ clientDisplayName, clientNumber, entries, matterNumbers, staffOptions, invoices = [], onOpenInvoice, onSave, onDelete, canWrite = true }: TimeAndFeesLedgerProps) {
   const [matter, setMatter] = useState('ALL')
   const [statuses, setStatuses] = useState<BillingStatus[]>([])
   const [editing, setEditing] = useState<BillingTimeEntry | null>(null)
@@ -70,9 +75,9 @@ export default function TimeAndFeesLedger({ clientDisplayName, clientNumber, ent
   function toggleAll(): void { setStatuses((current) => current.length === ALL_STATUSES.length ? [] : ALL_STATUSES) }
   return <section className={STYLES.shell} data-kr-id="time-and-fees-ledger" data-kr-component="TimeAndFeesLedger"><div className={STYLES.panel}>
      {/* Time & Fees toolbar: select a matter, choose the row density, and open the entry editor. */}
-     <BillingTabHeader actions={<div className={LAYOUT_STYLES.headerActions}><label className={`${LAYOUT_STYLES.singleLineLabel} ${STYLES.singleLineLabel}`}><input checked={singleLineView} type="checkbox" onChange={(event) => setSingleLineView(event.target.checked)} />Single Line View</label><button className={STYLES.button} type="button" onClick={() => setAdding(true)}>Add billing entry</button></div>} clientDisplayName={clientDisplayName} clientNumber={clientNumber} matterNumbers={matterNumbers} onMatterChange={setMatter} selectedMatter={matter} />
+     <BillingTabHeader actions={<div className={LAYOUT_STYLES.headerActions}><label className={`${LAYOUT_STYLES.singleLineLabel} ${STYLES.singleLineLabel}`}><input checked={singleLineView} type="checkbox" onChange={(event) => setSingleLineView(event.target.checked)} />Single Line View</label>{canWrite ? <button className={STYLES.button} type="button" onClick={() => setAdding(true)}>Add billing entry</button> : null}</div>} clientDisplayName={clientDisplayName} clientNumber={clientNumber} matterNumbers={matterNumbers} onMatterChange={setMatter} selectedMatter={matter} />
     <div className={LAYOUT_STYLES.filters} data-kr-element="billing-status-filters"><span className={LAYOUT_STYLES.filterLabel}>Billing status</span><button className={`${STYLES.allPill} ${statuses.length === 0 || statuses.length === ALL_STATUSES.length ? 'ring-2 ring-[var(--kr-theme-brand-primary,#21394f)]' : ''}`} aria-pressed={statuses.length === 0 || statuses.length === ALL_STATUSES.length} type="button" onClick={toggleAll}>All</button>{ALL_STATUSES.map((status) => <button className={`${STYLES.status} ${STATUS_CLASSES[status]} ${statuses.includes(status) ? 'ring-2 ring-[var(--kr-theme-brand-primary,#21394f)]' : ''}`} aria-pressed={statuses.includes(status)} key={status} type="button" onClick={() => toggleStatus(status)}>{status}</button>)}</div>
      <div className={LAYOUT_STYLES.tableViewport}><div className={LAYOUT_STYLES.table}><div className={`${LAYOUT_STYLES.grid} ${STYLES.header}`} role="row"><div className={STYLES.cell}>Date</div><div className={STYLES.cell}>Matter #</div><div className={STYLES.cell}>Description</div><div className={STYLES.cell}>Status</div><div className={LAYOUT_STYLES.cellRight}>Hours</div><div className={LAYOUT_STYLES.cellRight}>Rate</div><div className={LAYOUT_STYLES.cellRight}>Amount</div></div><div data-kr-element="time-fee-rows-container">{visibleEntries.map((entry) => <button className={`${LAYOUT_STYLES.grid} w-full ${STYLES.row} ${entry.isEmpty ? 'text-[var(--kr-theme-text-muted,#526172)]' : ''}`} disabled={entry.isEmpty} key={entry.id} type="button" onClick={() => { if (!entry.isEmpty) setEditing(entry) }}><span className={STYLES.cell}>{entry.date}</span><span className={STYLES.cell}>{entry.matterNumber}</span><span className={`${STYLES.cell} ${singleLineView ? 'truncate' : 'whitespace-pre-line break-words'}`} title={entry.description}>{entry.description}</span><span className={STYLES.cell}><span className={`${STYLES.status} ${STATUS_CLASSES[entry.billingStatus]}`}>{entry.billingStatus}</span></span><span className={`${LAYOUT_STYLES.cellRight} tabular-nums`}>{entry.hours.toFixed(1)}</span><span className={`${LAYOUT_STYLES.cellRight} tabular-nums`}>{formatAccountingAmount(entry.rate)}</span><span className={`${LAYOUT_STYLES.cellRight} font-semibold tabular-nums`}>{formatAccountingAmount(entry.amount)}</span></button>)}</div></div></div>
     <footer className={STYLES.footer}>Visible amount: {formatAccountingAmount(visible.reduce((sum, entry) => sum + entry.amount, 0))}</footer>
-  </div>{adding || editing ? <EditTimeAndFeeDialog entry={editing ?? undefined} attachedInvoice={editing?.invoiceId ? invoices.find((invoice) => invoice.id === editing.invoiceId) ?? null : null} onOpenInvoice={onOpenInvoice ? (invoiceId) => { setEditing(null); onOpenInvoice(invoiceId) } : undefined} matterNumbers={matterNumbers} staffOptions={staffOptions} onCancel={() => { setAdding(false); setEditing(null) }} onDelete={editing ? async (id) => { await onDelete(id); setEditing(null) } : undefined} onSave={async (entry) => { await onSave(entry); setAdding(false); setEditing(null) }} /> : null}</section>
+  </div>{adding || editing ? <EditTimeAndFeeDialog readOnly={!canWrite} entry={editing ?? undefined} attachedInvoice={editing?.invoiceId ? invoices.find((invoice) => invoice.id === editing.invoiceId) ?? null : null} onOpenInvoice={onOpenInvoice ? (invoiceId) => { setEditing(null); onOpenInvoice(invoiceId) } : undefined} matterNumbers={matterNumbers} staffOptions={staffOptions} onCancel={() => { setAdding(false); setEditing(null) }} onDelete={editing ? async (id) => { await onDelete(id); setEditing(null) } : undefined} onSave={async (entry) => { await onSave(entry); setAdding(false); setEditing(null) }} /> : null}</section>
 }

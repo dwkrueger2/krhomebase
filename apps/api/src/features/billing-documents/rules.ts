@@ -26,8 +26,20 @@
  *  - The documents are built here from the database, not taken from the browser.
  *  - No pay link yet (part 7d): the invoice email shows "call the office to pay by card", as the old email did without
  *    a link; the receipt has no "pay the rest" link. Refund notices wait for part 7e.
+ *  - Billing part 7d (Nov 16, 2026): pay links are back, as in the old routes. An invoice email issues an `email` pay
+ *    link before the PDF is made (it revokes the client's older open email link; `pay-links/rules.ts`): the PDF gets
+ *    its QR code (SVG), the email its QR image inline (`cid:kr-pay-qr`, a PNG) where `[[PAY_LINK]]` is, or in the Pay
+ *    online box. A receipt that leaves $0.50 or more open on the account issues a new account link (the "pay the rest"
+ *    box). A link that cannot be issued is not fatal (`payLinkError`); a send that stops after the link was issued
+ *    revokes it; the stored copy's number is written on the link (`sent_document_number`). Previews show where the
+ *    link goes (`<pay host>/p/...`) with a sample QR of the pay site; the real link is made only when the email is sent.
+ *    A re-send rebuilds the QR image from the link the stored email wraps (`findPayQrHref`).
  *  - Storage writes go straight to D1 and R2 (no crud Worker, no S3 keys); the document number is made here.
  *  - The sample PDF is returned, not stored.
+ *  - Billing part 7e (Nov 16, 2026): the refund notice (the old `payment-notice` kind `refund`) of a voided payment
+ *    whose card was refunded through Stripe: the same flow as the receipt, without a PDF or a pay link (as before),
+ *    stored as `payment_refund_notice_sent`, with the ARN when Stripe has one. The Void dialog sends it after the void
+ *    succeeds, so a mail failure never undoes a void; the voided row's send icon sends it again.
  */
 
 import {
@@ -39,18 +51,31 @@ import {
   type BillingEmailSentData,
   type BillingReceiptInfoData,
   type BillingRecord,
+  type BillingRefundNoticeInfoData,
   type BillingSamplePdfBody,
   type BillingSentDocument,
   type InvoiceEmailBody,
   type ReceiptEmailBody,
+  type RefundNoticeEmailBody,
   type StatementEmailBody,
 } from '@krhomebase/contracts'
-import { buildInvoiceFileBaseName, buildReceiptFileBaseName, buildStatementFileBaseName } from '@krhomebase/documents/file-name'
+import { buildInvoiceFileBaseName, buildReceiptFileBaseName, buildRefundNoticeFileBaseName, buildStatementFileBaseName } from '@krhomebase/documents/file-name'
 import { invoiceReportFromRecord } from '@krhomebase/documents/invoice'
 import { buildInvoiceEmailHtml, buildInvoiceEmailText } from '@krhomebase/documents/invoice-email'
 import { buildLetterhead } from '@krhomebase/documents/letterhead'
-import { paymentDetailsFor, receiptFromRecord } from '@krhomebase/documents/receipt'
-import { buildReceiptEmailHtml, buildReceiptEmailText, defaultReceiptMessage, defaultReceiptSubject } from '@krhomebase/documents/receipt-email'
+import { paymentDetailsFor, receiptFromRecord, refundNoticeFromRecord } from '@krhomebase/documents/receipt'
+import {
+  buildReceiptEmailHtml,
+  buildReceiptEmailText,
+  buildRefundEmailHtml,
+  buildRefundEmailText,
+  defaultReceiptMessage,
+  defaultReceiptSubject,
+  defaultRefundMessage,
+  defaultRefundSubject,
+  paymentEmailMoney,
+  type ReceiptPayLink,
+} from '@krhomebase/documents/receipt-email'
 import { documentPdfOptions, renderInvoiceDocumentHtml, renderReceiptDocumentHtml, renderStatementDocumentHtml } from '@krhomebase/documents/render-document'
 import { buildSampleInvoice, buildSampleReceipt, buildSampleStatement } from '@krhomebase/documents/samples'
 import { buildStatementOfAccountData } from '@krhomebase/documents/statement'
@@ -58,8 +83,9 @@ import { buildStatementEmailHtml, buildStatementEmailText } from '@krhomebase/do
 import type { LetterheadProfile } from '@krhomebase/documents/types'
 import { documentObjectKey, sha256Hex, versionSegment, type DocumentStorage } from '../../platform/documentStorage.ts'
 import { emailFooter, withImagesInline } from '../../platform/firmEmail.ts'
-import type { MailAttachment, Mailer } from '../../platform/googleWorkspaceMailer.ts'
+import type { InlineImage, MailAttachment, Mailer } from '../../platform/googleWorkspaceMailer.ts'
 import { logLine } from '../../platform/log.ts'
+import { buildPayQrImage, buildQrSvgDataUri, findPayQrHref, PAY_QR_CID_SRC } from '../../platform/payQr.ts'
 import { renderPdf, type PdfEnv } from '../../platform/pdfRenderer.ts'
 import type { AuditEntry } from '../../platform/queries.ts'
 import type { BillingQueries } from '../billing/queries.ts'
@@ -67,6 +93,18 @@ import { BillingError, loadBillingRecord } from '../billing/rules.ts'
 import { generatePublicCode } from '../contact-edits/rules.ts'
 import type { FirmQueries } from '../firm/queries.ts'
 import { builtInProfile, readFirmProfile } from '../firm/rules.ts'
+import {
+  issueAccountPayLink,
+  issuePayLink,
+  openAccountBalance,
+  payLinkBaseUrl,
+  payLinkExpiryText,
+  revokePayLink,
+  setPayLinkSentDocument,
+  type IssuedPayLink,
+  type PayEnvironment,
+  type PayLinkContext,
+} from '../pay-links/rules.ts'
 import type { WorkstreamQueries } from '../workstream/queries.ts'
 import { createActivity, emailRecipients, type WorkstreamActor } from '../workstream/rules.ts'
 import { isDocumentNumberClash, type BillingDocumentQueries, type DocumentRow, type NewMedia } from './queries.ts'
@@ -99,10 +137,12 @@ export interface DocumentContext {
   fetcher?: typeof fetch
   actor: WorkstreamActor
   now: () => Date
+  /** Pay links (part 7d): issue, revoke and the pay site's address; left out or null, documents go without a link. */
+  payLinks?: PayLinkContext | null
 }
 
 type Kind = keyof typeof BILLING_DOCUMENT_TYPES
-const KIND_LABEL: Record<Kind, string> = { invoice: 'Invoice', statement: 'Statement of Account', receipt: 'Payment Receipt' }
+const KIND_LABEL: Record<Kind, string> = { invoice: 'Invoice', statement: 'Statement of Account', receipt: 'Payment Receipt', refund: 'Refund Notice' }
 
 // ---------------------------------------------------------------------------------------------------------------
 // Shared pieces
@@ -215,6 +255,12 @@ interface Outgoing {
   notes: Record<string, unknown>
   workstreamTitle: string
   workstreamLines: string[]
+  /** The pay link this email carries (part 7d): revoked when the send stops, given the stored copy's number. */
+  payLink?: IssuedPayLink | null
+  /** Why the email carries no pay link, when one was expected. */
+  payLinkError?: string | null
+  /** More `cid:` images the HTML shows (the pay QR code). */
+  inlineImages?: InlineImage[]
 }
 
 /** Stores the document's files and rows (step 2), retrying the document number on a clash. */
@@ -264,7 +310,7 @@ function requireReadyToSend(ctx: DocumentContext): void {
 }
 
 /** Sends through the billing mailbox; a refusal is a `BillingDocumentError`. */
-async function sendMail(ctx: DocumentContext, kind: Kind, input: { to: string[]; cc: string[]; subject: string; html: string; text: string; clientNumber: string; matterNumber: string; attachments: MailAttachment[] }): Promise<string | null> {
+async function sendMail(ctx: DocumentContext, kind: Kind, input: { to: string[]; cc: string[]; subject: string; html: string; text: string; clientNumber: string; matterNumber: string; attachments: MailAttachment[]; inlineImages?: InlineImage[] }): Promise<string | null> {
   const footer = emailFooter()
   const result = await ctx.mailer.sendEmail({
     sender: 'billing',
@@ -273,7 +319,7 @@ async function sendMail(ctx: DocumentContext, kind: Kind, input: { to: string[];
     subject: input.subject,
     html: input.html,
     text: input.text,
-    inlineImages: footer.inlineImages,
+    inlineImages: [...footer.inlineImages, ...(input.inlineImages ?? [])],
     attachments: input.attachments,
     headers: { 'X-KR-Doc': kind, 'X-KR-Client': input.clientNumber, 'X-KR-Matter': input.matterNumber },
     requestId: `${ctx.actor.requestId}:email`,
@@ -303,15 +349,27 @@ async function recordWorkstream(ctx: DocumentContext, input: { clientId: string;
 /** Steps 2 to 5 for a new document. */
 async function storeAndSend(ctx: DocumentContext, out: Outgoing, afterSend?: (sentAt: string) => Promise<void>): Promise<BillingEmailSentData> {
   const sentAt = ctx.now().toISOString()
-  const stored = await storeDocument(ctx, out, sentAt)
+  /** Revokes the link issued for this email when the email never goes out (old `dropPayLink`). */
+  const dropPayLink = async (reason: string) => {
+    if (out.payLink && ctx.payLinks) await revokePayLink(ctx.payLinks, out.payLink.id, reason).catch(() => false)
+  }
+  let stored: { documentId: string; documentNumber: string }
+  try {
+    stored = await storeDocument(ctx, out, sentAt)
+  } catch (error) {
+    await dropPayLink(`${KIND_LABEL[out.kind]} email was not sent (copy could not be stored)`)
+    throw error
+  }
+  if (out.payLink && ctx.payLinks) await setPayLinkSentDocument(ctx.payLinks, out.payLink.id, stored.documentNumber)
   const url = documentFileUrl(out.clientId, { id: stored.documentId, document_number: stored.documentNumber })
   let messageId: string | null
   try {
-    messageId = await sendMail(ctx, out.kind, { to: out.to, cc: out.cc, subject: out.subject, html: out.html, text: out.text, clientNumber: out.clientNumber, matterNumber: out.matterNumber, attachments: out.pdf ? [{ filename: `${out.baseName}.pdf`, contentType: 'application/pdf', base64: toBase64(out.pdf) }] : [] })
+    messageId = await sendMail(ctx, out.kind, { to: out.to, cc: out.cc, subject: out.subject, html: out.html, text: out.text, clientNumber: out.clientNumber, matterNumber: out.matterNumber, attachments: out.pdf ? [{ filename: `${out.baseName}.pdf`, contentType: 'application/pdf', base64: toBase64(out.pdf) }] : [], inlineImages: out.inlineImages ?? [] })
   } catch (error) {
     await ctx.docs
       .supersedeDocument(stored.documentId, `${KIND_LABEL[out.kind]} — send failed ${sentAt.slice(0, 10)}`, audit(ctx, 'DOCUMENT_SEND_FAILED', 'document_record', stored.documentId, out.clientId, null), ctx.now().toISOString())
       .catch(() => undefined)
+    await dropPayLink(`${KIND_LABEL[out.kind]} email was not sent`)
     throw error
   }
   if (afterSend) await afterSend(sentAt).catch((error: unknown) => logLine('BILLING_DOCS:after-send-failed', ctx.actor.requestId, { error: error instanceof Error ? error.message.slice(0, 120) : 'unknown' }))
@@ -325,7 +383,25 @@ async function storeAndSend(ctx: DocumentContext, out: Outgoing, afterSend?: (se
     documentLabel: `${KIND_LABEL[out.kind]} — sent copy ${stored.documentNumber}`,
   })
   logLine('BILLING_DOCS:sent', ctx.actor.requestId, { kind: out.kind, document: stored.documentNumber, to: out.to.length, pdf: Boolean(out.pdf) })
-  return { sent: true, resent: false, messageId, to: out.to, cc: out.cc, subject: out.subject, documentId: stored.documentId, documentNumber: stored.documentNumber, documentUrl: url, pdfAttached: Boolean(out.pdf), pdfError: out.pdfError, ...workstream }
+  return { sent: true, resent: false, messageId, to: out.to, cc: out.cc, subject: out.subject, documentId: stored.documentId, documentNumber: stored.documentNumber, documentUrl: url, pdfAttached: Boolean(out.pdf), pdfError: out.pdfError, ...workstream, payLinkPrid: out.payLink?.prid ?? null, payLinkError: out.payLinkError ?? null }
+}
+
+/** A pay link refusal as a short code for notes and replies. */
+function payLinkErrorCode(error: unknown): string {
+  const code = (error as { code?: unknown } | null)?.code
+  return (typeof code === 'string' && code ? code : error instanceof Error ? error.message : String(error)).slice(0, 200)
+}
+
+/** The preview's stand-in for a link: where it goes (`<pay host>/p/...`) and a sample QR of the pay site, or null. */
+async function previewPayLink(ctx: DocumentContext, environment?: PayEnvironment): Promise<{ displayUrl: string; qr: InlineImage | null } | null> {
+  if (!ctx.payLinks) return null
+  try {
+    const base = payLinkBaseUrl(ctx.payLinks, environment ?? ctx.payLinks.environment)
+    return { displayUrl: `${base.replace(/^https:\/\//, '')}/p/…`, qr: await buildPayQrImage(base).catch(() => null) }
+  } catch {
+    // Pay site address not configured: the preview shows the no-link wording.
+    return null
+  }
 }
 
 /** The PDF of a rendered document, or the reason there is none. */
@@ -345,24 +421,64 @@ export async function invoiceEmailInfo(ctx: DocumentContext, clientId: string, i
   return emailInfo(ctx, clientId, 'invoice', (notes) => notes.invoiceId === invoiceId)
 }
 
-async function prepareInvoice(ctx: DocumentContext, clientId: string, invoiceId: string, body: Pick<InvoiceEmailBody, 'subject' | 'message' | 'includeInvoiceBody' | 'officeId'>) {
+/**
+ * Builds the invoice email. `mode` 'preview' shows where the pay link goes; 'send' issues the email pay link first
+ * (old step 0: "Pay link for this email ... Failure -> no link, not fatal"), so the PDF and the email carry it.
+ */
+async function prepareInvoice(ctx: DocumentContext, clientId: string, invoiceId: string, body: Pick<InvoiceEmailBody, 'subject' | 'message' | 'includeInvoiceBody' | 'officeId'>, mode: 'preview' | 'send') {
   const record = await recordOf(ctx, clientId)
   const invoice = record.invoices.find((row) => row.id === invoiceId)
   if (!invoice) throw new BillingDocumentError('VALIDATION_INVOICE_NOT_FOUND', 404, 'No such invoice on this client.')
   if (invoice.status === 'Void') throw new BillingDocumentError('VALIDATION_INVOICE_VOID', 422, 'A voided invoice cannot be emailed.')
   const letterhead = await letterheadFor(ctx, body.officeId)
-  const report = { ...invoiceReportFromRecord({ invoice, entries: record.timeEntries, clientNumber: record.client.clientNumber, staffOptions: record.staffOptions, accountInvoices: record.invoices, letterhead }), payOnline: { url: '', urlNote: '' } }
+  const base = invoiceReportFromRecord({ invoice, entries: record.timeEntries, clientNumber: record.client.clientNumber, staffOptions: record.staffOptions, accountInvoices: record.invoices, letterhead })
+  let payOnline: { url: string; urlNote: string; qrDataUri?: string } = { url: '', urlNote: '' }
+  let payLink: IssuedPayLink | null = null
+  let payLinkError: string | null = null
+  const inlineImages: InlineImage[] = []
+  if (mode === 'preview') {
+    // Preview shows where the link goes; the real link is created only when the email is sent.
+    const sample = await previewPayLink(ctx)
+    if (sample) {
+      payOnline = { url: sample.displayUrl, urlNote: 'your secure link is created when this email is sent' }
+      if (sample.qr) inlineImages.push(sample.qr)
+    }
+  } else if (ctx.payLinks) {
+    try {
+      const row = await ctx.payLinks.queries.invoiceById(invoiceId)
+      if (!row) throw new BillingDocumentError('VALIDATION_INVOICE_NOT_FOUND', 404, 'No such invoice on this client.')
+      payLink = await issuePayLink(ctx.payLinks, { invoice: row, clientNumber: record.client.clientNumber })
+    } catch (error) {
+      payLinkError = payLinkErrorCode(error)
+      logLine('BILLING_DOCS:pay-link', ctx.actor.requestId, { invoice: invoice.invoiceNumber, error: payLinkError })
+    }
+    if (payLink) {
+      // QR code of the same link for the PDF (SVG data URI); the same link as a PNG for the email body (email
+      // clients block SVG and data images), sent inline as cid:kr-pay-qr. A failure leaves the placeholder.
+      let qrDataUri: string | undefined
+      try {
+        qrDataUri = buildQrSvgDataUri(payLink.url)
+      } catch (error) {
+        logLine('BILLING_DOCS:qr', ctx.actor.requestId, { error: error instanceof Error ? error.message.slice(0, 120) : 'unknown' })
+      }
+      payOnline = { url: payLink.url.replace(/^https:\/\//, ''), urlNote: `your secure link · expires ${payLinkExpiryText(payLink.expiresAt)}`, ...(qrDataUri ? { qrDataUri } : {}) }
+      const qr = await buildPayQrImage(payLink.url).catch(() => null)
+      if (qr) inlineImages.push(qr)
+    }
+  }
+  const report = { ...base, payOnline }
   const footer = emailFooter()
-  const html = buildInvoiceEmailHtml({ report, message: body.message, footerHtml: footer.html, includeInvoiceBody: body.includeInvoiceBody })
+  const payQrSrc = inlineImages.length ? PAY_QR_CID_SRC : undefined
+  const html = buildInvoiceEmailHtml({ report, message: body.message, footerHtml: footer.html, includeInvoiceBody: body.includeInvoiceBody, ...(payQrSrc ? { payQrSrc } : {}) })
   const text = buildInvoiceEmailText({ report, message: body.message, footerText: footer.text, includeInvoiceBody: body.includeInvoiceBody })
   const subject = tagEmailSubject(body.subject || `Invoice #${invoice.invoiceNumber} from ${letterhead.firmName}`, invoice.matterNumber)
-  return { record, invoice, letterhead, report, html, text, subject }
+  return { record, invoice, letterhead, report, html, text, subject, payLink, payLinkError, inlineImages }
 }
 
-/** The invoice email as it will look. Sends and stores nothing. */
+/** The invoice email as it will look. Sends and stores nothing (no pay link is issued). */
 export async function previewInvoiceEmail(ctx: DocumentContext, clientId: string, invoiceId: string, body: InvoiceEmailBody): Promise<BillingEmailPreviewData> {
-  const prepared = await prepareInvoice(ctx, clientId, invoiceId, body)
-  return { subject: prepared.subject, html: withImagesInline(prepared.html, emailFooter().inlineImages) }
+  const prepared = await prepareInvoice(ctx, clientId, invoiceId, body, 'preview')
+  return { subject: prepared.subject, html: withImagesInline(prepared.html, [...emailFooter().inlineImages, ...prepared.inlineImages]) }
 }
 
 /** Sends the invoice: PDF, stored copy, email, `sent_at` (locks it), WorkStream entry. */
@@ -370,7 +486,7 @@ export async function sendInvoiceEmail(ctx: DocumentContext, clientId: string, i
   requireReadyToSend(ctx)
   const to = recipientsOf(body.to)
   if (!body.subject.trim()) throw new BillingDocumentError('VALIDATION_MISSING_SUBJECT', 422, 'The email needs a subject.')
-  const { record, invoice, letterhead, report, html, text, subject } = await prepareInvoice(ctx, clientId, invoiceId, body)
+  const { record, invoice, letterhead, report, html, text, subject, payLink, payLinkError, inlineImages } = await prepareInvoice(ctx, clientId, invoiceId, body, 'send')
   const { pdf, pdfError } = await pdfOf(ctx, body.includePdf, () => renderInvoiceDocumentHtml(report), documentPdfOptions(letterhead, 'Invoice'))
   const names = await ctx.docs.clientNames(clientId)
   const sentAt = ctx.now().toISOString()
@@ -395,7 +511,10 @@ export async function sendInvoiceEmail(ctx: DocumentContext, clientId: string, i
       text,
       pdf,
       pdfError,
-      notes: { invoiceId, invoiceNumber: invoice.invoiceNumber, clientNumber: record.client.clientNumber, matterNumber: invoice.matterNumber, subject, to, cc: body.cc, sentBy: ctx.actor.displayName, sentByUserId: ctx.actor.userId, includeInvoiceBody: body.includeInvoiceBody, includePdf: body.includePdf, pdfError, text, balanceDue: report.balanceDue, dueDate: report.dueDate, officeId: letterhead.officeId },
+      notes: { invoiceId, invoiceNumber: invoice.invoiceNumber, clientNumber: record.client.clientNumber, matterNumber: invoice.matterNumber, subject, to, cc: body.cc, sentBy: ctx.actor.displayName, sentByUserId: ctx.actor.userId, includeInvoiceBody: body.includeInvoiceBody, includePdf: body.includePdf, pdfError, text, balanceDue: report.balanceDue, dueDate: report.dueDate, officeId: letterhead.officeId, payLinkPrid: payLink?.prid ?? null, payLinkError },
+      payLink,
+      payLinkError,
+      inlineImages,
       workstreamTitle: `Invoice #${invoice.invoiceNumber} emailed to ${to.join(', ')}`,
       workstreamLines: [
         `Sent by ${ctx.actor.displayName} via KR Homebase.`,
@@ -404,6 +523,7 @@ export async function sendInvoiceEmail(ctx: DocumentContext, clientId: string, i
         `Balance due: ${money(report.balanceDue)} · due ${report.dueDate}`,
         body.includePdf ? (pdfError ? `PDF attachment failed: ${pdfError}` : 'PDF invoice attached') : 'No PDF attached',
         body.includeInvoiceBody ? 'Invoice included in the email body' : 'Invoice not included in the email body',
+        payLink ? `Online pay link ${payLink.prid} included` : payLinkError ? `No online pay link: ${payLinkError}` : '',
       ],
     },
     // Step 4: the invoice is sent, and a draft becomes locked.
@@ -499,16 +619,60 @@ export async function receiptEmailInfo(ctx: DocumentContext, clientId: string, p
   return { ...info, details: paymentDetailsFor(receipt), defaultSubject: defaultReceiptSubject(receipt), defaultMessage: defaultReceiptMessage(receipt) }
 }
 
-function receiptEmail(receipt: ReturnType<typeof receiptFromRecord>, message: string) {
+function receiptEmail(receipt: ReturnType<typeof receiptFromRecord>, message: string, payLink: ReceiptPayLink | null = null) {
   const footer = emailFooter()
-  return { html: buildReceiptEmailHtml({ receipt, message, footerHtml: footer.html, payLink: null }), text: buildReceiptEmailText({ receipt, message, footerText: footer.text, payLink: null }) }
+  return { html: buildReceiptEmailHtml({ receipt, message, footerHtml: footer.html, payLink }), text: buildReceiptEmailText({ receipt, message, footerText: footer.text, payLink }) }
 }
 
-/** The receipt email as it will look. Sends and stores nothing. */
+/** The Stripe environment of a receipt's new link: the payment's own (a Stripe payment), else the server's. */
+function receiptEnvironment(ctx: DocumentContext, sourceSystem: string | null): PayEnvironment | undefined {
+  if (sourceSystem === 'stripe_live') return 'live'
+  if (sourceSystem === 'stripe_sandbox') return 'sandbox'
+  return ctx.payLinks?.environment
+}
+
+/**
+ * The receipt's "Balance remaining" link (old step 0 of `krPaymentNotice.ts`): in a preview a placeholder and a sample
+ * QR when $0.50 or more is open; when sending, a new account link (which revokes the client's older open email link).
+ * A failure leaves the receipt without the box (`payLinkError`), never stops it.
+ */
+async function receiptPayLinkFor(ctx: DocumentContext, clientId: string, clientNumber: string, sourceSystem: string | null, mode: 'preview' | 'send') {
+  let payLink: IssuedPayLink | null = null
+  let payLinkError: string | null = null
+  let receiptPayLink: ReceiptPayLink | null = null
+  const inlineImages: InlineImage[] = []
+  if (!ctx.payLinks) return { payLink, payLinkError, receiptPayLink, inlineImages }
+  const environment = receiptEnvironment(ctx, sourceSystem)
+  try {
+    if (mode === 'preview') {
+      const balance = await openAccountBalance(ctx.payLinks, clientId)
+      const sample = balance >= 0.5 ? await previewPayLink(ctx, environment) : null
+      if (sample) {
+        if (sample.qr) inlineImages.push(sample.qr)
+        receiptPayLink = { url: '', displayUrl: sample.displayUrl, balance, expires: 'when sent', ...(sample.qr ? { qrSrc: PAY_QR_CID_SRC } : {}) }
+      }
+    } else {
+      const issued = await issueAccountPayLink(ctx.payLinks, clientId, clientNumber, environment)
+      if (issued) {
+        payLink = issued.link
+        const qr = await buildPayQrImage(issued.link.url).catch(() => null)
+        if (qr) inlineImages.push(qr)
+        receiptPayLink = { url: issued.link.url, displayUrl: issued.link.url.replace(/^https:\/\//, ''), balance: issued.balance, expires: payLinkExpiryText(issued.link.expiresAt), ...(qr ? { qrSrc: PAY_QR_CID_SRC } : {}) }
+      }
+    }
+  } catch (error) {
+    payLinkError = payLinkErrorCode(error)
+    logLine('BILLING_DOCS:receipt-pay-link', ctx.actor.requestId, { error: payLinkError })
+  }
+  return { payLink, payLinkError, receiptPayLink, inlineImages }
+}
+
+/** The receipt email as it will look. Sends and stores nothing (no pay link is issued). */
 export async function previewReceiptEmail(ctx: DocumentContext, clientId: string, paymentId: string, body: ReceiptEmailBody): Promise<BillingEmailPreviewData> {
-  const { payment, receipt } = await prepareReceipt(ctx, clientId, paymentId, body.officeId)
-  const email = receiptEmail(receipt, body.message || defaultReceiptMessage(receipt))
-  return { subject: tagEmailSubject(body.subject || defaultReceiptSubject(receipt), payment.matterNumber), html: withImagesInline(email.html, emailFooter().inlineImages) }
+  const { record, payment, receipt } = await prepareReceipt(ctx, clientId, paymentId, body.officeId)
+  const link = await receiptPayLinkFor(ctx, clientId, record.client.clientNumber, payment.sourceSystem, 'preview')
+  const email = receiptEmail(receipt, body.message || defaultReceiptMessage(receipt), link.receiptPayLink)
+  return { subject: tagEmailSubject(body.subject || defaultReceiptSubject(receipt), payment.matterNumber), html: withImagesInline(email.html, [...emailFooter().inlineImages, ...link.inlineImages]) }
 }
 
 /** Sends the payment receipt: PDF, stored copy, email, WorkStream entry. */
@@ -517,7 +681,8 @@ export async function sendReceiptEmail(ctx: DocumentContext, clientId: string, p
   const to = recipientsOf(body.to)
   const { record, payment, letterhead, receipt } = await prepareReceipt(ctx, clientId, paymentId, body.officeId)
   const subject = tagEmailSubject(body.subject || defaultReceiptSubject(receipt), payment.matterNumber)
-  const email = receiptEmail(receipt, body.message || defaultReceiptMessage(receipt))
+  const link = await receiptPayLinkFor(ctx, clientId, record.client.clientNumber, payment.sourceSystem, 'send')
+  const email = receiptEmail(receipt, body.message || defaultReceiptMessage(receipt), link.receiptPayLink)
   const { pdf, pdfError } = await pdfOf(ctx, body.includePdf, () => renderReceiptDocumentHtml(receipt), documentPdfOptions(letterhead, 'Payment Receipt'))
   const names = await ctx.docs.clientNames(clientId)
   const sentAt = ctx.now().toISOString()
@@ -540,9 +705,87 @@ export async function sendReceiptEmail(ctx: DocumentContext, clientId: string, p
     text: email.text,
     pdf,
     pdfError,
-    notes: { paymentId, paymentNumber: payment.paymentNumber, clientNumber, matterNumber: payment.matterNumber, subject, to, cc: body.cc, sentBy: ctx.actor.displayName, sentByUserId: ctx.actor.userId, includePdf: body.includePdf, pdfError, text: email.text, amount: payment.amount, officeId: letterhead.officeId },
+    notes: { paymentId, paymentNumber: payment.paymentNumber, clientNumber, matterNumber: payment.matterNumber, subject, to, cc: body.cc, sentBy: ctx.actor.displayName, sentByUserId: ctx.actor.userId, includePdf: body.includePdf, pdfError, text: email.text, amount: payment.amount, officeId: letterhead.officeId, payLinkPrid: link.payLink?.prid ?? null, payLinkError: link.payLinkError },
+    payLink: link.payLink,
+    payLinkError: link.payLinkError,
+    inlineImages: link.inlineImages,
     workstreamTitle: `Payment Receipt emailed to ${to.join(', ')}`,
-    workstreamLines: [`Sent by ${ctx.actor.displayName} via KR Homebase.`, `Subject: ${subject}`, body.cc.length ? `Cc: ${body.cc.join(', ')}` : '', `Payment ${payment.paymentNumber}: ${money(payment.amount)}`, body.includePdf ? (pdfError ? `PDF attachment failed: ${pdfError}` : 'PDF receipt attached') : 'No PDF attached'],
+    workstreamLines: [`Sent by ${ctx.actor.displayName} via KR Homebase.`, `Subject: ${subject}`, body.cc.length ? `Cc: ${body.cc.join(', ')}` : '', `Payment ${payment.paymentNumber}: ${money(payment.amount)}`, body.includePdf ? (pdfError ? `PDF attachment failed: ${pdfError}` : 'PDF receipt attached') : 'No PDF attached', link.payLink ? `Online pay link ${link.payLink.prid} for the balance left` : ''],
+  })
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Refund notice (Billing part 7e)
+
+/** The voided payment, its refund notice and the letterhead; a payment with no recorded refund is refused. */
+async function prepareRefundNotice(ctx: DocumentContext, clientId: string, paymentId: string, officeId: string | null | undefined) {
+  const record = await recordOf(ctx, clientId)
+  const payment = record.payments.find((row) => row.id === paymentId)
+  if (!payment) throw new BillingDocumentError('VALIDATION_PAYMENT_NOT_FOUND', 404, 'No such payment on this client.')
+  const letterhead = await letterheadFor(ctx, officeId)
+  const notice = refundNoticeFromRecord(payment, record, letterhead)
+  if (!notice || !payment.refund) throw new BillingDocumentError('VALIDATION_PAYMENT_HAS_NO_REFUND', 422, 'This payment was not refunded through Stripe, so there is no refund notice.')
+  return { record, payment, refund: payment.refund, letterhead, notice }
+}
+
+/** Recipients, the refund, the default subject and message, and the sent refund notices of one payment. */
+export async function refundNoticeEmailInfo(ctx: DocumentContext, clientId: string, paymentId: string): Promise<BillingRefundNoticeInfoData> {
+  const { notice, refund } = await prepareRefundNotice(ctx, clientId, paymentId, null)
+  const info = await emailInfo(ctx, clientId, 'refund', (notes) => notes.paymentId === paymentId)
+  return { ...info, refund, defaultSubject: defaultRefundSubject(notice), defaultMessage: defaultRefundMessage(notice) }
+}
+
+function refundEmail(notice: NonNullable<ReturnType<typeof refundNoticeFromRecord>>, message: string) {
+  const footer = emailFooter()
+  return { html: buildRefundEmailHtml({ notice, message, footerHtml: footer.html }), text: buildRefundEmailText({ notice, message, footerText: footer.text }) }
+}
+
+/** The refund notice email as it will look. Sends and stores nothing. */
+export async function previewRefundNoticeEmail(ctx: DocumentContext, clientId: string, paymentId: string, body: RefundNoticeEmailBody): Promise<BillingEmailPreviewData> {
+  const { payment, notice } = await prepareRefundNotice(ctx, clientId, paymentId, body.officeId)
+  const email = refundEmail(notice, body.message || defaultRefundMessage(notice))
+  return { subject: tagEmailSubject(body.subject || defaultRefundSubject(notice), payment.matterNumber), html: withImagesInline(email.html, emailFooter().inlineImages) }
+}
+
+/** Sends the refund notice: stored copy (the email HTML), email, WorkStream entry. No PDF (as before). */
+export async function sendRefundNoticeEmail(ctx: DocumentContext, clientId: string, paymentId: string, body: RefundNoticeEmailBody): Promise<BillingEmailSentData> {
+  requireReadyToSend(ctx)
+  const to = recipientsOf(body.to)
+  const { record, payment, letterhead, notice } = await prepareRefundNotice(ctx, clientId, paymentId, body.officeId)
+  const subject = tagEmailSubject(body.subject || defaultRefundSubject(notice), payment.matterNumber)
+  const email = refundEmail(notice, body.message || defaultRefundMessage(notice))
+  const names = await ctx.docs.clientNames(clientId)
+  const sentAt = ctx.now().toISOString()
+  const clientNumber = record.client.clientNumber
+  const amountLine = `Refund: ${paymentEmailMoney(notice.refundAmount)} (${notice.refundId})${notice.arn ? ` · ARN ${notice.arn}` : ''}`
+  return storeAndSend(ctx, {
+    kind: 'refund',
+    clientId,
+    clientNumber,
+    matterId: payment.matterId || null,
+    matterNumber: payment.matterNumber,
+    keyPath: payment.matterNumber ? ['clients', clientNumber, 'matters', payment.matterNumber, 'payments'] : ['clients', clientNumber, 'payments'],
+    ownerType: 'client',
+    ownerId: clientId,
+    title: `Refund Notice ${payment.paymentNumber} sent ${sentAt.slice(0, 10)}`,
+    // Old `noticeFileBaseName`: "Refund Notice (sent) 2026-09-26 [306.1] Krueger, Dan - $300.00 - Krueger-Richard".
+    baseName: buildRefundNoticeFileBaseName({ date: sentAt, scopeNumber: payment.matterNumber || clientNumber, firstName: names?.first_name, lastName: names?.last_name, displayName: record.client.displayName, amount: notice.refundAmount }),
+    subject,
+    to,
+    cc: body.cc,
+    html: email.html,
+    text: email.text,
+    pdf: null,
+    pdfError: null,
+    notes: { paymentId, paymentNumber: payment.paymentNumber, invoiceId: payment.invoiceId, invoiceNumber: payment.invoiceNumber, clientNumber, matterNumber: payment.matterNumber, subject, to, cc: body.cc, sentBy: ctx.actor.displayName, sentByUserId: ctx.actor.userId, text: email.text, refundId: notice.refundId, arn: notice.arn, refundAmount: notice.refundAmount, officeId: letterhead.officeId },
+    workstreamTitle: `Refund Notice emailed to ${to.join(', ')}`,
+    workstreamLines: [
+      `Sent by ${ctx.actor.displayName} via KR Homebase.`,
+      `Subject: ${subject}`,
+      body.cc.length ? `Cc: ${body.cc.join(', ')}` : '',
+      `Payment ${payment.paymentNumber}${payment.invoiceNumber ? ` · Invoice #${payment.invoiceNumber}` : ''}`,
+      amountLine,
+    ],
   })
 }
 
@@ -579,11 +822,14 @@ export async function resendDocument(ctx: DocumentContext, clientId: string, num
   const pdfFile = files.find((file) => file.content_type === 'application/pdf')
   const html = new TextDecoder().decode(await readStored(ctx, htmlFile.r2_key))
   const pdf = pdfFile ? await readStored(ctx, pdfFile.r2_key) : null
+  // The stored email references the QR image by cid; rebuild it from the link it wraps.
+  const qrHref = findPayQrHref(html)
+  const qr = qrHref ? await buildPayQrImage(qrHref).catch(() => null) : null
   const to = body.to.length ? recipientsOf(body.to) : recipientsOf(strings(notes.to))
   const subject = typeof notes.subject === 'string' && notes.subject ? notes.subject : `${KIND_LABEL[kind]} from Krueger & Richard`
   const clientNumber = typeof notes.clientNumber === 'string' ? notes.clientNumber : ''
   const matterNumber = typeof notes.matterNumber === 'string' ? notes.matterNumber : `${clientNumber}.0`
-  const messageId = await sendMail(ctx, kind, { to, cc: body.cc, subject, html, text: typeof notes.text === 'string' ? notes.text : `${KIND_LABEL[kind]} — see the attached PDF.`, clientNumber, matterNumber, attachments: pdf && pdfFile ? [{ filename: pdfFile.original_filename || `${KIND_LABEL[kind]}.pdf`, contentType: 'application/pdf', base64: toBase64(pdf) }] : [] })
+  const messageId = await sendMail(ctx, kind, { to, cc: body.cc, subject, html, text: typeof notes.text === 'string' ? notes.text : `${KIND_LABEL[kind]} — see the attached PDF.`, clientNumber, matterNumber, attachments: pdf && pdfFile ? [{ filename: pdfFile.original_filename || `${KIND_LABEL[kind]}.pdf`, contentType: 'application/pdf', base64: toBase64(pdf) }] : [], inlineImages: qr ? [qr] : [] })
   const url = documentFileUrl(clientId, row)
   const workstream = await recordWorkstream(ctx, {
     clientId,

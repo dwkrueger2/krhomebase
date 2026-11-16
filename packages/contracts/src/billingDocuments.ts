@@ -11,6 +11,8 @@
  *   POST /v1/billing/clients/{clientId}/statement/email/preview | /email
  *   GET  /v1/billing/clients/{clientId}/payments/{paymentId}/receipt/email     recipients, details, sent receipts
  *   POST /v1/billing/clients/{clientId}/payments/{paymentId}/receipt/email/preview | /email
+ *   GET  /v1/billing/clients/{clientId}/payments/{paymentId}/refund-notice/email     recipients, wording, sent notices (7e)
+ *   POST /v1/billing/clients/{clientId}/payments/{paymentId}/refund-notice/email/preview | /email
  *   POST /v1/billing/clients/{clientId}/documents/{documentNumber}/resend      the exact stored email again
  *   GET  /v1/billing/clients/{clientId}/documents/{documentNumber}/file        a stored copy (PDF or the email HTML)
  *   POST /v1/billing/document-samples/pdf                                      the sample invoice as a PDF
@@ -23,11 +25,17 @@
  *    document number, and works for any of the three kinds.
  *  - No pay link yet (part 7d): the invoice email says to call the office to pay by card, as the old email did when
  *    no link could be made. The receipt's "pay the rest" link waits for 7d too. Refund notices wait for part 7e.
+ *  - Billing part 7d (Nov 16, 2026): the invoice email carries its pay link again (`[[PAY_LINK]]`, the Pay online box,
+ *    the QR image inline as `cid:kr-pay-qr`, the PDF's QR code), and a receipt that leaves $0.50 or more open carries a
+ *    new account link. The sent reply names the link (`payLinkPrid`) or why there is none (`payLinkError`).
  *  - The sample PDF is returned as the file and not stored (the old route stored it as a document).
+ *  - Billing part 7e (Nov 16, 2026): the refund notice of a voided, refunded Stripe card payment (the old
+ *    `payment-notice` kind `refund`): its own three routes beside the receipt's, no PDF (as before), stored as
+ *    `payment_refund_notice_sent` (the old document type), re-sent through the same `documents/{n}/resend` route.
  */
 
 import { z } from 'zod'
-import { BillingClientParams } from './billing.ts'
+import { BillingClientParams, BillingPaymentRefund } from './billing.ts'
 
 const address = z.string().trim().toLowerCase().email().max(320)
 const addresses = z.array(address).max(25)
@@ -89,6 +97,14 @@ export const BillingReceiptInfoData = BillingEmailInfoData.extend({
 })
 export type BillingReceiptInfoData = z.infer<typeof BillingReceiptInfoData>
 
+/** Recipients, the refund, the default wording and the sent refund notices of one voided, refunded payment (part 7e). */
+export const BillingRefundNoticeInfoData = BillingEmailInfoData.extend({
+  refund: BillingPaymentRefund.describe('The Stripe refund the notice is about (amount, status, ARN).'),
+  defaultSubject: z.string().describe('The subject the refund notice starts with.'),
+  defaultMessage: z.string().describe('The message the refund notice starts with (it names the ARN when Stripe has one).'),
+})
+export type BillingRefundNoticeInfoData = z.infer<typeof BillingRefundNoticeInfoData>
+
 const emailFields = {
   to: addresses.describe('Recipients (at least one to send).'),
   cc: addresses.default([]).describe('Copies.'),
@@ -127,6 +143,10 @@ export const ReceiptEmailBody = z
   .strict()
 export type ReceiptEmailBody = z.infer<typeof ReceiptEmailBody>
 
+/** The refund notice email (part 7e): no PDF, as the old notice had none. */
+export const RefundNoticeEmailBody = z.object({ ...emailFields }).strict()
+export type RefundNoticeEmailBody = z.infer<typeof RefundNoticeEmailBody>
+
 export const BillingEmailPreviewData = z.object({
   subject: z.string().describe('The tagged subject.'),
   html: z.string().describe('The email HTML, images inline for a preview frame.'),
@@ -147,6 +167,8 @@ export const BillingEmailSentData = z.object({
   pdfError: z.string().nullable().describe('Why there is no PDF, when one was asked for.'),
   workstreamWsid: z.string().nullable().describe('The WorkStream "Emails" entry recorded.'),
   workstreamError: z.string().nullable().describe('Why no entry was recorded (the email still went).'),
+  payLinkPrid: z.string().nullable().optional().describe('The pay link the email carries (invoice, or a receipt that leaves a balance); part 7d.'),
+  payLinkError: z.string().nullable().optional().describe('Why the email carries no pay link, when one was expected (an error code).'),
 })
 export type BillingEmailSentData = z.infer<typeof BillingEmailSentData>
 
@@ -179,4 +201,6 @@ export const BILLING_DOCUMENT_TYPES = {
   invoice: 'invoice_sent',
   statement: 'statement_sent',
   receipt: 'payment_receipt_sent',
+  /** Billing part 7e: the refund notice (the old app's type). */
+  refund: 'payment_refund_notice_sent',
 } as const

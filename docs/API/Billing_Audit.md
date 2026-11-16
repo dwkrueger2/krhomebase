@@ -1,7 +1,7 @@
 # Billing Audit: Old KR-Billing Compared With the New Billing
 
-<small>Version 1.2</small><br>
-<small>Updated Nov 16, 2026 1:35am</small>
+<small>Version 1.5</small><br>
+<small>Updated Nov 16, 2026 4:07pm</small>
 
 ## 1. Purpose and sources
 
@@ -85,8 +85,8 @@ W = the billing write roles, R = the office read roles, SA = super admin.
 | Print-intent prompt: "Just reviewing" or "Sending to client: lock it" | `Invoicing/InvoicePrintIntent` | Can use `U6ConfirmationDialog` with its secondary button |
 | Invoice documents Option 1 and Option 2, Statement of Account, Payment Receipt, and their data builders | `Invoicing/*Report*`, `build*Data.ts`, `invoiceReportShared`, `invoiceReportTypes`, `firmProfiles`, `invoiceFileName` | Section 6.1 lists the data each needs |
 | Send Invoice and Send Statement dialogs (cover message with `[[PAY_LINK]]`, include PDF, earlier copies with Re-send) | `Invoicing/SendInvoiceDialog`, `SendStatementDialog` | |
-| Posted Payments row icons Preview, Print and Email receipt | `PostedPaymentsLedger:295-304` | **Absent, not disabled.** Plan 06 line 86 says they are disabled buttons. |
-| Payment details dialog (receipt, preview sent email, print, resend) | `PaymentDetailsDialog` | A payment opened from the Overview is outlined in the list instead. The Overview tooltip still says "Double-click to view this payment receipt" (`ClientAccountingLedger:171`). |
+| Posted Payments row icons Preview, Print and Email receipt | `PostedPaymentsLedger:295-304` | **Absent, not disabled.** Plan 06 line 86 says they are disabled buttons. Built in 7b and 7c; plan 06's wording corrected in 7f. |
+| Payment details dialog (receipt, preview sent email, print, resend) | `PaymentDetailsDialog` | A payment opened from the Overview is outlined in the list instead. The Overview tooltip still says "Double-click to view this payment receipt" (`ClientAccountingLedger:171`). Built in 7b: the double-click opens the details, so the tooltip is true (checked in 7f, with a test). |
 | Payment notice dialog (receipt or refund email) | `PaymentNoticeDialog` | |
 | Email receipt to (checkbox and address) after posting | `PaymentsTab:765-768` | A line of text says stage 5 |
 | Pay link panel (status, paid but not posted in red, earlier links) | `InvoicePayLinkPanel` | A line of text says stage 6 |
@@ -94,23 +94,23 @@ W = the billing write roles, R = the office read roles, SA = super admin.
 | Void dialog: "Refund the card in Stripe" and "Email the client a refund notice" | `PostedPaymentsLedger:346-357` | New warns that a Stripe payment will not be refunded |
 | Refresh ARN and the refund notice icon on voided rows | `PostedPaymentsLedger:317-322` | The refund text shows; its ARN tip icon is gone |
 | Billing Document Samples (Reports) with Email Sample | `Invoicing/BillingDocumentSamples`, `ReportsPanel:52, 85-89` | New Reports has no billing item |
-| "No billing records are available for X" | `BillingPanel:389-393` | New shows "Billing could not load: ..." or "No client is open." |
+| "No billing records are available for X" | `BillingPanel:389-393` | New shows "Billing could not load: ..." or "No client is open." Built in 7f: a client the API does not know (`VALIDATION_CLIENT_NOT_FOUND`), or a load that ends with no record, shows the old line with the name from the data store. |
 
 ## 5. Rules and calculations that differ
 
 These are differences found in the audit that plan 06 did not record. Each is small; section 7 says which to fix.
 
-1. **Tax and invoice notes.** Old create and save took `taxAmount` and `notes`; new create sets tax 0 and notes null, and save keeps the current tax. No screen sets either today, so nothing is lost yet; the invoice documents show both.
-2. **`sent_at` is never written.** Old send stamped `sent_at` and set status sent; new lock sets status only.
+1. **Tax and invoice notes.** Old create and save took `taxAmount` and `notes`; new create sets tax 0 and notes null, and save keeps the current tax. No screen sets either today, so nothing is lost yet; the invoice documents show both. **Done in 7f:** create and save take both again (left out: none on create, the saved values on a save; an empty `notes` clears them). The save now stores the tax (the old save counted a new tax in the total but never stored it), and the invoice's register posting follows the total with the tax. The old editor had neither field, so the editor is unchanged. Correction: neither the old nor the new invoice documents print the tax or the notes; the documents total the lines, so an invoice with tax would print a total without it (a follow-up if tax is ever used).
+2. **`sent_at` is never written.** Old send stamped `sent_at` and set status sent; new lock sets status only. **Done in 7c:** the invoice email stamps `sent_at` and locks the invoice (confirmed in 7f).
 3. **Rounding.** New rounds to cents everywhere (totals, running balance, payments). Old rounded only the account totals, so older stored figures may differ by fractions of a cent. The new behavior is better; noted only so a cent difference against old reports is not a surprise.
-4. **Ending balance with one matter chosen.** The Overview's "Ending balance" is read from the last row shown, but the API runs the balance across the whole client (`rules.ts:233-246`). With one matter chosen it shows the client's balance at that matter's last row, not the matter's balance. Trust balances already run per matter.
-5. **Buttons shown to readers.** `viewer.canWrite` hides only Post Payment and ledger row editing. Add billing entry, New Invoice, the lock button and the Trust buttons still show to a reader and are refused with 403, as in the old app.
+4. **Ending balance with one matter chosen.** The Overview's "Ending balance" is read from the last row shown, but the API runs the balance across the whole client (`rules.ts:233-246`). With one matter chosen it shows the client's balance at that matter's last row, not the matter's balance. Trust balances already run per matter. **Done in 7f:** every register row also carries `matterBalance`, the running balance of its own matter; with one matter chosen the Overview's Balance column and Ending balance read it (all matters: the client's `balance`, as before).
+5. **Buttons shown to readers.** `viewer.canWrite` hides only Post Payment and ledger row editing. Add billing entry, New Invoice, the lock button and the Trust buttons still show to a reader and are refused with 403, as in the old app. **Done in 7f:** a reader gets no Add billing entry (entries open read only), no New Invoice, row Send or lock button (the lock state shows as an icon), the invoice editor for review only (no Save, Send, Delete, lock or Add Open Time & Fees; Print without the print-intent prompt or a send context), no Trust buttons, no statement Send, no receipt or refund notice email and no Resend; the Payments form no longer asks for the Stripe card settings (a write-role route). Post Payment stays disabled, as before.
 6. **Received date.** The new payment body sends today's date in the browser's time zone; neither app lets the user choose the received date.
 7. **Unapplied money.** A payment's `unapplied_amount` has no route to apply it to an invoice later, in either app.
 8. **Two payments at once.** Neither app checks for a change made between the read and the write, so two payments on one invoice at the same moment could both start from the old `amount_paid`. The paid-link webhook (7d) makes this more likely; it should re-read inside its write.
 9. **Unused total.** The record carries `accountTotals` (open invoice balance and others) and no screen shows it, old or new.
 10. **Still open from plan 06:** trust deposits are listed in the Overview register and lower the balance shown there (plan 06, line 87).
-11. **Two copies of the confirmation dialog.** `apps/web/components/ui/U6ConfirmationDialog.client.tsx` (used by `InvoiceLockConfirm`) and `apps/web/components/dialogs/U6ConfirmationDialog.client.tsx` (the one root `AGENTS.md` names).
+11. **Two copies of the confirmation dialog.** `apps/web/components/ui/U6ConfirmationDialog.client.tsx` (used by `InvoiceLockConfirm`) and `apps/web/components/dialogs/U6ConfirmationDialog.client.tsx` (the one root `AGENTS.md` names). **Done in 7f:** the two had the same props and behavior (only the older spacing and colors differed), so `InvoiceLockConfirm` uses the `dialogs` copy and the `ui` copy was removed.
 
 ## 6. What building the missing pieces needs
 
@@ -193,7 +193,7 @@ C4 was not answered; the build follows the recommendation (7a to 7c, then 7d and
 - **B2:** keep the old Browser Rendering setup: its REST address with the token `KR_CF_BROWSER_RENDERING_TOKEN` (key file `cloudflare-custom-token\cloudflare-browser-rendering.token` in the old repository's `private\dev-private-keys`) and the account id `KR_CF_ACCOUNT_ID` (the same account as this repository), instead of a `browser` binding.
 - **B3:** the documents bucket is the old one, `krhomebase-media-dev`, with the old keys under `clients/` (client 306 holds the requester's own sample documents), so the copies the old app stored still open.
 
-**Progress:** 7a built Nov 15, 2026 (repository 47, API 37, web 551); 7b built Nov 15, 2026 (repository 48, web 552); 7c built Nov 16, 2026 (repository 49, API 38, web 553).
+**Progress:** 7a built Nov 15, 2026 (repository 47, API 37, web 551); 7b built Nov 15, 2026 (repository 48, web 552); 7c built Nov 16, 2026 (repository 49, API 38, web 553); 7d built Nov 16, 2026 (repository 51, API 40, web 555): pay links issued with the invoice email, the receipt and the print view, the pay link panel, posting paid links when Billing opens, void revokes, and the signed webhook through the pay Worker's service binding (live after the API and pay Worker deploys). The webhook stays open during a deploy window; the pay Worker also tries a failed notice twice more. Audit item 8 (re-read inside the write) is built for the paid-link post. The details: `apps/api/AGENTS.md`, "Pay links". 7e built Nov 16, 2026 (repository 52, API 41, web 556): the `card-payment` settings and `intent` routes (sandbox confirms a Stripe test card itself, live refuses one; the allocation checks), the payment post's Stripe-intent branch (re-read from Stripe, now also checking the environment; one payment per intent), refund on void (an earlier refund reused; a failed refund stops the void; `PAYMENT_VOID_DATABASE_SYNC_FAILED`), `refresh-refund`, the refund notice (preview, send, re-send, stored as `payment_refund_notice_sent`), and on screen the card fields, the sandbox test cards, the sandbox/live switch (a super admin on a localhost server only), ACH with its bank lookup (still never posted), "Record Charged Payment", the Void dialog's refund and refund notice, Refresh ARN and the refund notice icon. The environment is `KR_STRIPE_BILLING_ENVIRONMENT`, else sandbox on a localhost server and live otherwise. No table change. The details: `apps/api/AGENTS.md`, "Card payments and refunds". Plan 10 stage 8 (the Stripe check) is still to run on these screens. 7f built Nov 16, 2026 (repository 53, API 42, web 557): items 1, 4, 5 and 11 of section 5, item 2 confirmed (7c), the Overview tooltip confirmed true (7b), the "No billing records" line, the plan 06 wording, and the theme token `--kr-theme-warning` (used by several screens with the fallback `#b47a2a`, now defined in `apps/web/styles/theme.css`, light and dark, and in the theme editors). Items 6, 7, 9 and 10 wait for the requester (C1 to C3).
 
 ### 8.2 Can wait
 

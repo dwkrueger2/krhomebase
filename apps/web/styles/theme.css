@@ -44,6 +44,9 @@
   --kr-theme-orange: #e45e25;
   --kr-theme-danger: #9d2c20;
   --kr-theme-success: #246b45;
+  /* Warning (amber state): notices that need attention but are not errors. Used since before it was defined, always
+     with this value as the fallback; defined here in Billing part 7f (Nov 16, 2026). */
+  --kr-theme-warning: #b47a2a;
 
   /* Data sync light in the top bar (features/contacts/components/DataSyncIndicator.client.tsx). Bright, to show on
      the dark title bar. Values from the old indicator. */
@@ -169,6 +172,7 @@
     --kr-theme-orange: #ec6a32;
     --kr-theme-danger: #e2735f;
     --kr-theme-success: #5cbf86;
+    --kr-theme-warning: #e0a85a;
 
     /* Tables (the ledger): the heading row stays Ledger Slate; rows alternate two dark slates. */
     --kr-theme-table-heading-dark: #2a4560;

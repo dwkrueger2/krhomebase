@@ -3,7 +3,7 @@
  * The Billing port (plan stages 2 to 4): the session cache (one load per client, a second caller joins it, a matter
  * load is not cached, every write reloads, failures carry the API's code), the menu label, one route per write, and
  * the tabs rendered from a made-up record (print on since Billing part 7b, send on since part 7c when the client id is
- * known, card and ACH not selectable until stage 6). The email dialogs are in `sendDialogs.test.tsx`. The API is a stand-in `fetch`. Made-up people and amounts only.
+ * known, card payments selectable since part 7e, with Credit card the default again). The email dialogs are in `sendDialogs.test.tsx`. The API is a stand-in `fetch`. Made-up people and amounts only.
  *
  * Run: pnpm --dir apps/web exec vitest run features/billing/billing.test.tsx
  */
@@ -166,7 +166,7 @@ describe('billing screens', () => {
     expect(html).not.toContain('Billing part 7c')
   })
 
-  it('offers check, cash and wire, with card and ACH shown but not selectable', () => {
+  it('offers every payment type with Credit card first and chosen (part 7e), and the receipt option', () => {
     const html = renderToStaticMarkup(
       <PaymentsTab
         canPost
@@ -182,8 +182,12 @@ describe('billing screens', () => {
       />,
     )
     expect(html).toContain('Invoice #121')
-    expect(html).toMatch(/<option disabled="" value="Credit card">/)
-    expect(html).toMatch(/<option value="Check" selected="">/)
+    expect(html).toMatch(/<option value="Credit card" selected="">/)
+    expect(html).not.toContain('disabled="" value="Credit card"')
+    expect(html).toMatch(/<option value="Check">/)
+    // The Stripe settings load in the browser; the server render shows the waiting line.
+    expect(html).toContain('Loading Stripe…')
+    expect(html).not.toContain('later stage')
     // Billing part 7c: Email receipt to, on by default.
     expect(html).toContain('<input data-kr-element="payment-email-receipt" type="checkbox" checked=""/>')
     expect(html).toContain('data-kr-element="payment-receipt-to"')

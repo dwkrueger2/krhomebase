@@ -14,6 +14,8 @@ import { registerContactEdits } from './features/contact-edits/routes.ts'
 import { registerContactMaintenance } from './features/contact-maintenance/routes.ts'
 import { registerBilling } from './features/billing/routes.ts'
 import { registerBillingDocuments } from './features/billing-documents/routes.ts'
+import { registerPayLinks } from './features/pay-links/routes.ts'
+import { registerCardPayments } from './features/card-payments/routes.ts'
 import { registerTimekeeping } from './features/timekeeping/routes.ts'
 import { registerPreferences } from './features/preferences/routes.ts'
 import { registerThemes } from './features/themes/routes.ts'
@@ -77,6 +79,8 @@ export function createApp() {
   registerContactMaintenance(app)
   registerBilling(app)
   registerBillingDocuments(app)
+  registerPayLinks(app)
+  registerCardPayments(app)
   registerTimekeeping(app)
   registerPreferences(app)
   registerThemes(app)

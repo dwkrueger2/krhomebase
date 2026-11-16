@@ -4,7 +4,7 @@
  * payment receipt email, HTML and plain text. Each is built from the sample documents with the sample letterhead and
  * checked for its key facts, the staff message (paragraphs, line breaks, HTML escaping), the footer passed in, the
  * switch that leaves the document body out, and (invoice) what the `[[PAY_LINK]]` token becomes with and without a
- * pay link. Made-up data only.
+ * pay link. Part 7e adds the refund notice (its builder from the record, its wording and its test banner). Made-up data only.
  *
  * Run: pnpm --dir packages/documents exec vitest run src/emails.test.ts
  */
@@ -13,7 +13,8 @@ import { describe, expect, it } from 'vitest'
 import { formatMoney } from './format.ts'
 import { PAY_LINK_TOKEN, buildInvoiceEmailHtml, buildInvoiceEmailText, payOnlineHref } from './invoiceEmail.ts'
 import { buildLetterhead } from './letterhead.ts'
-import { buildReceiptEmailHtml, buildReceiptEmailText, defaultReceiptMessage, defaultReceiptSubject, paymentEmailMoney, type ReceiptPayLink } from './receiptEmail.ts'
+import { buildReceiptEmailHtml, buildReceiptEmailText, buildRefundEmailHtml, buildRefundEmailText, defaultReceiptMessage, defaultReceiptSubject, defaultRefundMessage, defaultRefundSubject, paymentEmailMoney, type ReceiptPayLink } from './receiptEmail.ts'
+import { refundNoticeFromRecord } from './receiptData.ts'
 import { SAMPLE_FIRM_PROFILE, buildSampleInvoice, buildSampleReceipt, buildSampleStatement } from './sampleData.ts'
 import { buildStatementEmailHtml, buildStatementEmailText } from './statementEmail.ts'
 import type { InvoiceReportData } from './types.ts'
@@ -171,5 +172,55 @@ describe('receipt email', () => {
     const text = buildReceiptEmailText({ receipt: { ...receipt, isTest: true }, message: MESSAGE, payLink: { ...payLink, url: '' } })
     expect(text.startsWith('TEST RECEIPT')).toBe(true)
     expect(text).toContain('Pay online: pay.example.test/a/sample (covers every open invoice; expires October 23, 2026).')
+  })
+})
+
+describe('refund notice email (part 7e)', () => {
+  const payment = {
+    id: 'pay-1',
+    paymentNumber: 'PAY-100',
+    invoiceId: 'inv-1',
+    invoiceNumber: '12',
+    invoiceIvid: 'IVID001',
+    matterId: 'm-1',
+    matterNumber: '306.1',
+    receivedDate: '10/01/2026',
+    amount: 300,
+    paymentType: 'Credit card',
+    memo: 'Stripe sandbox · visa •••• 4242 · front desk',
+    sourceSystem: 'stripe_sandbox',
+    voided: true,
+    voidedAt: '2026-10-05T23:30:00.000Z',
+    refund: { id: 're_madeUp0001', status: 'succeeded', amount: 300, reference: null, referenceType: null, referenceStatus: 'pending', refundedAt: '2026-10-05T23:30:00.000Z' },
+  }
+  const record = {
+    client: { displayName: 'Avery Sample', clientNumber: '306' },
+    matters: [{ id: 'm-1', matterNumber: '306.1', title: 'Estate plan' }],
+    invoices: [{ id: 'inv-1', invoiceNumber: '12', ivid: 'IVID001', amountDue: 300 }],
+  }
+
+  it('builds the notice from the record: card label, refund date in the firm time zone, test flag; none without a refund', () => {
+    const notice = refundNoticeFromRecord(payment, record, TX)!
+    expect(notice).toMatchObject({ clientName: 'Avery Sample', paymentMethod: 'Credit card · visa •••• 4242', refundAmount: 300, refundDate: 'October 5, 2026', paymentDate: 'October 1, 2026', invoiceNumber: '12', arn: null, arnStatus: 'pending', isTest: true })
+    expect(refundNoticeFromRecord({ ...payment, refund: null }, record, TX)).toBeNull()
+    expect(refundNoticeFromRecord({ ...payment, voided: false }, record, TX)).toBeNull()
+  })
+
+  it('writes the old subject, message (ARN sentence), detail rows, test banner and fine print', () => {
+    const notice = refundNoticeFromRecord(payment, record, TX)!
+    expect(defaultRefundSubject(notice)).toBe('Refund of $300.00 requested — Invoice #12')
+    expect(defaultRefundMessage(notice)).toContain('for your card payment of October 1, 2026 on Invoice #12 has been requested from our payment processor, Stripe.')
+    expect(defaultRefundMessage(notice)).toContain('A refund reference number (ARN) is not available yet.')
+    expect(defaultRefundMessage({ ...notice, arn: 'ARN-9' })).toContain('(ARN): ARN-9.')
+    const html = buildRefundEmailHtml({ notice, message: MESSAGE, footerHtml: FOOTER_HTML })
+    expect(html).toContain('TEST NOTICE — Stripe sandbox refund. No money was moved.')
+    expect(html).toContain('Pending — available on request')
+    expect(html).toContain('re_madeUp0001')
+    expect(html).toContain(SCRIPT_ESCAPED)
+    expect(html).toContain(FOOTER_HTML)
+    const text = buildRefundEmailText({ notice: { ...notice, isTest: false, arn: 'ARN-9' }, message: 'Hello', footerText: FOOTER_TEXT })
+    expect(text).toContain('Refund reference (ARN): ARN-9')
+    expect(text).not.toContain('TEST NOTICE')
+    expect(text).toContain(FOOTER_TEXT)
   })
 })

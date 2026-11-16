@@ -133,6 +133,9 @@ describe('client WorkStream ledger', () => {
     expect(html).toContain('306.0')
     expect(html).toContain('Detail of AB12CD3')
     expect(html).not.toContain('older entries exist')
+    // The detail card starts shown, with the tab that slides it out to the right (web patch 554).
+    expect(html).toContain('data-kr-state="shown"')
+    expect(html).toMatch(/aria-expanded="true"[^>]*data-kr-element="workstream-summary-toggle"/)
   })
 
   it('says when older entries exist, and shows empty, loading and failed lists', () => {

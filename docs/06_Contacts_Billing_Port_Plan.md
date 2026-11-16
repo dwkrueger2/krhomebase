@@ -1,7 +1,7 @@
 # Contacts and Billing Port Plan
 
-<small>Version 1.8</small><br>
-<small>Updated Nov 9, 2026 6:20pm</small>
+<small>Version 1.9</small><br>
+<small>Updated Nov 16, 2026 4:07pm</small>
 
 Contacts Manager moves first, then Billing. The browser data store, the sync indicator and the application search are ported almost line for line from the old app. This document records the requester's decisions, the stages, and the differences from the old app that still need an answer.
 
@@ -81,9 +81,9 @@ Billing (stages 2 to 4, Nov 9, 2026):
 - Staff are named from the person linked to the login (`SS - Sam Staffer`). The old projection read name columns the `user` table does not have, so it showed the email address.
 - Voiding an invoice releases only the entries on its visible lines. The old code also released entries whose lines had been removed earlier, which could take an entry off a later invoice.
 - The invoice editor's Status is shown, not chosen. The old select saved "Paid" or "Partially paid" on a draft with no payment.
-- Posted payments sort by date (the old list sorted the `MM/DD/YYYY` text, so a January payment of a later year sorted last). A payment opened from the Billing Overview is scrolled to and outlined; its receipt preview comes with stage 5.
+- Posted payments sort by date (the old list sorted the `MM/DD/YYYY` text, so a January payment of a later year sorted last). A payment opened from the Billing Overview is scrolled to and outlined, and since Billing part 7b it also opens its receipt details (`PaymentDetailsDialog`), as in the old app.
 - The dashed layout-check borders in the invoice editor and the Help tab were removed.
-- Waiting, shown as disabled buttons with a tooltip: invoice and statement print and email, payment receipts (stage 5); card and ACH payments, card refunds, pay links (stage 6). Until stage 6 a Stripe card payment can be voided only without a refund.
+- Waiting, shown as disabled buttons with a tooltip: invoice and statement print and email, payment receipts (stage 5); card and ACH payments, card refunds, pay links (stage 6). Until stage 6 a Stripe card payment can be voided only without a refund. **Since built** (Billing parts 7b to 7e of `docs/API/Billing_Audit.md`, Nov 15 and 16, 2026; corrected in part 7f): print, email, the Posted Payments receipt icons (Preview, Print and Email receipt; they had been left out, not disabled, as the audit found), pay links, card payments and card refunds work as in the old app. Only ACH stays closed (Post is disabled for it), as it was in the old app.
 - **For the requester to look at:** the Billing Overview register lists trust deposits and disbursements with the other rows, as the old one did, so a trust deposit reads as a payment and lowers the balance shown there. Kept as it was; say if trust rows should leave the register.
 
 Answered Nov 9, 2026:

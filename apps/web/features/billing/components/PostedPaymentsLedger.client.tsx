@@ -22,11 +22,23 @@
  * (the old ledger waited for the `payment-notice` route before drawing anything). The client id, number and name come
  * from `receiptSource.client` (the old ledger took them as props).
  *
+ * Billing part 7e (Nov 16, 2026): refunds, as in the old ledger. The Void dialog of a Stripe card payment asks whether
+ * to "Refund the card in Stripe" (default yes) and whether to "Email the client a refund notice" (default yes, the
+ * address prefilled with the client's primary email); the notice is sent after the void succeeds, so a mail failure is
+ * reported but never undoes the void. A voided, refunded row shows the refund with its ARN and an info tip, "Refresh ARN"
+ * for a super admin while Stripe has no ARN yet (`refreshPaymentRefund`), and a send icon for the refund notice
+ * (`PaymentNoticeDialog` kind `refund`). Changed from the old ledger: the notice line keeps its two tones as theme
+ * colors (the old amber warning became the danger-toned warning row this file already had).
+ *
+ * Billing part 7f (Nov 16, 2026, `docs/API/Billing_Audit.md` section 5, item 5): `canSend` false (a billing reader)
+ * leaves out the Email receipt icon, the refund notice icon and the details dialog's Resend; the receipt details,
+ * Print and the sent-email preview stay. Void and Refresh ARN were already super admin only (`canVoid`).
+ *
  * @returns The posted-payments ledger with its void dialog.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { BillingSentDocument } from '@krhomebase/contracts'
+import type { BillingSentDocument, PaymentVoidData } from '@krhomebase/contracts'
 import KrRequestErrorNote from '@/components/ui/KrRequestErrorNote.client'
 import { describeKrRequestError, krLocalValidationError, type KrRequestErrorInfo } from '@/lib/krRequestError'
 import { L } from '@/lib/KRUtilities'
@@ -34,19 +46,34 @@ import type { BillingRecord } from '@krhomebase/contracts'
 import { paymentDetailsFor } from '@krhomebase/documents/receipt'
 import KRHomebaseIcon from '@/components/ui/KRHomebaseIcon.client'
 import { formatAccountingAmount } from '../formatAccountingAmount'
-import { BillingApiError, fetchReceiptEmailInfo } from '../api.client'
+import { BillingApiError, fetchReceiptEmailInfo, fetchStatementEmailInfo, refreshPaymentRefund, sendRefundNoticeEmail } from '../api.client'
 import { printReceiptFromBilling, receiptFromBilling } from '../printDocuments.client'
 import type { BillingPayment } from '../types'
 import PaymentDetailsDialog from './PaymentDetailsDialog.client'
 import PaymentNoticeDialog from './PaymentNoticeDialog.client'
 
-/** Friendly text for void failures. */
+/** Friendly text for void failures (the old wording, part 7e). */
 function friendlyVoidError(code: string): string | null {
   if (code.includes('ALREADY_VOID')) return 'This payment is already void.'
   if (code.includes('FORBIDDEN')) return 'Only Super Admins can void payments.'
-  if (code === 'STRIPE_REFUND_NOT_AVAILABLE') return 'Card refunds arrive with the Stripe work (plan stage 6). Void without a refund, or refund in Stripe first.'
+  if (code.includes('DATABASE_SYNC')) return 'Stripe refunded this payment, but the database sync failed. Void it again: the refund is reused, never repeated.'
+  if (code.includes('REFUND')) return 'Stripe rejected the refund; the payment was not voided in the database.'
+  if (code.includes('NOT_CONFIGURED')) return 'Stripe keys are not configured for this environment, so the card could not be refunded.'
   return null
 }
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/** "a@x.com, b@y.com" → the addresses. */
+function parseAddresses(value: string): string[] {
+  return value
+    .split(/[,;]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+/** What the ARN is, for the tip beside it. */
+const ARN_HELP = 'ARN (Acquirer Reference Number): the card network’s reference for the refund. The client’s bank can trace the refund with it.'
 
 const STYLES = {
   panel: 'border border-[var(--kr-theme-line,#d7dee5)] bg-(--kr-theme-card-surface) shadow-sm',
@@ -71,6 +98,10 @@ const STYLES = {
   empty: 'p-2 text-[9pt] text-[var(--kr-theme-text-muted,#526172)]',
   stripeTag: 'ml-1 px-1 rounded text-[7pt] font-bold uppercase text-white bg-[var(--kr-theme-brand-primary,#21394f)]',
   noticeOk: 'px-2 py-1 border-b border-emerald-300 bg-emerald-50 text-[9pt] text-emerald-800',
+  // Part 7e: the refund's ARN tip, Refresh ARN and the refund notice icon on a voided row.
+  infoIcon: 'h-3 w-3 shrink-0 cursor-help',
+  linkButton: 'px-0.5 border-0 bg-transparent text-[8.5pt] font-semibold text-[var(--kr-theme-brand-primary,#21394f)] underline disabled:opacity-50',
+  checkLabel: 'gap-1.5 inline-flex items-center text-[9pt] font-semibold text-[var(--kr-theme-text,#243142)]',
   backdrop: 'bg-slate-950/40',
   dialog: 'w-full max-w-md rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) shadow-2xl',
   dialogTitle: 'text-[12pt] font-bold text-[var(--kr-theme-text,#243142)]',
@@ -95,6 +126,9 @@ const LAYOUT_STYLES = {
   backdrop: 'p-3 fixed inset-0 z-[1200] flex items-center justify-center',
   dialogBody: 'p-3 gap-2 grid',
   dialogActions: 'pt-1 gap-2 flex justify-end',
+  // Part 7e: the refund notice address under its tick box.
+  notifyField: 'ml-5 gap-1 grid grid-cols-[auto_minmax(0,1fr)] items-center',
+  arn: 'gap-0.5 inline-flex items-center',
 } as const
 
 /** Props for {@link PostedPaymentsLedger}. */
@@ -103,13 +137,15 @@ export interface PostedPaymentsLedgerProps {
   payments: BillingPayment[]
   /** Super Admin: shows Void. */
   canVoid: boolean
-  /** Voids one payment (no card refund until stage 6). */
-  onVoid: (payment: BillingPayment, reason: string) => Promise<void>
+  /** Voids one payment; a Stripe card payment is refunded when `refund` is true (part 7e). Answers the API's reply. */
+  onVoid: (payment: BillingPayment, reason: string, refund: boolean) => Promise<PaymentVoidData | null | void>
   /** Payment from the Overview ledger to show after switching to Payments. */
   openPaymentId?: string | null
   onOpenPaymentConsumed?: () => void
   /** The record's client, matters and invoices, for the receipt (Billing part 7b); without it the receipt icons are hidden. */
   receiptSource?: Pick<BillingRecord, 'client' | 'matters' | 'invoices'>
+  /** Part 7f: the person may send billing email (`viewer.canWrite`). False leaves out the email icons. Default true. */
+  canSend?: boolean
 }
 
 /** "Invoice #5 (#HITKC87)" for dialogs and titles. */
@@ -130,20 +166,67 @@ function sortKey(date: string): string {
   return match ? `${match[3]}${match[1]}${match[2]}` : date
 }
 
-export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPaymentId, onOpenPaymentConsumed, receiptSource }: PostedPaymentsLedgerProps) {
+/** Props for {@link PaymentRefundLine}. */
+export interface PaymentRefundLineProps {
+  /** A voided payment with a recorded Stripe refund. */
+  payment: BillingPayment & { refund: NonNullable<BillingPayment['refund']> }
+  /** Super Admin with a client open: offers Refresh ARN while Stripe has no ARN yet. */
+  canRefresh: boolean
+  refreshing: boolean
+  onRefresh: () => void
+  /** Opens the refund notice email; left out, no send icon. */
+  onEmail?: () => void
+}
+
+/**
+ * The refund part of a voided row (Billing part 7e, the old ledger's refund line): amount, status and refund id, the ARN
+ * with its tip, Refresh ARN and the refund notice icon. The ledger owns the refresh and the dialog.
+ */
+export function PaymentRefundLine({ payment, canRefresh, refreshing, onRefresh, onEmail }: PaymentRefundLineProps) {
+  const refund = payment.refund
+  return (
+    <>
+      <span>
+        · Refund {formatAccountingAmount(refund.amount ?? payment.amount)} {refund.status ?? ''} ({refund.id})
+      </span>
+      {/* The refund reference (ARN) with its tip; Refresh ARN while Stripe has none yet (super admin). */}
+      <span className={LAYOUT_STYLES.arn} data-kr-element="posted-payment-refund-arn" title={`${ARN_HELP} Stripe status: ${refund.referenceStatus ?? 'unknown'}.`}>
+        · ARN {refund.reference ?? (refund.referenceStatus === 'pending' ? 'pending' : 'not available')}
+        <KRHomebaseIcon className={STYLES.infoIcon} name="info-square" title={ARN_HELP} />
+      </span>
+      {canRefresh && !refund.reference && refund.id.startsWith('re_') ? (
+        <button className={STYLES.linkButton} data-kr-action="posted-payment-refresh-refund" disabled={refreshing} onClick={onRefresh} type="button">
+          {refreshing ? 'Refreshing...' : 'Refresh ARN'}
+        </button>
+      ) : null}
+      {onEmail ? (
+        <button aria-label={`Email refund notice for payment ${payment.paymentNumber}`} className={STYLES.receiptButton} data-kr-action="posted-payment-email-refund" onClick={onEmail} title="Email refund notice" type="button">
+          <KRHomebaseIcon className={STYLES.receiptIcon} name="send" />
+        </button>
+      ) : null}
+    </>
+  )
+}
+
+export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPaymentId, onOpenPaymentConsumed, receiptSource, canSend = true }: PostedPaymentsLedgerProps) {
   const [showVoided, setShowVoided] = useState(false)
   const [voiding, setVoiding] = useState<BillingPayment | null>(null)
   const [reason, setReason] = useState('')
+  /** Part 7e: refund the card in Stripe (default yes) and email the client a refund notice (default yes). */
+  const [refund, setRefund] = useState(true)
+  const [notify, setNotify] = useState(true)
+  const [notifyTo, setNotifyTo] = useState('')
+  const [refreshingId, setRefreshingId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<KrRequestErrorInfo | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  const [notice, setNotice] = useState<{ tone: 'ok' | 'warn'; text: string } | null>(null)
   const [openedId, setOpenedId] = useState<string | null>(null)
   /** The payment whose receipt details are open. */
   const [detailsPayment, setDetailsPayment] = useState<BillingPayment | null>(null)
   /** Why a receipt print view did not open. */
   const [receiptProblem, setReceiptProblem] = useState<string | null>(null)
-  /** The payment whose receipt email dialog is open. */
-  const [emailing, setEmailing] = useState<BillingPayment | null>(null)
+  /** The payment whose receipt (or, part 7e, refund notice) email dialog is open. */
+  const [emailing, setEmailing] = useState<{ kind: 'receipt' | 'refund'; payment: BillingPayment } | null>(null)
   /** The open details' sent receipts (newest first), and a sentence while they load or when they could not be read. */
   const [detailsSent, setDetailsSent] = useState<BillingSentDocument[]>([])
   const [detailsSentNote, setDetailsSentNote] = useState<string | null>(null)
@@ -201,7 +284,19 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
   function openVoid(payment: BillingPayment): void {
     setVoiding(payment)
     setReason('')
+    setRefund(true)
+    setNotify(isStripe(payment))
+    setNotifyTo('')
     setError(null)
+    // Prefill the refund-notice address with the client's primary email.
+    if (isStripe(payment) && receiptClientId)
+      fetchStatementEmailInfo(receiptClientId, null)
+        .then((info) => {
+          const primary = info.recipients.filter((item) => item.primary).map((item) => item.email)
+          const seed = primary.length ? primary : info.recipients.slice(0, 1).map((item) => item.email)
+          setNotifyTo((current) => current || seed.join(', '))
+        })
+        .catch(() => undefined)
   }
 
   async function confirmVoid(): Promise<void> {
@@ -210,19 +305,55 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
       setError(krLocalValidationError('Enter a reason for the void.'))
       return
     }
+    const refundCard = isStripe(voiding) && refund
+    const sendNotice = refundCard && notify && Boolean(receiptClientId)
+    const to = parseAddresses(notifyTo)
+    if (sendNotice && (!to.length || to.some((item) => !EMAIL_PATTERN.test(item)))) {
+      setError(krLocalValidationError('Enter the email address for the refund notice, or uncheck it.'))
+      return
+    }
     setBusy(true)
     setError(null)
     const payment = voiding
     try {
-      await onVoid(payment, reason.trim())
+      const result = await onVoid(payment, reason.trim(), refundCard)
       setVoiding(null)
-      setNotice(`Payment ${payment.paymentNumber} voided.${isStripe(payment) ? ' The card was not refunded; refund it in Stripe if it should be.' : ''}`)
+      const refunded = result ? result.refund : null
+      const voidText = `Payment ${payment.paymentNumber} voided${refunded ? ` and ${formatAccountingAmount(refunded.amount ?? payment.amount)} refunded through Stripe (${refunded.id})` : isStripe(payment) ? '; the card was not refunded in Stripe' : ''}.`
+      if (!sendNotice || !refunded || !receiptClientId) {
+        setNotice({ tone: 'ok', text: voidText })
+        return
+      }
+      // The notice goes after the void: a mail failure is reported, the void stands.
+      try {
+        const sent = await sendRefundNoticeEmail(receiptClientId, payment.id, { to, subject: '', message: '' })
+        setNotice({ tone: 'ok', text: `${voidText} Refund notice emailed to ${sent.to.join(', ')}.` })
+      } catch (caught) {
+        const info = describeKrRequestError(caught, 'KR_PAYMENTS', 'refund-notice')
+        setNotice({ tone: 'warn', text: `${voidText} The void and the refund succeeded; only the refund notice failed (${info.message}). Use the send icon on the voided payment to try again.` })
+      }
     } catch (caught) {
       setError(describeKrRequestError(caught, 'KR_PAYMENTS', 'void-payment', friendlyVoidError))
     } finally {
       setBusy(false)
     }
   }
+
+  /** Super Admin: re-reads a refund's ARN from Stripe (live usually has it a few days after the refund). */
+  async function refreshRefund(payment: BillingPayment): Promise<void> {
+    if (!receiptClientId) return
+    setRefreshingId(payment.id)
+    try {
+      const updated = (await refreshPaymentRefund(receiptClientId, payment.id)).refund
+      setNotice({ tone: 'ok', text: updated.reference ? `ARN for payment ${payment.paymentNumber}: ${updated.reference}.` : `Stripe has no ARN yet for payment ${payment.paymentNumber} (${updated.referenceStatus ?? 'pending'}).` })
+    } catch (caught) {
+      setNotice({ tone: 'warn', text: `Could not refresh the refund: ${describeKrRequestError(caught, 'KR_PAYMENTS', 'refresh-refund', friendlyVoidError).message}` })
+    } finally {
+      setRefreshingId(null)
+    }
+  }
+
+  const voidingStripe = voiding ? isStripe(voiding) : false
 
   return (
     <fieldset className={`${STYLES.panel} ${LAYOUT_STYLES.root}`} data-kr-id="posted-payments-ledger">
@@ -235,8 +366,8 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
         </label>
       </div>
       {notice ? (
-        <p className={STYLES.noticeOk} data-kr-element="posted-payments-notice" role="status">
-          {notice}
+        <p className={notice.tone === 'ok' ? STYLES.noticeOk : STYLES.noticeWarn} data-kr-element="posted-payments-notice" role="status">
+          {notice.text}
         </p>
       ) : null}
       {receiptProblem ? (
@@ -306,9 +437,11 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
                         <button aria-label={`Print payment receipt for payment ${payment.paymentNumber}`} className={STYLES.receiptButton} data-kr-action="posted-payment-print-receipt" onClick={() => printReceipt(payment)} title="Print payment receipt" type="button">
                           <KRHomebaseIcon className={STYLES.receiptIcon} name="print" />
                         </button>
-                        <button aria-label={`Email receipt for payment ${payment.paymentNumber}`} className={STYLES.receiptButton} data-kr-action="posted-payment-email-receipt" onClick={() => setEmailing(payment)} title="Email payment receipt" type="button">
-                          <KRHomebaseIcon className={STYLES.receiptIcon} name="send" />
-                        </button>
+                        {canSend ? (
+                          <button aria-label={`Email receipt for payment ${payment.paymentNumber}`} className={STYLES.receiptButton} data-kr-action="posted-payment-email-receipt" onClick={() => setEmailing({ kind: 'receipt', payment })} title="Email payment receipt" type="button">
+                            <KRHomebaseIcon className={STYLES.receiptIcon} name="send" />
+                          </button>
+                        ) : null}
                       </>
                     ) : null}
                     {payment.voided ? (
@@ -327,10 +460,13 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
                       {payment.voidReason ? ` · ${payment.voidReason}` : ''}
                     </span>
                     {payment.refund ? (
-                      <span>
-                        · Refund {formatAccountingAmount(payment.refund.amount ?? payment.amount)} {payment.refund.status ?? ''} ({payment.refund.id}) · ARN{' '}
-                        {payment.refund.reference ?? (payment.refund.referenceStatus === 'pending' ? 'pending' : 'not available')}
-                      </span>
+                      <PaymentRefundLine
+                        canRefresh={canVoid && Boolean(receiptSource)}
+                        onRefresh={() => void refreshRefund(payment)}
+                        payment={{ ...payment, refund: payment.refund }}
+                        refreshing={refreshingId === payment.id}
+                        {...(receiptSource && canSend ? { onEmail: () => setEmailing({ kind: 'refund', payment }) } : {})}
+                      />
                     ) : isStripe(payment) ? (
                       <span>· Not refunded in Stripe</span>
                     ) : null}
@@ -343,7 +479,7 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
       </div>
       {!visible.length ? <p className={STYLES.empty}>{voidedCount && !showVoided ? 'No active payments. Check “Show voided payments” to see voided ones.' : 'No payments posted for this client.'}</p> : null}
 
-      {/* Void dialog: amount and invoice in the header, what happens, details, reason. */}
+      {/* Void dialog: amount and invoice in the header, what happens, details, reason, refund, refund notice. */}
       {voiding ? (
         <div className={`${LAYOUT_STYLES.backdrop} ${STYLES.backdrop}`} role="presentation">
           <section className={STYLES.dialog} aria-label="Void payment" aria-modal="true" role="dialog" data-kr-id="void-payment-dialog">
@@ -353,13 +489,9 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
                 {voiding.invoiceNumber ? ` on Invoice #${voiding.invoiceNumber}` : ''}
               </h2>
               <p className={STYLES.dialogText}>
-                The payment{voiding.writeOff ? ' and its write-off' : ''} will be reversed on the ledger{voiding.invoiceNumber ? ' and the invoice balance reopened' : ''}. A void cannot be undone.
+                The payment{voiding.writeOff ? ' and its write-off' : ''} will be reversed on the ledger{voiding.invoiceNumber ? ' and the invoice balance reopened' : ''}.
+                {voidingStripe ? (refund ? ' The card is refunded in full through Stripe; the refund usually reaches the client’s statement in 5–10 business days.' : ' The card will not be refunded in Stripe.') : ''} A void cannot be undone.
               </p>
-              {isStripe(voiding) ? (
-                <p className={STYLES.dialogWarning} data-kr-element="void-payment-no-refund">
-                  This card payment will not be refunded: card refunds arrive with the Stripe work (plan stage 6). Refund it in Stripe if it should be.
-                </p>
-              ) : null}
               <p className={STYLES.dialogDetails} data-kr-element="void-payment-details">
                 {invoiceText(voiding)} - Payment number: {voiding.paymentNumber}
               </p>
@@ -367,6 +499,29 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
                 Reason
                 <input autoFocus className={STYLES.field} onChange={(event) => setReason(event.target.value)} value={reason} />
               </label>
+              {/* Stripe card payment: refund the card (default yes) and email the client a refund notice (default yes). */}
+              {voidingStripe ? (
+                <>
+                  <label className={STYLES.checkLabel}>
+                    <input checked={refund} data-kr-element="void-payment-refund" onChange={(event) => setRefund(event.target.checked)} type="checkbox" />
+                    Refund the card in Stripe ({voiding.sourceSystem === 'stripe_live' ? 'live' : 'sandbox'})
+                  </label>
+                  {refund && receiptSource ? (
+                    <>
+                      <label className={STYLES.checkLabel}>
+                        <input checked={notify} data-kr-element="void-payment-notify" onChange={(event) => setNotify(event.target.checked)} type="checkbox" />
+                        Email the client a refund notice
+                      </label>
+                      {notify ? (
+                        <label className={`${LAYOUT_STYLES.notifyField} text-[9pt] font-semibold`}>
+                          To
+                          <input className={STYLES.field} data-kr-element="void-payment-notify-to" onChange={(event) => setNotifyTo(event.target.value)} placeholder="client@example.com" value={notifyTo} />
+                        </label>
+                      ) : null}
+                    </>
+                  ) : null}
+                </>
+              ) : null}
               <KrRequestErrorNote dataKrElement="void-payment-error" error={error} />
               <div className={LAYOUT_STYLES.dialogActions}>
                 <button className={STYLES.cancelButton} disabled={busy} onClick={() => setVoiding(null)} type="button">
@@ -390,15 +545,17 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
           onClose={() => setDetailsPayment(null)}
           onPrint={() => printReceipt(detailsPayment)}
           paymentNumber={detailsPayment.paymentNumber}
+          canResend={canSend}
         />
       ) : null}
-      {/* Receipt email (the refund notice waits for Billing part 7e). */}
+      {/* Receipt or refund notice email (part 7e). */}
       {emailing && receiptSource ? (
         <PaymentNoticeDialog
           clientDisplayName={receiptSource.client.displayName}
           clientId={receiptSource.client.id}
           clientNumber={receiptSource.client.clientNumber}
-          payment={emailing}
+          kind={emailing.kind}
+          payment={emailing.payment}
           onClose={() => setEmailing(null)}
         />
       ) : null}

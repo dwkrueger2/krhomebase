@@ -14,10 +14,16 @@
  * Changed from the old file: the letterhead is passed in (`letterhead`, from `buildLetterhead`) instead of
  * `firmState` (decision B5), and the receipt date (now, unless given) is its date in the firm's time zone
  * (`format.ts`).
+ *
+ * Billing part 7e (Nov 16, 2026): `refundNoticeFromRecord` builds the refund notice of a voided, refunded Stripe card
+ * payment from the Billing record, as the old `refundNoticeFor` (`api/_server/krPaymentNotice.ts`) built it from the
+ * rows. Changed: the letterhead is the chosen office's (the old notice always used Texas), the client name is the
+ * client's display name (as the receipt here), and the dates are read in the firm's time zone.
  */
 
 import { formatLongDate, roundMoney } from './format.ts'
 import type { BillingPayment, BillingRecord } from '@krhomebase/contracts'
+import type { PaymentRefundNoticeData } from './receiptEmail.ts'
 import type { LetterheadProfile, PaymentDetails, PaymentReceiptData } from './types.ts'
 
 /** Closing paragraph printed on every receipt. */
@@ -157,5 +163,47 @@ export function receiptFromRecord(payment: ReceiptPaymentSource, record: Receipt
     writeOff: payment.writeOff,
     invoiceBalanceAfter: invoice ? invoice.amountDue : null,
   })
+  return rVal
+}
+
+/** The payment fields a refund notice reads (the contract's `BillingPayment`). */
+export type RefundNoticePaymentSource = Pick<
+  BillingPayment,
+  'id' | 'paymentNumber' | 'invoiceId' | 'invoiceNumber' | 'invoiceIvid' | 'matterId' | 'matterNumber' | 'receivedDate' | 'amount' | 'paymentType' | 'memo' | 'sourceSystem' | 'voided' | 'voidedAt' | 'refund'
+>
+
+/**
+ * Builds a voided payment's refund notice from the Billing record (old `refundNoticeFor`): the refund amount (the
+ * payment's when Stripe gave none), the refund date (when it was refunded, else the void), the ARN when Stripe has one,
+ * and the test flag of a sandbox payment.
+ *
+ * @returns The notice, or null when the payment is not voided or has no recorded refund (the old
+ *   `VALIDATION_PAYMENT_HAS_NO_REFUND`; the caller refuses).
+ */
+export function refundNoticeFromRecord(payment: RefundNoticePaymentSource, record: Pick<ReceiptRecordSource, 'client' | 'matters' | 'invoices'>, letterhead: LetterheadProfile): PaymentRefundNoticeData | null {
+  const refund = payment.refund
+  if (!payment.voided || !refund) return null
+  const invoice = payment.invoiceId ? record.invoices.find((row) => row.id === payment.invoiceId) ?? null : null
+  const matter = record.matters.find((row) => row.id === payment.matterId) ?? null
+  const refundedOn = refund.refundedAt ?? payment.voidedAt
+  const rVal: PaymentRefundNoticeData = {
+    firm: letterhead,
+    clientName: record.client.displayName,
+    clientNumber: record.client.clientNumber,
+    matterNumber: matter?.matterNumber ?? payment.matterNumber,
+    paymentNumber: payment.paymentNumber || payment.id,
+    paymentDate: payment.receivedDate ? formatLongDate(payment.receivedDate) : '',
+    paymentMethod: [payment.paymentType || 'Payment', stripeCardLabel(payment.memo, payment.sourceSystem)].filter(Boolean).join(' · '),
+    paymentAmount: payment.amount,
+    refundAmount: typeof refund.amount === 'number' ? refund.amount : payment.amount,
+    invoiceNumber: invoice?.invoiceNumber ?? payment.invoiceNumber ?? null,
+    invoiceIvid: invoice?.ivid ?? payment.invoiceIvid ?? null,
+    refundDate: refundedOn ? formatLongDate(refundedOn) : '',
+    refundId: refund.id,
+    refundStatus: refund.status,
+    arn: refund.reference || null,
+    arnStatus: refund.referenceStatus,
+    isTest: payment.sourceSystem === 'stripe_sandbox',
+  }
   return rVal
 }

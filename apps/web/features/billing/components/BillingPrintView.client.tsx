@@ -28,9 +28,15 @@
  *    default message) and the chosen letterhead office as `officeId`, so the emailed copy carries the same letterhead
  *    (the API builds the document from the record; the old view sent the report itself). A sent email leaves a
  *    screen-only notice above the pages.
+ *  - Billing part 7d (Nov 16, 2026): print links are back, as in the old view. For a real invoice (handed off with its
+ *    send context), the first Print click asks the server for a pay link coded 'print' (`issuePrintPayLink`,
+ *    `POST .../invoices/{id}/print-pay-link`), puts its QR code and link on the page, waits for the pages to re-lay out,
+ *    then prints. Later prints from the same tab reuse that link. The client's emailed link stays valid; both pay toward
+ *    the same account. No link (draft, nothing due, a payment waiting to post) prints the placeholder and says why.
+ *    Preview and the samples never issue a link.
  */
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { FirmProfile } from '@krhomebase/contracts'
 import InvoiceReportOption1 from '@krhomebase/documents/invoice-option-1'
 import InvoiceReportOption2 from '@krhomebase/documents/invoice-option-2'
@@ -38,7 +44,7 @@ import { buildLetterhead, letterheadChoices } from '@krhomebase/documents/letter
 import PaymentReceiptReport from '@krhomebase/documents/receipt-report'
 import { buildSampleInvoice, buildSampleReceipt, buildSampleStatement } from '@krhomebase/documents/samples'
 import StatementOfAccountReport from '@krhomebase/documents/statement-report'
-import type { InvoiceReportData, InvoiceTemplateOption, PaymentReceiptData, StatementOfAccountData } from '@krhomebase/documents/types'
+import type { InvoiceReportData, InvoiceTemplateOption, PayOnlineInfo, PaymentReceiptData, StatementOfAccountData } from '@krhomebase/documents/types'
 import PaginatedPrintPreview from '@/components/printing/PaginatedPrintPreview.client'
 import {
   readPrintHandoff,
@@ -49,6 +55,7 @@ import {
   type StatementPrintSendContext,
 } from '@/components/printing/printHandoff.client'
 import { L } from '@/lib/KRUtilities'
+import { issuePrintPayLink } from '../api.client'
 import styles from './BillingPrintView.module.css'
 import SendInvoiceDialog from './SendInvoiceDialog.client'
 import SendStatementDialog from './SendStatementDialog.client'
@@ -115,6 +122,15 @@ export default function BillingPrintView({ documentKind, source, handoffKey, ini
   const [sending, setSending] = useState(false)
   /** What was emailed from this tab (screen only). */
   const [sentNotice, setSentNotice] = useState<string | null>(null)
+  /** Pay link printed on this invoice (issued on the first Print click); null until then. */
+  const [printLink, setPrintLink] = useState<PayOnlineInfo | null>(null)
+  /** Why the printed copy has no pay link, or that it has one. */
+  const [printLinkNote, setPrintLinkNote] = useState<string | null>(null)
+  const [preparingPrint, setPreparingPrint] = useState(false)
+  /** True once this tab asked for a print link (issued or refused), so reprints do not issue another. */
+  const printLinkRequested = useRef(false)
+  /** Resolves when the next pagination pass finishes (the QR code is on the pages). */
+  const paginationWaiter = useRef<(() => void) | null>(null)
   const letterhead = useMemo(() => buildLetterhead(firmProfile, office), [firmProfile, office])
 
   // Handoff payloads live in localStorage, so they are read after mount (client only) and removed.
@@ -145,9 +161,9 @@ export default function BillingPrintView({ documentKind, source, handoffKey, ini
   const invoice = useMemo(() => {
     if (documentKind !== 'invoice') return null
     const base = source === 'sample' ? buildSampleInvoice(letterhead) : handoffInvoice
-    const rVal = base ? { ...base, firm: letterhead } : null
+    const rVal = base ? { ...base, firm: letterhead, ...(printLink ? { payOnline: printLink } : {}) } : null
     return rVal
-  }, [documentKind, handoffInvoice, letterhead, source])
+  }, [documentKind, handoffInvoice, letterhead, printLink, source])
 
   const statement = useMemo(() => {
     if (documentKind !== 'statement') return null
@@ -172,7 +188,7 @@ export default function BillingPrintView({ documentKind, source, handoffKey, ini
         : `Statement of Account · ${statement?.accountHolder.name ?? ''}`
   const footerLeft = [letterhead.firmName, letterhead.tagline].filter(Boolean).join(' · ')
   const footerRight = [documentLabel, letterhead.stateName].filter(Boolean).join(' · ')
-  const paginationKey = `${documentKind}:${source}:${handoffKey ?? ''}:${option}:${letterhead.officeId}:${invoice?.lines.length ?? statement?.rows.length ?? 0}`
+  const paginationKey = `${documentKind}:${source}:${handoffKey ?? ''}:${option}:${letterhead.officeId}:${invoice?.lines.length ?? statement?.rows.length ?? 0}:${printLink?.url ?? ''}`
 
   // The browser tab title is the name a "Save as PDF" suggests.
   useEffect(() => {
@@ -185,6 +201,42 @@ export default function BillingPrintView({ documentKind, source, handoffKey, ini
     window.requestAnimationFrame(() => window.print())
   }, [documentKind, pageCount])
 
+  /**
+   * Print: a real invoice first gets its print pay link (once per tab), waits for the pages to re-lay out with the QR
+   * code, then prints. Any failure prints the placeholder and says why.
+   */
+  async function printDocument(): Promise<void> {
+    if (documentKind !== 'invoice' || !sendContext || printLinkRequested.current) {
+      printNow()
+      return
+    }
+    printLinkRequested.current = true
+    setPreparingPrint(true)
+    try {
+      const result = await issuePrintPayLink(sendContext.clientId, sendContext.invoiceId)
+      if (result.issued) {
+        const laidOut = new Promise<void>((resolve) => {
+          paginationWaiter.current = resolve
+          window.setTimeout(resolve, 4000)
+        })
+        setPrintLink({ url: result.url, urlNote: result.urlNote, qrDataUri: result.qrDataUri })
+        setPrintLinkNote(`Printed with pay link ${result.prid} (coded "printed"). The link in the client's email still works; both pay toward the same account.`)
+        await laidOut
+        paginationWaiter.current = null
+        L(`[KR_PRINT_VIEW:pay-link] print link ${result.prid} invoice=${sendContext.invoiceNumber}`)
+      } else {
+        setPrintLinkNote(result.reason)
+      }
+    } catch (caught) {
+      const reason = caught instanceof Error ? caught.message : String(caught)
+      setPrintLinkNote(`The pay link could not be created (${reason}); the invoice printed without one.`)
+      L(`[KR_PRINT_VIEW:pay-link] failed invoice=${sendContext.invoiceNumber} error=${reason}`)
+    } finally {
+      setPreparingPrint(false)
+    }
+    printNow()
+  }
+
   /** Closes the tab when the browser allows it; otherwise returns to Billing. */
   function closeView(): void {
     window.close()
@@ -193,7 +245,11 @@ export default function BillingPrintView({ documentKind, source, handoffKey, ini
     }, 150)
   }
 
-  const handlePaginated = useCallback((count: number) => setPageCount(count), [])
+  const handlePaginated = useCallback((count: number) => {
+    setPageCount(count)
+    // A print waiting for the pay link's QR code goes on once the pages are laid out again.
+    paginationWaiter.current?.()
+  }, [])
   /** The office whose letterhead the emailed copy carries: the chosen one (none when the firm profile was not read). */
   const sendOfficeId = firmProfileLoaded ? letterhead.officeId : null
   const canSend = Boolean((sendContext && invoice) || (statementSendContext && statement))
@@ -246,8 +302,8 @@ export default function BillingPrintView({ documentKind, source, handoffKey, ini
               Send
             </button>
           ) : null}
-          <button className={STYLES.primaryButton} data-kr-action="print-view-print" type="button" onClick={printNow}>
-            Print
+          <button className={STYLES.primaryButton} data-kr-action="print-view-print" disabled={preparingPrint} type="button" onClick={() => void printDocument()}>
+            {preparingPrint ? 'Preparing...' : 'Print'}
           </button>
           <button className={STYLES.button} data-kr-action="print-view-close" type="button" onClick={closeView}>
             Close
@@ -264,6 +320,11 @@ export default function BillingPrintView({ documentKind, source, handoffKey, ini
       {sentNotice ? (
         <p className={`kr-print-screen-only ${LAYOUT_STYLES.message} ${STYLES.info}`} data-kr-element="print-view-sent-notice" role="status">
           {sentNotice}
+        </p>
+      ) : null}
+      {printLinkNote ? (
+        <p className={`kr-print-screen-only ${LAYOUT_STYLES.message} ${STYLES.info}`} data-kr-element="print-view-pay-link-note" role="status">
+          {printLinkNote}
         </p>
       ) : null}
       {handoffMissing ? (

@@ -97,7 +97,8 @@ const STYLES = {
   notice: 'border border-current text-[11px] font-extrabold',
   info: 'text-(color:--kr-theme-teal)',
   success: 'text-(color:--kr-theme-success)',
-  warning: 'text-(color:--kr-theme-orange)',
+  // The Warning sample reads the warning token since it was defined (Billing part 7f, Nov 16, 2026); it read orange before.
+  warning: 'text-(color:--kr-theme-warning)',
   danger: 'text-(color:--kr-theme-danger)',
   // b1: ' border-red-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
   // b2: ' border-blue-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
@@ -223,7 +224,7 @@ export default function ThemeInAction({ name, values }: ThemeInActionProps) {
         </div>
 
         {/* Notices: the state colors */}
-        <article className={`${LAYOUT_STYLES.notices} ${STYLES.notices}`} title={uses('--kr-theme-success', '--kr-theme-danger', '--kr-theme-orange', '--kr-theme-teal')}>
+        <article className={`${LAYOUT_STYLES.notices} ${STYLES.notices}`} title={uses('--kr-theme-success', '--kr-theme-danger', '--kr-theme-warning', '--kr-theme-teal')}>
           <strong className={STYLES.sampleTitle}>Utility / notice samples</strong>
           <div className={LAYOUT_STYLES.noticeGrid}>
             <span className={`${LAYOUT_STYLES.notice} ${STYLES.notice} ${STYLES.info}`}>Info notice</span>

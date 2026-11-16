@@ -9,8 +9,9 @@
  *  - `deployLock` (middleware, after `requestId` and before `signInGuard`): while the phase is maintenance, every
  *    request to a declared route is refused with 503 `MAINTENANCE_IN_PROGRESS`, except the three a closed server
  *    still needs: `GET /v1/health` (the status), `GET /v1/auth/config` (the login page draws) and
- *    `DELETE /v1/auth/session` (the banner signs the person out). Signing in (Turnstile, Google start and callback)
- *    is refused, so nobody signs in while the new version goes live. No session is checked first: the lock costs one
+ *    `DELETE /v1/auth/session` (the banner signs the person out), and the pay Worker's webhook
+ *    `POST /v1/billing/pay-link-paid` (Billing part 7d: a client who pays during the window gets the receipt).
+ *    Signing in (Turnstile, Google start and callback) is refused, so nobody signs in while the new version goes live. No session is checked first: the lock costs one
  *    cached read, not a Session Worker call.
  *
  * The window is cached in the isolate for `DEPLOY_WINDOW_CACHE_MS` (10 seconds), so the lock adds no database read to
@@ -33,7 +34,9 @@ import type { AppEnv } from './types.ts'
 export const DEPLOY_WINDOW_CACHE_MS = 10_000
 
 /** Routes that answer while the server is closed: `<method> <path>` as declared. */
-export const OPEN_DURING_MAINTENANCE: ReadonlySet<string> = new Set(['get /v1/health', 'get /v1/auth/config', 'delete /v1/auth/session'])
+// Billing part 7d (Nov 16, 2026): the pay Worker's webhook stays open too. The client has already paid; the post is one
+// guarded batch, and migrations are applied before a deploy, not during it (pay-links/routes.ts).
+export const OPEN_DURING_MAINTENANCE: ReadonlySet<string> = new Set(['get /v1/health', 'get /v1/auth/config', 'delete /v1/auth/session', 'post /v1/billing/pay-link-paid'])
 
 let cached: { window: DeployWindow | null; readAt: number } | null = null
 

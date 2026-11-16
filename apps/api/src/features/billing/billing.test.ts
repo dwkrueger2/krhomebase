@@ -193,6 +193,31 @@ describe('an invoice from draft to void', () => {
     expect(result.ledgerEntries.filter((item) => !item.voided)).toEqual([])
   })
 
+  it('takes tax and notes on create and save, and keeps them when a save leaves them out (part 7f, audit item 1)', async () => {
+    const a = await data<{ id: string }>(await send('POST', `${base}/time-entries`, entry()))
+    const created = await data<{ id: string }>(await send('POST', `${base}/invoices`, { matterId: 'm-pat-0', invoiceDate: '03/05/2026', writeOff: -50, entryIds: [a.id], taxAmount: 12.5, notes: '  Quarterly bill  ' }))
+    const stored = () => row<{ tax_amount: number; notes: string | null; total_amount: number; balance_due: number }>('SELECT tax_amount, notes, total_amount, balance_due FROM invoice WHERE id = ?1', created.id)
+    expect(stored()).toEqual({ tax_amount: 12.5, notes: 'Quarterly bill', total_amount: 262.5, balance_due: 262.5 })
+    // The register posting follows the total with the tax.
+    expect((await record()).ledgerEntries.at(-1)).toMatchObject({ charges: 262.5, balance: 262.5 })
+
+    // A save without the two keeps them.
+    const save = { matterId: 'm-pat-0', invoiceDate: '03/05/2026', writeOff: 0, entryIds: [a.id] }
+    expect((await send('PATCH', `${base}/invoices/${created.id}`, save)).status).toBe(200)
+    expect(stored()).toEqual({ tax_amount: 12.5, notes: 'Quarterly bill', total_amount: 312.5, balance_due: 312.5 })
+    expect((await record()).ledgerEntries.at(-1)).toMatchObject({ charges: 312.5 })
+
+    // A save may change the tax (stored now; the old save only counted it) and clear the notes.
+    expect((await send('PATCH', `${base}/invoices/${created.id}`, { ...save, taxAmount: 0, notes: '' })).status).toBe(200)
+    expect(stored()).toEqual({ tax_amount: 0, notes: null, total_amount: 300, balance_due: 300 })
+
+    // Left out on create: no tax and no notes; a negative tax is refused.
+    const b = await data<{ id: string }>(await send('POST', `${base}/time-entries`, entry({ description: 'Signing' })))
+    expect((await send('POST', `${base}/invoices`, { matterId: 'm-pat-0', invoiceDate: '03/05/2026', writeOff: 0, entryIds: [b.id], taxAmount: -1 })).status).toBe(422)
+    const plain = await data<{ id: string }>(await send('POST', `${base}/invoices`, { matterId: 'm-pat-0', invoiceDate: '03/05/2026', writeOff: 0, entryIds: [b.id] }))
+    expect(row('SELECT tax_amount, notes FROM invoice WHERE id = ?1', plain.id)).toEqual({ tax_amount: 0, notes: null })
+  })
+
   it('refuses an entry from another matter', async () => {
     const lee = env.sqlite.prepare("INSERT INTO time_entry (id, matter_id, user_id, entry_date, hours, description) VALUES ('te-lee', 'm-lee-0', 'user-staff', '2026-03-01', 1, 'x')")
     lee.run()
@@ -219,6 +244,21 @@ describe('payments, trust and the register', () => {
       ['Trust Payment Received', 1000],
     ])
     expect(result.accountTotals.trustBalance).toBe(1000)
+  })
+
+  it('runs each matter\'s own balance beside the client\'s (part 7f, audit item 4)', async () => {
+    // A second matter of the client, linked by party, with its own unapplied payment.
+    env.sqlite.prepare("INSERT INTO matter_party (id, matter_id, client_id, party_role_lookup_id, is_primary_client) VALUES ('mp-pat-1', 'm-pat-1', 'cl-pat', 'lk_party_role_primary_client', 1)").run()
+    const a = await data<{ id: string }>(await send('POST', `${base}/time-entries`, entry()))
+    await send('POST', `${base}/invoices`, { matterId: 'm-pat-0', invoiceDate: '03/05/2026', writeOff: 0, entryIds: [a.id] })
+    await send('POST', `${base}/payments`, { matterId: 'm-pat-1', invoiceAllocations: [], amount: 40, receivedDate: '03/06/2026', paymentType: 'Cash' })
+    const rows = (await record()).ledgerEntries
+    const first = rows.find((item) => item.matterNumber === '501.0')!
+    const second = rows.find((item) => item.matterNumber === '501.1')!
+    // The client's balance runs across both matters; each matter's balance only over its own rows.
+    expect(rows.at(-1)!.balance).toBe(260)
+    expect(first).toMatchObject({ charges: 300, matterBalance: 300 })
+    expect(second).toMatchObject({ payments: 40, matterBalance: -40 })
   })
 
   it('edits a manual register row but not one posted by a payment', async () => {

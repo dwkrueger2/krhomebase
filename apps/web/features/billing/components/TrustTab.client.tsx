@@ -1,6 +1,8 @@
 'use client'
 // file: apps/web/features/billing/components/TrustTab.client.tsx
 // Ported unchanged from the old app (hb-components/KR-Billing/TrustTab.client.tsx) with Billing (plan stages 2 to 4).
+// Billing part 7f (Nov 16, 2026, `docs/API/Billing_Audit.md` section 5, item 5): `onCreate` is optional; without it (a
+// billing reader) the three Trust buttons are left out. The old tab showed them and the API refused the save with 403.
 
 import { useState } from 'react'
 import { formatAccountingAmount } from '../formatAccountingAmount'
@@ -188,7 +190,8 @@ export default function TrustTab({
   clientDisplayName: string
   entries: BillingTrustEntry[]
   matterNumbers: readonly string[]
-  onCreate: (input: {
+  /** Saves a trust request, deposit or disbursement. Left out (a billing reader): no Trust buttons. */
+  onCreate?: (input: {
     action: 'request' | 'deposit' | 'disbursement'
     amount: number
     matterNumber: string
@@ -213,7 +216,7 @@ export default function TrustTab({
     note: string
     requestNumber: string
   }): Promise<void> {
-    if (!action) return
+    if (!action || !onCreate) return
     setBusy(true)
     try {
       await onCreate({ ...input, action: action === 'request' ? 'request' : input.action })
@@ -237,7 +240,7 @@ export default function TrustTab({
                 />
                 Single Line View
               </label>
-              <div className={LAYOUT_STYLES.actionGroup}>
+              {onCreate ? <div className={LAYOUT_STYLES.actionGroup}>
                 <button
                   className={STYLES.button}
                   disabled={busy}
@@ -262,7 +265,7 @@ export default function TrustTab({
                 >
                   Add Disbursement
                 </button>
-              </div>
+              </div> : null}
             </div>
           }
           clientDisplayName={clientDisplayName}

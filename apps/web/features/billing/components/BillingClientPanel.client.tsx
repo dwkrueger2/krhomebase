@@ -17,13 +17,26 @@
  * Writes go one route per action (plan difference 1). Not here yet: print and email (stage 5), Stripe (stage 6).
  * Billing part 7c (Nov 16, 2026): the Invoices and Payments tabs get the client id (`billing.client.id`) for the
  * invoice and receipt email dialogs, and posting a payment answers its id so the receipt can be emailed.
+ * Billing part 7d (Nov 16, 2026): once the record has loaded, the client's online pay links load once per opening
+ * (`refreshPayLinks`): a billing writer posts the paid links waiting first (the old Billing read did this as a side
+ * effect; each is checked with Stripe and its receipt emailed), a reader only lists them. The Payments tab shows them.
+ * Billing part 7e (Nov 16, 2026): a payment void passes the refund choice and answers the API's reply (the refund), and
+ * a card payment's post carries its Stripe PaymentIntent (the Payments tab charges the card first).
+ * Billing part 7f (Nov 16, 2026, `docs/API/Billing_Audit.md` section 5): the write buttons follow `viewer.canWrite`
+ * (item 5): a billing reader gets Time & Fees and invoices read only, no New Invoice, lock, Send or Trust buttons, and no
+ * statement or receipt email. A client the API does not know (`VALIDATION_CLIENT_NOT_FOUND`) shows the old "No billing
+ * records are available for <name>." (old `BillingPanel:389-393`) instead of an error; the name comes from the data
+ * store's billing client list.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { PaymentVoidData } from '@krhomebase/contracts'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOpenItem, useShellNavigation } from '@/components/shell/shellNavigation'
+import { useOptionalDataStore } from '@/features/contacts/DataStoreProvider.client'
 import KRCloseCardButton from '@/components/ui/KRCloseCardButton.client'
 import MenuStyleOne, { type MenuStyleOneProps } from '@/components/ui/MenuStyleOne.client'
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
+import { L } from '@/lib/KRUtilities'
 import {
   BillingApiError,
   createInvoice,
@@ -34,11 +47,13 @@ import {
   deleteTimeEntry,
   loadBilling,
   peekBilling,
+  refreshPayLinks,
   runInvoiceAction,
   updateInvoice,
   updateLedgerEntry,
   updateTimeEntry,
   useBillingProjection,
+  usePayLinks,
   voidPayment as voidPaymentCall,
   type InvoiceRecordAction,
 } from '../api.client'
@@ -72,10 +87,22 @@ function loadErrorText(caught: unknown): string {
   return caught instanceof BillingApiError ? caught.message : 'Billing data could not be loaded.'
 }
 
+/** Part 7f: the API has no billing client with this id; the panel shows "No billing records are available" instead of an error. */
+export function isNoBillingRecords(caught: unknown): boolean {
+  return caught instanceof BillingApiError && caught.code === 'VALIDATION_CLIENT_NOT_FOUND'
+}
+
+/** Part 7f: the old empty message (old `BillingPanel:389-393`), with the client's name when the data store knows it. */
+export function noBillingRecordsText(displayName: string | null | undefined): string {
+  return `No billing records are available for ${displayName?.trim() || 'this client'}.`
+}
+
 export default function BillingClientPanel() {
   const scope = useOpenItem()
   const navigation = useShellNavigation()
   const clientId = scope?.itemId ?? null
+  /** The open client's name from the shared billing client list (for the "No billing records" line). */
+  const storeClient = useOptionalDataStore()?.billingClients.find((client) => client.id === clientId) ?? null
   const [billing, setBilling] = useState<BillingRecord | null>(() => (clientId ? (peekBilling(clientId) ?? null) : null))
   const [loading, setLoading] = useState(() => Boolean(clientId) && !peekBilling(clientId ?? ''))
   const [error, setError] = useState('')
@@ -108,7 +135,8 @@ export default function BillingClientPanel() {
     try {
       setBilling(await loadBilling(id))
     } catch (caught) {
-      setError(loadErrorText(caught))
+      // Part 7f: an unknown client is "no billing records" (shown below), not a failure.
+      if (!isNoBillingRecords(caught)) setError(loadErrorText(caught))
     } finally {
       setLoading(false)
     }
@@ -136,6 +164,23 @@ export default function BillingClientPanel() {
   const matterIdForNumber = useCallback((matterNumber: string, fallback = '') => billing?.matters.find((matter) => matter.matterNumber === matterNumber)?.id ?? fallback, [billing])
   const canWrite = Boolean(billing?.viewer.canWrite)
   const canAdminister = Boolean(billing?.viewer.canAdminister)
+  const payLinks = usePayLinks(clientId)
+  /** The client whose pay links this opening already loaded (once per opening, not on every record reload). */
+  const payLinksLoadedFor = useRef<string | null>(null)
+
+  // Part 7d: post the paid pay links waiting (a writer) or list them (a reader), once the record says who may write.
+  const recordLoaded = Boolean(billing && billing.client.id === clientId)
+  useEffect(() => {
+    if (!clientId || !recordLoaded || payLinksLoadedFor.current === clientId) return
+    payLinksLoadedFor.current = clientId
+    refreshPayLinks(clientId, { post: canWrite })
+      .then((result) => {
+        const posted = result.posted ? `${result.posted} online payment${result.posted === 1 ? '' : 's'} posted from pay links.` : ''
+        const failed = result.failed ? `${result.failed} paid pay link${result.failed === 1 ? '' : 's'} could not be posted; see Payments → Open Invoices.` : ''
+        if (posted || failed) setStatus([posted, failed].filter(Boolean).join(' '))
+      })
+      .catch((caught: unknown) => L(`[KR_BILLING_PANEL:pay-links] load failed clientId=${clientId} error=${caught instanceof Error ? caught.message : String(caught)}`))
+  }, [canWrite, clientId, recordLoaded])
 
   async function saveTimeEntry(entry: BillingTimeEntry): Promise<void> {
     if (!billing || !clientId) return
@@ -205,11 +250,12 @@ export default function BillingClientPanel() {
     setStatus('Payment posted.')
     return created.id
   }
-  /** Super Admin: voids a payment (no card refund until stage 6). */
-  async function voidPayment(payment: BillingPayment, reason: string): Promise<void> {
-    if (!clientId) return
-    await voidPaymentCall(clientId, payment.id, reason, false)
-    setStatus(`Payment ${payment.paymentNumber} voided.`)
+  /** Super Admin: voids a payment; a Stripe card payment is refunded first when `refund` is true (part 7e). */
+  async function voidPayment(payment: BillingPayment, reason: string, refund: boolean): Promise<PaymentVoidData | null> {
+    if (!clientId) return null
+    const result = await voidPaymentCall(clientId, payment.id, reason, refund)
+    setStatus(`Payment ${payment.paymentNumber} voided${result.refund ? ' and refunded through Stripe' : ''}.`)
+    return result
   }
   async function createTrust(input: { action: 'request' | 'deposit' | 'disbursement'; amount: number; matterNumber: string; note: string; requestNumber: string }): Promise<void> {
     if (!clientId) return
@@ -260,6 +306,7 @@ export default function BillingClientPanel() {
                   setActiveTab('payments')
                 }}
                 onSave={canWrite ? saveLedgerEntry : undefined}
+                canSendStatement={canWrite}
                 statementSource={{ clientId: billing.client.id, matters: billing.matters, invoices: billing.invoices, trustEntries: billing.trustEntries }}
               />
             ),
@@ -281,6 +328,7 @@ export default function BillingClientPanel() {
                 }}
                 onSave={saveTimeEntry}
                 onDelete={removeTimeEntry}
+                canWrite={canWrite}
               />
             ),
           },
@@ -300,8 +348,9 @@ export default function BillingClientPanel() {
                 onSave={saveInvoice}
                 onSaveEntry={saveTimeEntry}
                 canUnlock={canAdminister}
-                onToggleLock={toggleInvoiceLock}
-                onInvoiceAction={invoiceAction}
+                canWrite={canWrite}
+                onToggleLock={canWrite ? toggleInvoiceLock : undefined}
+                onInvoiceAction={canWrite ? invoiceAction : undefined}
                 openInvoiceId={openInvoiceId}
                 onOpenInvoiceConsumed={() => setOpenInvoiceId(null)}
                 onOpenPayment={(paymentId) => {
@@ -329,6 +378,7 @@ export default function BillingClientPanel() {
                 openPaymentId={openPaymentId}
                 onOpenPaymentConsumed={() => setOpenPaymentId(null)}
                 receiptSource={billing}
+                payLinks={payLinks}
               />
             ),
           },
@@ -341,7 +391,7 @@ export default function BillingClientPanel() {
                 clientDisplayName={billing.client.displayName}
                 entries={billing.trustEntries}
                 matterNumbers={matterNumbers}
-                onCreate={createTrust}
+                onCreate={canWrite ? createTrust : undefined}
               />
             ),
           },
@@ -370,6 +420,12 @@ export default function BillingClientPanel() {
       ) : null}
       {!loading && billing && menuProps ? <MenuStyleOne key={billing.client.id} props={menuProps} /> : null}
       {!clientId ? <p className={STYLES.message}>No client is open.</p> : null}
+      {/* No billing records (old BillingPanel:389-393): the load ended with no record and no error. */}
+      {clientId && !loading && !error && !billing ? (
+        <p className={STYLES.message} data-kr-element="billing-no-records">
+          {noBillingRecordsText(storeClient?.displayName)}
+        </p>
+      ) : null}
     </section>
   )
 }

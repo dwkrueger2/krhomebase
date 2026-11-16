@@ -18,6 +18,9 @@
  *    helpers `arnSentence`, `refundRows` and `REFUND_FINE_PRINT`) arrives with part 7e. The shared private helpers
  *    (`emailShell`, `amountCard`, `detailsTable`, `testBanner`, `invoiceLabel`, `officePhone`) are here unchanged, so
  *    part 7e can add the refund notice beside the receipt.
+ *  - Billing part 7e (Nov 16, 2026): the refund notice is here now, at the end of the file, unchanged from the old one
+ *    except that `firm` is the `LetterheadProfile` of the chosen office (the old notice always used the Texas
+ *    profile). `refundNoticeFromRecord` (in `./receiptData.ts`) builds its data from the Billing record.
  *  - `import 'server-only'` removed: the builders are pure text and run in a Worker and in a browser (previews).
  *  - The letterhead type `FirmProfile` is now `LetterheadProfile`, and it and `PaymentReceiptData` come from
  *    `./types.ts` (old `invoiceReportTypes`).
@@ -272,6 +275,114 @@ PAYMENT RECEIPT — ${receipt.firm.legalName} (${receipt.firm.stateName})
 ${receiptRows(receipt).map(([label, value]) => `${label}: ${value}`).join('\n')}
 ${payLink ? `\nBalance remaining on your account: ${paymentEmailMoney(payLink.balance)}\nPay online: ${payLink.url || payLink.displayUrl} (covers every open invoice; expires ${payLink.expires}). Processed by Stripe; we do not keep your card details.\n` : ''}
 ${receipt.finePrint} ${receipt.firm.licensedIn}
+${footerText ? `\n${footerText}\n` : ''}`
+  return rVal
+}
+
+// ───────────────────────────── Refund notice ─────────────────────────────
+
+/** Facts for the refund notice (dollars; dates already formatted for print). */
+export interface PaymentRefundNoticeData {
+  firm: LetterheadProfile
+  clientName: string
+  clientNumber: string
+  matterNumber: string
+  paymentNumber: string
+  paymentDate: string
+  /** e.g. "Credit card · Visa •••• 4242". */
+  paymentMethod: string
+  paymentAmount: number
+  refundAmount: number
+  invoiceNumber: string | null
+  invoiceIvid: string | null
+  /** Date the refund was requested (the void). */
+  refundDate: string
+  /** Stripe refund id (re_…). */
+  refundId: string
+  /** pending | succeeded | failed | canceled | requires_action */
+  refundStatus: string | null
+  /** Acquirer reference number, when Stripe has one. */
+  arn: string | null
+  /** pending | available | unavailable */
+  arnStatus: string | null
+  /** Sandbox refund: no money moved. */
+  isTest: boolean
+}
+
+/** Default subject (the route adds the `[KR n.m]` tag). */
+export function defaultRefundSubject(notice: PaymentRefundNoticeData): string {
+  const rVal = `Refund of ${paymentEmailMoney(notice.refundAmount)} requested${notice.invoiceNumber ? ` — Invoice #${notice.invoiceNumber}` : ''}`
+  return rVal
+}
+
+/** The ARN sentence: the number when Stripe has it, otherwise how to get it. */
+function arnSentence(notice: PaymentRefundNoticeData): string {
+  const rVal = notice.arn
+    ? `If your bank asks, the refund can be traced with this reference number (ARN): ${notice.arn}.`
+    : 'A refund reference number (ARN) is not available yet. If your bank asks for one to trace the refund, contact us and we will provide it.'
+  return rVal
+}
+
+/** Default cover message (staff may edit it before sending). */
+export function defaultRefundMessage(notice: PaymentRefundNoticeData): string {
+  const phone = officePhone(notice.firm)
+  const rVal = `Dear ${notice.clientName},\n\nA refund of ${paymentEmailMoney(notice.refundAmount)} for your ${notice.paymentMethod.toLowerCase().startsWith('credit card') ? 'card ' : ''}payment of ${notice.paymentDate}${notice.invoiceNumber ? ` on ${invoiceLabel(notice.invoiceNumber, null)}` : ''} has been requested from our payment processor, Stripe. Refunds usually appear on your statement within 5–10 business days, depending on your bank.\n\n${arnSentence(notice)}\n\nIf you don't see the refund, please feel free to reach out to us${phone ? ` at ${phone}` : ''}.`
+  return rVal
+}
+
+/** Refund detail rows. */
+function refundRows(notice: PaymentRefundNoticeData): Array<[string, string]> {
+  const rows: Array<[string, string]> = [
+    ['Refund amount', paymentEmailMoney(notice.refundAmount)],
+    ['Refund requested', notice.refundDate],
+    ['Original payment', `${paymentEmailMoney(notice.paymentAmount)} on ${notice.paymentDate}`],
+    ['Payment method', notice.paymentMethod],
+    ['Payment number', notice.paymentNumber],
+    ['Invoice', invoiceLabel(notice.invoiceNumber, notice.invoiceIvid)],
+    ['Client / Matter', `${notice.clientNumber} · ${notice.matterNumber}`],
+    ['Refund reference (ARN)', notice.arn ?? (notice.arnStatus === 'pending' ? 'Pending — available on request' : 'Available on request')],
+    ['Processor reference', notice.refundId],
+  ]
+  return rows
+}
+
+/** Inputs for the refund notice builders. */
+export interface RefundEmailInput {
+  notice: PaymentRefundNoticeData
+  message: string
+  footerHtml?: string
+  footerText?: string
+}
+
+const REFUND_FINE_PRINT = 'Refunds are returned to the card or account used for the original payment. Timing after Stripe sends the refund is set by your bank.'
+
+/** HTML body: letterhead, cover message, refund card, details, fine print. */
+export function buildRefundEmailHtml({ notice, message, footerHtml }: RefundEmailInput): string {
+  const body = `
+          <tr><td style="padding:18px 28px 0;">${messageParagraphs(message)}</td></tr>
+          ${amountCard('Refund requested', notice.refundAmount, `Requested from Stripe ${notice.refundDate}`)}
+          <tr><td style="padding:16px 28px 0;">${detailsTable(refundRows(notice))}</td></tr>`
+  const rVal = emailShell({
+    firm: notice.firm,
+    title: 'Refund Notice',
+    subtitle: `Payment ${notice.paymentNumber} · ${notice.refundDate}`,
+    documentLabel: 'Refund Notice',
+    body,
+    finePrint: REFUND_FINE_PRINT,
+    footerHtml,
+    testNotice: notice.isTest ? 'TEST NOTICE — Stripe sandbox refund. No money was moved.' : undefined,
+  })
+  return rVal
+}
+
+/** Plain-text alternative. */
+export function buildRefundEmailText({ notice, message, footerText }: RefundEmailInput): string {
+  const rVal = `${notice.isTest ? 'TEST NOTICE — Stripe sandbox refund. No money was moved.\n\n' : ''}${message}
+
+REFUND NOTICE — ${notice.firm.legalName} (${notice.firm.stateName})
+${refundRows(notice).map(([label, value]) => `${label}: ${value}`).join('\n')}
+
+${REFUND_FINE_PRINT} ${notice.firm.licensedIn}
 ${footerText ? `\n${footerText}\n` : ''}`
   return rVal
 }

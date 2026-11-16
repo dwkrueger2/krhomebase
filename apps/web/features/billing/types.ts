@@ -14,6 +14,7 @@ import type {
 export type {
   BillingEntryKind,
   BillingInvoiceStatus,
+  BillingPayLink,
   BillingPayment,
   BillingPaymentRefund,
   BillingPaymentType,

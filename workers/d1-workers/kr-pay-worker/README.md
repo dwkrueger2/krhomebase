@@ -1,7 +1,7 @@
 # kr-pay-worker
 
-<small>Version 1.9</small><br>
-<small>Updated Nov 9, 2026 3:30pm</small>
+<small>Version 2.0</small><br>
+<small>Updated Nov 16, 2026 9:30am</small>
 
 > **Nov 9, 2026: this folder is now the live pay Worker, `kr-pay-worker-live`.** It replaces the old `kr-pay-worker-dev` on `pay.krhomebase.com` and uses the one database, `krhomebase`. The payment code is unchanged; the only code change is version metadata on every response (section "Version metadata"). `kr-pay-worker-dev` stays deployed: it no longer serves `pay.krhomebase.com`, but the old app still runs against it, so the old screens can be compared with the new ones. Remove it only when the old app retires (phase E of the plan).
 
@@ -13,7 +13,7 @@ Public pay-link pages for KR Homebase invoices at `pay.krhomebase.com/p/<token>`
 2. **Open** — the client opens the link or scans the QR code. The Worker shows only what is needed to pay: the firm, a shortened name ("D. Krueger"), the open invoices (number, IVID, due date, balance — no services or matter titles), the balance due, an **Amount to pay** field (formatted as currency on leaving it; "Pay in full" appears when it is less than the balance; "Applies to …" previews the oldest-first split), and the Stripe card fields. For a copy of an invoice the page says to reply to the invoice email or call the office (nothing is sent to an address typed on the page).
 3. **Pay** — on submit the Worker checks the amount against D1 ($0.50 up to the account balance), creates the PaymentIntent (metadata `kr_scope=account`, `kr_payment_kind` full/partial), and Stripe.js confirms it in the browser (3-D Secure if the bank asks). The card number goes from the browser to Stripe only.
 4. **Approve** — the Worker re-reads the PaymentIntent from Stripe, marks the request `paid` (one conditional update; paid/posted are final), and the page shows **Payment approved** with the amount, where it applies, the remaining balance, and the **Stripe payment ID** (`pi_…`). If the browser closes first, the `payment_intent.succeeded` webhook does the same. PaymentIntent metadata carries `kr_link_source` (email/print).
-5. **Post and receipt** — the call that marks the link paid also POSTs to KR Homebase (`KR_HOMEBASE_PAY_WEBHOOK_URL`, after the response via `waitUntil`), which posts the payment and emails the receipt right away. The request carries only ids and is signed `X-KR-Pay-Signature: t=…,v1=…` — HMAC-SHA256 over `<t>.<body>` with a key derived from the KEK (HMAC(KEK, `kr-pay-link-webhook:v1`)), so no extra shared secret exists. If the URL is unset or the call fails, the next Billing load in KR Homebase posts the paid link as one payment applied to the open invoices oldest invoice date first (re-verifies with Stripe; one non-voided payment per PaymentIntent in D1; anything left over stays `unapplied_amount` for review). The link becomes `posted` with its payment number. Emailing the receipt issues a new link for any balance left.
+5. **Post and receipt** — the call that marks the link paid also POSTs to KR Homebase (since Billing part 7d, Nov 16, 2026: through the service binding `KR_HOMEBASE_API` to `krhomebase-api`, `POST /v1/billing/pay-link-paid`; `KR_HOMEBASE_PAY_WEBHOOK_URL` only when the binding is missing; after the response via `waitUntil`, with two more tries after 2 and 5 seconds when the call fails or answers 5xx), which posts the payment and emails the receipt right away. The request carries only ids and is signed `X-KR-Pay-Signature: t=…,v1=…` — HMAC-SHA256 over `<t>.<body>` with a key derived from the KEK (HMAC(KEK, `kr-pay-link-webhook:v1`)), so no extra shared secret exists. If the URL is unset or the call fails, the next Billing load in KR Homebase posts the paid link as one payment applied to the open invoices oldest invoice date first (re-verifies with Stripe; one non-voided payment per PaymentIntent in D1; anything left over stays `unapplied_amount` for review). The link becomes `posted` with its payment number. Emailing the receipt issues a new link for any balance left.
 
 ## Routes
 
@@ -40,7 +40,8 @@ Stripe keys are **not** Worker settings. The Worker reads the `payment_provider`
 | `KR_PAY_ENVIRONMENT` | wrangler deployment label (fallback only) | `sandbox` | `live` |
 | Domain | wrangler routes | `pay.krhomebase.com` | `pay.krhomebase.com` |
 | `KR_PAYMENT_PROVIDER_KEK` | Worker secret (once) | same shared KEK | same shared KEK |
-| `KR_HOMEBASE_PAY_WEBHOOK_URL` | Worker secret (optional) | unset | unset until the new app has its pay-link-paid route (plan stage 6) |
+| `KR_HOMEBASE_PAY_WEBHOOK_URL` | Worker secret (optional) | unset | unset: the service binding below replaces it (used only without the binding) |
+| `KR_HOMEBASE_API` | service binding (Billing part 7d, decision B4) | `krhomebase-api` | `krhomebase-api`; the API has no public address, so this is the only way in. Deploy the API first. |
 | `KR_PAY_D1` | D1 binding | `krhomebase` | `krhomebase` |
 | `CF_VERSION_METADATA` | version_metadata binding | filled in by Cloudflare | same |
 
@@ -87,6 +88,16 @@ The requester runs these. Claude does not run `wrangler deploy` or `wrangler sec
 6. **Record the deployment id** that `pnpm deploy:pay` prints in `docs/04_Deployed_Architecture.md`.
 7. **Keep `kr-pay-worker-dev`.** `kr-pay-worker-dev` stays deployed: it no longer serves `pay.krhomebase.com`, but the old app still runs against it, so the old screens can be compared with the new ones. Remove it only when the old app retires (phase E of the plan).
 8. Logs while testing: `pnpm exec wrangler tail kr-pay-worker-live`.
+
+## Billing part 7d: the notice through the service binding (Nov 16, 2026)
+
+The requester approved decision B4 of `docs/API/Billing_Audit.md`: the pay Worker reaches the API through a service binding instead of a public address, and the signature stays (`X-KR-Pay-Signature: t=…,v1=…`, HMAC-SHA256 with HMAC(KEK, `kr-pay-link-webhook:v1`), 300 seconds). What changed in this folder:
+
+- `kr-pay-worker.jsonc`: the `services` entry `KR_HOMEBASE_API` → `krhomebase-api`.
+- `kr-pay-worker.ts`: `notifyHomebase` calls the binding (`https://krhomebase-api/v1/billing/pay-link-paid`; the host name is not used by a service binding), falls back to `KR_HOMEBASE_PAY_WEBHOOK_URL`, signs each try again, and tries twice more (after 2 and 5 seconds, within the 25-second budget) on a network error or a 5xx. It reads the new error envelope (`error.code`) as well as the old text. Nothing else in the payment flow changed.
+- The API keeps the webhook open during a deploy window (`apps/api/src/platform/deployLock.ts`), so a client who pays while the firm is signed out still gets the receipt. The Data Import lock refuses it (423); the link then posts when Billing next opens.
+
+Deploy order (the requester runs these): `pnpm deploy:api` (or `deploy:hot` / `deploy:warn`) first, so the route exists, then `pnpm deploy:pay`. Check with `pnpm exec wrangler tail kr-pay-worker-live` after a sandbox payment: the line `homebase-notice ... via=binding try=1 status=200 posted payment=PAY-...`.
 
 ## Version metadata
 

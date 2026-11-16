@@ -16,9 +16,12 @@
  *  - The old assignee filter was used only by the Tasks screen; it is not ported here (Tasks is stage 5).
  *  - Loading and failure show in the list: `RainbowBusySpinner`, or the reason with Try again.
  *  - Density Contract: 6px to 8px padding, 3px to 6px gaps, 24px buttons, 4px corners, colors from the tokens.
+ *  - The selected entry's card slides out to the right (the requester, Nov 16, 2026, web patch 554): the narrow tab on
+ *    its left edge hides it, so the rows take the width, and brings it back. The choice is remembered in this browser
+ *    (`localStorage`, read after mount; the card shows when storage cannot be read).
  */
 
-import type { ReactNode } from 'react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import { LEDGER_FILTERS, type LedgerActivityFilter, type LedgerActivityRow, type LedgerRowPresentation } from '../workstreamLedgerRows'
@@ -73,6 +76,10 @@ const STYLES = {
     'min-h-[24px] cursor-pointer rounded-[3px] border border-(--kr-theme-button-primary-background) bg-(--kr-theme-button-primary-background) text-[11px] font-[900] text-(color:--kr-theme-text-inverse) hover:bg-(--kr-theme-button-primary-hover-background)',
   viewButton: 'min-h-[22px] cursor-pointer border-0 bg-transparent text-[11px] font-[900] text-(color:--kr-theme-text-muted) hover:text-(color:--kr-theme-brand-primary)',
   viewButtonActive: 'text-(color:--kr-theme-brand-primary)',
+  detailToggle:
+    'cursor-pointer rounded-[3px] border border-(--kr-theme-line) bg-(--kr-theme-shell-surface) text-(color:--kr-theme-text-muted) hover:border-(--kr-theme-brand-primary-active) hover:text-(color:--kr-theme-brand-primary)',
+  detailToggleLabel: 'text-[10px] font-[900] uppercase tracking-[0.07em] [writing-mode:vertical-rl]',
+  detailMotion: 'transition-[width,opacity,translate] duration-200 ease-out motion-reduce:transition-none',
   list: 'rounded-[3px] border border-(--kr-theme-line)',
   empty: 'm-0 text-[12px] text-(color:--kr-theme-text-muted)',
   error: 'm-0 text-[12px] font-[600] text-(color:--kr-theme-danger)',
@@ -93,18 +100,50 @@ const LAYOUT_STYLES = {
   actionGroup: 'pl-[8px] gap-[6px] flex shrink-0 items-center border-l max-[767px]:border-l-0 max-[767px]:pl-0',
   addButton: 'px-[8px] py-[2px] gap-[4px] inline-flex items-center',
   emailIcon: 'size-[12px]',
-  body: 'p-[8px] gap-[8px] grid lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]',
+  body: 'p-[8px] gap-[8px] grid lg:grid-cols-[minmax(0,1fr)_auto]',
   list: 'min-w-0 self-start overflow-hidden',
-  detail: 'min-w-0',
+  detail: 'min-w-0 gap-[4px] flex items-start',
+  // Shown: the card's old width, 260px to 340px (30vw between). Hidden: only the 22px tab is left.
+  detailShown: 'lg:w-[clamp(260px,30vw,340px)]',
+  detailHidden: 'lg:w-[22px]',
+  detailToggle: 'px-0 py-[6px] w-[22px] min-h-[64px] gap-[4px] flex shrink-0 flex-col items-center',
+  detailToggleIcon: 'size-[12px]',
+  detailContent: 'min-w-0 flex-1',
+  detailContentHidden: 'invisible w-0 translate-x-full overflow-hidden opacity-0',
   status: 'p-[8px] gap-[6px] flex items-center',
   more: 'px-[6px] py-[3px] gap-[6px] flex flex-wrap items-center justify-between',
   moreButton: 'px-[8px] py-[1px] gap-[4px] inline-flex items-center',
 } as const
 
+/** This browser's choice to keep the selected entry's card slid out (`'1'`), or shown. */
+const DETAIL_HIDDEN_KEY = 'kr.workstream.summaryCardHidden'
+
 /** Renders the client WorkStream ledger. */
 export default function WorkstreamActivityLedger(props: WorkstreamActivityLedgerProps) {
   const { contextLabel, error, filter, hasMore, loading, loadingMore, onAdd, onEmail, onFilterChange, onLoadMore, onPresentationChange, onRetry, onSelect, onToggleRow, presentation, presentationOverrides, renderDetail, rows, selectedId, subtitle, title } = props
   const selected = rows.find((row) => row.id === selectedId) ?? rows[0] ?? null
+  const detailId = useId()
+  const [detailHidden, setDetailHidden] = useState(false)
+
+  // The remembered choice is read after mount, so the server and the first browser draw agree (card shown).
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(DETAIL_HIDDEN_KEY) === '1') setDetailHidden(true)
+    } catch {
+      // Storage blocked: the card stays shown.
+    }
+  }, [])
+
+  /** Slides the card out or back and remembers the choice in this browser. */
+  function toggleDetail(): void {
+    const next = !detailHidden
+    setDetailHidden(next)
+    try {
+      window.localStorage.setItem(DETAIL_HIDDEN_KEY, next ? '1' : '0')
+    } catch {
+      // Not remembered; the choice holds until the page reloads.
+    }
+  }
 
   return (
     <section className={STYLES.shell} data-kr-id="kr-workstream-activity-ledger">
@@ -188,8 +227,23 @@ export default function WorkstreamActivityLedger(props: WorkstreamActivityLedger
             </div>
           ) : null}
         </div>
-        <aside aria-label="Selected Workstream activity detail" className={LAYOUT_STYLES.detail}>
-          {selected ? renderDetail(selected) : <p className={STYLES.empty}>Select an activity to see its detail.</p>}
+        {/* The selected entry's card; the tab on its left edge slides it out to the right and back. */}
+        <aside aria-label="Selected Workstream activity detail" className={`${LAYOUT_STYLES.detail} ${detailHidden ? LAYOUT_STYLES.detailHidden : LAYOUT_STYLES.detailShown} ${STYLES.detailMotion}`} data-kr-element="workstream-summary-panel" data-kr-state={detailHidden ? 'hidden' : 'shown'}>
+          <button
+            aria-controls={detailId}
+            aria-expanded={!detailHidden}
+            className={`${LAYOUT_STYLES.detailToggle} ${STYLES.detailToggle}`}
+            data-kr-element="workstream-summary-toggle"
+            title={detailHidden ? 'Show the entry details' : 'Hide the entry details to widen the rows'}
+            type="button"
+            onClick={toggleDetail}
+          >
+            <KRHomebaseIcons.Chevron className={`${LAYOUT_STYLES.detailToggleIcon} ${detailHidden ? 'rotate-90' : '-rotate-90'}`} />
+            <span className={STYLES.detailToggleLabel}>{detailHidden ? 'Details' : 'Hide'}</span>
+          </button>
+          <div className={`${LAYOUT_STYLES.detailContent} ${STYLES.detailMotion} ${detailHidden ? LAYOUT_STYLES.detailContentHidden : ''}`} id={detailId} inert={detailHidden}>
+            {selected ? renderDetail(selected) : <p className={STYLES.empty}>Select an activity to see its detail.</p>}
+          </div>
         </aside>
       </div>
     </section>

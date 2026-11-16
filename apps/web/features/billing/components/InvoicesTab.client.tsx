@@ -10,6 +10,10 @@
 // had too; it also gives the print view its send context. After a delivered email the API has already marked the
 // invoice sent and locked it, and the dialog's call reloaded the record, so the tab only closes the dialog (the old tab
 // called `onSend` to mark it sent).
+// Billing part 7f (Nov 16, 2026, `docs/API/Billing_Audit.md` section 5, item 5): `canWrite` (the record's
+// `viewer.canWrite`) hides New Invoice, the row Send and the lock button from a billing reader (the lock column shows
+// the lock state as a plain icon), opens the editor read only, and prints without the print-intent prompt and without a
+// send context (so the print view has no Send and asks for no pay link). The old tab showed them and the API refused.
 
 import { useEffect, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
@@ -43,6 +47,8 @@ const STYLES = {
   utilityButton:
     'p-1 rounded text-[var(--kr-theme-text-muted,#526172)] hover:bg-[var(--kr-theme-muted-surface,#eef3f7)] hover:text-[var(--kr-theme-brand-primary,#21394f)] disabled:cursor-help disabled:opacity-40 disabled:hover:bg-transparent',
   problem: 'px-2 py-1 border border-red-300 bg-red-50 text-[9pt] text-red-800',
+  // Part 7f: the lock state for a reader (the utility button's padding, no hover or click).
+  lockState: 'p-1 cursor-default',
 } as const
 // Columns: Number, Matter, Date, Due, Amount, Status, Lock, then the unlabeled utility column (print · send · edit).
 const LAYOUT_STYLES = {
@@ -129,6 +135,8 @@ export interface InvoicesTabProps {
   onOpenInvoiceConsumed?: () => void
   /** Opens a payment receipt after switching to the Payments tab. */
   onOpenPayment: (paymentId: string) => void
+  /** Part 7f: the person may write billing (`viewer.canWrite`). False hides New Invoice, Send and the lock button. Default true. */
+  canWrite?: boolean
 }
 
 /** Displays persisted client invoices and opens the production invoice editor. */
@@ -149,6 +157,7 @@ export default function InvoicesTab({
   openInvoiceId,
   onOpenInvoiceConsumed,
   onOpenPayment,
+  canWrite = true,
 }: InvoicesTabProps) {
   const [editing, setEditing] = useState<BillingInvoice | null>(null)
   const [lockPrompt, setLockPrompt] = useState<{
@@ -163,7 +172,7 @@ export default function InvoicesTab({
   const [printIntent, setPrintIntent] = useState<BillingInvoice | null>(null)
   /** Invoice whose row Send was clicked: the email dialog is open for it. */
   const [sending, setSending] = useState<BillingInvoice | null>(null)
-  const canSend = Boolean(clientId)
+  const canSend = Boolean(clientId) && canWrite
   // Open the editor for an invoice requested from elsewhere (the time & fee dialog's invoice link).
   useEffect(() => {
     if (!openInvoiceId) return
@@ -201,7 +210,7 @@ export default function InvoicesTab({
   /** Opens the print view for one invoice (no prompt). */
   function openPrintView(invoice: BillingInvoice): void {
     setProblem(
-      printInvoiceFromBilling({ invoice, entries, clientNumber, staffOptions, accountInvoices: invoices, send: clientId ? { clientId, clientDisplayName } : undefined }),
+      printInvoiceFromBilling({ invoice, entries, clientNumber, staffOptions, accountInvoices: invoices, send: canSend && clientId ? { clientId, clientDisplayName } : undefined }),
     )
   }
   /** Row-level Send: opens the email dialog without opening the editor. */
@@ -218,7 +227,7 @@ export default function InvoicesTab({
   /** Row-level Print: locked invoices open straight away; unlocked ones first ask whether the print goes to the client. */
   function printRow(event: MouseEvent, invoice: BillingInvoice): void {
     event.stopPropagation()
-    if (invoice.locked || invoice.status === 'Void' || invoice.id.startsWith('new_') || !onToggleLock) openPrintView(invoice)
+    if (invoice.locked || invoice.status === 'Void' || invoice.id.startsWith('new_') || !onToggleLock || !canWrite) openPrintView(invoice)
     else setPrintIntent(invoice)
   }
   /** Keeps clicks on the lock and utility cells from opening the editor. */
@@ -258,9 +267,11 @@ export default function InvoicesTab({
       <div className={`${LAYOUT_STYLES.panel} ${STYLES.panel}`}>
         <BillingTabHeader
           actions={
-            <button className={STYLES.primaryButton} type="button" onClick={newInvoice}>
-              New Invoice
-            </button>
+            canWrite ? (
+              <button className={STYLES.primaryButton} type="button" onClick={newInvoice}>
+                New Invoice
+              </button>
+            ) : null
           }
           clientDisplayName={clientDisplayName}
           clientNumber={clientNumber}
@@ -330,22 +341,29 @@ export default function InvoicesTab({
                       data-kr-element="invoice-lock-cell"
                       onClick={swallow}
                     >
-                      <button
-                        aria-label={invoice.locked ? 'Unlock invoice' : 'Lock invoice'}
-                        className={STYLES.utilityButton}
-                        data-kr-action="invoice-row-lock"
-                        title={
-                          invoice.locked
-                            ? canUnlock
-                              ? 'Locked — click to unlock (Super Admin)'
-                              : 'Locked invoice'
-                            : 'Unlocked — click to lock'
-                        }
-                        type="button"
-                        onClick={(event) => lockRow(event, invoice)}
-                      >
-                        <InvoiceLockIcon locked={invoice.locked} />
-                      </button>
+                      {/* Part 7f: a reader sees the lock state only, not a button. */}
+                      {canWrite ? (
+                        <button
+                          aria-label={invoice.locked ? 'Unlock invoice' : 'Lock invoice'}
+                          className={STYLES.utilityButton}
+                          data-kr-action="invoice-row-lock"
+                          title={
+                            invoice.locked
+                              ? canUnlock
+                                ? 'Locked — click to unlock (Super Admin)'
+                                : 'Locked invoice'
+                              : 'Unlocked — click to lock'
+                          }
+                          type="button"
+                          onClick={(event) => lockRow(event, invoice)}
+                        >
+                          <InvoiceLockIcon locked={invoice.locked} />
+                        </button>
+                      ) : (
+                        <span className={STYLES.lockState} data-kr-element="invoice-row-lock-state" title={invoice.locked ? 'Locked invoice' : 'Unlocked invoice'}>
+                          <InvoiceLockIcon locked={invoice.locked} />
+                        </span>
+                      )}
                     </span>
                     {/* Utility cell: print · send · edit */}
                     <span
@@ -363,17 +381,19 @@ export default function InvoicesTab({
                       >
                         <KRHomebaseIcons.Print />
                       </button>
-                      <button
-                        aria-label={`Email invoice ${invoice.invoiceNumber || 'draft'}`}
-                        className={STYLES.utilityButton}
-                        data-kr-action="invoice-row-send"
-                        disabled={!canSend || invoice.id.startsWith('new_')}
-                        title={!canSend ? 'Sending is unavailable for this account' : invoice.id.startsWith('new_') ? SAVE_BEFORE_SENDING : 'Email invoice to the client'}
-                        type="button"
-                        onClick={(event) => sendRow(event, invoice)}
-                      >
-                        <KRHomebaseIcons.Send />
-                      </button>
+                      {canWrite ? (
+                        <button
+                          aria-label={`Email invoice ${invoice.invoiceNumber || 'draft'}`}
+                          className={STYLES.utilityButton}
+                          data-kr-action="invoice-row-send"
+                          disabled={!canSend || invoice.id.startsWith('new_')}
+                          title={!canSend ? 'Sending is unavailable for this account' : invoice.id.startsWith('new_') ? SAVE_BEFORE_SENDING : 'Email invoice to the client'}
+                          type="button"
+                          onClick={(event) => sendRow(event, invoice)}
+                        >
+                          <KRHomebaseIcons.Send />
+                        </button>
+                      ) : null}
                       <button
                         aria-label={`Edit invoice ${invoice.invoiceNumber || 'draft'}`}
                         className={STYLES.utilityButton}
@@ -422,6 +442,7 @@ export default function InvoicesTab({
           onInvoiceAction={onInvoiceAction}
           accountInvoices={invoices}
           clientId={clientId}
+          readOnly={!canWrite}
           onCancel={() => setEditing(null)}
           onOpenPayment={onOpenPayment}
           onSave={async (invoice) => {

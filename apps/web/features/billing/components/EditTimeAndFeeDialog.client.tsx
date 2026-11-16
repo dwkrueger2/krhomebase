@@ -1,6 +1,8 @@
 'use client'
 // file: apps/web/features/billing/components/EditTimeAndFeeDialog.client.tsx
 // Ported unchanged from the old app (hb-components/KR-Billing/EditTimeAndFeeDialog.client.tsx) with Billing (plan stages 2 to 4).
+// Billing part 7f (Nov 16, 2026, audit item 5): `readOnly` (a billing reader) shows the entry with every field off and
+// only a Close button: no Move, Copy, Delete or Save.
 
 import { useMemo, useState } from 'react'
 import { roundMinutesToTenths } from '../timeRounding'
@@ -25,6 +27,8 @@ export interface EditTimeAndFeeDialogProps {
   onCancel: () => void
   onDelete?: (id: string) => Promise<void>
   onSave: (entry: BillingTimeEntry) => Promise<void>
+  /** Part 7f: a billing reader. Every field is off and the footer has only Close. */
+  readOnly?: boolean
 }
 
 const STYLES = {
@@ -131,6 +135,7 @@ export default function EditTimeAndFeeDialog({
   onCancel,
   onDelete,
   onSave,
+  readOnly = false,
 }: EditTimeAndFeeDialogProps) {
   const [draft, setDraft] = useState(() => initialEntry(entry, matterNumbers, staffOptions))
   const [dateValid, setDateValid] = useState(() => Boolean(parseAccountingDate(draft.date)))
@@ -155,7 +160,8 @@ export default function EditTimeAndFeeDialog({
     total >= 0 &&
     !busy &&
     // A locked entry cannot be saved or moved, but a copy of it is a new entry and may be.
-    (!locked || action === 'copy')
+    (!locked || action === 'copy') &&
+    !readOnly
   function update(patch: Partial<BillingTimeEntry>): void {
     setDraft((current) => ({ ...current, ...patch }))
   }
@@ -189,7 +195,7 @@ export default function EditTimeAndFeeDialog({
         {/* Entry dialog header: identify the persisted client-matter billing context. */}
         <header className={`${LAYOUT_STYLES.header} ${STYLES.header}`}>
           <h2 className={STYLES.title}>
-            {entry ? 'Edit time and fee entry' : 'Add billing entry'}
+            {entry ? (readOnly ? 'Time and fee entry (read only)' : 'Edit time and fee entry') : 'Add billing entry'}
           </h2>
           <p className={STYLES.intro}>
             Matter-based billing
@@ -198,7 +204,7 @@ export default function EditTimeAndFeeDialog({
         </header>
         {/* Entry fields: explicit rows preserve the three-column form rhythm. */}
         <div className={LAYOUT_STYLES.form}>
-          <fieldset className={LAYOUT_STYLES.fieldset} data-kr-element="edit-time-fee-fields" disabled={locked || busy}>
+          <fieldset className={LAYOUT_STYLES.fieldset} data-kr-element="edit-time-fee-fields" disabled={locked || busy || readOnly}>
           <div className={LAYOUT_STYLES.formRow} data-kr-element="edit-time-fee-entry-type-row">
             <label className={STYLES.label}>
               Entry type
@@ -390,7 +396,8 @@ export default function EditTimeAndFeeDialog({
         </div>
         {/* Entry actions: destructive action stays left; save/cancel remain grouped right. */}
         <footer className={LAYOUT_STYLES.actionRow}>
-          <div className={LAYOUT_STYLES.actionGroup}>
+          {/* Part 7f: a reader gets no Move, Copy or Delete (an empty group keeps Close on the right). */}
+          {readOnly ? <div className={LAYOUT_STYLES.actionGroup} /> : <div className={LAYOUT_STYLES.actionGroup}>
             <button
               className={STYLES.button}
               disabled={!entry || busy || locked}
@@ -420,14 +427,16 @@ export default function EditTimeAndFeeDialog({
             >
               Delete
             </button>
-          </div>
+          </div>}
           <div className={LAYOUT_STYLES.actionGroup}>
             <button className={STYLES.button} type="button" onClick={onCancel}>
-              Cancel
+              {readOnly ? 'Close' : 'Cancel'}
             </button>
-            <button className={STYLES.primaryButton} disabled={!canSave} type="submit">
-              {busy ? 'Saving…' : 'Save'}
-            </button>
+            {readOnly ? null : (
+              <button className={STYLES.primaryButton} disabled={!canSave} type="submit">
+                {busy ? 'Saving…' : 'Save'}
+              </button>
+            )}
           </div>
         </footer>
       </form>

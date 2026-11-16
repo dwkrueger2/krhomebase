@@ -248,10 +248,11 @@ describe('send buttons (part 7c)', () => {
 })
 
 describe('email dialogs', () => {
-  it('writes the default messages without a pay link (part 7d)', () => {
+  it('writes the default messages, the invoice with its pay link token (part 7d)', () => {
     const invoiceMessage = invoiceEmailDefaultMessage('Pat Sample', { invoiceNumber: '121', dueDate: '04/04/2026' }, 300)
     expect(invoiceMessage).toContain('Please find Invoice #121 attached. The balance due is $300.00, payable by 04/04/2026.')
-    expect(invoiceMessage).not.toContain('PAY_LINK')
+    expect(invoiceMessage).toContain('Pay online: [[PAY_LINK]]')
+    expect(billingSentDetail('Invoice #121', { ...SENT_DATA, payLinkPrid: 'PAY1234' }, true)).toContain('Pay link PAY1234 included.')
     expect(statementEmailDefaultMessage('Pat Sample', { periodLabel: 'March 2026', closingBalance: 300 })).toContain('Statement of Account for March 2026 attached. The balance on your account is $300.00.')
   })
 

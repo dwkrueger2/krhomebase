@@ -1,7 +1,7 @@
 # Environment Key Mappings
 
-<small>Version 1.4</small><br>
-<small>Updated Nov 16, 2026 8:25am</small>
+<small>Version 1.6</small><br>
+<small>Updated Nov 16, 2026 3:54pm</small>
 
 ## What this is
 
@@ -36,7 +36,9 @@ This page maps each environment key (secret or setting) to the key file that hol
 | `KR_PAYMENT_PROVIDER_KEK` | `payment-provider-kek.key` | Yes | API secret, and the same value on `kr-pay-worker-live`. Encrypts the Stripe keys in `payment_provider`. It is not the Stripe webhook secret (`whsec_...`), which is entered on the Stripe Payment Configuration page. |
 | `KR_GPT_WORKER_SECRET` | `gpt-worker-shared-secret.txt` (made Nov 14, 2026; `workers/gpt-workers/README.md`) | — | API secret, and the same value as `GPT_WORKER_SHARED_SECRET` on the GPT models Worker. Set on the deployed API by the requester on Nov 14, 2026 (piped from the file; `workers/gpt-workers/README.md` step 6). |
 | `KR_CF_BROWSER_RENDERING_TOKEN` | `cloudflare-custom-token\cloudflare-browser-rendering.token` | No (old folder only) | API secret (Billing part 7c, Nov 16, 2026): Cloudflare Browser Rendering for the PDFs of emailed invoices, statements and receipts (the old app's token, the requester's choice). `.dev.vars` by `Write-DevVars.ps1` once the file is copied here. The account id `KR_CF_ACCOUNT_ID` is a plain setting in the wrangler file. |
-| `KR_APP_BASE_URL` | none (a setting) | — | `http://localhost:3011` in `.dev.vars`; the deployed address in the wrangler file. |
+| `KR_APP_BASE_URL` | none (a setting) | — | `http://localhost:3011` in `.dev.vars`; the deployed address in the wrangler file. Since Billing part 7d it also decides the Stripe environment of a new pay link (and, since part 7e, of a card payment taken in Billing) when `KR_STRIPE_BILLING_ENVIRONMENT` is not set: a localhost address uses the sandbox. A localhost address is also the only place a super admin may choose sandbox or live for a card payment (part 7e). |
+| `KR_PAY_SANDBOX_BASE_URL`, `KR_PAY_LIVE_BASE_URL` | none (settings) | — | Billing part 7d (Nov 16, 2026): the pay Worker's address for each Stripe environment (`https://pay.krhomebase.com` for both, the old app's `.env` values), plain `vars` in the wrangler file. A pay link is `<address>/p/<token>`. |
+| `KR_STRIPE_BILLING_ENVIRONMENT` | none (a setting) | — | Optional (Billing part 7d): `sandbox` or `live` for new pay links and (part 7e) card payments taken in Billing → Payments. Not set anywhere today: the deployed API uses live, `pnpm dev` the sandbox (see `KR_APP_BASE_URL`). |
 | `KR_SUPER_ADMIN_EMAILS` | none (a setting) | — | Optional, only while the database has no users. |
 | `krhomebase` | none (binding) | — | D1 database binding (`remote: true` under `pnpm dev`). |
 | `EMPLOYEE_STORAGE` | none (binding) | — | R2 bucket `kr-homebase-employee-storage` (`remote: true`). |
@@ -52,7 +54,7 @@ This page maps each environment key (secret or setting) to the key file that hol
 | `KR_SESSION_WORKER_SECRET` | `session-symmetric-hashkey.key` | Yes | Secret on `krhomebase-session-worker`; the same value as the API's. |
 | `CRUD_WORKER_PUB_INQUIRY_PRIVATE_KEY` | not mapped by a `_PATH` setting; check the old folder's `public-inquiry\` before setting it | No | Secret on `krhomebase-crud-worker-pub-inquiry` (`crud-worker-pub-inquiry.jsonc`). The old folder's `public-inquiry\kr-public-inquiry-ip-hash.secret` and `kr-public-inquiry-rate-limit.secret` belong to the public inquiry site. |
 | `KR_PAYMENT_PROVIDER_KEK` | `payment-provider-kek.key` | Yes | Secret on `kr-pay-worker-live` (`workers/d1-workers/kr-pay-worker/kr-pay-worker.jsonc`); the same value as the API's. |
-| `KR_HOMEBASE_PAY_WEBHOOK_URL` | none (a setting) | — | Optional `kr-pay-worker-live` secret; unset until the new pay-link-paid route exists. |
+| `KR_HOMEBASE_PAY_WEBHOOK_URL` | none (a setting) | — | Optional `kr-pay-worker-live` secret; leave it unset. Since Billing part 7d the pay Worker reaches the API's `POST /v1/billing/pay-link-paid` through the service binding `KR_HOMEBASE_API` (the API has no public address); the URL is used only without the binding. |
 | `GPT_WORKER_SHARED_SECRET` | `gpt-worker-shared-secret.txt` | — | Secret on `krhomebase-gpt-models-worker`; the same value as the API's `KR_GPT_WORKER_SECRET`. |
 | `GPT_CREDENTIAL_ENCRYPTION_KEY` | `gpt-credential-encryption-key.txt` (32 random bytes, base64) | — | Secret on `krhomebase-gpt-models-worker`; seals provider keys in `gpt_llm_credential`. |
 | `GPT_LEGACY_WORKER_PRIVATE_KEY` | `gpt-worker-key1.pem` | No (old folder only) | Optional, on `krhomebase-gpt-models-worker`, only to read keys stored by the old GPT Worker. |

@@ -30,6 +30,8 @@
  *    subject). While a re-send is chosen, Preview is hidden: the "email" link opens the stored email as it went.
  *  - No pay link yet (Billing part 7d): the default message drops "Pay online: [[PAY_LINK]]" and says to mail a check
  *    or call the office to pay by card, as the API's email says.
+ *  - Billing part 7d (Nov 16, 2026): the old default message is back with "Pay online: [[PAY_LINK]]"; the API issues
+ *    the link when the email is sent and puts it (with its QR image) where the token is.
  *  - Failures are `BillingApiError` sentences from the API (the old code-to-sentence mapping for
  *    `GOOGLE_WORKSPACE_MAILER_NOT_CONFIGURED` and `DOCUMENT_STORE_FAILED` is gone). A failed address lookup is shown
  *    (`suggestionsError`) instead of looking like an empty list.
@@ -108,13 +110,17 @@ export interface SendInvoiceDialogProps {
   inline?: boolean
 }
 
-/** Default cover message; staff can edit it in the dialog before sending. (No pay link until Billing part 7d.) */
+/** The token staff can leave in the message; the API turns it into the pay-online link when the email is sent. */
+export const PAY_LINK_TOKEN = '[[PAY_LINK]]'
+
+/** Default cover message; staff can edit it in the dialog before sending. `[[PAY_LINK]]` becomes the payment link. */
 export function invoiceEmailDefaultMessage(clientDisplayName: string, invoice: Pick<SendInvoiceTarget, 'invoiceNumber' | 'dueDate'>, balanceDue: number): string {
   const rVal =
     `Dear ${clientDisplayName},\n\n` +
     `Please find Invoice #${invoice.invoiceNumber} attached. The balance due is ${formatAccountingAmount(balanceDue)}` +
     `${invoice.dueDate ? `, payable by ${invoice.dueDate}` : ''}.\n\n` +
-    `You may mail a check to our office, or call our office to pay by card.\n\nThank you for the opportunity to serve you.\n\nKrueger & Richard, PLLC`
+    `Pay online: ${PAY_LINK_TOKEN}\n\n` +
+    `You may also mail a check to our office.\n\nThank you for the opportunity to serve you.\n\nKrueger & Richard, PLLC`
   return rVal
 }
 
@@ -137,7 +143,7 @@ export function billingSentHtmlUrl(copy: Pick<BillingSentDocument, 'url'>): stri
  */
 export function billingSentDetail(
   label: string,
-  result: { resent: boolean; to: readonly string[]; subject: string; pdfAttached: boolean; pdfError: string | null; documentNumber: string | null; documentUrl: string; workstreamWsid: string | null; workstreamError: string | null },
+  result: { resent: boolean; to: readonly string[]; subject: string; pdfAttached: boolean; pdfError: string | null; documentNumber: string | null; documentUrl: string; workstreamWsid: string | null; workstreamError: string | null; payLinkPrid?: string | null; payLinkError?: string | null },
   includePdf: boolean,
 ): string {
   const pdfNote = result.resent ? '' : includePdf ? (result.pdfAttached ? ' PDF attached.' : ` The PDF could not be attached (${result.pdfError ?? 'renderer unavailable'}); the email went without it.`) : ''
@@ -148,7 +154,9 @@ export function billingSentDetail(
     : result.workstreamError
       ? ` The email was delivered, but the Workstream entry failed: ${result.workstreamError}.`
       : ''
-  const rVal = `${label} was ${result.resent ? 're-sent' : 'emailed'} to ${result.to.join(', ')} as “${result.subject}”.${pdfNote}${copy}${workstream}`
+  // Billing part 7d: the pay link the email carries, or why it has none.
+  const payLink = result.payLinkPrid ? ` Pay link ${result.payLinkPrid} included.` : result.payLinkError ? ` No pay link: ${result.payLinkError}.` : ''
+  const rVal = `${label} was ${result.resent ? 're-sent' : 'emailed'} to ${result.to.join(', ')} as “${result.subject}”.${pdfNote}${payLink}${copy}${workstream}`
   return rVal
 }
 

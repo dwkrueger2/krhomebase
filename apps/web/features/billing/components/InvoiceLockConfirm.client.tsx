@@ -1,6 +1,9 @@
 'use client'
 // file: apps/web/features/billing/components/InvoiceLockConfirm.client.tsx
 // Ported unchanged from the old app (hb-components/KR-Billing/Invoicing/InvoiceLockConfirm.client.tsx) with Billing (plan stages 2 to 4).
+// Billing part 7f (Nov 16, 2026, `docs/API/Billing_Audit.md` section 5, item 11): uses the one shared confirmation dialog,
+// `components/dialogs/U6ConfirmationDialog.client.tsx`. The second copy in `components/ui/` (the same props and
+// behavior, older spacing) was removed.
 
 /**
  * InvoiceLockConfirm — the one confirmation used for every invoice record
@@ -18,7 +21,7 @@
  */
 
 import { useState } from 'react'
-import { U6ConfirmationDialog } from '@/components/ui/U6ConfirmationDialog.client'
+import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
 import type { BillingInvoice } from '../types'
 
 export type InvoiceConfirmMode = 'lock' | 'unlock' | 'detachPayments' | 'void'

@@ -104,6 +104,9 @@ export const THEME_TOKEN_DEFINITIONS: readonly ThemeTokenDefinition[] = [
   t('--kr-theme-orange', 'orangeColor', 'Action Colors', 'Orange (attention)', 'color', true),
   t('--kr-theme-danger', 'dangerColor', 'Action Colors', 'Danger (red state)', 'color', true),
   t('--kr-theme-success', 'successColor', 'Action Colors', 'Success (green state)', 'color', true),
+  // Warning was read by several screens before theme.css defined it; defined on Nov 16, 2026 (Billing part 7f). Not in
+  // the old editor, so it has no old key. Personal like the other state colors.
+  t('--kr-theme-warning', null, 'Action Colors', 'Warning (amber state)', 'color', true),
   t('--kr-theme-table-heading-dark', 'tableHeadingDark', 'Table Colors', 'Ledger heading row', 'color', true),
   t('--kr-theme-table-heading-light', 'tableHeadingLight', 'Table Colors', 'Light heading', 'color', true),
   t('--kr-theme-table-row-background-1', 'tableRowBackgroundOne', 'Table Colors', 'Row background 1', 'color', true),
@@ -288,6 +291,7 @@ export const BUILT_IN_THEME: { light: ThemeValueMap; dark: ThemeValueMap } = {
     '--kr-theme-orange': '#e45e25',
     '--kr-theme-danger': '#9d2c20',
     '--kr-theme-success': '#246b45',
+    '--kr-theme-warning': '#b47a2a',
     '--kr-theme-panel-background': '#ffffff',
     '--kr-theme-panel-accent-strip': 'yes',
     '--kr-theme-panel-accent-style': 'gradient',
@@ -342,6 +346,7 @@ export const BUILT_IN_THEME: { light: ThemeValueMap; dark: ThemeValueMap } = {
     '--kr-theme-orange': '#ec6a32',
     '--kr-theme-danger': '#e2735f',
     '--kr-theme-success': '#5cbf86',
+    '--kr-theme-warning': '#e0a85a',
     '--kr-theme-panel-background': '#18212b',
     '--kr-theme-panel-accent-solid': '#2d4a66',
   },

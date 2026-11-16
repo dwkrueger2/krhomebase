@@ -8,6 +8,11 @@
 // Billing part 7c (Nov 16, 2026): Send is back as in the old register: it opens `SendStatementDialog` for the selected
 // matter (its id from `statementSource.matters`) or the whole client, with the statement built from the same rows for
 // the default message (`statementReportFromBilling`); the API builds the statement it sends from the record.
+// Billing part 7f (Nov 16, 2026, `docs/API/Billing_Audit.md` section 5): with one matter chosen, the Balance column and the
+// Ending balance are that matter's own running balance (`matterBalance` from the API; audit item 4). The API's `balance`
+// runs across the whole client, so the old register showed the client's balance at the matter's last row. Send is shown
+// only when `canSendStatement` (a billing writer; audit item 5), and a Statement printed by a reader carries no send
+// context, so the print view shows no Send either.
 
 import { useMemo, useState } from 'react'
 import AccountingDatePicker, { parseAccountingDate } from './AccountingDatePicker.client'
@@ -38,6 +43,8 @@ export interface ClientAccountingLedgerProps {
   onOpenPayment?: (paymentId: string) => void
   /** When given, the header shows Print and Send for the Statement of Account (whole client or the selected matter). */
   statementSource?: ClientAccountingStatementSource
+  /** Part 7f: the person may email the statement (the record's `viewer.canWrite`). False hides Send. Default true. */
+  canSendStatement?: boolean
 }
 
 const STYLES = {
@@ -108,8 +115,19 @@ function charges(entry: ClientAccountingLedgerEntry): number | undefined { retur
 function payments(entry: ClientAccountingLedgerEntry): number | undefined { return entry.payments }
 function displayAmount(value: number | undefined): string { return typeof value === 'number' ? formatAccountingAmount(value) : '' }
 
+/**
+ * The register's Ending balance (Billing part 7f, audit item 4): the last live row's running balance, read from the
+ * matter's own balance (`matterBalance`) when one matter is chosen and from the client's (`balance`) for all matters.
+ * `rows` are the rows shown (already limited to the chosen matter); voided rows never count. 0 when nothing is shown.
+ */
+export function registerEndingBalance(rows: readonly ClientAccountingLedgerEntry[], selectedMatter: string): number {
+  const last = rows.filter((entry) => !entry.voided && !entry.isEmpty).at(-1)
+  if (!last) return 0
+  return selectedMatter === 'ALL' ? last.balance : (last.matterBalance ?? last.balance)
+}
+
 /** Renders the accounting register against persisted API-v1 ledger rows. */
-export default function ClientAccountingLedger({ entries, clientDisplayName, clientNumber, validMatterNumbers, onSave, onOpenInvoice, onOpenPayment, statementSource }: ClientAccountingLedgerProps) {
+export default function ClientAccountingLedger({ entries, clientDisplayName, clientNumber, validMatterNumbers, onSave, onOpenInvoice, onOpenPayment, statementSource, canSendStatement = true }: ClientAccountingLedgerProps) {
   const [expanded, setExpanded] = useState(false)
   /** Show voided invoice postings, payments, and write-offs (flagged by the API; excluded from the balance). */
   const [showVoided, setShowVoided] = useState(false)
@@ -132,7 +150,9 @@ export default function ClientAccountingLedger({ entries, clientDisplayName, cli
     editable: false,
     isEmpty: true,
   } satisfies ClientAccountingLedgerEntry]
-  const endingBalance = filtered.filter((entry) => !entry.voided).at(-1)?.balance ?? 0
+  /** Part 7f: one matter chosen → that matter's running balance (`matterBalance`); all matters → the client's. */
+  const rowBalance = (entry: ClientAccountingLedgerEntry): number => (selectedMatter === 'ALL' ? entry.balance : (entry.matterBalance ?? entry.balance))
+  const endingBalance = registerEndingBalance(filtered, selectedMatter)
   const gridTemplateColumns = expanded ? LAYOUT_STYLES.expanded : LAYOUT_STYLES.collapsed
   const statementScope = selectedMatter === 'ALL' ? 'all matters' : `matter ${selectedMatter}`
 
@@ -140,7 +160,7 @@ export default function ClientAccountingLedger({ entries, clientDisplayName, cli
   function printStatement(): void {
     if (!statementSource) return
     setStatementNotice(
-      printStatementFromBilling({ clientId: statementSource.clientId, clientNumber, clientDisplayName, matters: statementSource.matters, ledgerEntries: entries, trustEntries: statementSource.trustEntries, invoices: statementSource.invoices, matterFilter: selectedMatter }),
+      printStatementFromBilling({ clientId: statementSource.clientId, clientNumber, clientDisplayName, matters: statementSource.matters, ledgerEntries: entries, trustEntries: statementSource.trustEntries, invoices: statementSource.invoices, matterFilter: selectedMatter, canSend: canSendStatement }),
     )
   }
 
@@ -165,9 +185,11 @@ export default function ClientAccountingLedger({ entries, clientDisplayName, cli
                   <button aria-label={`Print Statement of Account (${statementScope})`} className={STYLES.utilityButton} data-kr-action="client-accounting-print-statement" title={`Print Statement of Account (${statementScope})`} type="button" onClick={printStatement}>
                     <KRHomebaseIcons.Print />
                   </button>
-                  <button aria-label={`Email Statement of Account (${statementScope})`} className={STYLES.utilityButton} data-kr-action="client-accounting-send-statement" title={`Email Statement of Account (${statementScope})`} type="button" onClick={() => setSendingStatement(true)}>
-                    <KRHomebaseIcons.Send />
-                  </button>
+                  {canSendStatement ? (
+                    <button aria-label={`Email Statement of Account (${statementScope})`} className={STYLES.utilityButton} data-kr-action="client-accounting-send-statement" title={`Email Statement of Account (${statementScope})`} type="button" onClick={() => setSendingStatement(true)}>
+                      <KRHomebaseIcons.Send />
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
               <label className={STYLES.singleLineLabel}><input checked={showVoided} data-kr-element="client-accounting-show-voided" type="checkbox" onChange={(event) => setShowVoided(event.target.checked)} />Show Voided{voidedCount ? ` (${voidedCount})` : ''}</label>
@@ -195,7 +217,7 @@ export default function ClientAccountingLedger({ entries, clientDisplayName, cli
                else if (canEditLedgerEntry) setEditing(entry)
              }} onClick={() => {
                if (!canOpenInvoice && !canOpenPayment && canEditLedgerEntry) setEditing(entry)
-             }} role="row" style={{ gridTemplateColumns }} title={entry.voided ? `Voided${entry.voidReason ? `: ${entry.voidReason}` : ''}. Not included in the balance.` : canOpenInvoice ? 'Double-click to edit this invoice' : canOpenPayment ? 'Double-click to view this payment receipt' : entry.editable === false ? 'Posted system entry; use its owning billing workflow to change it.' : 'Double-click to edit this client accounting entry'} type="button"><div className={STYLES.cellText}>{entry.date}</div><div className={STYLES.cellText}>{entry.matterNumber ?? ''}</div><div className={`${STYLES.descriptionCell} ${expanded ? 'whitespace-pre-line break-words' : 'text-ellipsis whitespace-nowrap'}`} title={entry.description}>{entry.voided ? <span className={STYLES.voidChip}>Void</span> : null}{entry.description}</div><div className={`${STYLES.numericCell} ${charges(entry) === undefined ? 'text-[var(--kr-theme-text-muted,_#526172)]' : ''}`}><span className={entry.voided ? STYLES.voidedAmount : ''}>{displayAmount(charges(entry))}</span></div><div className={`${STYLES.numericCell} ${payments(entry) === undefined ? 'text-[var(--kr-theme-text-muted,_#526172)]' : ''}`}><span className={entry.voided ? STYLES.voidedAmount : ''}>{displayAmount(payments(entry))}</span></div><div className={`${STYLES.numericCell} font-semibold`}>{entry.voided ? '—' : formatAccountingAmount(entry.balance)}</div></button>
+             }} role="row" style={{ gridTemplateColumns }} title={entry.voided ? `Voided${entry.voidReason ? `: ${entry.voidReason}` : ''}. Not included in the balance.` : canOpenInvoice ? 'Double-click to edit this invoice' : canOpenPayment ? 'Double-click to view this payment receipt' : entry.editable === false ? 'Posted system entry; use its owning billing workflow to change it.' : 'Double-click to edit this client accounting entry'} type="button"><div className={STYLES.cellText}>{entry.date}</div><div className={STYLES.cellText}>{entry.matterNumber ?? ''}</div><div className={`${STYLES.descriptionCell} ${expanded ? 'whitespace-pre-line break-words' : 'text-ellipsis whitespace-nowrap'}`} title={entry.description}>{entry.voided ? <span className={STYLES.voidChip}>Void</span> : null}{entry.description}</div><div className={`${STYLES.numericCell} ${charges(entry) === undefined ? 'text-[var(--kr-theme-text-muted,_#526172)]' : ''}`}><span className={entry.voided ? STYLES.voidedAmount : ''}>{displayAmount(charges(entry))}</span></div><div className={`${STYLES.numericCell} ${payments(entry) === undefined ? 'text-[var(--kr-theme-text-muted,_#526172)]' : ''}`}><span className={entry.voided ? STYLES.voidedAmount : ''}>{displayAmount(payments(entry))}</span></div><div className={`${STYLES.numericCell} font-semibold`}>{entry.voided ? '—' : formatAccountingAmount(rowBalance(entry))}</div></button>
            })}</div>
         </div></div>
         {/* Ending balance: close the register with the selected matter's current total. */}

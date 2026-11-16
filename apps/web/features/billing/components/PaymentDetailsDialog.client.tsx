@@ -20,6 +20,8 @@
  *    view (the old Print opened the stored PDF and was off until a receipt was sent).
  *  - Styled with the theme tokens and the Density Contract; the overlay carries `data-kr-theme-scope` because it is
  *    drawn into <body> (apps/web/AGENTS.md, "Portals").
+ *  - Billing part 7f (Nov 16, 2026, audit item 5): `canResend` false (a billing reader) leaves out Resend; Preview sent
+ *    email and Print stay.
  *
  * @returns The dialog, drawn into <body> once mounted.
  */
@@ -92,6 +94,8 @@ export interface PaymentDetailsDialogProps {
   onClose: () => void
   /** Opens the receipt in the print view; returns a sentence when it did not open. */
   onPrint: () => string | null
+  /** Part 7f: the person may send billing email (`viewer.canWrite`). False leaves out Resend. Default true. */
+  canResend?: boolean
 }
 
 function money(value: number | null): string {
@@ -99,7 +103,7 @@ function money(value: number | null): string {
 }
 
 /** Receipt details dialog: the payment's receipt details, Print (print view) and Close. */
-export default function PaymentDetailsDialog({ paymentNumber, details, clientId, latestSent, sentNote = null, onClose, onPrint }: PaymentDetailsDialogProps) {
+export default function PaymentDetailsDialog({ paymentNumber, details, clientId, latestSent, sentNote = null, onClose, onPrint, canResend = true }: PaymentDetailsDialogProps) {
   const [mounted, setMounted] = useState(false)
   const [status, setStatus] = useState('')
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -167,9 +171,11 @@ export default function PaymentDetailsDialog({ paymentNumber, details, clientId,
             <button aria-label="Print the payment receipt" className={STYLES.iconButton} data-kr-action="payment-details-print" onClick={() => setStatus(onPrint() ?? '')} title="Print receipt" type="button">
               <KRHomebaseIcon className={STYLES.icon} name="print" />
             </button>
-            <button aria-label="Resend the sent payment receipt" className={STYLES.iconButton} data-kr-action="payment-details-resend" disabled={!previewUrl || busy} title={previewUrl ? 'Resend exact email' : NOTHING_SENT} type="button" onClick={() => void resend()}>
-              <KRHomebaseIcon className={STYLES.icon} name="send" />
-            </button>
+            {canResend ? (
+              <button aria-label="Resend the sent payment receipt" className={STYLES.iconButton} data-kr-action="payment-details-resend" disabled={!previewUrl || busy} title={previewUrl ? 'Resend exact email' : NOTHING_SENT} type="button" onClick={() => void resend()}>
+                <KRHomebaseIcon className={STYLES.icon} name="send" />
+              </button>
+            ) : null}
             <button aria-label="Close payment receipt details" className={STYLES.closeButton} data-kr-action="payment-details-close" onClick={onClose} type="button">
               Close
             </button>

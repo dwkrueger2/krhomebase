@@ -14,6 +14,12 @@
  * (`--kr-theme-communication-*`) and are read directly.
  *
  * Owned by `CommunicationsPanel.client.tsx` (which imports this file); read by every component under it.
+ *
+ * Why a class and not `[data-kr-id="communications-module-panel"]` (web patch 554, Nov 16, 2026): the panel imported
+ * this file for its side effect only (`import './Communications.module.css'`). Vite treats a CSS module as a
+ * module with no side effects, so the production build dropped the whole file and the live app showed the type
+ * buttons without colors, while `pnpm dev` injected it and showed them. The panel now reads the class `panelColors`
+ * from this file and puts it on its root, which keeps the file in the build (as `AttendancePrint.module.css` is kept).
  */
 
 /**
@@ -24,7 +30,7 @@
  * Avatar tones color the initials circles; the live dot marks the thread header's "Internal log" badge; the tag colors
  * draw an accepted context tag inside the editor.
  */
-[data-kr-id="communications-module-panel"] {
+.panelColors {
   --CommunicationAllLine: var(--kr-theme-workstream-all-line, #8ab4f8);
   --CommunicationAllFill: var(--kr-theme-workstream-all-fill, #1f3450);
   --CommunicationAllText: var(--kr-theme-workstream-all-text, #dce9ff);

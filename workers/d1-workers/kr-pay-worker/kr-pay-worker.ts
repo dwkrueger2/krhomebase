@@ -2,6 +2,11 @@
 // Deployed as kr-pay-worker-live (Nov 9, 2026). Changes from the old copy, all marked "Version metadata":
 // the import below, CF_VERSION_METADATA on the environment, `meta` in JSON bodies, meta tags on pages,
 // and version headers on every response (payWorkerVersion.ts). Payment behavior is unchanged.
+// Billing part 7d (Nov 16, 2026; decision B4 of docs/API/Billing_Audit.md, approved by the requester): the KR Homebase
+// notice goes through the service binding KR_HOMEBASE_API to krhomebase-api (POST /v1/billing/pay-link-paid), which has
+// no public address; KR_HOMEBASE_PAY_WEBHOOK_URL stays as a fallback when the binding is missing. The signature is
+// unchanged. A failed notice (network error or a 5xx) is tried again twice within the waitUntil budget; the next
+// Billing load posts whatever is still waiting.
 import { rememberDeployment, payWorkerMeta, versionMetaTags, withVersionHeaders, type CloudflareVersionMetadata } from './payWorkerVersion'
 /**
  * KR Pay Worker — public pay-link pages for KR Homebase invoices
@@ -74,8 +79,11 @@ interface PayWorkerEnv {
    * Optional Worker secret: KR Homebase pay-link webhook URL
    * (https://<homebase>/krhomebase/api/kr-api-v1/billing/pay-link-paid). Unset → no notice;
    * paid links post when staff open Billing.
+   * Billing part 7d: used only when the KR_HOMEBASE_API service binding is missing.
    */
   KR_HOMEBASE_PAY_WEBHOOK_URL?: string
+  /** Billing part 7d (decision B4): service binding to krhomebase-api, which has no public address. */
+  KR_HOMEBASE_API?: Fetcher
   /** Version metadata: Cloudflare's version_metadata binding (kr-pay-worker.jsonc). */
   CF_VERSION_METADATA?: CloudflareVersionMetadata
 }
@@ -188,8 +196,12 @@ const WEBHOOK_TOLERANCE_SECONDS = 300
 /** Label mixed with the KEK for the KR Homebase webhook signing key. Must match krPaymentProviderCrypto.ts. */
 const PAY_LINK_WEBHOOK_KEY_LABEL = 'kr-pay-link-webhook:v1'
 
-/** How long the Worker waits for KR Homebase to post and send the receipt (waitUntil allows 30 s). */
+/** How long the Worker waits for KR Homebase to post and send the receipt (waitUntil allows 30 s), all tries together. */
 const HOMEBASE_NOTICE_TIMEOUT_MS = 25_000
+/** Billing part 7d: the API's webhook path, reached through the KR_HOMEBASE_API service binding (the host is not used). */
+const HOMEBASE_NOTICE_BINDING_URL = 'https://krhomebase-api/v1/billing/pay-link-paid'
+/** Billing part 7d: waits before the second and third try of a failed notice (network error or a 5xx). */
+const HOMEBASE_NOTICE_RETRY_DELAYS_MS = [2_000, 5_000]
 const MIN_CHARGE_CENTS = 50
 /** PaymentIntent states that can still be confirmed (reused instead of creating another). */
 const REUSABLE_INTENT_STATES = new Set(['requires_payment_method', 'requires_confirmation', 'requires_action'])
@@ -616,26 +628,42 @@ async function signHomebaseNotice(env: PayWorkerEnv, timestamp: string, body: st
  * URL, a timeout, or an error is logged and the next Billing load posts it.
  */
 async function notifyHomebase(env: PayWorkerEnv, request: PayRequestRow): Promise<void> {
+  // Billing part 7d (decision B4): the service binding to krhomebase-api first; the old public URL only without it.
+  const binding = env.KR_HOMEBASE_API
   const url = (env.KR_HOMEBASE_PAY_WEBHOOK_URL ?? '').trim()
-  if (!/^https:\/\/[^\s]+$/.test(url)) {
-    log('homebase-notice', `skipped prid=${request.prid}: KR_HOMEBASE_PAY_WEBHOOK_URL not set; posts on the next Billing load`)
+  if (!binding && !/^https:\/\/[^\s]+$/.test(url)) {
+    log('homebase-notice', `skipped prid=${request.prid}: no KR_HOMEBASE_API binding and KR_HOMEBASE_PAY_WEBHOOK_URL not set; posts on the next Billing load`)
     return
   }
-  try {
-    const body = JSON.stringify({ event: 'pay_link.paid', paymentRequestId: request.id, prid: request.prid })
-    const timestamp = String(Math.floor(Date.now() / 1000))
-    const signature = await signHomebaseNotice(env, timestamp, body)
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-KR-Pay-Signature': `t=${timestamp},v1=${signature}` },
-      body,
-      signal: AbortSignal.timeout(HOMEBASE_NOTICE_TIMEOUT_MS),
-    })
-    const reply = (await response.json().catch(() => null)) as { ok?: boolean; error?: string; data?: { paymentNumber?: string | null } } | null
-    log('homebase-notice', `prid=${request.prid} status=${response.status} ${response.ok ? `posted payment=${reply?.data?.paymentNumber ?? ''}` : `error=${reply?.error ?? 'unknown'}`}`)
-  } catch (caught) {
-    log('homebase-notice', `prid=${request.prid} failed ${caught instanceof Error ? caught.message : String(caught)}; posts on the next Billing load`)
+  const body = JSON.stringify({ event: 'pay_link.paid', paymentRequestId: request.id, prid: request.prid })
+  const deadline = Date.now() + HOMEBASE_NOTICE_TIMEOUT_MS
+  for (let attempt = 0; attempt <= HOMEBASE_NOTICE_RETRY_DELAYS_MS.length; attempt += 1) {
+    const left = deadline - Date.now()
+    if (left <= 1_000) break
+    try {
+      // Signed again on every try: the signature carries the time.
+      const timestamp = String(Math.floor(Date.now() / 1000))
+      const signature = await signHomebaseNotice(env, timestamp, body)
+      const init: RequestInit = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-KR-Pay-Signature': `t=${timestamp},v1=${signature}` },
+        body,
+        signal: AbortSignal.timeout(left),
+      }
+      const response = binding ? await binding.fetch(HOMEBASE_NOTICE_BINDING_URL, init) : await fetch(url, init)
+      // The new API answers `{ ok, data }` or `{ ok: false, error: { code } }`; the old route answered `error` as text.
+      const reply = (await response.json().catch(() => null)) as { ok?: boolean; error?: string | { code?: string }; data?: { paymentNumber?: string | null } } | null
+      const errorCode = typeof reply?.error === 'string' ? reply.error : (reply?.error?.code ?? 'unknown')
+      log('homebase-notice', `prid=${request.prid} via=${binding ? 'binding' : 'url'} try=${attempt + 1} status=${response.status} ${response.ok ? `posted payment=${reply?.data?.paymentNumber ?? ''}` : `error=${errorCode}`}`)
+      if (response.ok || response.status < 500) return
+    } catch (caught) {
+      log('homebase-notice', `prid=${request.prid} try=${attempt + 1} failed ${caught instanceof Error ? caught.message : String(caught)}`)
+    }
+    const wait = HOMEBASE_NOTICE_RETRY_DELAYS_MS[attempt]
+    if (wait === undefined || deadline - Date.now() <= wait + 1_000) break
+    await new Promise((resolve) => setTimeout(resolve, wait))
   }
+  log('homebase-notice', `prid=${request.prid} not posted by the notice; posts on the next Billing load`)
 }
 
 // ───────────────────────────── sandbox test cards ─────────────────────────────

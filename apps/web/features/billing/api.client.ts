@@ -21,6 +21,19 @@
  * stamps `sent_at` and locks the invoice, so it reloads the record like every other write.
  *
  * Not here yet: card payments, refunds and pay links (stage 6, parts 7d and 7e).
+ *
+ * Billing part 7d (Nov 16, 2026): the client's online pay links (`payment_request`), a small cache like the record's
+ * (`usePayLinks`, `refreshPayLinks`): when a client opens, a writer posts the paid links waiting (`post-paid`, which
+ * also emails their receipts) and a reader only lists them; a post that recorded a payment reloads the record. Every
+ * billing write refreshes the list too (an invoice email issues a link, a void revokes them). The print view asks for
+ * the printed link (`issuePrintPayLink`). Card payments and refunds wait for part 7e.
+ *
+ * Billing part 7e (Nov 16, 2026): card payments and refunds. `fetchCardPaymentConfig` and `createCardPaymentIntent` (the
+ * old `loadBillingCardPaymentConfig` and `createBillingCardPaymentIntent`, `GET` and `POST .../card-payment[/intent]`;
+ * they change nothing, so the record is not reloaded), the card fields of `createPayment` (`stripePaymentIntentId`),
+ * the refund of `voidPayment`, `refreshPaymentRefund` (the old `refreshBillingPaymentRefund`) and the refund notice
+ * email (`fetchRefundNoticeEmailInfo`, `previewRefundNoticeEmail`, `sendRefundNoticeEmail`; the old `payment-notice`
+ * kind `refund`).
  */
 
 import {
@@ -28,17 +41,27 @@ import {
   BillingEmailInfoData,
   BillingEmailPreviewData,
   BillingEmailSentData,
+  BillingPayLinksData,
   BillingReceiptInfoData,
   BillingRecord,
+  BillingRefundNoticeInfoData,
   BillingSamplePdfBody,
   BillingWriteData,
+  CardPaymentConfigData,
+  CardPaymentIntentBody,
+  CardPaymentIntentData,
   ErrorEnvelope,
   InvoiceCreateData,
   InvoiceEmailBody,
+  PaymentRefundRefreshData,
   PaymentVoidData,
+  PrintPayLinkData,
   ReceiptEmailBody,
+  RefundNoticeEmailBody,
   StatementEmailBody,
   successEnvelope,
+  type BillingPayLink,
+  type BillingStripeEnvironment,
   type InvoiceBody,
   type LedgerEntryBody,
   type PaymentBody,
@@ -72,12 +95,29 @@ const ERROR_SENTENCES: Record<string, string> = {
   VALIDATION_FAILED: 'Some fields are not in the expected form.',
   VALIDATION_PAYMENT_EXCEEDS_BALANCE: 'Payment is more than the invoice balance.',
   VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT: 'This invoice is void and cannot receive payments.',
-  VALIDATION_STRIPE_PAYMENT_INTENT_REQUIRED: 'Card and ACH payments are taken through Stripe, which arrives in a later stage.',
+  VALIDATION_STRIPE_PAYMENT_INTENT_REQUIRED: 'A verified Stripe PaymentIntent is required before posting a card or ACH payment.',
+  // Billing part 7e: card payments and refunds (the old Payments tab and Posted Payments wording).
+  VALIDATION_STRIPE_ACH_NOT_IMPLEMENTED: 'Stripe ACH debit is not enabled yet. No ACH payment was posted.',
+  VALIDATION_STRIPE_PAYMENT_NOT_SUCCEEDED: 'Stripe has not confirmed this payment as succeeded.',
+  VALIDATION_STRIPE_PAYMENT_AMOUNT_MISMATCH: 'The Stripe payment amount does not match the amount being posted.',
+  VALIDATION_STRIPE_PAYMENT_INVOICE_MISMATCH: 'The Stripe payment was made for other invoices or amounts.',
+  VALIDATION_STRIPE_PAYMENT_ENVIRONMENT_MISMATCH: 'The Stripe payment was made in the other environment (sandbox or live).',
+  VALIDATION_STRIPE_PAYMENT_TYPE_MISMATCH: 'The payment method does not match the verified Stripe PaymentIntent.',
+  VALIDATION_CARD_PAYMENT_AMOUNT: 'Card payments must be at least $0.50.',
+  VALIDATION_SANDBOX_TEST_CARD_REQUIRED: 'Choose a Stripe test card for a sandbox payment.',
+  VALIDATION_LIVE_TEST_CARD_NOT_ALLOWED: 'A Stripe test card cannot be used for a live payment.',
+  STRIPE_SANDBOX_NOT_CONFIGURED: 'Stripe keys are not configured for this environment. A Super Admin can add them in Settings → Stripe Payment Configuration.',
+  STRIPE_LIVE_NOT_CONFIGURED: 'Stripe keys are not configured for this environment. A Super Admin can add them in Settings → Stripe Payment Configuration.',
+  STRIPE_NETWORK_ERROR: 'Stripe could not be reached.',
+  STRIPE_REFUND_FAILED: 'Stripe rejected the refund; the payment was not voided in the database.',
+  PAYMENT_VOID_DATABASE_SYNC_FAILED: 'Stripe refunded the card, but the void could not be saved. Void the payment again (the refund is reused, never repeated).',
+  VALIDATION_PAYMENT_HAS_NO_REFUND: 'This payment was not refunded through Stripe.',
   VALIDATION_INVOICE_HAS_PAYMENTS: 'Payments are attached to this invoice. Detach them first.',
   VALIDATION_BILLED_TIME_ENTRY_LOCKED: 'This entry is on a locked invoice.',
   VALIDATION_LOCKED_INVOICE: 'This invoice is locked.',
   BILLING_EMAIL_NOT_CONFIGURED: 'The billing mailbox is not set up on this server, so nothing was sent.',
   BILLING_EMAIL_FAILED: 'Gmail did not accept the email. Nothing was sent.',
+  VALIDATION_INVOICE_NOT_FOUND: 'That invoice is not on this client.',
 }
 
 const json = (body: unknown) => ({ body: JSON.stringify(body), headers: { 'content-type': 'application/json' } })
@@ -188,7 +228,7 @@ export function prefetchBilling(clientId: string | null | undefined): void {
   void loadBilling(clientId).catch(() => undefined)
 }
 
-/** Runs after every write, success or failure: drops the client's copy and reloads it. */
+/** Runs after every write, success or failure: drops the client's copy and reloads it (and its pay links, part 7d). */
 export async function afterBillingWrite(clientId: string, context: string): Promise<void> {
   invalidateBilling(clientId)
   try {
@@ -196,6 +236,7 @@ export async function afterBillingWrite(clientId: string, context: string): Prom
   } catch (caught) {
     L(`[KR_BILLING_API:reload] reload after ${context} failed clientId=${clientId} error=${caught instanceof Error ? caught.message : String(caught)}`)
   }
+  if (payLinksCache.has(clientId)) await refreshPayLinks(clientId, { post: false }).catch(() => undefined)
 }
 
 /** Runs one write, then reloads the client's record whatever happened. */
@@ -242,9 +283,28 @@ export function runInvoiceAction(clientId: string, invoiceId: string, action: In
 export function createPayment(clientId: string, body: PaymentBody) {
   return write(clientId, 'create payment', () => call(`${client(clientId)}/payments`, BillingWriteData, { method: 'POST', body }))
 }
-/** Voids a payment (super admin). `refund` must be false for a Stripe card payment until stage 6. */
+/** Voids a payment (super admin). A Stripe card payment is refunded in full first when `refund` is true (part 7e). */
 export function voidPayment(clientId: string, paymentId: string, reason: string, refund: boolean) {
   return write(clientId, 'void payment', () => call(`${client(clientId)}/payments/${item(paymentId)}/void`, PaymentVoidData, { method: 'POST', body: { reason, refund } }))
+}
+/** Re-reads a voided card payment's Stripe refund and its ARN (super admin); the record reloads with it. */
+export function refreshPaymentRefund(clientId: string, paymentId: string) {
+  return write(clientId, 'refresh refund', () => call(`${client(clientId)}/payments/${item(paymentId)}/refresh-refund`, PaymentRefundRefreshData, { method: 'POST' }))
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Card payments (Billing part 7e)
+
+/** Stripe.js settings (publishable key, environment, may switch) and the payer prefill. Changes nothing. */
+export function fetchCardPaymentConfig(clientId: string, environment: BillingStripeEnvironment) {
+  return call(`${client(clientId)}/card-payment?${new URLSearchParams({ environment }).toString()}`, CardPaymentConfigData)
+}
+/**
+ * Creates the card PaymentIntent (sandbox: the server charges the chosen Stripe test card and confirms it). Nothing is
+ * posted until `createPayment` is called with the intent, so the record is not reloaded here.
+ */
+export function createCardPaymentIntent(clientId: string, body: z.input<typeof CardPaymentIntentBody>) {
+  return call(`${client(clientId)}/card-payment/intent`, CardPaymentIntentData, { method: 'POST', body })
 }
 export function createTrustRequest(clientId: string, body: TrustRequestBody) {
   return write(clientId, 'create trust request', () => call(`${client(clientId)}/trust-requests`, BillingWriteData, { method: 'POST', body }))
@@ -257,12 +317,71 @@ export function updateLedgerEntry(clientId: string, entryId: string, body: Ledge
 }
 
 // ---------------------------------------------------------------------------------------------------------
+// Online pay links (Billing part 7d)
+
+const payLinksCache = new Map<string, readonly BillingPayLink[]>()
+const payLinksListeners = new Map<string, Set<() => void>>()
+const EMPTY_PAY_LINKS: readonly BillingPayLink[] = []
+
+function notifyPayLinks(clientId: string): void {
+  payLinksListeners.get(clientId)?.forEach((listener) => listener())
+}
+
+/** The client's pay links (newest first) once loaded; re-renders whenever they change. Empty until the first load. */
+export function usePayLinks(clientId: string | null | undefined): readonly BillingPayLink[] {
+  const subscribe = useCallback(
+    (listener: () => void) => {
+      if (!clientId) return () => undefined
+      const set = payLinksListeners.get(clientId) ?? new Set<() => void>()
+      set.add(listener)
+      payLinksListeners.set(clientId, set)
+      return () => {
+        set.delete(listener)
+        if (!set.size) payLinksListeners.delete(clientId)
+      }
+    },
+    [clientId],
+  )
+  const getSnapshot = useCallback(() => (clientId ? (payLinksCache.get(clientId) ?? EMPTY_PAY_LINKS) : EMPTY_PAY_LINKS), [clientId])
+  return useSyncExternalStore(subscribe, getSnapshot, () => EMPTY_PAY_LINKS)
+}
+
+/**
+ * Loads the client's pay links. With `post` (a billing writer, when the client opens), the paid links waiting are
+ * posted first (each checked with Stripe, its receipt emailed); a post that recorded a payment reloads the record.
+ *
+ * @returns What the API answered (`posted`, `failed`, the links).
+ */
+export async function refreshPayLinks(clientId: string, options: { post: boolean }): Promise<BillingPayLinksData> {
+  const data = options.post
+    ? await call(`${client(clientId)}/pay-links/post-paid`, BillingPayLinksData, { method: 'POST' })
+    : await call(`${client(clientId)}/pay-links`, BillingPayLinksData)
+  payLinksCache.set(clientId, data.payLinks)
+  notifyPayLinks(clientId)
+  if (data.posted > 0) {
+    L(`[KR_BILLING_API:pay-links] posted=${data.posted} failed=${data.failed} clientId=${clientId}`)
+    invalidateBilling(clientId)
+    await loadBilling(clientId, { force: true }).catch(() => undefined)
+  }
+  return data
+}
+
+/**
+ * The pay link printed on a paper invoice (coded print; it revokes nothing), or why none goes on this print. Runs in the
+ * print-view tab, which has no Billing projection to reload; Billing shows the link on its next load.
+ */
+export function issuePrintPayLink(clientId: string, invoiceId: string): Promise<PrintPayLinkData> {
+  return call(`${client(clientId)}/invoices/${item(invoiceId)}/print-pay-link`, PrintPayLinkData, { method: 'POST' })
+}
+
+// ---------------------------------------------------------------------------------------------------------
 // Billing documents by email and their stored copies (Billing part 7c)
 
 /** The bodies of the email routes as the dialogs fill them (the contract's defaults, such as `cc: []`, may be left out). */
 export type InvoiceEmailInput = z.input<typeof InvoiceEmailBody>
 export type StatementEmailInput = z.input<typeof StatementEmailBody>
 export type ReceiptEmailInput = z.input<typeof ReceiptEmailBody>
+export type RefundNoticeEmailInput = z.input<typeof RefundNoticeEmailBody>
 export type BillingDocumentResendInput = z.input<typeof BillingDocumentResendBody>
 export type BillingSamplePdfInput = z.input<typeof BillingSamplePdfBody>
 
@@ -306,7 +425,20 @@ export function sendReceiptEmail(clientId: string, paymentId: string, body: Rece
   return call(`${client(clientId)}/payments/${item(paymentId)}/receipt/email`, BillingEmailSentData, { method: 'POST', body })
 }
 
-/** Sends a stored copy (invoice, statement or receipt) again, exactly as it went; `to` empty: its first recipients. */
+/** Recipients, the refund, the default wording and the sent refund notices of one voided, refunded payment (part 7e). */
+export function fetchRefundNoticeEmailInfo(clientId: string, paymentId: string) {
+  return call(`${client(clientId)}/payments/${item(paymentId)}/refund-notice/email`, BillingRefundNoticeInfoData)
+}
+/** The refund notice email as it will look. */
+export function previewRefundNoticeEmail(clientId: string, paymentId: string, body: RefundNoticeEmailInput) {
+  return call(`${client(clientId)}/payments/${item(paymentId)}/refund-notice/email/preview`, BillingEmailPreviewData, { method: 'POST', body })
+}
+/** Sends the refund notice (no PDF). A blank subject or message lets the API use its defaults. */
+export function sendRefundNoticeEmail(clientId: string, paymentId: string, body: RefundNoticeEmailInput) {
+  return call(`${client(clientId)}/payments/${item(paymentId)}/refund-notice/email`, BillingEmailSentData, { method: 'POST', body })
+}
+
+/** Sends a stored copy (invoice, statement, receipt or refund notice) again, exactly as it went; `to` empty: its first recipients. */
 export function resendBillingDocument(clientId: string, documentNumber: string, body: BillingDocumentResendInput) {
   return call(`${client(clientId)}/documents/${item(documentNumber)}/resend`, BillingEmailSentData, { method: 'POST', body })
 }

@@ -4,7 +4,7 @@
  * Stripe Payment Configuration → Sandbox tests → ACH tab. Ported from the old
  * `firm-settings/stripe-payment-configuration/StripeDevTestsAchForm.client.tsx`; layout, classes, texts, markers and
  * behavior are the old ones, including the Stripe.js bank-name lookup (Stripe.js is loaded from
- * `https://js.stripe.com/v3/` on first use, as the old app did: `stripeJs.client.ts`).
+ * `https://js.stripe.com/v3/` on first use, as the old app did: `lib/stripeJs.client.ts`, moved there in Billing part 7e).
  *
  * Changed from the old file:
  * - The test payment goes through `runStripeDevTestAchPayment` in `api.client.ts`, which throws on failure (the old
@@ -28,7 +28,7 @@ import KrRequestErrorNote from '@/components/ui/KrRequestErrorNote.client'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import { describeKrRequestError, type KrRequestErrorInfo } from '@/lib/krRequestError'
 import { runStripeDevTestAchPayment, stripeDevTestsFailure } from '@/features/payment-providers/api.client'
-import { getStripeJs } from '@/features/payment-providers/stripeJs.client'
+import { getStripeJs } from '@/lib/stripeJs.client'
 import { dollarsToCents } from '@/features/payment-providers/stripeDevTestsForm'
 
 const STYLES = {

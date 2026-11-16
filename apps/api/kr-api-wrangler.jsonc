@@ -78,7 +78,13 @@
     "KR_GOOGLE_WORKSPACE_FIRM_REPLY_TO": "firm@kruegerrichard.com",
     // Billing part 7c: the Cloudflare account for Browser Rendering's PDF address (not a secret; the token is the
     // secret KR_CF_BROWSER_RENDERING_TOKEN). Set KR_PDF_RENDERER to "none" to send documents without a PDF.
-    "KR_CF_ACCOUNT_ID": "e5ca7440af0df479c4cebfa8153843b6"
+    "KR_CF_ACCOUNT_ID": "e5ca7440af0df479c4cebfa8153843b6",
+    // Billing part 7d: the pay Worker's address for each Stripe environment; a link is <this>/p/<token>. The old app's
+    // values (apps/kr-homebase/.env); both are pay.krhomebase.com, which serves both environments (kr-pay-worker-live).
+    // The environment of a new link: KR_STRIPE_BILLING_ENVIRONMENT ("sandbox" or "live") when set; it is left out here,
+    // so the deployed API uses live and `pnpm dev` (KR_APP_BASE_URL http://localhost:3011 from .dev.vars) the sandbox.
+    "KR_PAY_SANDBOX_BASE_URL": "https://pay.krhomebase.com",
+    "KR_PAY_LIVE_BASE_URL": "https://pay.krhomebase.com"
   },
   // "remote": true makes `wrangler dev` (pnpm dev:api) use the live krhomebase database, not an empty local one.
   // It has no effect on a deployed API. Requester's decision, Nov 9, 2026, while every contacts route only reads.

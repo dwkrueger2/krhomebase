@@ -13428,6 +13428,10 @@
                               "balance": {
                                 "type": "number"
                               },
+                              "matterBalance": {
+                                "type": "number",
+                                "description": "The running balance of this row's matter only (rows of other matters left out). `balance` runs across the whole client; the Overview shows this one when a single matter is chosen. Voided rows carry the balance before them."
+                              },
                               "matterNumber": {
                                 "type": "string"
                               },
@@ -14262,7 +14266,7 @@
             }
           },
           "503": {
-            "description": "The database cannot be reached (BILLING_UNAVAILABLE).",
+            "description": "The database cannot be reached (BILLING_UNAVAILABLE), or Stripe is not configured (STRIPE_<ENV>_NOT_CONFIGURED, PAYMENT_PROVIDER_…).",
             "content": {
               "application/json": {
                 "schema": {
@@ -14704,7 +14708,7 @@
             }
           },
           "503": {
-            "description": "The database cannot be reached (BILLING_UNAVAILABLE).",
+            "description": "The database cannot be reached (BILLING_UNAVAILABLE), or Stripe is not configured (STRIPE_<ENV>_NOT_CONFIGURED, PAYMENT_PROVIDER_…).",
             "content": {
               "application/json": {
                 "schema": {
@@ -15068,7 +15072,7 @@
             }
           },
           "503": {
-            "description": "The database cannot be reached (BILLING_UNAVAILABLE).",
+            "description": "The database cannot be reached (BILLING_UNAVAILABLE), or Stripe is not configured (STRIPE_<ENV>_NOT_CONFIGURED, PAYMENT_PROVIDER_…).",
             "content": {
               "application/json": {
                 "schema": {
@@ -15169,6 +15173,16 @@
                       "maxLength": 120
                     },
                     "maxItems": 500
+                  },
+                  "taxAmount": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Tax added to the invoice total (zero or more). Left out: 0 on create, the saved tax on a save."
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 4000,
+                    "description": "Notes kept with the invoice (not printed). Left out: none on create, the saved notes on a save; an empty text clears them."
                   }
                 },
                 "required": [
@@ -15477,7 +15491,7 @@
             }
           },
           "503": {
-            "description": "The database cannot be reached (BILLING_UNAVAILABLE).",
+            "description": "The database cannot be reached (BILLING_UNAVAILABLE), or Stripe is not configured (STRIPE_<ENV>_NOT_CONFIGURED, PAYMENT_PROVIDER_…).",
             "content": {
               "application/json": {
                 "schema": {
@@ -15588,6 +15602,16 @@
                       "maxLength": 120
                     },
                     "maxItems": 500
+                  },
+                  "taxAmount": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Tax added to the invoice total (zero or more). Left out: 0 on create, the saved tax on a save."
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 4000,
+                    "description": "Notes kept with the invoice (not printed). Left out: none on create, the saved notes on a save; an empty text clears them."
                   }
                 },
                 "required": [
@@ -15892,7 +15916,7 @@
             }
           },
           "503": {
-            "description": "The database cannot be reached (BILLING_UNAVAILABLE).",
+            "description": "The database cannot be reached (BILLING_UNAVAILABLE), or Stripe is not configured (STRIPE_<ENV>_NOT_CONFIGURED, PAYMENT_PROVIDER_…).",
             "content": {
               "application/json": {
                 "schema": {
@@ -16258,7 +16282,7 @@
             }
           },
           "503": {
-            "description": "The database cannot be reached (BILLING_UNAVAILABLE).",
+            "description": "The database cannot be reached (BILLING_UNAVAILABLE), or Stripe is not configured (STRIPE_<ENV>_NOT_CONFIGURED, PAYMENT_PROVIDER_…).",
             "content": {
               "application/json": {
                 "schema": {
@@ -16624,7 +16648,7 @@
             }
           },
           "503": {
-            "description": "The database cannot be reached (BILLING_UNAVAILABLE).",
+            "description": "The database cannot be reached (BILLING_UNAVAILABLE), or Stripe is not configured (STRIPE_<ENV>_NOT_CONFIGURED, PAYMENT_PROVIDER_…).",
             "content": {
               "application/json": {
                 "schema": {
@@ -16994,7 +17018,7 @@
             }
           },
           "503": {
-            "description": "The database cannot be reached (BILLING_UNAVAILABLE).",
+            "description": "The database cannot be reached (BILLING_UNAVAILABLE), or Stripe is not configured (STRIPE_<ENV>_NOT_CONFIGURED, PAYMENT_PROVIDER_…).",
             "content": {
               "application/json": {
                 "schema": {
@@ -17040,8 +17064,8 @@
     },
     "/v1/billing/clients/{clientId}/invoices/{invoiceId}/void": {
       "post": {
-        "summary": "Void an invoice: its entries become billable again, its lines are hidden, its ledger posting is voided. Refused while payments are attached.",
-        "description": "Roles: super_admin.\n\nSide effects: Writes invoice, invoice_line_item, ledger_entry, time_entry; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_INVOICE_NOT_FOUND, VALIDATION_INVOICE_HAS_PAYMENTS, VALIDATION_INVOICE_ALREADY_VOID, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
+        "summary": "Void an invoice: its entries become billable again, its lines are hidden, its ledger posting is voided, and its open pay links are revoked. Refused while payments are attached.",
+        "description": "Roles: super_admin.\n\nSide effects: Writes invoice, invoice_line_item, ledger_entry, time_entry; Writes payment_request (revokes the open pay links); Calls Stripe (cancels their open PaymentIntents); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_INVOICE_NOT_FOUND, VALIDATION_INVOICE_HAS_PAYMENTS, VALIDATION_INVOICE_ALREADY_VOID, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "billing"
         ],
@@ -17108,11 +17132,16 @@
                         },
                         "entriesReleased": {
                           "type": "integer"
+                        },
+                        "payLinksRevoked": {
+                          "type": "integer",
+                          "description": "Open pay links (emailed or printed) of the invoice that were revoked (Billing part 7d)."
                         }
                       },
                       "required": [
                         "id",
-                        "entriesReleased"
+                        "entriesReleased",
+                        "payLinksRevoked"
                       ]
                     },
                     "requestId": {
@@ -17381,7 +17410,7 @@
             }
           },
           "503": {
-            "description": "The database cannot be reached (BILLING_UNAVAILABLE).",
+            "description": "The database cannot be reached (BILLING_UNAVAILABLE), or Stripe is not configured (STRIPE_<ENV>_NOT_CONFIGURED, PAYMENT_PROVIDER_…).",
             "content": {
               "application/json": {
                 "schema": {
@@ -17427,8 +17456,8 @@
     },
     "/v1/billing/clients/{clientId}/payments": {
       "post": {
-        "summary": "Post a payment entered by hand (check, cash, wire), applied to up to 10 invoices or left unapplied on a matter. Card and ACH wait for Stripe (stage 6).",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: Writes payment, ledger_entry, payment_application; Writes invoice (paid amount, balance, status); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_STRIPE_PAYMENT_INTENT_REQUIRED, VALIDATION_PAYMENT_INVOICE_ALLOCATIONS_DUPLICATE, VALIDATION_PAYMENT_WRITE_OFF_REQUIRES_SINGLE_INVOICE, VALIDATION_PAYMENT_INVOICE_NOT_FOUND, VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT, VALIDATION_PAYMENT_EXCEEDS_BALANCE, VALIDATION_PAYMENT_ALLOCATION_TOTAL, VALIDATION_MISSING_MATTER_ID, VALIDATION_MATTER_NOT_ASSIGNED_TO_CLIENT, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
+        "summary": "Post a payment (check, cash, wire, or a credit card charged through Stripe), applied to up to 10 invoices or left unapplied on a matter. A card payment is re-read from Stripe before anything is written; an intent already recorded answers its payment. ACH is not posted yet.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: Writes payment, ledger_entry, payment_application; Writes invoice (paid amount, balance, status); Calls Stripe (re-reads a card payment's PaymentIntent); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_STRIPE_PAYMENT_INTENT_REQUIRED, VALIDATION_STRIPE_ACH_NOT_IMPLEMENTED, VALIDATION_STRIPE_PAYMENT_TYPE_MISMATCH, VALIDATION_STRIPE_PAYMENT_REQUIRES_INVOICE, VALIDATION_STRIPE_PAYMENT_INTENT_INVALID, VALIDATION_STRIPE_PAYMENT_NOT_SUCCEEDED, VALIDATION_STRIPE_PAYMENT_INVOICE_MISMATCH, VALIDATION_STRIPE_PAYMENT_ENVIRONMENT_MISMATCH, VALIDATION_STRIPE_PAYMENT_AMOUNT_MISMATCH, STRIPE_REQUEST_FAILED, STRIPE_NETWORK_ERROR, STRIPE_SANDBOX_NOT_CONFIGURED, STRIPE_LIVE_NOT_CONFIGURED, VALIDATION_PAYMENT_INVOICE_ALLOCATIONS_DUPLICATE, VALIDATION_PAYMENT_WRITE_OFF_REQUIRES_SINGLE_INVOICE, VALIDATION_PAYMENT_INVOICE_NOT_FOUND, VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT, VALIDATION_PAYMENT_EXCEEDS_BALANCE, VALIDATION_PAYMENT_ALLOCATION_TOTAL, VALIDATION_MISSING_MATTER_ID, VALIDATION_MATTER_NOT_ASSIGNED_TO_CLIENT, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "billing"
         ],
@@ -17514,6 +17543,19 @@
                   "paymentNumber": {
                     "type": "string",
                     "maxLength": 60
+                  },
+                  "stripePaymentIntentId": {
+                    "type": "string",
+                    "pattern": "^pi_[A-Za-z0-9]{8,64}$",
+                    "description": "Credit card only: the Stripe PaymentIntent the card was charged with. The API re-reads it from Stripe (succeeded, the same invoices and amounts, the same environment) before posting."
+                  },
+                  "stripeEnvironment": {
+                    "type": "string",
+                    "enum": [
+                      "sandbox",
+                      "live"
+                    ],
+                    "description": "The Stripe environment the card was charged in, as the card-payment settings answered; the server decides (`GET .../card-payment`)."
                   }
                 },
                 "required": [
@@ -17817,8 +17859,50 @@
               }
             }
           },
+          "502": {
+            "description": "Stripe refused or could not be reached (STRIPE_REQUEST_FAILED, STRIPE_REFUND_FAILED, STRIPE_NETWORK_ERROR), or the void could not be saved after the refund (PAYMENT_VOID_DATABASE_SYNC_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
           "503": {
-            "description": "The database cannot be reached (BILLING_UNAVAILABLE).",
+            "description": "The database cannot be reached (BILLING_UNAVAILABLE), or Stripe is not configured (STRIPE_<ENV>_NOT_CONFIGURED, PAYMENT_PROVIDER_…).",
             "content": {
               "application/json": {
                 "schema": {
@@ -17864,8 +17948,8 @@
     },
     "/v1/billing/clients/{clientId}/payments/{paymentId}/void": {
       "post": {
-        "summary": "Void a payment: its ledger rows, its applications and the invoices it paid are reversed. A card refund waits for stage 6.",
-        "description": "Roles: super_admin.\n\nSide effects: Writes payment, ledger_entry, payment_application, invoice; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_PAYMENT_NOT_FOUND, VALIDATION_PAYMENT_ALREADY_VOID, STRIPE_REFUND_NOT_AVAILABLE, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
+        "summary": "Void a payment: its ledger rows, its applications and the invoices it paid are reversed. A Stripe card payment is refunded in full first when `refund` is true (an earlier refund of the intent is reused); a failed refund stops the void.",
+        "description": "Roles: super_admin.\n\nSide effects: Writes payment (with the refund), ledger_entry, payment_application, invoice; Calls Stripe (refunds a card payment); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_PAYMENT_NOT_FOUND, VALIDATION_PAYMENT_ALREADY_VOID, STRIPE_REFUND_FAILED, STRIPE_NETWORK_ERROR, PAYMENT_VOID_DATABASE_SYNC_FAILED, STRIPE_SANDBOX_NOT_CONFIGURED, STRIPE_LIVE_NOT_CONFIGURED, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "billing"
         ],
@@ -17905,7 +17989,8 @@
                     "maxLength": 500
                   },
                   "refund": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "description": "A Stripe card payment: refund the card in full through Stripe before the void (a failed refund stops the void). Ignored for other payments."
                   }
                 },
                 "required": [
@@ -17935,10 +18020,12 @@
                       "type": "object",
                       "properties": {
                         "id": {
-                          "type": "string"
+                          "type": "string",
+                          "description": "The payment."
                         },
                         "invoicesUpdated": {
-                          "type": "integer"
+                          "type": "integer",
+                          "description": "Invoices whose paid amount was reduced."
                         },
                         "refund": {
                           "type": [
@@ -17994,7 +18081,8 @@
                             "referenceType",
                             "referenceStatus",
                             "refundedAt"
-                          ]
+                          ],
+                          "description": "The Stripe refund made (or found) for a card payment; null when none."
                         }
                       },
                       "required": [
@@ -18268,8 +18356,514 @@
               }
             }
           },
+          "502": {
+            "description": "Stripe refused or could not be reached (STRIPE_REQUEST_FAILED, STRIPE_REFUND_FAILED, STRIPE_NETWORK_ERROR), or the void could not be saved after the refund (PAYMENT_VOID_DATABASE_SYNC_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
           "503": {
-            "description": "The database cannot be reached (BILLING_UNAVAILABLE).",
+            "description": "The database cannot be reached (BILLING_UNAVAILABLE), or Stripe is not configured (STRIPE_<ENV>_NOT_CONFIGURED, PAYMENT_PROVIDER_…).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/clients/{clientId}/payments/{paymentId}/refresh-refund": {
+      "post": {
+        "summary": "Read a voided card payment's Stripe refund again and store its status and refund reference (ARN), which live Stripe often has only days after the refund.",
+        "description": "Roles: super_admin.\n\nSide effects: Writes payment (refund status and ARN); Calls Stripe (reads the refund); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_PAYMENT_NOT_FOUND, VALIDATION_PAYMENT_HAS_NO_REFUND, VALIDATION_STRIPE_REFUND_ID_INVALID, STRIPE_REQUEST_FAILED, STRIPE_NETWORK_ERROR, STRIPE_SANDBOX_NOT_CONFIGURED, STRIPE_LIVE_NOT_CONFIGURED, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "billing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "The client account id."
+            },
+            "required": true,
+            "description": "The client account id.",
+            "name": "clientId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "required": true,
+            "name": "paymentId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Done.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "The payment."
+                        },
+                        "refund": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "amount": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "reference": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "referenceType": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "referenceStatus": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "refundedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "status",
+                            "amount",
+                            "reference",
+                            "referenceType",
+                            "referenceStatus",
+                            "refundedAt"
+                          ],
+                          "description": "The refund read again from Stripe: status, amount and the ARN when Stripe has one."
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "refund"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such client, or the record is not this client's.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The record is locked or already in that state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A rule refused the write (VALIDATION_… code).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Stripe refused or could not be reached (STRIPE_REQUEST_FAILED, STRIPE_REFUND_FAILED, STRIPE_NETWORK_ERROR), or the void could not be saved after the refund (PAYMENT_VOID_DATABASE_SYNC_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached (BILLING_UNAVAILABLE), or Stripe is not configured (STRIPE_<ENV>_NOT_CONFIGURED, PAYMENT_PROVIDER_…).",
             "content": {
               "application/json": {
                 "schema": {
@@ -18663,7 +19257,7 @@
             }
           },
           "503": {
-            "description": "The database cannot be reached (BILLING_UNAVAILABLE).",
+            "description": "The database cannot be reached (BILLING_UNAVAILABLE), or Stripe is not configured (STRIPE_<ENV>_NOT_CONFIGURED, PAYMENT_PROVIDER_…).",
             "content": {
               "application/json": {
                 "schema": {
@@ -19067,7 +19661,7 @@
             }
           },
           "503": {
-            "description": "The database cannot be reached (BILLING_UNAVAILABLE).",
+            "description": "The database cannot be reached (BILLING_UNAVAILABLE), or Stripe is not configured (STRIPE_<ENV>_NOT_CONFIGURED, PAYMENT_PROVIDER_…).",
             "content": {
               "application/json": {
                 "schema": {
@@ -19469,7 +20063,7 @@
             }
           },
           "503": {
-            "description": "The database cannot be reached (BILLING_UNAVAILABLE).",
+            "description": "The database cannot be reached (BILLING_UNAVAILABLE), or Stripe is not configured (STRIPE_<ENV>_NOT_CONFIGURED, PAYMENT_PROVIDER_…).",
             "content": {
               "application/json": {
                 "schema": {
@@ -19871,7 +20465,7 @@
             }
           },
           "503": {
-            "description": "The database cannot be reached (BILLING_UNAVAILABLE).",
+            "description": "The database cannot be reached (BILLING_UNAVAILABLE), or Stripe is not configured (STRIPE_<ENV>_NOT_CONFIGURED, PAYMENT_PROVIDER_…).",
             "content": {
               "application/json": {
                 "schema": {
@@ -20355,7 +20949,7 @@
       },
       "post": {
         "summary": "Email the invoice: PDF, stored copy, Gmail, sent_at (a draft becomes sent and locked), WorkStream entry.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: Sends email (billing mailbox); Calls Cloudflare Browser Rendering (PDF); Writes R2 DOCUMENTS, media_asset, document_record; Writes workstream_activity; Writes audit_log; Writes invoice (sent_at, status).\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_INVALID_RECIPIENT, VALIDATION_MISSING_SUBJECT, BILLING_DOCUMENT_STORAGE_UNAVAILABLE, BILLING_DOCUMENT_STORE_FAILED, BILLING_EMAIL_NOT_CONFIGURED, BILLING_EMAIL_FAILED, BILLING_DOCUMENTS_UNAVAILABLE, VALIDATION_INVOICE_NOT_FOUND, VALIDATION_INVOICE_VOID, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: Sends email (billing mailbox); Calls Cloudflare Browser Rendering (PDF); Writes R2 DOCUMENTS, media_asset, document_record; Writes workstream_activity; Writes audit_log; Writes invoice (sent_at, status); Writes payment_request (issues the pay link; revokes the older open email link); Calls Stripe (cancels the PaymentIntent of a revoked link).\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_INVALID_RECIPIENT, VALIDATION_MISSING_SUBJECT, BILLING_DOCUMENT_STORAGE_UNAVAILABLE, BILLING_DOCUMENT_STORE_FAILED, BILLING_EMAIL_NOT_CONFIGURED, BILLING_EMAIL_FAILED, BILLING_DOCUMENTS_UNAVAILABLE, VALIDATION_INVOICE_NOT_FOUND, VALIDATION_INVOICE_VOID, INTERNAL_ERROR.",
         "tags": [
           "billing"
         ],
@@ -20535,6 +21129,20 @@
                             "null"
                           ],
                           "description": "Why no entry was recorded (the email still went)."
+                        },
+                        "payLinkPrid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The pay link the email carries (invoice, or a receipt that leaves a balance); part 7d."
+                        },
+                        "payLinkError": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Why the email carries no pay link, when one was expected (an error code)."
                         }
                       },
                       "required": [
@@ -21923,6 +22531,20 @@
                             "null"
                           ],
                           "description": "Why no entry was recorded (the email still went)."
+                        },
+                        "payLinkPrid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The pay link the email carries (invoice, or a receipt that leaves a balance); part 7d."
+                        },
+                        "payLinkError": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Why the email carries no pay link, when one was expected (an error code)."
                         }
                       },
                       "required": [
@@ -23216,7 +23838,7 @@
       },
       "post": {
         "summary": "Email the payment receipt: PDF, stored copy, Gmail, WorkStream entry.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: Sends email (billing mailbox); Calls Cloudflare Browser Rendering (PDF); Writes R2 DOCUMENTS, media_asset, document_record; Writes workstream_activity; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_INVALID_RECIPIENT, VALIDATION_MISSING_SUBJECT, BILLING_DOCUMENT_STORAGE_UNAVAILABLE, BILLING_DOCUMENT_STORE_FAILED, BILLING_EMAIL_NOT_CONFIGURED, BILLING_EMAIL_FAILED, BILLING_DOCUMENTS_UNAVAILABLE, VALIDATION_PAYMENT_NOT_FOUND, VALIDATION_PAYMENT_VOIDED, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: Sends email (billing mailbox); Calls Cloudflare Browser Rendering (PDF); Writes R2 DOCUMENTS, media_asset, document_record; Writes workstream_activity; Writes audit_log; Writes payment_request (issues the pay link; revokes the older open email link); Calls Stripe (cancels the PaymentIntent of a revoked link).\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_INVALID_RECIPIENT, VALIDATION_MISSING_SUBJECT, BILLING_DOCUMENT_STORAGE_UNAVAILABLE, BILLING_DOCUMENT_STORE_FAILED, BILLING_EMAIL_NOT_CONFIGURED, BILLING_EMAIL_FAILED, BILLING_DOCUMENTS_UNAVAILABLE, VALIDATION_PAYMENT_NOT_FOUND, VALIDATION_PAYMENT_VOIDED, INTERNAL_ERROR.",
         "tags": [
           "billing"
         ],
@@ -23391,6 +24013,20 @@
                             "null"
                           ],
                           "description": "Why no entry was recorded (the email still went)."
+                        },
+                        "payLinkPrid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The pay link the email carries (invoice, or a receipt that leaves a balance); part 7d."
+                        },
+                        "payLinkError": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Why the email carries no pay link, when one was expected (an error code)."
                         }
                       },
                       "required": [
@@ -24153,9 +24789,1455 @@
         }
       }
     },
+    "/v1/billing/clients/{clientId}/payments/{paymentId}/refund-notice/email": {
+      "get": {
+        "summary": "A voided payment's Stripe refund, the refund notice's recipients, default wording and sent notices (Billing part 7e).",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, BILLING_DOCUMENTS_UNAVAILABLE, VALIDATION_PAYMENT_NOT_FOUND, VALIDATION_PAYMENT_HAS_NO_REFUND, INTERNAL_ERROR.",
+        "tags": [
+          "billing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "The client account id."
+            },
+            "required": true,
+            "description": "The client account id.",
+            "name": "clientId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "required": true,
+            "name": "paymentId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The recipients and the sent copies.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "clientId": {
+                          "type": "string",
+                          "description": "The client account id."
+                        },
+                        "clientNumber": {
+                          "type": "string",
+                          "description": "The client number."
+                        },
+                        "clientDisplayName": {
+                          "type": "string",
+                          "description": "The client name."
+                        },
+                        "recipients": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "email": {
+                                "type": "string",
+                                "description": "Email address."
+                              },
+                              "label": {
+                                "type": "string",
+                                "description": "Whose address it is."
+                              },
+                              "primary": {
+                                "type": "boolean",
+                                "description": "The primary address."
+                              }
+                            },
+                            "required": [
+                              "email",
+                              "label",
+                              "primary"
+                            ]
+                          },
+                          "description": "The client's current email addresses, primary first."
+                        },
+                        "sent": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "documentId": {
+                                "type": "string",
+                                "description": "The document_record id."
+                              },
+                              "documentNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The seven-character document number."
+                              },
+                              "sentAt": {
+                                "type": "string",
+                                "description": "When it was sent (ISO time)."
+                              },
+                              "subject": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The subject it was sent with."
+                              },
+                              "to": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "Recipients."
+                              },
+                              "cc": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "Copies."
+                              },
+                              "sentBy": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Who sent it."
+                              },
+                              "hasPdf": {
+                                "type": "boolean",
+                                "description": "A PDF copy is stored."
+                              },
+                              "hasHtml": {
+                                "type": "boolean",
+                                "description": "The email HTML is stored."
+                              },
+                              "url": {
+                                "type": "string",
+                                "description": "The stored copy for the browser, `/api/v1/billing/clients/<client>/documents/<number>/file`."
+                              }
+                            },
+                            "required": [
+                              "documentId",
+                              "documentNumber",
+                              "sentAt",
+                              "subject",
+                              "to",
+                              "cc",
+                              "sentBy",
+                              "hasPdf",
+                              "hasHtml",
+                              "url"
+                            ]
+                          },
+                          "description": "Copies sent before, newest first."
+                        },
+                        "refund": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "amount": {
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "reference": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "referenceType": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "referenceStatus": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "refundedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "status",
+                            "amount",
+                            "reference",
+                            "referenceType",
+                            "referenceStatus",
+                            "refundedAt"
+                          ],
+                          "description": "The Stripe refund the notice is about (amount, status, ARN)."
+                        },
+                        "defaultSubject": {
+                          "type": "string",
+                          "description": "The subject the refund notice starts with."
+                        },
+                        "defaultMessage": {
+                          "type": "string",
+                          "description": "The message the refund notice starts with (it names the ARN when Stripe has one)."
+                        }
+                      },
+                      "required": [
+                        "clientId",
+                        "clientNumber",
+                        "clientDisplayName",
+                        "recipients",
+                        "sent",
+                        "refund",
+                        "defaultSubject",
+                        "defaultMessage"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such client or record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Email the refund notice of a voided payment whose card was refunded through Stripe (with the ARN when Stripe has one): stored copy, Gmail, WorkStream entry. No PDF.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: Sends email (billing mailbox); Writes R2 DOCUMENTS, media_asset, document_record; Writes workstream_activity; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_INVALID_RECIPIENT, VALIDATION_MISSING_SUBJECT, BILLING_DOCUMENT_STORAGE_UNAVAILABLE, BILLING_DOCUMENT_STORE_FAILED, BILLING_EMAIL_NOT_CONFIGURED, BILLING_EMAIL_FAILED, BILLING_DOCUMENTS_UNAVAILABLE, VALIDATION_PAYMENT_NOT_FOUND, VALIDATION_PAYMENT_HAS_NO_REFUND, INTERNAL_ERROR.",
+        "tags": [
+          "billing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "The client account id."
+            },
+            "required": true,
+            "description": "The client account id.",
+            "name": "clientId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "required": true,
+            "name": "paymentId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "to": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 320,
+                      "format": "email"
+                    },
+                    "maxItems": 25,
+                    "description": "Recipients (at least one to send)."
+                  },
+                  "cc": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 320,
+                      "format": "email"
+                    },
+                    "maxItems": 25,
+                    "default": [],
+                    "description": "Copies."
+                  },
+                  "subject": {
+                    "type": "string",
+                    "maxLength": 300,
+                    "description": "Subject; the matter tag is added (`[KR 306.0]`)."
+                  },
+                  "message": {
+                    "type": "string",
+                    "maxLength": 20000,
+                    "default": "",
+                    "description": "The cover message; blank lines separate paragraphs."
+                  },
+                  "officeId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 80,
+                    "description": "The firm location whose letterhead the document carries; left out, the primary office."
+                  }
+                },
+                "required": [
+                  "to",
+                  "subject"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "sent": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        },
+                        "resent": {
+                          "type": "boolean",
+                          "description": "An earlier stored copy was sent again."
+                        },
+                        "messageId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Gmail message id."
+                        },
+                        "to": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "cc": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "subject": {
+                          "type": "string"
+                        },
+                        "documentId": {
+                          "type": "string",
+                          "description": "The stored copy."
+                        },
+                        "documentNumber": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "documentUrl": {
+                          "type": "string"
+                        },
+                        "pdfAttached": {
+                          "type": "boolean"
+                        },
+                        "pdfError": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Why there is no PDF, when one was asked for."
+                        },
+                        "workstreamWsid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The WorkStream \"Emails\" entry recorded."
+                        },
+                        "workstreamError": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Why no entry was recorded (the email still went)."
+                        },
+                        "payLinkPrid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The pay link the email carries (invoice, or a receipt that leaves a balance); part 7d."
+                        },
+                        "payLinkError": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Why the email carries no pay link, when one was expected (an error code)."
+                        }
+                      },
+                      "required": [
+                        "sent",
+                        "resent",
+                        "messageId",
+                        "to",
+                        "cc",
+                        "subject",
+                        "documentId",
+                        "documentNumber",
+                        "documentUrl",
+                        "pdfAttached",
+                        "pdfError",
+                        "workstreamWsid",
+                        "workstreamError"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such client or record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A rule refused (VALIDATION_… code).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Storage or Gmail refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage, the mailbox or the database is not available.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/clients/{clientId}/payments/{paymentId}/refund-notice/email/preview": {
+      "post": {
+        "summary": "The refund notice email as it will look (nothing is sent or stored).",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_PAYMENT_NOT_FOUND, VALIDATION_PAYMENT_HAS_NO_REFUND, BILLING_DOCUMENTS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "billing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "The client account id."
+            },
+            "required": true,
+            "description": "The client account id.",
+            "name": "clientId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "required": true,
+            "name": "paymentId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "to": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 320,
+                      "format": "email"
+                    },
+                    "maxItems": 25,
+                    "description": "Recipients (at least one to send)."
+                  },
+                  "cc": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 320,
+                      "format": "email"
+                    },
+                    "maxItems": 25,
+                    "default": [],
+                    "description": "Copies."
+                  },
+                  "subject": {
+                    "type": "string",
+                    "maxLength": 300,
+                    "description": "Subject; the matter tag is added (`[KR 306.0]`)."
+                  },
+                  "message": {
+                    "type": "string",
+                    "maxLength": 20000,
+                    "default": "",
+                    "description": "The cover message; blank lines separate paragraphs."
+                  },
+                  "officeId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 80,
+                    "description": "The firm location whose letterhead the document carries; left out, the primary office."
+                  }
+                },
+                "required": [
+                  "to",
+                  "subject"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The email as it will look.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "subject": {
+                          "type": "string",
+                          "description": "The tagged subject."
+                        },
+                        "html": {
+                          "type": "string",
+                          "description": "The email HTML, images inline for a preview frame."
+                        }
+                      },
+                      "required": [
+                        "subject",
+                        "html"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such client or record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A rule refused (VALIDATION_… code).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Storage or Gmail refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage, the mailbox or the database is not available.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/billing/clients/{clientId}/documents/{documentNumber}/resend": {
       "post": {
-        "summary": "Send the exact stored email (HTML and PDF) of an earlier invoice, statement or receipt again, and record a WorkStream entry.",
+        "summary": "Send the exact stored email (HTML and PDF) of an earlier invoice, statement, receipt or refund notice again, and record a WorkStream entry.",
         "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: Sends email (billing mailbox); Reads R2 DOCUMENTS; Writes workstream_activity.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, BILLING_DOCUMENT_NOT_FOUND, BILLING_DOCUMENT_HAS_NO_HTML, BILLING_DOCUMENT_FILE_MISSING, VALIDATION_INVALID_RECIPIENT, BILLING_DOCUMENT_STORAGE_UNAVAILABLE, BILLING_EMAIL_NOT_CONFIGURED, BILLING_EMAIL_FAILED, BILLING_DOCUMENTS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "billing"
@@ -24308,6 +26390,20 @@
                             "null"
                           ],
                           "description": "Why no entry was recorded (the email still went)."
+                        },
+                        "payLinkPrid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The pay link the email carries (invoice, or a receipt that leaves a balance); part 7d."
+                        },
+                        "payLinkError": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Why the email carries no pay link, when one was expected (an error code)."
                         }
                       },
                       "required": [
@@ -24638,7 +26734,7 @@
     },
     "/v1/billing/clients/{clientId}/documents/{documentNumber}/file": {
       "get": {
-        "summary": "A stored copy of a sent invoice, statement or receipt (the PDF, or the email HTML with `format=html`), shown inline and not cached.",
+        "summary": "A stored copy of a sent invoice, statement, receipt or refund notice (the PDF, or the email HTML with `format=html`), shown inline and not cached.",
         "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, BILLING_DOCUMENT_NOT_FOUND, BILLING_DOCUMENT_FILE_MISSING, BILLING_DOCUMENT_STORAGE_UNAVAILABLE, BILLING_DOCUMENTS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "billing"
@@ -25212,6 +27308,2516 @@
           },
           "503": {
             "description": "The database cannot be reached.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/clients/{clientId}/pay-links": {
+      "get": {
+        "summary": "The client's online pay links, newest first (status, paid and posted details, post errors). Writes nothing.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "billing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "The client account id."
+            },
+            "required": true,
+            "description": "The client account id.",
+            "name": "clientId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The links.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "payLinks": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "The payment_request id."
+                              },
+                              "prid": {
+                                "type": "string",
+                                "description": "Public seven-character id of the link."
+                              },
+                              "invoiceId": {
+                                "type": "string",
+                                "description": "The invoice the link was issued for (the anchor; the link pays toward the whole account)."
+                              },
+                              "invoiceIvid": {
+                                "type": "string",
+                                "description": "The anchor invoice's public id."
+                              },
+                              "invoiceNumber": {
+                                "type": "string",
+                                "description": "The anchor invoice's number."
+                              },
+                              "environment": {
+                                "type": "string",
+                                "enum": [
+                                  "sandbox",
+                                  "live"
+                                ],
+                                "description": "The Stripe environment the link charges in."
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "open",
+                                  "paid",
+                                  "posted",
+                                  "expired",
+                                  "revoked"
+                                ],
+                                "description": "open → paid (Stripe confirmed) → posted (recorded as a payment); or expired, or revoked."
+                              },
+                              "tokenHint": {
+                                "type": "string",
+                                "description": "First 4 characters of the link token, to match a link read over the phone."
+                              },
+                              "expiresAt": {
+                                "type": "string",
+                                "description": "When the link stops working (ISO time)."
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "description": "When it was issued (ISO time)."
+                              },
+                              "viewCount": {
+                                "type": "integer",
+                                "description": "How many times the pay page was opened."
+                              },
+                              "lastViewedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "When the pay page was last opened."
+                              },
+                              "intentAttempts": {
+                                "type": "integer",
+                                "description": "PaymentIntents the pay page created (a retry after a changed balance makes a new one)."
+                              },
+                              "paidAmount": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ],
+                                "description": "Amount paid, in dollars."
+                              },
+                              "paidAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "When Stripe confirmed the payment."
+                              },
+                              "payerEmail": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The address typed on the pay page (never used to send anything)."
+                              },
+                              "paymentNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The payment it was posted as."
+                              },
+                              "postedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "When it was posted to the ledger."
+                              },
+                              "postError": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Why a paid link could not be posted (needs review)."
+                              },
+                              "revokedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "When it was revoked."
+                              },
+                              "revokeReason": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Why it was revoked."
+                              },
+                              "sentDocumentNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The stored sent copy (email) that carried the link."
+                              },
+                              "linkSource": {
+                                "type": "string",
+                                "enum": [
+                                  "email",
+                                  "print"
+                                ],
+                                "description": "Where the link went out: 'email' (invoice email or receipt) or 'print' (printed invoice)."
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "prid",
+                              "invoiceId",
+                              "invoiceIvid",
+                              "invoiceNumber",
+                              "environment",
+                              "status",
+                              "tokenHint",
+                              "expiresAt",
+                              "createdAt",
+                              "viewCount",
+                              "lastViewedAt",
+                              "intentAttempts",
+                              "paidAmount",
+                              "paidAt",
+                              "payerEmail",
+                              "paymentNumber",
+                              "postedAt",
+                              "postError",
+                              "revokedAt",
+                              "revokeReason",
+                              "sentDocumentNumber",
+                              "linkSource"
+                            ]
+                          },
+                          "description": "The client's pay links, newest first."
+                        },
+                        "posted": {
+                          "type": "integer",
+                          "description": "Paid links this call posted as payments (0 for the read)."
+                        },
+                        "failed": {
+                          "type": "integer",
+                          "description": "Paid links that could not be posted; each carries its `postError`."
+                        }
+                      },
+                      "required": [
+                        "payLinks",
+                        "posted",
+                        "failed"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/clients/{clientId}/pay-links/post-paid": {
+      "post": {
+        "summary": "Post the paid pay links waiting for the client (run when Billing opens): each is checked with Stripe, applied to the open invoices oldest first, any rest kept unapplied for review, and its receipt emailed. Then the links.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: Calls Stripe (re-reads each paid PaymentIntent); Writes payment, ledger_entry, payment_application, invoice (paid amount, balance, status), payment_request; Sends the payment receipt email (billing mailbox), stores its copy (R2 DOCUMENTS, media_asset, document_record) and records a WorkStream entry; Writes payment_request (the receipt's new pay link when a balance is left); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "billing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "The client account id."
+            },
+            "required": true,
+            "description": "The client account id.",
+            "name": "clientId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What was posted, and the links.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "payLinks": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "The payment_request id."
+                              },
+                              "prid": {
+                                "type": "string",
+                                "description": "Public seven-character id of the link."
+                              },
+                              "invoiceId": {
+                                "type": "string",
+                                "description": "The invoice the link was issued for (the anchor; the link pays toward the whole account)."
+                              },
+                              "invoiceIvid": {
+                                "type": "string",
+                                "description": "The anchor invoice's public id."
+                              },
+                              "invoiceNumber": {
+                                "type": "string",
+                                "description": "The anchor invoice's number."
+                              },
+                              "environment": {
+                                "type": "string",
+                                "enum": [
+                                  "sandbox",
+                                  "live"
+                                ],
+                                "description": "The Stripe environment the link charges in."
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "open",
+                                  "paid",
+                                  "posted",
+                                  "expired",
+                                  "revoked"
+                                ],
+                                "description": "open → paid (Stripe confirmed) → posted (recorded as a payment); or expired, or revoked."
+                              },
+                              "tokenHint": {
+                                "type": "string",
+                                "description": "First 4 characters of the link token, to match a link read over the phone."
+                              },
+                              "expiresAt": {
+                                "type": "string",
+                                "description": "When the link stops working (ISO time)."
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "description": "When it was issued (ISO time)."
+                              },
+                              "viewCount": {
+                                "type": "integer",
+                                "description": "How many times the pay page was opened."
+                              },
+                              "lastViewedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "When the pay page was last opened."
+                              },
+                              "intentAttempts": {
+                                "type": "integer",
+                                "description": "PaymentIntents the pay page created (a retry after a changed balance makes a new one)."
+                              },
+                              "paidAmount": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ],
+                                "description": "Amount paid, in dollars."
+                              },
+                              "paidAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "When Stripe confirmed the payment."
+                              },
+                              "payerEmail": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The address typed on the pay page (never used to send anything)."
+                              },
+                              "paymentNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The payment it was posted as."
+                              },
+                              "postedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "When it was posted to the ledger."
+                              },
+                              "postError": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Why a paid link could not be posted (needs review)."
+                              },
+                              "revokedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "When it was revoked."
+                              },
+                              "revokeReason": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Why it was revoked."
+                              },
+                              "sentDocumentNumber": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The stored sent copy (email) that carried the link."
+                              },
+                              "linkSource": {
+                                "type": "string",
+                                "enum": [
+                                  "email",
+                                  "print"
+                                ],
+                                "description": "Where the link went out: 'email' (invoice email or receipt) or 'print' (printed invoice)."
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "prid",
+                              "invoiceId",
+                              "invoiceIvid",
+                              "invoiceNumber",
+                              "environment",
+                              "status",
+                              "tokenHint",
+                              "expiresAt",
+                              "createdAt",
+                              "viewCount",
+                              "lastViewedAt",
+                              "intentAttempts",
+                              "paidAmount",
+                              "paidAt",
+                              "payerEmail",
+                              "paymentNumber",
+                              "postedAt",
+                              "postError",
+                              "revokedAt",
+                              "revokeReason",
+                              "sentDocumentNumber",
+                              "linkSource"
+                            ]
+                          },
+                          "description": "The client's pay links, newest first."
+                        },
+                        "posted": {
+                          "type": "integer",
+                          "description": "Paid links this call posted as payments (0 for the read)."
+                        },
+                        "failed": {
+                          "type": "integer",
+                          "description": "Paid links that could not be posted; each carries its `postError`."
+                        }
+                      },
+                      "required": [
+                        "payLinks",
+                        "posted",
+                        "failed"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/clients/{clientId}/invoices/{invoiceId}/print-pay-link": {
+      "post": {
+        "summary": "Issue the pay link printed on a paper invoice (coded print: it revokes nothing) and return its address and QR code, or why none can go on this print. Paid links waiting to post are posted first.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: Writes payment_request; Calls Stripe (re-reads each paid PaymentIntent); Writes payment, ledger_entry, payment_application, invoice (paid amount, balance, status), payment_request; Sends the payment receipt email (billing mailbox), stores its copy (R2 DOCUMENTS, media_asset, document_record) and records a WorkStream entry; Writes payment_request (the receipt's new pay link when a balance is left); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_INVOICE_NOT_FOUND, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "billing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "The client account id."
+            },
+            "required": true,
+            "description": "The client account id.",
+            "name": "clientId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "required": true,
+            "name": "invoiceId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The link, or why there is none.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "issued": {
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
+                            },
+                            "source": {
+                              "type": "string",
+                              "enum": [
+                                "print"
+                              ],
+                              "description": "The link is coded printed: it revokes nothing."
+                            },
+                            "prid": {
+                              "type": "string",
+                              "description": "Public id of the new link."
+                            },
+                            "href": {
+                              "type": "string",
+                              "description": "The full pay address (`https://…/p/<token>`). It exists only in this reply and on the paper."
+                            },
+                            "url": {
+                              "type": "string",
+                              "description": "The address as printed, without `https://`."
+                            },
+                            "urlNote": {
+                              "type": "string",
+                              "description": "The note printed after the address (\"your secure link · expires …\")."
+                            },
+                            "expiresAt": {
+                              "type": "string",
+                              "description": "When the link stops working (ISO time)."
+                            },
+                            "qrDataUri": {
+                              "type": "string",
+                              "description": "The QR code of the address as an SVG data address."
+                            }
+                          },
+                          "required": [
+                            "issued",
+                            "source",
+                            "prid",
+                            "href",
+                            "url",
+                            "urlNote",
+                            "expiresAt",
+                            "qrDataUri"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "issued": {
+                              "type": "boolean",
+                              "enum": [
+                                false
+                              ]
+                            },
+                            "reason": {
+                              "type": "string",
+                              "description": "Why no pay link was printed, in a sentence for staff."
+                            }
+                          },
+                          "required": [
+                            "issued",
+                            "reason"
+                          ]
+                        }
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such client or invoice.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/pay-link-paid": {
+      "post": {
+        "summary": "The pay Worker's webhook when a pay link is paid: posts it and emails the receipt. No session; the raw JSON body ({ event: \"pay_link.paid\", paymentRequestId, prid }) is signed (X-KR-Pay-Signature: t=<seconds>,v1=<hex HMAC-SHA256 of \"<t>.<body>\">, key derived from the payment-provider KEK, 5 minutes).",
+        "description": "Public (no sign-in).\n\nSide effects: Calls Stripe (re-reads each paid PaymentIntent); Writes payment, ledger_entry, payment_application, invoice (paid amount, balance, status), payment_request; Sends the payment receipt email (billing mailbox), stores its copy (R2 DOCUMENTS, media_asset, document_record) and records a WorkStream entry; Writes payment_request (the receipt's new pay link when a balance is left); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: PAY_LINK_WEBHOOK_NOT_CONFIGURED, PAY_LINK_WEBHOOK_SIGNATURE_INVALID, VALIDATION_UNKNOWN_EVENT, VALIDATION_PAY_LINK_NOT_FOUND, VALIDATION_CLIENT_NOT_FOUND, PAY_LINK_NOT_PAID, PAY_LINK_WEBHOOK_NO_ACTOR, PAY_LINK_POST_FAILED, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "billing"
+        ],
+        "responses": {
+          "200": {
+            "description": "Posted (also for a repeat call).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "posted"
+                          ],
+                          "description": "The paid link is recorded as a payment."
+                        },
+                        "paymentNumber": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The payment it was posted as."
+                        },
+                        "receipt": {
+                          "type": "string",
+                          "enum": [
+                            "already",
+                            "sent-if-new"
+                          ],
+                          "description": "'already': posted before this call (no receipt); otherwise the receipt went if this call posted it."
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "paymentNumber",
+                        "receipt"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Bad or stale signature.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such pay link or client.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The link is not paid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not a pay_link.paid event, or the link has no issuing staff member.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The paid link could not be posted (`details.postError`); it posts on the next Billing load.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No KEK on this server, or the database cannot be reached.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/clients/{clientId}/card-payment": {
+      "get": {
+        "summary": "Stripe.js settings for taking a card payment (the publishable key, the environment the server will use, whether this person may switch) and the client's name and email for the card rows.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, CARD_PAYMENTS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "billing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "The client account id."
+            },
+            "required": true,
+            "description": "The client account id.",
+            "name": "clientId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "sandbox",
+                "live"
+              ],
+              "description": "The environment the browser asks for; the server decides (only a super admin on a development server may choose)."
+            },
+            "required": false,
+            "description": "The environment the browser asks for; the server decides (only a super admin on a development server may choose).",
+            "name": "environment",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The settings (a missing Stripe configuration is listed in `problems`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "environment": {
+                          "type": "string",
+                          "enum": [
+                            "sandbox",
+                            "live"
+                          ],
+                          "description": "The environment the server will use for this person."
+                        },
+                        "canChooseEnvironment": {
+                          "type": "boolean",
+                          "description": "True when this person may switch sandbox and live (a super admin on a development server)."
+                        },
+                        "configured": {
+                          "type": "boolean",
+                          "description": "True when the keys for `environment` are configured."
+                        },
+                        "publishableKey": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Stripe's publishable key for Stripe.js (public by design); null when not configured."
+                        },
+                        "problems": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Display-safe configuration problems (error codes)."
+                        },
+                        "payer": {
+                          "type": "object",
+                          "properties": {
+                            "firstName": {
+                              "type": "string",
+                              "description": "The client's first name."
+                            },
+                            "lastName": {
+                              "type": "string",
+                              "description": "The client's last name."
+                            },
+                            "email": {
+                              "type": "string",
+                              "description": "The client's primary email address (or the only one); empty when none."
+                            }
+                          },
+                          "required": [
+                            "firstName",
+                            "lastName",
+                            "email"
+                          ],
+                          "description": "Prefill for the cardholder and email rows."
+                        }
+                      },
+                      "required": [
+                        "environment",
+                        "canChooseEnvironment",
+                        "configured",
+                        "publishableKey",
+                        "problems",
+                        "payer"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such client account.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database cannot be reached.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/clients/{clientId}/card-payment/intent": {
+      "post": {
+        "summary": "Create a Stripe PaymentIntent for up to 10 invoices (at least $0.50, each amount within its balance, the amounts adding up). Live: the browser confirms it with Stripe.js. Sandbox: a Stripe test card is required and the server charges and confirms it.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: Calls Stripe (creates a PaymentIntent; in the sandbox charges a Stripe test card and confirms it).\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_CARD_PAYMENT_AMOUNT, VALIDATION_CARD_PAYMENT_ALLOCATION_TOTAL, VALIDATION_CARD_PAYMENT_DUPLICATE_INVOICE, VALIDATION_SANDBOX_TEST_CARD_REQUIRED, VALIDATION_LIVE_TEST_CARD_NOT_ALLOWED, VALIDATION_PAYMENT_INVOICE_NOT_FOUND, VALIDATION_VOID_INVOICE_CANNOT_RECEIVE_PAYMENT, VALIDATION_PAYMENT_EXCEEDS_BALANCE, VALIDATION_STRIPE_PAYMENT_ALLOCATIONS_TOO_LARGE, STRIPE_REQUEST_FAILED, STRIPE_NETWORK_ERROR, STRIPE_SANDBOX_NOT_CONFIGURED, STRIPE_LIVE_NOT_CONFIGURED, CARD_PAYMENTS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "billing"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "The client account id."
+            },
+            "required": true,
+            "description": "The client account id.",
+            "name": "clientId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "invoiceAllocations": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "invoiceId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120,
+                          "description": "An open invoice of this client."
+                        },
+                        "amountCents": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "description": "What this invoice receives, in cents."
+                        }
+                      },
+                      "required": [
+                        "invoiceId",
+                        "amountCents"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "description": "Each invoice and its amount in cents (at most 10); the amounts must add up to `amountCents`."
+                  },
+                  "amountCents": {
+                    "type": "integer",
+                    "description": "The card charge in cents (the payment amount; a write-off is never charged). At least 50."
+                  },
+                  "environment": {
+                    "type": "string",
+                    "enum": [
+                      "sandbox",
+                      "live"
+                    ],
+                    "description": "The environment asked for; the server decides."
+                  },
+                  "cardholderName": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "default": "",
+                    "description": "The name on the card (Stripe metadata)."
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 320,
+                    "default": "",
+                    "description": "The payer email; Stripe sends its own receipt to it when it is an address."
+                  },
+                  "testScenarioId": {
+                    "type": "string",
+                    "maxLength": 60,
+                    "description": "Sandbox only, and required there: a Stripe test card scenario id (`visa-success`, …). The server charges the matching test PaymentMethod and confirms it. Refused for live."
+                  }
+                },
+                "required": [
+                  "invoiceAllocations",
+                  "amountCents"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The PaymentIntent (a sandbox decline is answered here with its codes, not as a failure).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "paymentIntentId": {
+                          "type": "string",
+                          "description": "The Stripe PaymentIntent (`pi_…`); empty only when a sandbox test card was declined before Stripe made one."
+                        },
+                        "clientSecret": {
+                          "type": "string",
+                          "description": "Handed to Stripe.js `confirmCardPayment`; never logged or stored."
+                        },
+                        "environment": {
+                          "type": "string",
+                          "enum": [
+                            "sandbox",
+                            "live"
+                          ],
+                          "description": "The environment the intent was made in."
+                        },
+                        "status": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Sandbox (confirmed on the server): `succeeded`, `requires_action` (3D Secure) or `requires_payment_method` after a decline. Null for live (Stripe.js confirms)."
+                        },
+                        "errorCode": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Sandbox decline: Stripe error code."
+                        },
+                        "declineCode": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Sandbox decline: Stripe decline code."
+                        },
+                        "errorMessage": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Sandbox decline: Stripe's message."
+                        }
+                      },
+                      "required": [
+                        "paymentIntentId",
+                        "clientSecret",
+                        "environment",
+                        "status",
+                        "errorCode",
+                        "declineCode",
+                        "errorMessage"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such client account.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A rule refused (VALIDATION_… code).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Stripe refused or could not be reached (`details.stripeCode`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Stripe is not configured for the environment, or the database cannot be reached.",
             "content": {
               "application/json": {
                 "schema": {

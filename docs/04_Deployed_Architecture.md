@@ -1,7 +1,7 @@
 # Deployed Architecture
 
-<small>Version 2.4</small><br>
-<small>Updated Nov 16, 2026 1:30am</small>
+<small>Version 2.6</small><br>
+<small>Updated Nov 16, 2026 3:54pm</small>
 
 **Status:** live since Nov 6, 2026. Read this file before any work that touches a Worker, a binding, a web address, a secret or a deploy command. Update it in the same change as any of those.
 
@@ -73,6 +73,7 @@ Sign-in sequence: Turnstile check, then Google, then the API creates the user an
 | `krhomebase-session-worker` | `SESSION_WORKER_ASSIGNED_D1` | D1 `krhomebase` | `session-worker.jsonc` |
 | `kr-pay-worker-live` | `KR_PAY_D1` | D1 `krhomebase` | `kr-pay-worker.jsonc` |
 | `kr-pay-worker-live` | `CF_VERSION_METADATA` | Cloudflare's deployment id, tag and time | Same |
+| `kr-pay-worker-live` | `KR_HOMEBASE_API` | Worker `krhomebase-api` (Billing part 7d, decision B4: the signed "link paid" notice to `POST /v1/billing/pay-link-paid`). **In the file since repository patch 51 (Nov 16, 2026); live only after `pnpm deploy:api` and then `pnpm deploy:pay`.** Until then a paid link is posted when a billing writer opens the client in Billing. | Same |
 
 Only `krhomebase-api`, the crud Worker and the session Worker can reach the database. `krhomebase-web` has no database binding.
 
@@ -83,6 +84,7 @@ Only `krhomebase-api`, the crud Worker and the session Worker can reach the data
 | What | Where it lives | Reference |
 |---|---|---|
 | API settings (client id, base URL, Turnstile site key, cookie name) | `vars` in `apps/api/kr-api-wrangler.jsonc` | `apps/api/Readme-auth.md` |
+| API pay link settings (Billing part 7d): `KR_PAY_SANDBOX_BASE_URL` and `KR_PAY_LIVE_BASE_URL` (both `https://pay.krhomebase.com`); optional `KR_STRIPE_BILLING_ENVIRONMENT` (`sandbox` or `live`; not set: live when deployed, sandbox when `KR_APP_BASE_URL` is a localhost address, so `pnpm dev`). Since Billing part 7e the same rule picks the environment of a card payment taken in Billing; a super admin may switch only on a localhost server | `vars` in `apps/api/kr-api-wrangler.jsonc` (the environment setting only in `.dev.vars` if ever wanted) | `apps/api/AGENTS.md` (Pay links), `docs/09_ENV_KeyMappings.md` |
 | API secrets: `KR_GOOGLE_CLIENT_SECRET`, `KR_TURNSTILE_SECRET_KEY`, `KR_WORKER_JWT_PRIVATE_KEY`, `KR_CRUD_WORKER_PUBLIC_KEY`, `KR_SESSION_WORKER_SECRET`, `KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY` (invitation and Workstream email), `KR_PAYMENT_PROVIDER_KEK` (the same value as the pay Worker's). Names checked with `wrangler secret list` on Nov 13, 2026. | Worker secrets on `krhomebase-api`, set with `wrangler secret put` | `apps/api/Readme-auth.md`, `docs/09_ENV_KeyMappings.md` |
 | crud and session secrets | Worker secrets on those Workers | `workers/Readme-workers.md` |
 | Pay Worker secret `KR_PAYMENT_PROVIDER_KEK` (master key that decrypts the Stripe keys saved in Settings, table `payment_provider`). Set Nov 9, 2026 from `private\dev-private-keys\payment-provider-kek.key`. Stripe keys themselves are never Worker secrets. | Worker secret on `kr-pay-worker-live` | `workers/d1-workers/kr-pay-worker/README.md` |

@@ -6,13 +6,29 @@
  *  - Each write is one batch with its audit rows (`queries.run`). The old route made one crud Worker call per row.
  *  - The record read (`loadBillingRecord`) writes nothing. The old GET also gave missing `bcid` and `ivid` codes to
  *    old rows, and posted paid pay links into the ledger; new rows get their code when they are made, and pay
- *    links move with Stripe (stage 6).
+ *    links move with Stripe (stage 6). Billing part 7d: posting paid links is its own route
+ *    (`POST .../pay-links/post-paid`, `features/pay-links/`), which the screen calls when a Billing client opens.
  *  - Staff are named from the person linked to the login (`CODE - First Last`); the old projection used columns the
  *    `user` table does not have, so it fell back to the email address.
  *  - Credit-card and ACH payments, and refunds, wait for stage 6 (they need Stripe).
+ *  - Billing part 7e (Nov 16, 2026, `docs/API/Billing_Audit.md` 6.4): the old Stripe branches are back. A credit-card
+ *    payment carries its PaymentIntent (`stripePaymentIntentId`); `createPayment` re-reads it from Stripe before
+ *    anything is written, and an intent already recorded returns that payment (idempotency on `source_record_id`; the
+ *    database's `ux_payment_source_record_active` also allows one active payment per intent). The memo starts
+ *    `Stripe <env> · <brand> •••• <last4>`. ACH stays closed. `voidPayment` refunds a Stripe card payment in full
+ *    first when asked (a failed refund stops the void; a refund that worked when the database write did not answers
+ *    `PAYMENT_VOID_DATABASE_SYNC_FAILED`), and `refreshPaymentRefund` re-reads the refund and its ARN. Stripe is
+ *    reached through the `PaymentStripe` the route passes in (`card-payments/rules.ts` `paymentStripeFor`), so these
+ *    rules never call Stripe themselves. Changed from the old code: the void is still one batch (so a database
+ *    failure leaves nothing half done), and a post racing another post of the same intent returns the other's payment.
+ *  - Billing part 7f (Nov 16, 2026, `docs/API/Billing_Audit.md` section 5): invoice create and save take `taxAmount`
+ *    and `notes` again (item 1; the save now stores the tax, which the old save only counted in the total, and the
+ *    invoice's register posting follows the total with the tax), and each register row carries `matterBalance`, its
+ *    matter's own running balance (item 4).
  */
 
 import type { BillingInvoice, BillingLedgerEntry, BillingPayment, BillingRecord, BillingTimeEntry, BillingTrustEntry, InvoiceBody, LedgerEntryBody, PaymentBody, TimeEntryBody, TrustEntryBody, TrustRequestBody } from '@krhomebase/contracts'
+import { logLine } from '../../platform/log.ts'
 import { generatePublicCode } from '../contact-edits/rules.ts'
 import type { BillingQueries, ClientRow, InvoiceLineRow, InvoiceRow, LedgerEntryRow, MatterRow, PaymentRow, StaffRow, TimeEntryRow, TrustRequestRow } from './queries.ts'
 
@@ -20,12 +36,52 @@ import type { BillingQueries, ClientRow, InvoiceLineRow, InvoiceRow, LedgerEntry
 export class BillingError extends Error {
   constructor(
     readonly code: string,
-    readonly status: 404 | 409 | 422,
+    readonly status: 404 | 409 | 422 | 502,
     message?: string,
+    readonly details?: Record<string, string>,
   ) {
     super(message ?? code)
     this.name = 'BillingError'
   }
+}
+
+/** A Stripe refund as KR Homebase records it on the payment row (old `BillingRefundDetails`). */
+export interface StripeRefundDetails {
+  /** Stripe refund id (re_…); `already_refunded` when Stripe had refunded it before and no refund could be found. */
+  refundId: string
+  /** pending | succeeded | failed | canceled | requires_action */
+  status: string | null
+  /** Refunded amount in dollars. */
+  amount: number | null
+  /** Acquirer reference number (ARN) once Stripe has it; the client's bank can trace the refund with it. */
+  reference: string | null
+  referenceType: string | null
+  /** pending | available | unavailable */
+  referenceStatus: string | null
+}
+
+/** What Stripe confirmed for a card payment (old `VerifiedBillingCardPayment`). */
+export interface VerifiedCardIntent {
+  paymentIntentId: string
+  amountCents: number
+  cardBrand: string | null
+  cardLast4: string | null
+  livemode: boolean
+}
+
+/**
+ * The Stripe side of card payments, passed in by the route (`card-payments/rules.ts` `paymentStripeFor`; tests pass a
+ * stand-in). Its failures are thrown as they come (`CardPaymentError`, `PaymentProviderError`).
+ */
+export interface PaymentStripe {
+  /** The environment a new card payment is recorded in (the server decides; the browser only asks). */
+  environmentFor(requested: unknown): 'sandbox' | 'live'
+  /** Re-reads the intent and checks it succeeded for these invoices, this amount and this environment. */
+  verify(environment: 'sandbox' | 'live', intentId: string, expected: { invoiceAllocations: Array<{ invoiceId: string; amountCents: number }>; amountCents: number }): Promise<VerifiedCardIntent>
+  /** Refunds the intent in full, or returns its earlier refund. */
+  refund(environment: 'sandbox' | 'live', intentId: string, reason: string): Promise<StripeRefundDetails>
+  /** Re-reads one refund (status and ARN). */
+  readRefund(environment: 'sandbox' | 'live', refundId: string): Promise<StripeRefundDetails>
 }
 
 /** Who is writing, from the checked session. */
@@ -230,9 +286,14 @@ function withSyntheticInvoiceLedger(rows: LedgerEntryRow[], invoices: InvoiceRow
   ]
 }
 
-/** The client register in date order with the running balance. Voided rows are listed but never move the balance. */
+/**
+ * The client register in date order with the running balance. Voided rows are listed but never move the balance.
+ * Billing part 7f (audit 5, item 4): each row also carries `matterBalance`, the running balance of its own matter, so the
+ * Overview can show one matter's balance (`balance` runs across the whole client, as in the old register).
+ */
 function projectLedger(rows: LedgerEntryRow[], matters: Map<string, MatterRow>, invoices: Map<string, InvoiceRow>): BillingLedgerEntry[] {
   let balance = 0
+  const matterBalances = new Map<string, number>()
   // Trust rows are listed here too, as in the old register (a deposit reads as a payment).
   return [...rows]
     .sort((a, b) => `${a.entry_date}:${a.id}`.localeCompare(`${b.entry_date}:${b.id}`))
@@ -243,7 +304,10 @@ function projectLedger(rows: LedgerEntryRow[], matters: Map<string, MatterRow>, 
       const charges = !isWriteOff && !isCredit ? num(row.amount) : undefined
       const payments = !isWriteOff && isCredit ? num(row.amount) : undefined
       const writeOff = isWriteOff ? -num(row.amount) : undefined
-      if (!voided) balance = round(balance + (charges ?? 0) - (payments ?? 0) + (writeOff ?? 0))
+      const change = (charges ?? 0) - (payments ?? 0) + (writeOff ?? 0)
+      if (!voided) balance = round(balance + change)
+      const matterBalance = round((matterBalances.get(row.matter_id) ?? 0) + (voided ? 0 : change))
+      matterBalances.set(row.matter_id, matterBalance)
       const invoice = row.entry_type === 'invoice' && row.invoice_id ? invoices.get(row.invoice_id) : undefined
       return {
         id: row.id,
@@ -256,6 +320,7 @@ function projectLedger(rows: LedgerEntryRow[], matters: Map<string, MatterRow>, 
         ...(payments !== undefined ? { payments } : {}),
         ...(writeOff !== undefined ? { writeOff } : {}),
         balance,
+        matterBalance,
         matterNumber: matters.get(row.matter_id)?.matter_number ?? row.matter_id,
         matterId: row.matter_id,
         editable: !voided && !row.invoice_id && !row.payment_id,
@@ -593,7 +658,10 @@ export async function createInvoice(queries: BillingQueries, clientId: string, b
   const entries = await invoiceEntries(queries, body, null)
   const subtotal = round(entries.reduce((sum, entry) => sum + entryAmount(entry), 0))
   const writeOff = Math.abs(Math.min(0, body.writeOff))
-  const total = Math.max(0, round(subtotal - writeOff))
+  // Part 7f (audit 5, item 1): tax and notes are taken again, as the old create did (tax 0 and no notes when left out).
+  const tax = round(body.taxAmount ?? 0)
+  const notes = body.notes?.trim() || null
+  const total = Math.max(0, round(subtotal + tax - writeOff))
   const now = new Date().toISOString()
   const invoiceDate = dateForDatabase(body.invoiceDate, now)
   const id = newId('inv')
@@ -605,8 +673,8 @@ export async function createInvoice(queries: BillingQueries, clientId: string, b
   for (let attempt = 1; ; attempt += 1) {
     try {
       await runWithPublicCode(queries, 'invoice', 'ivid', (ivid) => [
-        queries.insertInvoice({ id, ivid, matterId: body.matterId, clientId: client.id, invoiceNumber, invoiceDate, dueDate: dateForDatabase(body.dueDate, invoiceDate), subtotal, discount: writeOff, tax: 0, total, notes: null, now }),
-        audit('CREATE', 'invoice', id, body.matterId, { invoiceNumber, ivid, subtotal, writeOff, total, entryIds: entries.map((entry) => entry.id) }),
+        queries.insertInvoice({ id, ivid, matterId: body.matterId, clientId: client.id, invoiceNumber, invoiceDate, dueDate: dateForDatabase(body.dueDate, invoiceDate), subtotal, discount: writeOff, tax, total, notes, now }),
+        audit('CREATE', 'invoice', id, body.matterId, { invoiceNumber, ivid, subtotal, writeOff, tax, total, entryIds: entries.map((entry) => entry.id) }),
         ...lineStatements,
       ])
       return { id, invoiceNumber }
@@ -634,7 +702,11 @@ export async function updateInvoice(queries: BillingQueries, clientId: string, i
   const entries = await invoiceEntries(queries, body, invoiceId)
   const subtotal = round(entries.reduce((sum, entry) => sum + entryAmount(entry), 0))
   const writeOff = Math.abs(Math.min(0, body.writeOff))
-  const total = Math.max(0, round(subtotal + num(current.tax_amount) - writeOff))
+  // Part 7f (audit 5, item 1): a save may change the tax and the notes; left out, the saved ones stay. The old save
+  // counted a new tax in the total but never stored it; it is stored now. An empty notes text clears them.
+  const tax = body.taxAmount === undefined ? num(current.tax_amount) : round(body.taxAmount)
+  const notes = body.notes === undefined ? current.notes : body.notes.trim() || null
+  const total = Math.max(0, round(subtotal + tax - writeOff))
   const now = new Date().toISOString()
   const invoiceDate = dateForDatabase(body.invoiceDate, current.invoice_date)
   const previous = await queries.timeEntriesOfInvoice(invoiceId)
@@ -647,13 +719,15 @@ export async function updateInvoice(queries: BillingQueries, clientId: string, i
       dueDate: dateForDatabase(body.dueDate, current.due_date || invoiceDate),
       subtotal,
       discount: writeOff,
+      tax,
       total,
       balance: Math.max(0, round(total - num(current.amount_paid))),
+      notes,
       now,
     }),
-    audit('UPDATE', 'invoice', invoiceId, body.matterId, { subtotal, writeOff, total, entryIds: entries.map((entry) => entry.id) }),
+    audit('UPDATE', 'invoice', invoiceId, body.matterId, { subtotal, writeOff, tax, total, ...(body.notes !== undefined ? { notesChanged: true } : {}), entryIds: entries.map((entry) => entry.id) }),
     ...(released.length ? [queries.releaseTimeEntries(released, now), audit('UPDATE', 'time_entry', invoiceId, body.matterId, { releasedFromInvoice: released })] : []),
-    ...(await invoiceLineStatements(queries, invoiceId, body.matterId, client, entries, Math.max(0, round(subtotal - writeOff)), subtotal, actor, now, false)),
+    ...(await invoiceLineStatements(queries, invoiceId, body.matterId, client, entries, total, subtotal, actor, now, false)),
   ]
   await queries.run(statements)
 }
@@ -706,8 +780,8 @@ export async function detachInvoicePayments(queries: BillingQueries, clientId: s
 
 /**
  * Voids the invoice as a record: its entries return to billable, its lines are hidden, its ledger posting is voided.
- * Super admin; refused while payments are attached. Stored sent copies are kept. (Its open pay links are revoked in
- * stage 6, with the rest of the pay-link code.)
+ * Super admin; refused while payments are attached. Stored sent copies are kept. Its open pay links are revoked by the
+ * route after this batch (Billing part 7d, `pay-links/rules.ts` `revokeInvoicePayLinks`), because revoking calls Stripe.
  */
 export async function voidInvoice(queries: BillingQueries, clientId: string, invoiceId: string, reason: string | undefined, actor: Actor): Promise<number> {
   const client = await requireClient(queries, clientId)
@@ -735,15 +809,19 @@ export async function voidInvoice(queries: BillingQueries, clientId: string, inv
 }
 
 /**
- * Posts a payment entered by hand: the payment, its receivable ledger credit per invoice, the payment applications,
- * an optional write-off (one invoice only), and each invoice's new balance and status. Old `createPayment`, without
- * the Stripe branch: a credit-card or ACH payment needs a Stripe payment and is refused until stage 6.
+ * Posts a payment: the payment, its receivable ledger credit per invoice, the payment applications, an optional
+ * write-off (one invoice only), and each invoice's new balance and status. Old `createPayment`.
+ *
+ * Stripe card payments (`body.stripePaymentIntentId`, part 7e): the PaymentIntent is re-read from Stripe
+ * (`stripe.verify`) and must have succeeded for these invoices and this amount before anything is written. A
+ * PaymentIntent already recorded returns the existing payment id (safe retry). The payment and its ledger credits carry
+ * `source_system = stripe_<environment>` and `source_record_id = pi_…`. Card and ACH selections require a PaymentIntent;
+ * ACH posting stays closed until its mandate and asynchronous status reconciliation exist.
+ *
+ * @throws BillingError the `VALIDATION_…` codes of the route; `stripe.verify`'s `CardPaymentError`.
  */
-export async function createPayment(queries: BillingQueries, clientId: string, body: PaymentBody, actor: Actor): Promise<string> {
+export async function createPayment(queries: BillingQueries, clientId: string, body: PaymentBody, actor: Actor, stripe?: PaymentStripe | null): Promise<string> {
   const client = await requireClient(queries, clientId)
-  if (body.paymentType === 'Credit card' || body.paymentType === 'ACH') {
-    throw new BillingError('VALIDATION_STRIPE_PAYMENT_INTENT_REQUIRED', 422, 'Card and ACH payments are taken through Stripe, which is not connected yet.')
-  }
   const amount = round(body.amount)
   const writeOff = round(Math.max(0, body.writeOff ?? 0))
   const requested = body.invoiceAllocations
@@ -763,12 +841,41 @@ export async function createPayment(queries: BillingQueries, clientId: string, b
   if (!matterId && !allocations.length) throw new BillingError('VALIDATION_MISSING_MATTER_ID', 422, 'Choose a matter for a payment not applied to an invoice.')
   if (matterId) await requireClientMatter(queries, matterId, client)
 
+  const requiresStripeIntent = body.paymentType === 'Credit card' || body.paymentType === 'ACH'
+  const stripePaymentIntentId = body.stripePaymentIntentId?.trim() || ''
+  if (requiresStripeIntent && !stripePaymentIntentId) throw new BillingError('VALIDATION_STRIPE_PAYMENT_INTENT_REQUIRED', 422, 'A card payment is posted with the Stripe payment it was charged with.')
+  if (body.paymentType === 'ACH' && stripePaymentIntentId) throw new BillingError('VALIDATION_STRIPE_ACH_NOT_IMPLEMENTED', 422, 'Stripe ACH debit is not enabled yet. No ACH payment was posted.')
+  if (stripePaymentIntentId && body.paymentType !== 'Credit card') throw new BillingError('VALIDATION_STRIPE_PAYMENT_TYPE_MISMATCH', 422, 'Only a credit-card payment carries a Stripe payment.')
+
+  // Stripe card payment: verify with Stripe before posting anything.
+  let sourceSystem: string | null = null
+  let sourceRecordId: string | null = null
+  let referenceNumber = body.referenceNumber?.trim() || null
+  let memo = body.memo?.trim() || null
+  if (stripePaymentIntentId) {
+    if (!allocations.length) throw new BillingError('VALIDATION_STRIPE_PAYMENT_REQUIRES_INVOICE', 422, 'A card payment is applied to at least one invoice.')
+    const recorded = await queries.activePaymentForIntent(stripePaymentIntentId)
+    if (recorded) {
+      logLine('BILLING:stripe-already-recorded', actor.requestId, { pi: stripePaymentIntentId, payment: recorded.id })
+      return recorded.id
+    }
+    if (!stripe) throw new BillingError('STRIPE_NOT_AVAILABLE', 422, 'Stripe is not available on this server.')
+    const environment = stripe.environmentFor(body.stripeEnvironment)
+    const verified = await stripe.verify(environment, stripePaymentIntentId, {
+      invoiceAllocations: allocations.map((allocation) => ({ invoiceId: allocation.invoice.id, amountCents: Math.round(allocation.amount * 100) })),
+      amountCents: Math.round(amount * 100),
+    })
+    sourceSystem = `${STRIPE_SOURCE_PREFIX}${environment}`
+    sourceRecordId = stripePaymentIntentId
+    referenceNumber = stripePaymentIntentId
+    const cardLabel = verified.cardBrand ? `${verified.cardBrand} •••• ${verified.cardLast4 ?? ''}`.trim() : 'Card'
+    memo = [`Stripe ${environment} · ${cardLabel}`, memo].filter(Boolean).join(' · ')
+  }
+
   const now = new Date().toISOString()
   const receivedDate = dateForDatabase(body.receivedDate, now)
   const paymentId = newId('pay')
   const paymentTypeLookupId = PAYMENT_TYPE_LOOKUP_IDS[body.paymentType]
-  const referenceNumber = body.referenceNumber?.trim() || null
-  const memo = body.memo?.trim() || null
   const audit = auditor(queries, actor, client.id)
   const statements: D1PreparedStatement[] = [
     queries.insertPayment({
@@ -782,10 +889,12 @@ export async function createPayment(queries: BillingQueries, clientId: string, b
       paymentTypeLookupId,
       referenceNumber,
       memo,
+      sourceSystem,
+      sourceRecordId,
       userId: actor.userId,
       now,
     }),
-    audit('CREATE', 'payment', paymentId, matterId || null, { amount, writeOff, paymentType: body.paymentType, allocations: allocations.map((item) => ({ invoiceId: item.invoice.id, amount: item.amount })) }),
+    audit('CREATE', 'payment', paymentId, matterId || null, { amount, writeOff, paymentType: body.paymentType, allocations: allocations.map((item) => ({ invoiceId: item.invoice.id, amount: item.amount })), ...(sourceRecordId ? { sourceSystem, sourceRecordId } : {}) }),
   ]
   const ledgerAllocations = allocations.length ? allocations : [{ invoice: null, amount }]
   for (const allocation of ledgerAllocations) {
@@ -807,6 +916,8 @@ export async function createPayment(queries: BillingQueries, clientId: string, b
         entryDate: receivedDate,
         referenceNumber: referenceNumber || paymentId,
         memo: memo || `Payment ${paymentId}`,
+        sourceSystem,
+        sourceRecordId,
         createdByUserId: actor.userId,
         now,
       }),
@@ -845,25 +956,66 @@ export async function createPayment(queries: BillingQueries, clientId: string, b
       )
     }
   }
-  await queries.run(statements)
+  try {
+    await queries.run(statements)
+  } catch (error) {
+    // Another post recorded the same PaymentIntent a moment ago (`ux_payment_source_record_active`): answer its payment.
+    const other = sourceRecordId ? await queries.activePaymentForIntent(sourceRecordId).catch(() => null) : null
+    if (other) {
+      logLine('BILLING:stripe-recorded-elsewhere', actor.requestId, { pi: sourceRecordId, payment: other.id })
+      return other.id
+    }
+    throw error
+  }
   return paymentId
+}
+
+/** `stripe_live` → live; any other Stripe source → sandbox (old `stripeEnvironmentOf`). */
+function stripeEnvironmentOf(source: string): 'sandbox' | 'live' {
+  return source === `${STRIPE_SOURCE_PREFIX}live` ? 'live' : 'sandbox'
+}
+
+/** A refund as the record shows it (`BillingPaymentRefund`). */
+function refundProjection(refund: StripeRefundDetails, refundedAt: string | null): NonNullable<BillingPayment['refund']> {
+  return { id: refund.refundId, status: refund.status, amount: refund.amount, reference: refund.reference, referenceType: refund.referenceType, referenceStatus: refund.referenceStatus, refundedAt }
 }
 
 /**
  * Voids a payment (super admin): every ledger row carrying it is voided, each invoice it paid gets its paid amount and
  * write-off reduced and its status moved back, the applications are marked, and the payment row is voided. One batch,
- * so a retry never reduces an invoice twice. A Stripe card payment may be voided only without a refund until stage 6.
+ * so a retry never reduces an invoice twice.
+ *
+ * Stripe card payments (`source_system` `stripe_sandbox` / `stripe_live`, part 7e) are refunded in full first, in the
+ * payment's own environment, when `refund` is true; a failed refund stops the void so KR Homebase never shows a payment
+ * as voided while the card stays charged. The refund is recorded on the payment row in the same batch. When the refund
+ * worked but the batch failed, the answer is `PAYMENT_VOID_DATABASE_SYNC_FAILED` (502); a retry reuses the refund.
+ *
+ * @returns The invoices updated, and the refund made (or found) for a card payment.
  */
-export async function voidPayment(queries: BillingQueries, clientId: string, paymentId: string, reason: string, refund: boolean, actor: Actor): Promise<number> {
+export async function voidPayment(
+  queries: BillingQueries,
+  clientId: string,
+  paymentId: string,
+  reason: string,
+  refund: boolean,
+  actor: Actor,
+  stripe?: PaymentStripe | null,
+): Promise<{ invoicesUpdated: number; refund: BillingPayment['refund'] }> {
   const client = await requireClient(queries, clientId)
   const payment = await queries.paymentById(paymentId)
   if (!payment || payment.client_id !== client.id) throw new BillingError('VALIDATION_PAYMENT_NOT_FOUND', 404, 'No such payment for this client.')
   if (payment.voided_at) throw new BillingError('VALIDATION_PAYMENT_ALREADY_VOID', 409, 'This payment is already void.')
-  if (refund && (payment.source_system ?? '').startsWith(STRIPE_SOURCE_PREFIX)) {
-    throw new BillingError('STRIPE_REFUND_NOT_AVAILABLE', 422, 'Card refunds arrive with the Stripe work (plan stage 6). Void without a refund, or refund in Stripe first.')
-  }
   const now = new Date().toISOString()
   const why = reason.trim() || 'Voided'
+
+  let refunded: StripeRefundDetails | null = null
+  const source = payment.source_system || ''
+  const stripeEnvironment = stripeEnvironmentOf(source)
+  if (source.startsWith(STRIPE_SOURCE_PREFIX) && payment.source_record_id && refund) {
+    if (!stripe) throw new BillingError('STRIPE_NOT_AVAILABLE', 422, 'Stripe is not available on this server.')
+    logLine('BILLING:void-refund-start', actor.requestId, { payment: payment.payment_number || paymentId, environment: stripeEnvironment })
+    refunded = await stripe.refund(stripeEnvironment, payment.source_record_id, why)
+  }
   const [ledger, applicationsAll] = await Promise.all([queries.ledgerOfPayment(paymentId), queries.applicationsOfPayment(paymentId)])
   const ledgerRows = ledger.filter((row) => !row.voided_at)
   const applications = applicationsAll.filter((row) => !(row.notes ?? '').includes('VOIDED '))
@@ -883,9 +1035,46 @@ export async function voidPayment(queries: BillingQueries, clientId: string, pay
     statements.push(queries.setInvoicePayments(invoice.id, { amountPaid, discount, total, balance, status, paidAt: null, now }), audit('UPDATE', 'invoice', invoice.id, invoice.matter_id, { amountPaid, discount, total, balance, status }))
   }
   if (applications.length) statements.push(queries.markApplicationsVoided(applications.map((row) => row.id), `VOIDED ${now}: ${why}`, now))
-  statements.push(queries.voidPayment(paymentId, actor.userId, why, now), audit('VOID', 'payment', paymentId, payment.matter_id, { reason: why, ledgerVoided: ledgerRows.map((row) => row.id), invoices: invoiceIds }))
-  await queries.run(statements)
-  return invoiceIds.length
+  statements.push(
+    queries.voidPayment(paymentId, actor.userId, why, now, refunded),
+    audit('VOID', 'payment', paymentId, payment.matter_id, { reason: why, ledgerVoided: ledgerRows.map((row) => row.id), invoices: invoiceIds, ...(refunded ? { refundId: refunded.refundId, refundStatus: refunded.status, refundEnvironment: stripeEnvironment } : {}) }),
+  )
+  try {
+    await queries.run(statements)
+  } catch (error) {
+    if (refunded) {
+      // The card is refunded but the database does not say so yet: a retry reuses the refund (never a second one).
+      logLine('BILLING:void-db-sync-failed', actor.requestId, { payment: payment.payment_number || paymentId, refund: refunded.refundId, environment: stripeEnvironment, error: error instanceof Error ? error.message.slice(0, 160) : 'unknown' })
+      throw new BillingError('PAYMENT_VOID_DATABASE_SYNC_FAILED', 502, 'Stripe refunded the card, but the void could not be saved. Void the payment again (the refund is reused, never repeated).', { refundId: refunded.refundId })
+    }
+    throw error
+  }
+  logLine('BILLING:void-payment', actor.requestId, { payment: payment.payment_number || paymentId, ledger: ledgerRows.length, invoices: invoiceIds.length, refund: refunded?.refundId ?? 'none', arn: refunded?.referenceStatus ?? '' })
+  return { invoicesUpdated: invoiceIds.length, refund: refunded ? refundProjection(refunded, now) : null }
+}
+
+/**
+ * Re-reads a voided payment's Stripe refund and stores its current status and ARN (super admin; old PATCH action
+ * `refreshRefund`). On live the ARN is usually `pending` for a few days after the refund; sandbox refunds carry a test
+ * ARN at once. One batch with its audit row.
+ *
+ * @throws BillingError `VALIDATION_PAYMENT_NOT_FOUND` (404), `VALIDATION_PAYMENT_HAS_NO_REFUND` (422); `stripe`'s errors.
+ */
+export async function refreshPaymentRefund(queries: BillingQueries, clientId: string, paymentId: string, actor: Actor, stripe?: PaymentStripe | null): Promise<NonNullable<BillingPayment['refund']>> {
+  const client = await requireClient(queries, clientId)
+  const payment = await queries.paymentById(paymentId)
+  if (!payment || payment.client_id !== client.id) throw new BillingError('VALIDATION_PAYMENT_NOT_FOUND', 404, 'No such payment for this client.')
+  const source = payment.source_system || ''
+  if (!source.startsWith(STRIPE_SOURCE_PREFIX) || !payment.refund_provider_id?.startsWith('re_')) throw new BillingError('VALIDATION_PAYMENT_HAS_NO_REFUND', 422, 'This payment has no Stripe refund to read.')
+  if (!stripe) throw new BillingError('STRIPE_NOT_AVAILABLE', 422, 'Stripe is not available on this server.')
+  const refund = await stripe.readRefund(stripeEnvironmentOf(source), payment.refund_provider_id)
+  const now = new Date().toISOString()
+  await queries.run([
+    queries.setPaymentRefund(paymentId, refund, now),
+    auditor(queries, actor, client.id)('REFRESH_REFUND', 'payment', paymentId, payment.matter_id, { refundId: refund.refundId, status: refund.status, referenceStatus: refund.referenceStatus }),
+  ])
+  logLine('BILLING:refresh-refund', actor.requestId, { payment: payment.payment_number || paymentId, refund: refund.refundId, status: refund.status ?? '', arn: refund.referenceStatus ?? '' })
+  return refundProjection(refund, payment.refunded_at)
 }
 
 export async function createTrustRequest(queries: BillingQueries, clientId: string, body: TrustRequestBody, actor: Actor): Promise<string> {

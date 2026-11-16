@@ -21,10 +21,27 @@
  * there is no payment yet to ask about), where the old one used `loadInvoiceRecipients`; there is no card payer email
  * to fall back on until Stripe (stage 6). New `clientId` prop, and `onPost` answers the new payment's id.
  *
+ * Billing part 7d (Nov 16, 2026): the Open Invoices tab shows the chosen invoice's online pay links beside the list
+ * (`InvoicePayLinkPanel`, as in the old tab), from the new `payLinks` prop; the "stage 6" line is gone.
+ *
+ * Billing part 7e (Nov 16, 2026): card payments are back, as in the old tab. The Type of Payment and its rows are the
+ * old `PaymentBankingDetails` again (Credit card the default, as before), with the card state in `useCardPayment`:
+ *  - **Credit card:** creates a PaymentIntent (`card-payment/intent`), confirms it with Stripe.js (Stripe handles 3D
+ *    Secure; in the sandbox the server charges the chosen Stripe test card), then posts the payment with the
+ *    PaymentIntent id; the server re-reads it from Stripe before writing the ledger. If the card is charged but the
+ *    post fails, the charge is kept and the button becomes "Record Charged Payment", which only records it (no second
+ *    charge); the invoice choices are locked until then.
+ *  - **Check / Wire / Cash:** records an external payment (the reference now lives in the Banking Details values).
+ *  - **ACH:** shown with its rows and the bank lookup, but never posted (Post is disabled), as in the old tab.
+ * Changed from the old tab: the card state moved to `useCardPayment.client.ts` (file size); `onVoidPayment` takes the
+ * refund choice and answers the API's reply (the old shape).
+ * Billing part 7f (Nov 16, 2026, audit item 5): Posted Payments gets `canSend={canPost}`, so a billing reader sees no
+ * receipt or refund notice email icons and no Resend, and a reader's form does not load the Stripe card settings.
+ *
  * @returns The Payments tab.
  */
 
-import type { BillingRecord, PaymentBody } from '@krhomebase/contracts'
+import type { BillingRecord, PaymentBody, PaymentVoidData } from '@krhomebase/contracts'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import KrRequestErrorNote from '@/components/ui/KrRequestErrorNote.client'
 import MenuStyleOne, { type MenuStyleOneProps } from '@/components/ui/MenuStyleOne.client'
@@ -32,8 +49,11 @@ import U6CurrencyInput from '@/components/ui/U6CurrencyInput.client'
 import { describeKrRequestError, type KrRequestErrorInfo } from '@/lib/krRequestError'
 import { fetchStatementEmailInfo, sendReceiptEmail } from '../api.client'
 import { formatAccountingAmount } from '../formatAccountingAmount'
-import type { BillingInvoice, BillingPayment, BillingPaymentType } from '../types'
+import type { BillingInvoice, BillingPayLink, BillingPayment } from '../types'
+import { cardAllocationKey, friendlyCardError, useCardPayment } from '../useCardPayment.client'
 import BillingTabHeader from './BillingTabHeader.client'
+import InvoicePayLinkPanel from './InvoicePayLinkPanel.client'
+import PaymentBankingDetails, { validateBankingDetails, type BankingDetailsField, type PaymentTypeOption } from './PaymentBankingDetails.client'
 import PostedPaymentsLedger from './PostedPaymentsLedger.client'
 
 const STYLES = {
@@ -44,7 +64,6 @@ const STYLES = {
   currencyField: 'text-right tabular-nums',
   invalidField: 'border-[var(--kr-theme-danger,#9d2c20)] focus:border-[var(--kr-theme-danger,#9d2c20)] focus:ring-[var(--kr-theme-danger,#9d2c20)]',
   label: 'text-[9pt] font-semibold text-[var(--kr-theme-text-muted,#526172)]',
-  areaTitle: 'text-[10pt] font-bold text-[var(--kr-theme-text,#243142)]',
   primaryButton:
     'px-2 py-1 rounded border border-[var(--kr-theme-brand-primary,#21394f)] bg-[var(--kr-theme-brand-primary,#21394f)] text-[10pt] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50',
   invoiceCard: 'p-1.5 gap-1 grid rounded border text-left text-[10pt]',
@@ -54,7 +73,6 @@ const STYLES = {
   postedText: 'text-[9pt] text-[var(--kr-theme-text-muted,#526172)]',
   laterText: 'text-[9pt] text-[var(--kr-theme-text-muted,#526172)]',
   ivid: 'text-[8.5pt] font-normal text-[var(--kr-theme-text-muted,#526172)]',
-  methodArea: 'rounded border border-[var(--kr-theme-line,#d7dee5)] bg-[var(--kr-theme-muted-surface,#f7f9fb)]',
   warningText: 'text-[9pt] font-semibold text-(color:--kr-theme-danger)',
   checkLabel: 'gap-1.5 inline-flex items-center text-[9pt] font-semibold text-[var(--kr-theme-text-muted,#526172)]',
 } as const
@@ -73,8 +91,6 @@ const LAYOUT_STYLES = {
   paymentHeaderNote: 'mt-1 text-[9pt] text-[var(--kr-theme-text-muted,#526172)]',
   paymentForm: 'p-3 gap-y-1 gap-x-2 grid grid-cols-3',
   fullRow: 'mt-1 col-span-3',
-  methodArea: 'p-2 gap-2 grid',
-  methodRow: 'gap-x-2 grid grid-cols-4 items-center',
   notesRow: 'mt-1 col-span-3 gap-1 grid',
   receiptRow: 'mt-1 col-span-3 gap-2 grid grid-cols-[auto_minmax(0,1fr)] items-center',
   actions: 'p-2 gap-2 flex items-start justify-between border-t border-[var(--kr-theme-line,#d7dee5)] bg-[var(--kr-theme-muted-surface,#f7f9fb)]',
@@ -82,13 +98,9 @@ const LAYOUT_STYLES = {
   linkPanel: 'p-2',
 } as const
 
-/** Payment types offered by the Post Payment form (old order). Card and ACH need Stripe (stage 6). */
-const PAYMENT_TYPE_OPTIONS: readonly BillingPaymentType[] = ['Credit card', 'ACH', 'Check', 'Cash', 'Wire']
-const STRIPE_TYPES: readonly BillingPaymentType[] = ['Credit card', 'ACH']
-const STRIPE_LATER = 'Card and ACH payments are taken through Stripe, which arrives in plan stage 6.'
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-/** Payment sent to `onPost`: the payment route's body. */
+/** Payment sent to `onPost`: the payment route's body (with `stripePaymentIntentId` for a card, part 7e). */
 export type PostPaymentInput = PaymentBody
 
 /** Props for {@link PaymentsTab}. */
@@ -106,18 +118,20 @@ export interface PaymentsTabProps {
   canVoidPayments: boolean
   /** Posts the payment; answers the new payment's id (for the receipt email). */
   onPost: (input: PostPaymentInput) => Promise<string | void>
-  onVoidPayment: (payment: BillingPayment, reason: string) => Promise<void>
+  /** Voids one payment; a Stripe card payment is refunded when `refund` is true (part 7e). Answers the API's reply. */
+  onVoidPayment: (payment: BillingPayment, reason: string, refund: boolean) => Promise<PaymentVoidData | null | void>
   openPaymentId?: string | null
   onOpenPaymentConsumed?: () => void
   /** The record's client, matters and invoices, for the Posted Payments receipts (Billing part 7b). */
   receiptSource?: Pick<BillingRecord, 'client' | 'matters' | 'invoices'>
+  /** The client's online pay links, newest first (Billing part 7d); the chosen open invoice shows its own. */
+  payLinks?: readonly BillingPayLink[]
 }
 
-/** Friendly text for Billing API error codes (unknown codes fall back to a readable form of the code). */
+/** Friendly text for Billing API and Stripe error codes (unknown codes fall back to a readable form of the code). */
 export function friendlyPaymentError(code: string): string | null {
-  if (code.includes('PAYMENT_EXCEEDS_BALANCE')) return 'Payment is more than the invoice balance.'
-  if (code.includes('VOID_INVOICE')) return 'This invoice is void and cannot receive payments.'
-  if (code.includes('STRIPE_PAYMENT_INTENT_REQUIRED')) return STRIPE_LATER
+  const card = friendlyCardError(code)
+  if (card) return card
   if (code.includes('ALLOCATION_TOTAL')) return 'The invoice amounts do not add up to the payment.'
   if (code === 'FORBIDDEN') return 'Your role does not allow posting payments.'
   return null
@@ -143,6 +157,7 @@ export default function PaymentsTab({
   openPaymentId,
   onOpenPaymentConsumed,
   receiptSource,
+  payLinks = [],
 }: PaymentsTabProps) {
   const [selectedMatter, setSelectedMatter] = useState('ALL')
   // Open = not void and something still due. Voided invoices are never open.
@@ -164,8 +179,9 @@ export default function PaymentsTab({
     [openInvoices, selectedInvoiceIds, allocationAmounts],
   )
   const amount = Math.round(invoiceAllocations.reduce((sum, allocation) => sum + allocation.amount, 0) * 100) / 100
-  const [paymentType, setPaymentType] = useState<BillingPaymentType>('Check')
-  const [reference, setReference] = useState('')
+  const allocationKey = cardAllocationKey(invoiceAllocations)
+  // Credit card is the default again (part 7e), as in the old tab.
+  const [paymentType, setPaymentType] = useState<PaymentTypeOption>('Credit card')
   const [notes, setNotes] = useState('')
   const [touched, setTouched] = useState<Set<string>>(() => new Set())
   const [attempted, setAttempted] = useState(false)
@@ -176,6 +192,11 @@ export default function PaymentsTab({
   const [emailReceipt, setEmailReceipt] = useState(true)
   const [receiptTo, setReceiptTo] = useState('')
   const [receiptWarning, setReceiptWarning] = useState<string | null>(null)
+  // The card side (Stripe settings, Banking Details, the charge); the receipt address falls back to the payer's email.
+  // Part 7f: a billing reader (no `canPost`) never loads the Stripe settings (a write-role route that would answer 403).
+  const card = useCardPayment(canPost ? clientId : undefined, paymentType, (email) => setReceiptTo((current) => current || email))
+  /** A charged card waits to be recorded: the invoices and amounts stay as they were charged. */
+  const charged = Boolean(card.chargedIntent)
 
   useEffect(() => {
     if (openPaymentId) setActivePaymentSection('posted-payments')
@@ -212,10 +233,12 @@ export default function PaymentsTab({
   const amountError = useMemo(() => {
     if (!invoiceAllocations.length || !(amount > 0)) return 'Select at least one open invoice and enter a positive amount.'
     if (invoiceAllocations.length > 10) return 'A payment can be allocated across at most 10 invoices.'
+    if (paymentType === 'Credit card' && amount < 0.5) return 'Card payments must be at least $0.50.'
     if (invoiceAllocations.some((allocation) => allocation.amount > allocation.invoice.amountDue + 0.005)) return 'A proposed invoice payment is more than that invoice balance.'
     if (invoiceAllocations.some((allocation) => !(allocation.amount > 0))) return 'Each selected invoice needs a positive payment amount.'
     return undefined
-  }, [amount, invoiceAllocations])
+  }, [amount, invoiceAllocations, paymentType])
+  const bankingErrors = useMemo(() => validateBankingDetails(paymentType, card.banking, card.cardState, card.activeEnvironment), [paymentType, card.banking, card.cardState, card.activeEnvironment])
   const receiptAddresses = receiptTo
     .split(/[,;]/)
     .map((item) => item.trim())
@@ -226,9 +249,10 @@ export default function PaymentsTab({
       : undefined
   const allErrors: Record<string, string | undefined> = {
     amount: amountError,
-    paymentType: STRIPE_TYPES.includes(paymentType) ? STRIPE_LATER : undefined,
+    ...bankingErrors,
     receiptTo: receiptError,
   }
+  const visibleBankingErrors = Object.fromEntries(Object.entries(bankingErrors).filter(([field]) => attempted || touched.has(field)))
   const visibleMessages = Object.entries(allErrors)
     .filter(([field, message]) => message && (attempted || touched.has(field)))
     .map(([, message]) => message as string)
@@ -240,7 +264,7 @@ export default function PaymentsTab({
   /** Resets the form after a successful post. */
   function resetForm(): void {
     setNotes('')
-    setReference('')
+    card.resetBanking()
     setTouched(new Set())
     setAttempted(false)
     setPostError(null)
@@ -265,7 +289,7 @@ export default function PaymentsTab({
     setPostError(null)
   }
 
-  /** Validates and posts the payment. */
+  /** Validates, charges (credit card), and posts the payment. */
   async function post(): Promise<void> {
     if (!selected || busy) return
     setAttempted(true)
@@ -274,17 +298,34 @@ export default function PaymentsTab({
     setReceiptWarning(null)
     if (Object.values(allErrors).some(Boolean)) return
     setBusy(true)
+    /** Set once the card is charged, so an error after that point tells the user a retry only records it. */
+    let cardCharged = false
     try {
       const matterIds = new Set(invoiceAllocations.map((allocation) => allocation.matterId))
-      const paymentId = await onPost({
+      const base: PostPaymentInput = {
         ...(matterIds.size === 1 ? { matterId: invoiceAllocations[0]!.matterId } : {}),
         invoiceAllocations: invoiceAllocations.map(({ invoiceId, amount: allocationAmount }) => ({ invoiceId, amount: allocationAmount })),
         amount,
         receivedDate: today(),
         paymentType,
-        ...(reference.trim() ? { referenceNumber: reference.trim() } : {}),
         ...(notes.trim() ? { memo: notes.trim() } : {}),
-      })
+      }
+      let paymentId: string | void
+      if (paymentType === 'Credit card') {
+        const result = await card.charge({ allocations: invoiceAllocations, amount, allocationKey })
+        if (!result.ok) {
+          setPostError(result.error)
+          return
+        }
+        cardCharged = true
+        paymentId = await onPost({ ...base, stripePaymentIntentId: result.charge.paymentIntentId, stripeEnvironment: result.charge.environment })
+        card.clearCharge()
+      } else if (paymentType === 'ACH') {
+        throw new Error('VALIDATION_STRIPE_ACH_NOT_IMPLEMENTED')
+      } else {
+        const reference = card.banking.reference.trim()
+        paymentId = await onPost({ ...base, ...(reference ? { referenceNumber: reference } : {}) })
+      }
       const postedText = `Payment of ${formatAccountingAmount(amount)} posted across ${invoiceAllocations.length} invoice${invoiceAllocations.length === 1 ? '' : 's'}.`
       setPosted(postedText)
       setAllocationAmounts((current) => {
@@ -307,7 +348,8 @@ export default function PaymentsTab({
         }
       }
     } catch (error) {
-      setPostError(describeKrRequestError(error, 'KR_PAYMENTS', 'post-payment', friendlyPaymentError))
+      const info = describeKrRequestError(error, 'KR_PAYMENTS', cardCharged ? 'record-charged-payment' : 'post-payment', friendlyPaymentError)
+      setPostError(cardCharged ? { ...info, message: `${info.message} The card was charged; press Record Charged Payment to post it without charging again.` } : info)
     } finally {
       setBusy(false)
     }
@@ -315,7 +357,7 @@ export default function PaymentsTab({
 
   const openInvoicesPanel = (
     <div className={LAYOUT_STYLES.grid} data-kr-id="open-invoices-grid">
-      {/* Open Invoices tab: choose an invoice; its online payment link appears beside the list in stage 6. */}
+      {/* Open Invoices tab: choose an invoice; its online payment links appear beside the list (part 7d). */}
       <fieldset className={`${STYLES.panel} min-w-0`}>
         <legend className={LAYOUT_STYLES.invoiceLegend}>Open Invoices</legend>
         <div className={LAYOUT_STYLES.invoiceList}>
@@ -323,7 +365,7 @@ export default function PaymentsTab({
             <button
               className={`${STYLES.invoiceCard} ${selected?.id === invoice.id ? 'border-[var(--kr-theme-brand-primary,#21394f)] bg-[var(--kr-theme-muted-surface,#eef3f7)]' : 'border-[var(--kr-theme-line,#d7dee5)] bg-(--kr-theme-card-surface)'}`}
               data-kr-element={`invoice-selector-${invoice.id}`}
-              disabled={busy}
+              disabled={busy || charged}
               key={invoice.id}
               type="button"
               onClick={() => selectInvoice(invoice.id)}
@@ -340,9 +382,13 @@ export default function PaymentsTab({
         </div>
       </fieldset>
       <section className={STYLES.panel} aria-label="Invoice online payment link">
-        <p className={`${LAYOUT_STYLES.linkPanel} ${STYLES.laterText}`} data-kr-element="invoice-pay-link-later">
-          Online pay links (sent with each invoice email) are shown here from plan stage 6 (Stripe). Links already sent keep working.
-        </p>
+        {selected ? (
+          <InvoicePayLinkPanel payLinks={payLinks.filter((link) => link.invoiceId === selected.id)} />
+        ) : (
+          <p className={`${LAYOUT_STYLES.linkPanel} ${STYLES.laterText}`} data-kr-element="invoice-pay-link-none">
+            Select an invoice to view its online payment link.
+          </p>
+        )}
       </section>
     </div>
   )
@@ -377,7 +423,7 @@ export default function PaymentsTab({
                   <input
                     aria-label={`Apply payment to invoice ${invoice.invoiceNumber}`}
                     checked={checked}
-                    disabled={busy || (!checked && selectedInvoiceIds.length >= 10)}
+                    disabled={busy || charged || (!checked && selectedInvoiceIds.length >= 10)}
                     onChange={(event) => toggleInvoiceAllocation(invoice, event.target.checked)}
                     type="checkbox"
                   />
@@ -388,7 +434,7 @@ export default function PaymentsTab({
                     aria-label={`Pay amount for invoice ${invoice.invoiceNumber}`}
                     className={`${STYLES.field} ${STYLES.currencyField} ${invalidAmount ? STYLES.invalidField : ''}`}
                     data-kr-element={`proposed-payment-amount-${invoice.id}`}
-                    disabled={busy || !checked}
+                    disabled={busy || charged || !checked}
                     onBlur={() => touch('amount')}
                     onChange={(value) => setAllocationAmounts((current) => ({ ...current, [invoice.id]: value }))}
                     value={proposedAmount}
@@ -403,36 +449,31 @@ export default function PaymentsTab({
           </div>
         </section>
 
-        {/* Payment details: the type and, for a check or wire, its reference (old Banking Details, without Stripe). */}
-        <section className={`${LAYOUT_STYLES.fullRow} ${LAYOUT_STYLES.methodArea} ${STYLES.methodArea}`} aria-label="Banking Details" data-kr-id="payment-banking-details">
-          <label className={LAYOUT_STYLES.methodRow} htmlFor="payment-type">
-            <span className={STYLES.areaTitle}>Type of Payment</span>
-            <select
-              className={`${STYLES.field} col-span-2`}
-              disabled={busy}
-              id="payment-type"
-              onChange={(event) => {
-                setPaymentType(event.target.value as BillingPaymentType)
-                setPostError(null)
-              }}
-              value={paymentType}
-            >
-              {PAYMENT_TYPE_OPTIONS.map((option) => (
-                <option disabled={STRIPE_TYPES.includes(option)} key={option} value={option}>
-                  {STRIPE_TYPES.includes(option) ? `${option} (Stripe, later stage)` : option}
-                </option>
-              ))}
-            </select>
-          </label>
-          {paymentType === 'Check' || paymentType === 'Wire' ? (
-            <div className={LAYOUT_STYLES.methodRow} data-kr-element="payment-reference-row">
-              <label className={STYLES.label} htmlFor="payment-reference">
-                {paymentType === 'Check' ? 'Check No' : 'Wire reference'}
-              </label>
-              <input autoComplete="off" className={`${STYLES.field} col-span-2`} disabled={busy} id="payment-reference" maxLength={40} onChange={(event) => setReference(event.target.value)} value={reference} />
-            </div>
-          ) : null}
-        </section>
+        {/* Banking details contain the payment type and method-specific controls (card, test card, ACH, reference). */}
+        <div className={LAYOUT_STYLES.fullRow}>
+          <PaymentBankingDetails
+            bankLookupBusy={card.bankLookupBusy}
+            bankLookupError={card.bankLookupError}
+            cardConfig={card.cardConfig}
+            cardConfigError={card.cardConfigError}
+            cardRef={card.cardRef}
+            disabled={busy || charged}
+            environment={card.environment}
+            errors={visibleBankingErrors}
+            key={`${paymentType}-${card.cardKey}`}
+            onBlurField={(field: BankingDetailsField) => touch(field)}
+            onCardStateChange={card.setCardState}
+            onChange={card.updateBanking}
+            onEnvironmentChange={card.setEnvironment}
+            onLookupBank={() => void card.lookupBank()}
+            onPaymentTypeChange={(nextType) => {
+              setPaymentType(nextType)
+              setPostError(null)
+            }}
+            paymentType={paymentType}
+            values={card.banking}
+          />
+        </div>
 
         {/* Payment Notes: free text from the person taking the payment (saved as the payment memo). */}
         <div className={LAYOUT_STYLES.notesRow} data-kr-element="payment-notes-row">
@@ -479,8 +520,15 @@ export default function PaymentsTab({
             <span className={STYLES.postedText}>Posted receipts on file: {payments.filter((payment) => !payment.voided).length}. Review the proposed allocations before posting.</span>
           ) : null}
         </div>
-        <button className={STYLES.primaryButton} data-kr-action="post-payment" disabled={busy || !canPost} title={canPost ? undefined : 'Your role does not allow posting payments.'} type="button" onClick={() => void post()}>
-          {busy ? 'Posting…' : 'Post Payment'}
+        <button
+          className={STYLES.primaryButton}
+          data-kr-action="post-payment"
+          disabled={busy || !canPost || paymentType === 'ACH'}
+          title={!canPost ? 'Your role does not allow posting payments.' : paymentType === 'ACH' ? 'Stripe ACH debit is not implemented yet.' : undefined}
+          type="button"
+          onClick={() => void post()}
+        >
+          {busy ? (paymentType === 'Credit card' ? 'Processing…' : 'Posting…') : charged ? 'Record Charged Payment' : 'Post Payment'}
         </button>
       </div>
     </section>
@@ -499,7 +547,7 @@ export default function PaymentsTab({
       {
         id: 'posted-payments',
         label: 'Posted Payments',
-        card: <PostedPaymentsLedger canVoid={canVoidPayments} onVoid={onVoidPayment} openPaymentId={openPaymentId} onOpenPaymentConsumed={onOpenPaymentConsumed} payments={payments} receiptSource={receiptSource} />,
+        card: <PostedPaymentsLedger canSend={canPost} canVoid={canVoidPayments} onVoid={onVoidPayment} openPaymentId={openPaymentId} onOpenPaymentConsumed={onOpenPaymentConsumed} payments={payments} receiptSource={receiptSource} />,
       },
       { id: 'open-invoices', label: 'Open Invoices', card: openInvoicesPanel },
     ],

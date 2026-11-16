@@ -186,6 +186,9 @@ export type NewLedgerEntry = {
   entryDate: string
   referenceNumber: string | null
   memo: string
+  /** Billing part 7e: `stripe_sandbox` / `stripe_live` and the PaymentIntent, on a card payment's credits. */
+  sourceSystem?: string | null
+  sourceRecordId?: string | null
   createdByUserId: string
   now: string
 }
@@ -202,8 +205,21 @@ export type NewPayment = {
   paymentTypeLookupId: string | null
   referenceNumber: string | null
   memo: string | null
+  /** Billing part 7e: `stripe_sandbox` / `stripe_live` and the PaymentIntent (`pi_…`) of a card payment; null otherwise. */
+  sourceSystem?: string | null
+  sourceRecordId?: string | null
   userId: string
   now: string
+}
+
+/** A Stripe refund recorded on a payment row (part 7e; `rules.ts` `StripeRefundDetails`). */
+export type PaymentRefundValues = {
+  refundId: string
+  status: string | null
+  amount: number | null
+  reference: string | null
+  referenceType: string | null
+  referenceStatus: string | null
 }
 
 export interface BillingQueries {
@@ -248,6 +264,8 @@ export interface BillingQueries {
   paymentById(paymentId: string): Promise<PaymentRow | null>
   applicationsOfPayment(paymentId: string): Promise<PaymentApplicationRow[]>
   trustRequestById(requestId: string): Promise<TrustRequestRow | null>
+  /** The active (not voided) payment recorded for a Stripe PaymentIntent, if any (part 7e: one payment per intent). */
+  activePaymentForIntent(intentId: string): Promise<{ id: string; payment_number: string | null } | null>
   /** Highest all-digit invoice number in the firm (invoice numbers are unique firm-wide). */
   highestInvoiceNumber(): Promise<number>
 
@@ -258,7 +276,7 @@ export interface BillingQueries {
   markTimeEntryBilled(id: string, invoiceId: string, now: string): D1PreparedStatement
   releaseTimeEntries(entryIds: string[], now: string): D1PreparedStatement
   insertInvoice(row: NewInvoice): D1PreparedStatement
-  updateInvoiceDraft(id: string, values: { matterId: string; invoiceDate: string; dueDate: string; subtotal: number; discount: number; total: number; balance: number; now: string }): D1PreparedStatement
+  updateInvoiceDraft(id: string, values: { matterId: string; invoiceDate: string; dueDate: string; subtotal: number; discount: number; tax: number; total: number; balance: number; notes: string | null; now: string }): D1PreparedStatement
   setInvoiceStatus(id: string, status: string, now: string): D1PreparedStatement
   setInvoicePayments(id: string, values: { amountPaid: number; discount: number; total: number; balance: number; status: string; paidAt: string | null; now: string }): D1PreparedStatement
   voidInvoice(id: string, notes: string, now: string): D1PreparedStatement
@@ -274,7 +292,10 @@ export interface BillingQueries {
   insertPayment(row: NewPayment): D1PreparedStatement
   insertPaymentApplication(id: string, values: { paymentId: string; invoiceId: string; matterId: string; amount: number; appliedDate: string; notes: string | null; userId: string; now: string }): D1PreparedStatement
   markApplicationsVoided(applicationIds: string[], note: string, now: string): D1PreparedStatement
-  voidPayment(id: string, userId: string, reason: string, now: string): D1PreparedStatement
+  /** Voids the payment; with `refund` (part 7e) the Stripe refund's columns and `refunded_at` are written too. */
+  voidPayment(id: string, userId: string, reason: string, now: string, refund?: PaymentRefundValues | null): D1PreparedStatement
+  /** Stores a refund read again from Stripe (status and ARN; `refunded_at` is kept). */
+  setPaymentRefund(id: string, refund: PaymentRefundValues, now: string): D1PreparedStatement
   insertTrustRequest(id: string, values: { matterId: string; clientId: string; requestNumber: string; amount: number; requestDate: string; memo: string | null; userId: string; now: string }): D1PreparedStatement
   updateTrustRequest(id: string, values: { amount: number; requestDate: string; memo: string | null; now: string }): D1PreparedStatement
 }
@@ -424,6 +445,9 @@ export function createBillingQueries(db: D1Database): BillingQueries {
         .bind(requestId)
         .first<TrustRequestRow>()
     },
+    activePaymentForIntent(intentId) {
+      return db.prepare('SELECT id, payment_number FROM payment WHERE source_record_id = ?1 AND voided_at IS NULL LIMIT 1').bind(intentId).first<{ id: string; payment_number: string | null }>()
+    },
     async highestInvoiceNumber() {
       // invoice_number is TEXT, so MAX() over the text would rank '99' above '100': cast the all-digit numbers.
       const row = await db
@@ -473,10 +497,11 @@ export function createBillingQueries(db: D1Database): BillingQueries {
     updateInvoiceDraft(id, v) {
       return db
         .prepare(
-          `UPDATE invoice SET matter_id = ?2, invoice_date = ?3, due_date = ?4, subtotal_amount = ?5, discount_amount = ?6, total_amount = ?7, balance_due = ?8, updated_at = ?9
+          `UPDATE invoice SET matter_id = ?2, invoice_date = ?3, due_date = ?4, subtotal_amount = ?5, discount_amount = ?6, total_amount = ?7, balance_due = ?8, updated_at = ?9,
+             tax_amount = ?10, notes = ?11
             WHERE id = ?1 AND status = 'draft'`,
         )
-        .bind(id, v.matterId, v.invoiceDate, v.dueDate, v.subtotal, v.discount, v.total, v.balance, v.now)
+        .bind(id, v.matterId, v.invoiceDate, v.dueDate, v.subtotal, v.discount, v.total, v.balance, v.now, v.tax, v.notes)
     },
     setInvoiceStatus(id, status, now) {
       return db.prepare('UPDATE invoice SET status = ?2, updated_at = ?3 WHERE id = ?1').bind(id, status, now)
@@ -519,8 +544,8 @@ export function createBillingQueries(db: D1Database): BillingQueries {
       return db
         .prepare(
           `INSERT INTO ledger_entry (id, invoice_id, matter_id, client_id, payment_id, ledger_bucket, entry_type, entry_direction, payment_type_lookup_id, amount, amount_ex_tax,
-             tax_amount, amount_inc_tax, entry_date, reference_number, memo, created_by_user_id, created_at)
-           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 0, ?10, ?12, ?13, ?14, ?15, ?16)`,
+             tax_amount, amount_inc_tax, entry_date, reference_number, memo, created_by_user_id, created_at, source_system, source_record_id)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 0, ?10, ?12, ?13, ?14, ?15, ?16, ?17, ?18)`,
         )
         .bind(
           r.id,
@@ -539,6 +564,8 @@ export function createBillingQueries(db: D1Database): BillingQueries {
           r.memo,
           r.createdByUserId,
           r.now,
+          r.sourceSystem ?? null,
+          r.sourceRecordId ?? null,
         )
     },
     setLedgerAmount(id, amount) {
@@ -563,9 +590,9 @@ export function createBillingQueries(db: D1Database): BillingQueries {
         .prepare(
           `INSERT INTO payment (id, payment_number, matter_id, client_id, received_date, amount, unapplied_amount, payment_type_lookup_id, reference_number, memo,
              source_system, source_record_id, created_by_user_id, received_by_user_id, created_at, updated_at)
-           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, NULL, NULL, ?11, ?11, ?12, ?12)`,
+           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?13, ?14, ?11, ?11, ?12, ?12)`,
         )
-        .bind(r.id, r.paymentNumber, r.matterId, r.clientId, r.receivedDate, r.amount, r.unappliedAmount, r.paymentTypeLookupId, r.referenceNumber, r.memo, r.userId, r.now)
+        .bind(r.id, r.paymentNumber, r.matterId, r.clientId, r.receivedDate, r.amount, r.unappliedAmount, r.paymentTypeLookupId, r.referenceNumber, r.memo, r.userId, r.now, r.sourceSystem ?? null, r.sourceRecordId ?? null)
     },
     insertPaymentApplication(id, v) {
       return db
@@ -582,8 +609,23 @@ export function createBillingQueries(db: D1Database): BillingQueries {
         )
         .bind(ids(applicationIds), note, now)
     },
-    voidPayment(id, userId, reason, now) {
-      return db.prepare('UPDATE payment SET voided_at = ?2, voided_by_user_id = ?3, void_reason = ?4, updated_at = ?2 WHERE id = ?1 AND voided_at IS NULL').bind(id, now, userId, reason)
+    voidPayment(id, userId, reason, now, refund) {
+      if (!refund) return db.prepare('UPDATE payment SET voided_at = ?2, voided_by_user_id = ?3, void_reason = ?4, updated_at = ?2 WHERE id = ?1 AND voided_at IS NULL').bind(id, now, userId, reason)
+      return db
+        .prepare(
+          `UPDATE payment SET voided_at = ?2, voided_by_user_id = ?3, void_reason = ?4, updated_at = ?2, refund_provider_id = ?5, refund_status = ?6, refund_amount = ?7,
+             refund_reference = ?8, refund_reference_type = ?9, refund_reference_status = ?10, refunded_at = ?2
+            WHERE id = ?1 AND voided_at IS NULL`,
+        )
+        .bind(id, now, userId, reason, refund.refundId, refund.status, refund.amount, refund.reference, refund.referenceType, refund.referenceStatus)
+    },
+    setPaymentRefund(id, refund, now) {
+      return db
+        .prepare(
+          `UPDATE payment SET refund_provider_id = ?2, refund_status = ?3, refund_amount = ?4, refund_reference = ?5, refund_reference_type = ?6, refund_reference_status = ?7,
+             updated_at = ?8 WHERE id = ?1`,
+        )
+        .bind(id, refund.refundId, refund.status, refund.amount, refund.reference, refund.referenceType, refund.referenceStatus, now)
     },
     insertTrustRequest(id, v) {
       return db

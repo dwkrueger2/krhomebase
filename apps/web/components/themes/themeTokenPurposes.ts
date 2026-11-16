@@ -53,6 +53,7 @@ export const THEME_TOKEN_PURPOSES: Readonly<Record<string, string>> = {
   '--kr-theme-orange': 'Warning and attention color.',
   '--kr-theme-danger': 'Danger and error text and button color.',
   '--kr-theme-success': 'Success text color.',
+  '--kr-theme-warning': 'Warning text, borders and chips: notices that need attention but are not errors.',
   '--kr-theme-table-heading-dark': 'Dark ledger heading background.',
   '--kr-theme-table-heading-light': 'Light ledger heading background.',
   '--kr-theme-table-row-background-1': 'First alternating ledger row background.',

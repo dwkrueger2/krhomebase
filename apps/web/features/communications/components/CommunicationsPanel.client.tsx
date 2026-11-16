@@ -42,7 +42,8 @@ import CommunicationComposer from './CommunicationComposer.client'
 import CommunicationThread from './CommunicationThread.client'
 import WorkstreamReassignDialog from './WorkstreamReassignDialog.client'
 import type { WorkStreamRTEAssigneeOption, WorkStreamRTEMatterOption } from './WorkStreamRTE.client'
-import './Communications.module.css'
+// Read, not only imported: a CSS module imported for its side effect is left out of the production build (web patch 554).
+import communicationColors from './Communications.module.css'
 
 export type { CommunicationsContext } from '../communicationSaveTarget'
 
@@ -237,7 +238,7 @@ export default function CommunicationsPanel({ context, viewer }: CommunicationsP
   }
 
   return (
-    <section className={`${LAYOUT_STYLES.panel} ${STYLES.panel}`} data-kr-id="communications-module-panel">
+    <section className={`${LAYOUT_STYLES.panel} ${STYLES.panel} ${communicationColors.panelColors}`} data-kr-id="communications-module-panel">
       {/* Activity filters: this control owns thread filtering and is independent from the composer selector. */}
       <CommunicationActivityFilters collapsedView={collapsedView} onChangeActivityTypes={setThreadFilterTypes} onToggleCollapsedView={() => setCollapsedView((current) => !current)} selectedActivityTypes={threadFilterTypes} />
       <div className={LAYOUT_STYLES.columns}>

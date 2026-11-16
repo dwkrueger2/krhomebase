@@ -2,13 +2,14 @@
 // file: apps/web/features/billing/components/PaymentNoticeDialog.client.tsx
 
 /**
- * PaymentNoticeDialog — emails one payment's Payment Receipt.
+ * PaymentNoticeDialog — emails one payment's Payment Receipt or Refund Notice.
  * Wraps the shared `components/dialogs/SendEmailDialog`: loads the client's addresses,
  * the default subject and cover message, and earlier sent copies from
  * `GET /api/v1/billing/clients/{clientId}/payments/{paymentId}/receipt/email`, then sends through
  * `POST .../receipt/email` (which stores the copy and records the Workstream email).
  *
- * Opened from Posted Payments: the send icon on a payment (receipt).
+ * Opened from Posted Payments: the send icon on a payment (receipt), or on a voided,
+ * refunded Stripe payment (refund notice).
  *
  * Ported from the old `hb-components/KR-Billing/PaymentNoticeDialog.client.tsx` (Billing part 7c of
  * docs/API/Billing_Audit.md). Changed:
@@ -26,6 +27,11 @@
  *    "Loading payment receipt…" on a white card at `z-[1200]`). The Previously sent list is the shared
  *    `BillingSentCopies` (links only, as before). Density Contract sizes and `--kr-theme-*` tokens. New `inline` prop
  *    for the `react-dom/server` tests.
+ *
+ * Billing part 7e (Nov 16, 2026): the refund notice is back (`kind: 'refund'`, as in the old dialog): its own calls
+ * (`fetchRefundNoticeEmailInfo`, `previewRefundNoticeEmail`, `sendRefundNoticeEmail`), no PDF, the title "Email Refund
+ * Notice", `data-kr-id="payment-refund-dialog"` and the old summary line (the refund amount and the ARN). `kind` is
+ * optional and defaults to the receipt, so the 7c callers stay as they were.
  */
 
 import { tagEmailSubject, type BillingReceiptInfoData } from '@krhomebase/contracts'
@@ -35,7 +41,7 @@ import SendEmailDialog from '@/components/dialogs/SendEmailDialog.client'
 import type { EmailDraft, EmailPreview, EmailSendOutcome } from '@/components/dialogs/emailTypes'
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
 import { L } from '@/lib/KRUtilities'
-import { BillingApiError, fetchReceiptEmailInfo, previewReceiptEmail, sendReceiptEmail } from '../api.client'
+import { BillingApiError, fetchReceiptEmailInfo, fetchRefundNoticeEmailInfo, previewReceiptEmail, previewRefundNoticeEmail, sendReceiptEmail, sendRefundNoticeEmail } from '../api.client'
 import { formatAccountingAmount } from '../formatAccountingAmount'
 import type { BillingPayment } from '../types'
 import { BillingSentCopies, billingSendFailure, billingSentDetail } from './SendInvoiceDialog.client'
@@ -63,6 +69,8 @@ const LAYOUT_STYLES = {
 
 /** Props for {@link PaymentNoticeDialog}. */
 export interface PaymentNoticeDialogProps {
+  /** Which email: the payment receipt (default) or, for a voided payment refunded through Stripe, the refund notice. */
+  kind?: 'receipt' | 'refund'
   payment: BillingPayment
   clientId: string
   clientNumber: string
@@ -78,55 +86,57 @@ export interface PaymentNoticeDialogProps {
 type ReceiptContext = Pick<BillingReceiptInfoData, 'recipients' | 'defaultSubject' | 'defaultMessage' | 'sent'>
 
 /** Renders the receipt email dialog: a loading card until the recipients and wording arrive, then the shared dialog. */
-export default function PaymentNoticeDialog({ payment, clientId, clientNumber, clientDisplayName, officeId = null, onClose, inline = false }: PaymentNoticeDialogProps) {
+export default function PaymentNoticeDialog({ kind = 'receipt', payment, clientId, clientNumber, clientDisplayName, officeId = null, onClose, inline = false }: PaymentNoticeDialogProps) {
   const [context, setContext] = useState<ReceiptContext | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const label = 'payment receipt'
+  const refund = kind === 'refund'
+  const label = refund ? 'refund notice' : 'payment receipt'
 
-  // Recipients, default wording, and sent history (once per payment).
+  // Recipients, default wording, and sent history (once per payment and kind).
   useEffect(() => {
     let cancelled = false
-    fetchReceiptEmailInfo(clientId, payment.id)
+    const load: Promise<ReceiptContext> = kind === 'refund' ? fetchRefundNoticeEmailInfo(clientId, payment.id) : fetchReceiptEmailInfo(clientId, payment.id)
+    load
       .then((loaded) => {
         if (!cancelled) setContext(loaded)
       })
       .catch((caught: unknown) => {
-        L(`[KR_PAYMENT_NOTICE_DIALOG:94] context failed payment=${payment.id} code=${caught instanceof BillingApiError ? caught.code : 'unknown'}`)
+        L(`[KR_PAYMENT_NOTICE_DIALOG:94] context failed kind=${kind} payment=${payment.id} code=${caught instanceof BillingApiError ? caught.code : 'unknown'}`)
         if (!cancelled) {
-          setLoadError(billingSendFailure(caught, 'The receipt details could not be loaded.'))
+          setLoadError(billingSendFailure(caught, `The ${label} details could not be loaded.`))
           setContext({ recipients: [], defaultSubject: '', defaultMessage: '', sent: [] })
         }
       })
     return () => {
       cancelled = true
     }
-  }, [clientId, payment.id])
+  }, [kind, label, clientId, payment.id])
 
-  /** The send and preview body: the choices only. */
+  /** The send and preview body: the choices only (the refund notice has no PDF). */
   function body(draft: EmailDraft) {
-    const rVal = { to: draft.to, cc: draft.cc, subject: draft.subject, message: draft.message, includePdf: true, officeId }
+    const rVal = { to: draft.to, cc: draft.cc, subject: draft.subject, message: draft.message, officeId }
     return rVal
   }
 
   async function send(draft: EmailDraft): Promise<EmailSendOutcome> {
     try {
-      const result = await sendReceiptEmail(clientId, payment.id, body(draft))
-      return { ok: true, detail: billingSentDetail('The payment receipt', result, true) }
+      const result = refund ? await sendRefundNoticeEmail(clientId, payment.id, body(draft)) : await sendReceiptEmail(clientId, payment.id, { ...body(draft), includePdf: true })
+      return { ok: true, detail: billingSentDetail(refund ? 'The refund notice' : 'The payment receipt', result, !refund) }
     } catch (caught) {
-      L(`[KR_PAYMENT_NOTICE_DIALOG:116] send failed payment=${payment.id} code=${caught instanceof BillingApiError ? caught.code : 'unknown'}`)
+      L(`[KR_PAYMENT_NOTICE_DIALOG:116] send failed kind=${kind} payment=${payment.id} code=${caught instanceof BillingApiError ? caught.code : 'unknown'}`)
       return { ok: false, detail: billingSendFailure(caught, `The ${label} could not be sent.`, true) }
     }
   }
 
   /** Server-rendered preview of the current draft (nothing is sent). */
   function renderPreview(draft: EmailDraft): Promise<EmailPreview> {
-    return previewReceiptEmail(clientId, payment.id, body(draft))
+    return refund ? previewRefundNoticeEmail(clientId, payment.id, body(draft)) : previewReceiptEmail(clientId, payment.id, { ...body(draft), includePdf: true })
   }
 
   if (!context) {
     if (!inline && typeof document === 'undefined') return null
     const loading = (
-      <div className={`${LAYOUT_STYLES.backdrop} ${STYLES.backdrop}`} data-kr-element="payment-receipt-loading" data-kr-theme-scope="krhomebase" role="presentation">
+      <div className={`${LAYOUT_STYLES.backdrop} ${STYLES.backdrop}`} data-kr-element={refund ? 'payment-refund-loading' : 'payment-receipt-loading'} data-kr-theme-scope="krhomebase" role="presentation">
         <div className={`${LAYOUT_STYLES.loading} ${STYLES.loading}`} role="status">
           <RainbowBusySpinner busy hideWhenIdle={false} label={`Loading ${label}...`} size={14} />
         </div>
@@ -136,6 +146,7 @@ export default function PaymentNoticeDialog({ payment, clientId, clientNumber, c
   }
 
   const invoice = payment.invoiceNumber ? `Invoice #${payment.invoiceNumber}${payment.invoiceIvid ? ` (#${payment.invoiceIvid})` : ''}` : 'no invoice'
+  const refundAmount = payment.refund?.amount ?? payment.amount
   return (
     <SendEmailDialog
       afterMessage={
@@ -145,8 +156,8 @@ export default function PaymentNoticeDialog({ payment, clientId, clientNumber, c
           <BillingSentCopies copies={context.sent} dataKrElement="payment-notice-sent" />
         </>
       }
-      attachmentSummary={`Payment Receipt ${payment.paymentNumber} · ${formatAccountingAmount(payment.amount)} · PDF attachment`}
-      dataKrId="payment-receipt-dialog"
+      attachmentSummary={refund ? `Refund Notice · ${formatAccountingAmount(refundAmount)} · ARN ${payment.refund?.reference ?? 'not yet available'}` : `Payment Receipt ${payment.paymentNumber} · ${formatAccountingAmount(payment.amount)} · PDF attachment`}
+      dataKrId={refund ? 'payment-refund-dialog' : 'payment-receipt-dialog'}
       defaultMessage={context.defaultMessage}
       defaultSubject={context.defaultSubject && payment.matterNumber ? tagEmailSubject(context.defaultSubject, payment.matterNumber) : context.defaultSubject}
       footerNote="Sent from the billing mailbox; a copy of exactly what is sent is stored on the client."
@@ -155,7 +166,7 @@ export default function PaymentNoticeDialog({ payment, clientId, clientNumber, c
       subtitle={`[${clientNumber}] ${clientDisplayName} · Payment ${payment.paymentNumber} · ${invoice}`}
       suggestions={context.recipients}
       suggestionsLoading={false}
-      title="Email Payment Receipt"
+      title={refund ? 'Email Refund Notice' : 'Email Payment Receipt'}
       onCancel={onClose}
       onSend={send}
       onSent={onClose}

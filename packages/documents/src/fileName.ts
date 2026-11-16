@@ -131,3 +131,8 @@ export function buildStatementFileBaseName(input: NoticeFileNameInput): string {
 export function buildReceiptFileBaseName(input: NoticeFileNameInput): string {
   return noticeFileBaseName('Receipt', input)
 }
+
+/** Refund Notice file name (Billing part 7e; the old `noticeFileBaseName` kind `refund`): "Refund Notice (sent) 2026-10-22 [306.0] ...". */
+export function buildRefundNoticeFileBaseName(input: NoticeFileNameInput): string {
+  return noticeFileBaseName('Refund Notice', input)
+}

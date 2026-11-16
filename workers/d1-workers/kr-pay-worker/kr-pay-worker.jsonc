@@ -7,8 +7,9 @@
 //   KR_PAY_ENVIRONMENT is only the fallback label for pages that have no payment request (for example "Page not found").
 // Stripe keys come from D1 payment_provider (Settings → Stripe Payment Configuration), never from this file.
 // One Worker secret: KR_PAYMENT_PROVIDER_KEK, the same KEK that encrypted the payment_provider rows (copied with the database).
-// Optional Worker secret: KR_HOMEBASE_PAY_WEBHOOK_URL. Leave it unset until the new app has its pay-link-paid route (plan stage 6);
-//   until then a paid link stays "paid" in krhomebase and is posted when billing reads it.
+// Optional Worker secret: KR_HOMEBASE_PAY_WEBHOOK_URL. Not needed since Billing part 7d (Nov 16, 2026): the notice goes
+//   through the KR_HOMEBASE_API service binding below; the URL is used only when that binding is missing. Without
+//   either, a paid link stays "paid" in krhomebase and is posted when Billing opens.
 // Version: every response carries the repository track (root package.json) and the Cloudflare deployment id (CF_VERSION_METADATA).
 {
   "$schema": "../../../node_modules/wrangler/config-schema.json",
@@ -24,6 +25,15 @@
       "binding": "KR_PAY_D1",
       "database_name": "krhomebase",
       "database_id": "ef68921f-c7d3-4d0b-9af4-defebc748616"
+    }
+  ],
+  // Billing part 7d (decision B4 of docs/API/Billing_Audit.md, the requester, Nov 15, 2026): the "link paid" notice goes
+  // to krhomebase-api (POST /v1/billing/pay-link-paid, signed with the KEK-derived key) through this binding, because
+  // the API has no public address. Deploy the API with that route before this Worker (pnpm deploy:api, then deploy:pay).
+  "services": [
+    {
+      "binding": "KR_HOMEBASE_API",
+      "service": "krhomebase-api"
     }
   ],
   // Cloudflare fills this in at run time with the id, tag and time of the deployment that answered.

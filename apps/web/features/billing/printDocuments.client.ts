@@ -79,11 +79,14 @@ export function printInvoiceFromBilling(options: PrintInvoiceFromBillingOptions)
 export interface PrintStatementFromBillingOptions extends Omit<BuildStatementOptions, 'letterhead' | 'matters'> {
   clientId: string
   matters: readonly { id: string; matterNumber: string; title: string }[]
+  /** Billing part 7f: false for a billing reader, so the print view gets no send context and shows no Send. Default true. */
+  canSend?: boolean
 }
 
 /** Builds the Statement of Account from the Billing Overview's records. */
 export function statementReportFromBilling(options: PrintStatementFromBillingOptions): StatementOfAccountData {
-  const rVal = buildStatementOfAccountData({ ...options, letterhead: STAND_IN_LETTERHEAD })
+  const { canSend: _canSend, ...buildOptions } = options
+  const rVal = buildStatementOfAccountData({ ...buildOptions, letterhead: STAND_IN_LETTERHEAD })
   return rVal
 }
 
@@ -97,7 +100,7 @@ export function printStatementFromBilling(options: PrintStatementFromBillingOpti
   const matter = options.matterFilter && options.matterFilter !== 'ALL' ? options.matters.find((candidate) => candidate.matterNumber === options.matterFilter) ?? null : null
   const envelope: StatementPrintHandoff<StatementOfAccountData> = {
     report,
-    send: { clientId: options.clientId, clientNumber: options.clientNumber, clientDisplayName: options.clientDisplayName, matterId: matter?.id ?? null, matterNumber: matter?.matterNumber ?? null },
+    send: options.canSend === false ? undefined : { clientId: options.clientId, clientNumber: options.clientNumber, clientDisplayName: options.clientDisplayName, matterId: matter?.id ?? null, matterNumber: matter?.matterNumber ?? null },
   }
   const key = writePrintHandoff(envelope)
   if (!key) return 'The statement could not be handed to the print view (browser storage unavailable).'

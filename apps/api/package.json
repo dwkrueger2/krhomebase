@@ -1,7 +1,7 @@
 {
   "name": "@krhomebase/api",
   "version": "1.1.1",
-  "patchNum": "39",
+  "patchNum": "42",
   "patchDate": "11-16",
   "private": true,
   "type": "module",
@@ -21,12 +21,14 @@
     "fflate": "0.8.2",
     "hono": "^4.13.16",
     "htmlparser2": "10.0.0",
+    "qrcode": "1.5.4",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "@types/qrcode": "1.5.6",
     "tsx": "^4.23.15",
     "typescript": "~6.0.3",
     "vitest": "^4.1.0",
