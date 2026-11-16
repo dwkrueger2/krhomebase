@@ -38,6 +38,7 @@ import {
 import IndividualSearch from './IndividualSearch.client'
 import { useOptionalDataStore } from '../DataStoreProvider.client'
 import { ContactLedgerRowHoverCard } from './ContactLedger.client'
+import { relatedContactHoverRow } from './RelatedContactHover.client'
 
 /** Tailwind layout classes for the editor's structural arrangements. */
 const LAYOUT_STYLES = {
@@ -586,46 +587,7 @@ interface RelatedContactHoverState {
   top: number
 }
 
-function relatedContactHoverRow(related: KRRelatedContact, directoryContact?: KRContactRecord): KRContactRecord {
-  return directoryContact ?? {
-    id: related.id,
-    kind: 'individual',
-    icid: related.icid ?? null,
-    typeLabel: 'Individual',
-    displayName: related.displayName,
-    titlePrefix: null,
-    firstName: null,
-    middleName: null,
-    lastName: null,
-    suffix: null,
-    preferredName: null,
-    dob: null,
-    ssn: null,
-    ssnLast4: null,
-    isMinor: false,
-    isAttorney: false,
-    email: null,
-    phone: null,
-    phoneSecondary: null,
-    fax: null,
-    addressLine1: '',
-    addressLine2: '',
-    city: '',
-    state: '',
-    postalCode: '',
-    status: 'individual',
-    notes: null,
-    isClient: false,
-    clientId: null,
-    clientNumber: null,
-    clientType: null,
-    clientStatus: null,
-    createdAt: '',
-    updatedAt: null,
-    relatedMatters: [],
-    relatedContacts: [],
-  }
-}
+// relatedContactHoverRow moved to RelatedContactHover.client.tsx (Nov 16, 2026), shared with the identity header.
 
 function ClientEditCardRelatedContacts({ contact, draft, onDraftChange, onEditRelatedContact, savingContact = false, relatedContactsLoading = false, relatedContactsError = '' }: ClientEditCardRelatedContactsProps) {
   const dataStore = useOptionalDataStore()

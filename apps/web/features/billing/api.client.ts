@@ -15,16 +15,29 @@
  *
  * Failures throw `BillingApiError` with the API's error code and a sentence for the person.
  *
- * Not here yet: invoice and statement email and print (stage 5); card payments, refunds, pay links and receipts
- * (stage 6).
+ * Billing part 7c (`docs/API/Billing_Audit.md`): the invoice, statement and receipt email (recipients and sent copies,
+ * preview, send), the re-send of a stored copy, and the sample PDF (`packages/contracts/src/billingDocuments.ts` lists
+ * the routes). The browser sends only the choices; the API builds the documents from the database. The invoice send
+ * stamps `sent_at` and locks the invoice, so it reloads the record like every other write.
+ *
+ * Not here yet: card payments, refunds and pay links (stage 6, parts 7d and 7e).
  */
 
 import {
+  BillingDocumentResendBody,
+  BillingEmailInfoData,
+  BillingEmailPreviewData,
+  BillingEmailSentData,
+  BillingReceiptInfoData,
   BillingRecord,
+  BillingSamplePdfBody,
   BillingWriteData,
   ErrorEnvelope,
   InvoiceCreateData,
+  InvoiceEmailBody,
   PaymentVoidData,
+  ReceiptEmailBody,
+  StatementEmailBody,
   successEnvelope,
   type InvoiceBody,
   type LedgerEntryBody,
@@ -63,6 +76,8 @@ const ERROR_SENTENCES: Record<string, string> = {
   VALIDATION_INVOICE_HAS_PAYMENTS: 'Payments are attached to this invoice. Detach them first.',
   VALIDATION_BILLED_TIME_ENTRY_LOCKED: 'This entry is on a locked invoice.',
   VALIDATION_LOCKED_INVOICE: 'This invoice is locked.',
+  BILLING_EMAIL_NOT_CONFIGURED: 'The billing mailbox is not set up on this server, so nothing was sent.',
+  BILLING_EMAIL_FAILED: 'Gmail did not accept the email. Nothing was sent.',
 }
 
 const json = (body: unknown) => ({ body: JSON.stringify(body), headers: { 'content-type': 'application/json' } })
@@ -239,4 +254,77 @@ export function createTrustEntry(clientId: string, body: TrustEntryBody) {
 }
 export function updateLedgerEntry(clientId: string, entryId: string, body: LedgerEntryBody) {
   return write(clientId, 'update ledger entry', () => call(`${client(clientId)}/ledger-entries/${item(entryId)}`, BillingWriteData, { method: 'PATCH', body }))
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Billing documents by email and their stored copies (Billing part 7c)
+
+/** The bodies of the email routes as the dialogs fill them (the contract's defaults, such as `cc: []`, may be left out). */
+export type InvoiceEmailInput = z.input<typeof InvoiceEmailBody>
+export type StatementEmailInput = z.input<typeof StatementEmailBody>
+export type ReceiptEmailInput = z.input<typeof ReceiptEmailBody>
+export type BillingDocumentResendInput = z.input<typeof BillingDocumentResendBody>
+export type BillingSamplePdfInput = z.input<typeof BillingSamplePdfBody>
+
+/** Recipients and the earlier sent copies of one invoice. */
+export function fetchInvoiceEmailInfo(clientId: string, invoiceId: string) {
+  return call(`${client(clientId)}/invoices/${item(invoiceId)}/email`, BillingEmailInfoData)
+}
+/** The invoice email as it will look (nothing is sent or stored). */
+export function previewInvoiceEmail(clientId: string, invoiceId: string, body: InvoiceEmailInput) {
+  return call(`${client(clientId)}/invoices/${item(invoiceId)}/email/preview`, BillingEmailPreviewData, { method: 'POST', body })
+}
+/** Sends the invoice: PDF, stored copy, WorkStream entry; the API stamps it sent and locks it, so the record reloads. */
+export function sendInvoiceEmail(clientId: string, invoiceId: string, body: InvoiceEmailInput) {
+  return write(clientId, 'send invoice email', () => call(`${client(clientId)}/invoices/${item(invoiceId)}/email`, BillingEmailSentData, { method: 'POST', body }))
+}
+
+/** Recipients and the sent statements of the whole client (`matterId` null) or one matter. */
+export function fetchStatementEmailInfo(clientId: string, matterId: string | null) {
+  const query = matterId ? `?${new URLSearchParams({ matterId }).toString()}` : ''
+  return call(`${client(clientId)}/statement/email${query}`, BillingEmailInfoData)
+}
+/** The statement email as it will look. */
+export function previewStatementEmail(clientId: string, body: StatementEmailInput) {
+  return call(`${client(clientId)}/statement/email/preview`, BillingEmailPreviewData, { method: 'POST', body })
+}
+/** Sends the Statement of Account (the record does not change). */
+export function sendStatementEmail(clientId: string, body: StatementEmailInput) {
+  return call(`${client(clientId)}/statement/email`, BillingEmailSentData, { method: 'POST', body })
+}
+
+/** Recipients, the receipt details, the default subject and message, and the sent receipts of one payment. */
+export function fetchReceiptEmailInfo(clientId: string, paymentId: string) {
+  return call(`${client(clientId)}/payments/${item(paymentId)}/receipt/email`, BillingReceiptInfoData)
+}
+/** The receipt email as it will look. */
+export function previewReceiptEmail(clientId: string, paymentId: string, body: ReceiptEmailInput) {
+  return call(`${client(clientId)}/payments/${item(paymentId)}/receipt/email/preview`, BillingEmailPreviewData, { method: 'POST', body })
+}
+/** Sends the payment receipt. A blank subject or message lets the API use its defaults. */
+export function sendReceiptEmail(clientId: string, paymentId: string, body: ReceiptEmailInput) {
+  return call(`${client(clientId)}/payments/${item(paymentId)}/receipt/email`, BillingEmailSentData, { method: 'POST', body })
+}
+
+/** Sends a stored copy (invoice, statement or receipt) again, exactly as it went; `to` empty: its first recipients. */
+export function resendBillingDocument(clientId: string, documentNumber: string, body: BillingDocumentResendInput) {
+  return call(`${client(clientId)}/documents/${item(documentNumber)}/resend`, BillingEmailSentData, { method: 'POST', body })
+}
+
+/**
+ * The sample invoice, statement or receipt as a PDF (super admin and admin; the API refuses others). The answer is the
+ * PDF itself; a refusal answers the error envelope, thrown as `BillingApiError`.
+ */
+export async function fetchSamplePdf(body: BillingSamplePdfInput): Promise<Blob> {
+  const response = await fetch('/api/v1/billing/document-samples/pdf', { method: 'POST', cache: 'no-store', ...json(body) })
+  const type = response.headers.get('content-type') ?? ''
+  if (response.ok && type.includes('application/pdf')) return response.blob()
+  const payload: unknown = await response.json().catch(() => null)
+  const error = ErrorEnvelope.safeParse(payload)
+  if (error.success) {
+    const { code, message } = error.data.error
+    L(`[KR_BILLING_API:sample-pdf] failed code=${code} status=${response.status} requestId=${error.data.requestId}`)
+    throw new BillingApiError(code, ERROR_SENTENCES[code] ?? message, response.status, error.data.requestId)
+  }
+  throw new BillingApiError('HTTP_ERROR', `The sample PDF could not be made (HTTP ${response.status}).`, response.status, null)
 }

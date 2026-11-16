@@ -75,7 +75,10 @@
     "KR_GOOGLE_WORKSPACE_BILLING_REPLY_TO": "billing@kruegerrichard.com",
     "KR_GOOGLE_WORKSPACE_FIRM_SENDER_EMAIL": "onboarding@legaldrive.net",
     "KR_GOOGLE_WORKSPACE_FIRM_SENDER_NAME": "Krueger & Richard",
-    "KR_GOOGLE_WORKSPACE_FIRM_REPLY_TO": "firm@kruegerrichard.com"
+    "KR_GOOGLE_WORKSPACE_FIRM_REPLY_TO": "firm@kruegerrichard.com",
+    // Billing part 7c: the Cloudflare account for Browser Rendering's PDF address (not a secret; the token is the
+    // secret KR_CF_BROWSER_RENDERING_TOKEN). Set KR_PDF_RENDERER to "none" to send documents without a PDF.
+    "KR_CF_ACCOUNT_ID": "e5ca7440af0df479c4cebfa8153843b6"
   },
   // "remote": true makes `wrangler dev` (pnpm dev:api) use the live krhomebase database, not an empty local one.
   // It has no effect on a deployed API. Requester's decision, Nov 9, 2026, while every contacts route only reads.
@@ -117,6 +120,15 @@
     {
       "binding": "FEEDBACK_STORAGE",
       "bucket_name": "kr-homebase-feedback",
+      "remote": true
+    },
+    // Billing part 7c: stored copies of sent invoices, statements and receipts, under the old app's keys
+    // (clients/<client number>/[matters/<matter number>/]invoices|statements|payments/<version>/<file>), in the old
+    // documents bucket (the requester, Nov 16, 2026), so the copies the old app stored still open. One bucket for pnpm
+    // dev and deployed, as FEEDBACK_STORAGE (pnpm dev writes the live database). The bucket already exists.
+    {
+      "binding": "DOCUMENTS",
+      "bucket_name": "krhomebase-media-dev",
       "remote": true
     }
   ]

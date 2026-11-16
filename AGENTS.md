@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.22</small><br>
-<small>Updated Nov 15, 2026 11:15pm</small>
+<small>Version 2.24</small><br>
+<small>Updated Nov 16, 2026 1:35am</small>
 
 ## Agent Guide Index
 
@@ -109,8 +109,9 @@ apps/external-api/   krhomebase-external-api Worker: the public door for outside
 packages/contracts/  zod descriptions of every request, response and error. Shared by api, external-api and web.
 packages/tool-sdk/   Kit for outside tools (docs/05_Outside_Tools.md). Its README.md is the outside developers' guide.
 packages/documents/  Printable billing documents (invoice, statement, receipt): data shapes, builders, formatters, letterhead,
-                     file name rule and samples; the React templates arrive with Billing part 7b. Shared by api and web
-                     (decision B1 of docs/API/Billing_Audit.md, Nov 15, 2026).
+                     file name rule, samples, the React templates and print-document.css (Billing parts 7a and 7b),
+                     the email builders and the server render for the PDFs with its generated stylesheet (part 7c).
+                     Shared by api and web (decision B1 of docs/API/Billing_Audit.md, Nov 15, 2026).
 workers/             Cloudflare Workers copied from the old repository. Not part of the apps. Rules: "Workers" below and workers/Readme-workers.md.
                      workers/feedback-viewer is new (not copied): the Homebase Feedback viewer, an outside tool built with only the tool kit (a test of the kit), checked by pnpm check.
 docs/                Documentation: schema spaces, architecture, API notes, patch notes, help documents.
@@ -128,7 +129,7 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 - `api` may import `contracts` and `documents`. It must not import from `apps/web`.
 - `external-api` may import `contracts`. It must not import from either app.
 - `contracts` imports nothing from the apps and nothing but `zod`.
-- `documents` imports only `contracts` (and `react` once the templates arrive); nothing from the apps. It runs in a Worker and in a browser.
+- `documents` imports only `contracts` and `react` (a peer dependency); nothing from the apps. Its templates are pure (no hooks, no browser APIs) so they render in a Worker and in a browser.
 - `tool-sdk` has no runtime dependencies (it installs on its own from a `.tgz`); `contracts` is a development-only dependency for its sync test.
 - Only `apps/api` has the D1 `krhomebase` binding. `web` never queries the database.
 - `api` has no public address (`workers_dev` and `preview_urls` are off). Only another Worker can call it through a service binding.
@@ -219,6 +220,7 @@ pnpm dev:external     # external-api on port 8793 (calls the deployed API)
 pnpm dev:feedback-viewer  # the Feedback Viewer tool page on port 5174 (open it from a local KR Homebase menu)
 pnpm check            # type check + all tests; must pass before the requester commits
 pnpm openapi          # rewrite apps/api/openapi/openapi.json after changing any route
+pnpm documents:css    # rewrite the PDF stylesheet (packages/documents/src/generated) after changing a document template
 pnpm build:web        # build the web app (apps/web)
 pnpm deploy:hot       # API and web as Worker versions, live at once (nobody else working); the requester runs it
 pnpm deploy:warn 5 -Estimate 3  # warn 5 minutes, sign everyone out, deploy API and web, open again (needs migration 034)
@@ -264,6 +266,7 @@ pnpm listScripts      # show the root scripts
 | `deploy:hot`, `deploy:warn`, `deploy:status`, `deploy:finish`, `deploy:cancel` | root | `scripts/Deploy-Krhomebase.ps1 -Mode <mode>` (`hot`, `warn`, `status`, `finish` or `cancel`): Worker versions uploaded (`wrangler versions upload`, `vinext-cloudflare deploy --no-promote`), then made live (`wrangler versions deploy`), API first; `warn` writes and clears the deploy window on `kr_maintenance_gate` (repository patch 34). Pending and last deploy in the git-ignored `deploy-state/`. |
 | `pack:tool-sdk` | `packages/tool-sdk` | build, then `pnpm pack` into `dist/tool-sdk` |
 | `openapi` | `apps/api` | `tsx scripts/write-openapi.ts` |
+| `documents:css` | `packages/documents` | `node scripts/write-document-css.mjs` |
 | `feedback:get` | root | `scripts/Get-Feedback.ps1 -Number <n>`: read-only `wrangler d1 execute` SELECTs on `krhomebase` (config `apps/api/kr-api-wrangler.jsonc`), then writes `feedback-cache/FB-000n/FB-000n.md` |
 | `dev:crud`, `dev:session` | `workers/d1-workers/...` | `wrangler dev` with that Worker's config |
 

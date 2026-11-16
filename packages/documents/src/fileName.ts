@@ -98,3 +98,36 @@ export function buildInvoiceFileBaseName(input: InvoiceFileNameInput): string {
   const rVal = raw.replace(UNSAFE_FILENAME_CHARS, '_').replace(/\s+/g, ' ').trim().slice(0, 110)
   return rVal
 }
+
+/** Inputs shared by the statement and receipt file names. */
+export interface NoticeFileNameInput {
+  /** Date of the event (ISO string or Date). */
+  date: string | Date
+  /** The matter number when the document is one matter's, else the client number. */
+  scopeNumber: string
+  firstName?: string | null
+  lastName?: string | null
+  displayName?: string | null
+  amount: number
+  timeZone?: string
+}
+
+/** "<label> (sent) YYYY-MM-DD [<scope>] Last, First - $amount - Krueger-Richard", cleaned and cut to 110 characters. */
+function noticeFileBaseName(label: string, input: NoticeFileNameInput): string {
+  const raw = [label, '(sent)', formatFileDate(input.date, input.timeZone), `[${input.scopeNumber.trim()}]`, invoiceFileClientName(input), '-', formatFileAmount(input.amount), '-', DEFAULT_FIRM_LABEL].join(' ')
+  const rVal = raw.replace(UNSAFE_FILENAME_CHARS, '_').replace(/\s+/g, ' ').trim().slice(0, 110)
+  return rVal
+}
+
+/**
+ * Statement of Account file name (Billing part 7c; the old send-statement route's `statementFileBaseName`):
+ * "SOA (sent) 2026-09-24 [306] Krueger, Dan - $1,234.56 - Krueger-Richard"; the scope is the matter for a one-matter statement.
+ */
+export function buildStatementFileBaseName(input: NoticeFileNameInput): string {
+  return noticeFileBaseName('SOA', input)
+}
+
+/** Payment Receipt file name (Billing part 7c; the old `krPaymentNotice.ts` `noticeFileBaseName`): "Receipt (sent) 2026-10-22 [306.0] ...". */
+export function buildReceiptFileBaseName(input: NoticeFileNameInput): string {
+  return noticeFileBaseName('Receipt', input)
+}

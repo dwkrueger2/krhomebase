@@ -222,6 +222,9 @@ importers:
       '@krhomebase/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@krhomebase/documents':
+        specifier: workspace:*
+        version: link:../../packages/documents
       fflate:
         specifier: 0.8.2
         version: 0.8.2
@@ -231,6 +234,12 @@ importers:
       htmlparser2:
         specifier: 10.0.0
         version: 10.0.0
+      react:
+        specifier: 19.3.1
+        version: 19.3.1
+      react-dom:
+        specifier: 19.3.1
+        version: 19.3.1(react@19.3.1)
       zod:
         specifier: ^4.6.7
         version: 4.6.7
@@ -272,6 +281,9 @@ importers:
       '@krhomebase/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@krhomebase/documents':
+        specifier: workspace:*
+        version: link:../../packages/documents
       '@krhomebase/tool-sdk':
         specifier: workspace:*
         version: link:../../packages/tool-sdk
@@ -362,6 +374,30 @@ importers:
         specifier: workspace:*
         version: link:../contracts
     devDependencies:
+      '@tailwindcss/node':
+        specifier: 4.3.4
+        version: 4.3.4
+      '@tailwindcss/oxide':
+        specifier: 4.3.4
+        version: 4.3.4
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.19.2
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      react:
+        specifier: 19.3.1
+        version: 19.3.1
+      react-dom:
+        specifier: 19.3.1
+        version: 19.3.1(react@19.3.1)
+      tailwindcss:
+        specifier: ^4.3.4
+        version: 4.3.4
       typescript:
         specifier: ~6.0.3
         version: 6.0.3

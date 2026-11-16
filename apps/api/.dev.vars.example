@@ -19,5 +19,8 @@ KR_GPT_WORKER_SECRET=
 # Homebase Feedback screenshots: the image ticket secret, the same value the Feedback viewer Worker holds (32 characters or more).
 # Optional locally: without it images carry no ticket (the local viewer cannot show them anyway).
 KR_FEEDBACK_IMAGE_TICKET_SECRET=
+# Billing part 7c: Cloudflare Browser Rendering token for the emailed PDFs (key file cloudflare-custom-token\cloudflare-browser-rendering.token, docs/09_ENV_KeyMappings.md).
+# Optional locally: without it documents are emailed without the PDF and the reply says why.
+KR_CF_BROWSER_RENDERING_TOKEN=
 # Optional: only while the database has no users.
 KR_SUPER_ADMIN_EMAILS=

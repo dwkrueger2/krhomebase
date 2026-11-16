@@ -15,12 +15,17 @@
  *  - The pencil and the client-state menu call `onEdit`; until editing arrives (stage 1d-3) `onEdit` is absent, so
  *    the pencil is not drawn and the pill's options do nothing.
  *
+ * Nov 16, 2026 (the requester): a related contact shows the contact editor's hover card on hover
+ *   (`useRelatedContactHover`, shared with `ContactEditCard`), and a related contact that is a client shows its number
+ *   first, "[107] Client Name" (`relatedContactLabel`). The button's own title tooltip is gone: the card replaces it.
+ *
  * Read-only: nothing here writes.
  */
 
 import { useEffect, useRef, useState, type FC, type ReactNode } from 'react'
 import KRCopyButton from '@/components/ui/KRCopyButton.client'
 import type { KRContactRecord } from '../types'
+import { relatedContactLabel, useRelatedContactHover } from './RelatedContactHover.client'
 
 const LAYOUT_STYLES = {
   contactIcon: 'inline-flex size-[15px] shrink-0 items-center justify-center',
@@ -235,6 +240,7 @@ export interface ContactIdentityDetailsProps {
 export default function ContactIdentityDetails({ contact, onEdit, onOpenMatter, onOpenContact }: ContactIdentityDetailsProps) {
   const address = formatContactAddress(contact)
   const namedAddressCopyBlock = [contact.displayName, address].filter(Boolean).join('\n')
+  const relatedHover = useRelatedContactHover()
   const letterBlock = [contact.displayName, address, contact.email ? `via email: ${contact.email}` : '', contact.phone ?? ''].filter(Boolean).join('\n')
 
   return (
@@ -315,23 +321,33 @@ export default function ContactIdentityDetails({ contact, onEdit, onOpenMatter, 
           <h3 className={`${LAYOUT_STYLES.associationTitle} ${STYLES.associationTitle}`}>Related Contacts</h3>
           <div className={LAYOUT_STYLES.associationList}>
             {contact.relatedContacts.length ? (
-              contact.relatedContacts.map((related) => (
-                <button
-                  className={`${LAYOUT_STYLES.relatedItem} ${STYLES.associationItem}`}
-                  data-kr-action="open-related-contact"
-                  key={related.id}
-                  title={`${related.displayName} — ${related.relationship || 'Related contact'}`}
-                  type="button"
-                  onClick={() => onOpenContact?.(related.id)}
-                >
-                  <span className={LAYOUT_STYLES.relatedName}>{related.displayName}</span>
-                  <span className={STYLES.associationItemMeta}>{related.relationship || 'Related contact'}</span>
-                </button>
-              ))
+              contact.relatedContacts.map((related) => {
+                const label = relatedContactLabel(related, relatedHover.directoryContact(related.id))
+                return (
+                  <button
+                    aria-label={`${label} — ${related.relationship || 'Related contact'}`}
+                    className={`${LAYOUT_STYLES.relatedItem} ${STYLES.associationItem}`}
+                    data-kr-action="open-related-contact"
+                    key={related.id}
+                    type="button"
+                    onClick={() => {
+                      relatedHover.close()
+                      onOpenContact?.(related.id)
+                    }}
+                    onMouseEnter={(event) => relatedHover.show(related, event)}
+                    onMouseLeave={relatedHover.scheduleClear}
+                  >
+                    <span className={LAYOUT_STYLES.relatedName}>{label}</span>
+                    <span className={STYLES.associationItemMeta}>{related.relationship || 'Related contact'}</span>
+                  </button>
+                )
+              })
             ) : (
               <p className={`${LAYOUT_STYLES.mutedText} ${STYLES.mutedText}`}>No related contacts recorded.</p>
             )}
           </div>
+          {/* Related contact hover card (drawn into the body) */}
+          {relatedHover.card}
         </div>
       </aside>
     </div>

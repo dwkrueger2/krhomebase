@@ -1,7 +1,7 @@
 # Billing Audit: Old KR-Billing Compared With the New Billing
 
-<small>Version 1.1</small><br>
-<small>Updated Nov 15, 2026 10:35pm</small>
+<small>Version 1.2</small><br>
+<small>Updated Nov 16, 2026 1:35am</small>
 
 ## 1. Purpose and sources
 
@@ -187,6 +187,13 @@ The requester accepted the recommendations for B1 to B5:
 5. **B5:** the tagline, website, licensing sentence and each office's state badge are added to the firm profile row `lk_kr_firm_locations_profile` and its Firm Settings card.
 
 C4 was not answered; the build follows the recommendation (7a to 7c, then 7d and 7e) unless the requester says otherwise.
+
+**Changed by the requester on Nov 16, 2026 (part 7c):**
+
+- **B2:** keep the old Browser Rendering setup: its REST address with the token `KR_CF_BROWSER_RENDERING_TOKEN` (key file `cloudflare-custom-token\cloudflare-browser-rendering.token` in the old repository's `private\dev-private-keys`) and the account id `KR_CF_ACCOUNT_ID` (the same account as this repository), instead of a `browser` binding.
+- **B3:** the documents bucket is the old one, `krhomebase-media-dev`, with the old keys under `clients/` (client 306 holds the requester's own sample documents), so the copies the old app stored still open.
+
+**Progress:** 7a built Nov 15, 2026 (repository 47, API 37, web 551); 7b built Nov 15, 2026 (repository 48, web 552); 7c built Nov 16, 2026 (repository 49, API 38, web 553).
 
 ### 8.2 Can wait
 

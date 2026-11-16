@@ -1,7 +1,7 @@
 # Environment Key Mappings
 
-<small>Version 1.2</small><br>
-<small>Updated Nov 14, 2026 4:45am</small>
+<small>Version 1.3</small><br>
+<small>Updated Nov 16, 2026 1:30am</small>
 
 ## What this is
 
@@ -35,10 +35,12 @@ This page maps each environment key (secret or setting) to the key file that hol
 | `KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY` | `krhomebase-google-workspace-mailer-key.json` | No (old folder only) | API secret: the whole service-account JSON file. Invitation and billing email. Set on the deployed API on Nov 12, 2026; not in `.dev.vars` unless added by hand. |
 | `KR_PAYMENT_PROVIDER_KEK` | `payment-provider-kek.key` | Yes | API secret, and the same value on `kr-pay-worker-live`. Encrypts the Stripe keys in `payment_provider`. It is not the Stripe webhook secret (`whsec_...`), which is entered on the Stripe Payment Configuration page. |
 | `KR_GPT_WORKER_SECRET` | `gpt-worker-shared-secret.txt` (made Nov 14, 2026; `workers/gpt-workers/README.md`) | — | API secret, and the same value as `GPT_WORKER_SHARED_SECRET` on the GPT models Worker. Set on the deployed API by the requester on Nov 14, 2026 (piped from the file; `workers/gpt-workers/README.md` step 6). |
+| `KR_CF_BROWSER_RENDERING_TOKEN` | `cloudflare-custom-token\cloudflare-browser-rendering.token` | No (old folder only) | API secret (Billing part 7c, Nov 16, 2026): Cloudflare Browser Rendering for the PDFs of emailed invoices, statements and receipts (the old app's token, the requester's choice). `.dev.vars` by `Write-DevVars.ps1` once the file is copied here. The account id `KR_CF_ACCOUNT_ID` is a plain setting in the wrangler file. |
 | `KR_APP_BASE_URL` | none (a setting) | — | `http://localhost:3011` in `.dev.vars`; the deployed address in the wrangler file. |
 | `KR_SUPER_ADMIN_EMAILS` | none (a setting) | — | Optional, only while the database has no users. |
 | `krhomebase` | none (binding) | — | D1 database binding (`remote: true` under `pnpm dev`). |
 | `EMPLOYEE_STORAGE` | none (binding) | — | R2 bucket `kr-homebase-employee-storage` (`remote: true`). |
+| `DOCUMENTS` | none (binding) | — | R2 bucket `krhomebase-media-dev` (`remote: true`; Billing part 7c): stored copies of sent invoices, statements and receipts, the old app's bucket and keys. |
 | `CRUD_WORKER`, `SESSION_WORKER`, `PUBLIC_INQUIRY_WORKER` | none (bindings) | — | Service bindings to `krhomebase-crud-worker`, `krhomebase-session-worker` and `krhomebase-crud-worker-pub-inquiry`. |
 | `GPT_WORKER` | none (binding) | — | Service binding to `krhomebase-gpt-models-worker` (deployed Nov 14, 2026); on in `kr-api-wrangler.jsonc`. |
 
@@ -69,6 +71,5 @@ These keys came from the old app's `.env` and have no consumer in this repositor
 | `KR_R2_CF_API_TOKEN` | `cloudflare-s3\krhomebase-media-dev.cfapi.token` | No | Cloudflare API token for the media bucket. |
 | `KR_R2_JURISDICTION_ENDPOINTS` | `cloudflare-s3\krhomebase-media-dev.jurisdiction-endpoints.txt` | No | R2 endpoints for the media bucket. |
 | `KR_R2_ARTICLES_ACCESS_KEY_ID` / `KR_R2_ARTICLES_SECRET_ACCESS_KEY` | `cloudflare-s3\krhomebase-articles.accesskey.pub` / `cloudflare-s3\krhomebase-articles-secret.private` | No | S3-style access to the articles bucket (Front End Publishing). |
-| `KR_CF_BROWSER_RENDERING_TOKEN` | `cloudflare-custom-token\cloudflare-browser-rendering.token` | No | Cloudflare Browser Rendering (PDF printing). |
 
 The old folder also holds `cloudflare-orig-certs\` (origin certificates for the firm's domains) and `oldkeys\` (retired keys). Nothing in this repository uses them.

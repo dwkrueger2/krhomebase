@@ -1,0 +1,80 @@
+/* file: packages/documents/src/print-pdf.css */
+/**
+ * PDF-only layer for KR Homebase print documents.
+ *
+ * Owner: packages/documents. Never imported by the app; it
+ * is appended after print-document.css by scripts/write-document-css.mjs,
+ * which produces the stylesheet the server embeds in the HTML it sends to
+ * Cloudflare Browser Rendering (`src/renderDocument.tsx`).
+ *
+ * Ported unchanged from the old `hb-lib/printing/print-pdf.css` (Billing part 7c of `docs/API/Billing_Audit.md`) except
+ * for the file names in this comment and the one below.
+ *
+ * In the browser, PaginatedPrintPreview measures the document and clones it
+ * onto fixed Letter pages. Chromium paginates the PDF natively instead, so this
+ * layer states the same geometry as CSS: Letter sheets with the template's
+ * margins, every direct child of PrintDocument kept whole, tables free to split
+ * row by row with the header repeated. The running footer is drawn by the
+ * renderer's footer template (see invoicePdfRenderOptions).
+ */
+
+@page {
+  size: 8.5in 11in;
+  /* Top and bottom only. Chromium clips content at the page area, so a side margin here would
+     stop the full-bleed banner (.kr-print-bleed) at 0.75in from the sheet edge; the side margins
+     are the document's own padding instead, which negative margins can cross. Literal values:
+     custom properties do not reach the @page context. Keep in step with --kr-print-top-margin /
+     --kr-print-bottom-reserve and DOCUMENT_PDF_MARGINS in src/renderDocument.tsx. */
+  margin: 0.5in 0 0.85in;
+}
+
+/**
+ * First page: the Option 1 banner is pulled 14pt up into the top margin
+ * (`mt-[-14pt]` in InvoiceReportOption1) so on the print view it starts 22pt
+ * from the sheet edge. Chromium clips at the page area, so the same negative
+ * margin here would cut the banner's top padding off instead. Give the first
+ * page that 14pt back as page area and pad the document by the same amount:
+ * the banner lands at 22pt, everything else still at 0.5in.
+ */
+@page :first {
+  margin-top: 22pt;
+}
+
+html,
+body {
+  background: #ffffff;
+  margin: 0;
+  padding: 0;
+}
+
+/**
+ * The document fills the page area; PaginatedPrintPreview's stage/pages do not exist here.
+ * Side margins live here as padding (same 0.75in as .kr-print-page) so .kr-print-bleed's
+ * negative margins reach the sheet edge exactly as on the print view.
+ */
+.kr-print-document {
+  box-sizing: border-box;
+  padding: 14pt var(--kr-print-side-margin) 0; /* 14pt pairs with @page :first above */
+  width: 100%;
+}
+
+/** Pagination units stay whole, as they do in the screen preview. */
+.kr-print-document > * {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/** Tables split across pages row by row; thead repeats on every page. */
+.kr-print-document > table,
+.kr-print-document > .kr-print-table {
+  break-inside: auto;
+  page-break-inside: auto;
+}
+
+.kr-print-table thead {
+  display: table-header-group;
+}
+
+.kr-print-table tfoot {
+  display: table-footer-group;
+}

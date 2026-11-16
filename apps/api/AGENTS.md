@@ -1,7 +1,7 @@
 # KR Homebase API Agent Guide
 
-<small>Version 1.39</small><br>
-<small>Updated Nov 15, 2026 11:15pm</small>
+<small>Version 1.40</small><br>
+<small>Updated Nov 16, 2026 1:35am</small>
 
 ## Purpose
 
@@ -79,7 +79,7 @@ A route is not finished until all of these pass (`pnpm check`):
 - **Who is signed in.** `signInGuard` (`src/platform/authGuard.ts`) runs on every request after `requestId`. It finds the route in `routeRegistry`, reads its `access`, and for `signed-in` or `{ roles }` routes asks the session Worker about the `kr_session` cookie. No cookie gives 401 `UNAUTHENTICATED`; an unreachable session Worker gives 503 `SESSION_VALIDATION_UNAVAILABLE`; a role not on the list gives 403. There is no implicit super admin.
 - **Auth routes** are in `src/features/auth/` (`routes.ts`, `rules.ts`, `queries.ts`, `signIn.ts`). `queries.ts` is the only file that reaches the database, and it does so through the crud Worker.
 - **Permissions** (`permission` in `defineRoute()`) are checked after the role; see "Database access, permissions and writes".
-- **Outside calls** go through `src/platform/`: `crudClient.ts` (signs and seals each command for the crud Worker), `sessionClient.ts`, `google.ts`, `turnstile.ts`, `googleWorkspaceMailer.ts` (Gmail API through a delegated service account; see Users and Invites). They use WebCrypto, never `node:crypto`.
+- **Outside calls** go through `src/platform/`: `crudClient.ts` (signs and seals each command for the crud Worker), `sessionClient.ts`, `google.ts`, `turnstile.ts`, `googleWorkspaceMailer.ts` (Gmail API through a delegated service account; see Users and Invites; inline images and, since Billing part 7c, attachments), `pdfRenderer.ts` (Cloudflare Browser Rendering's PDF address with `KR_CF_ACCOUNT_ID` and the secret `KR_CF_BROWSER_RENDERING_TOKEN`), `documentStorage.ts` (R2 `DOCUMENTS`). They use WebCrypto, never `node:crypto`.
 - **Bindings.** `CRUD_WORKER` and `SESSION_WORKER` are service bindings in `kr-api-wrangler.jsonc`. They are `remote: true`, so `pnpm dev:api` calls the deployed Workers. The `krhomebase` database binding is `remote: true` too: local runs read and write the live database. Test saves with care, or ask the requester before switching it.
 - **Settings and secrets** are listed in `apps/api/Readme-auth.md`. The names only are in `apps/api/.dev.vars.example`.
 
@@ -154,8 +154,17 @@ The contract test gives write routes a full-schema test database (the maintenanc
 
 - **Who:** reading uses the old office read roles; writing the old billing write roles; unlock, detach, invoice void and payment void are super admin only (route `access`, so 403). The record carries `viewer` (`canWrite`, `canAdminister`) so the screen shows only what the person may do.
 - **Rules:** `rules.ts` keeps the old arithmetic, status words and `VALIDATION_…` codes. `BillingError(code, status)` carries a refusal (404, 409 or 422). Each write is one batch with an `audit_log` row per changed record (resource `billing`). New `bcid`/`ivid` codes use `generatePublicCode` from contact-edits; an invoice number is the firm-wide highest all-digit number plus one, stepped forward on a clash.
-- **Not here yet:** card and ACH payments, refunds and pay links (stage 6: a credit-card or ACH payment answers `VALIDATION_STRIPE_PAYMENT_INTENT_REQUIRED`, a refund `STRIPE_REFUND_NOT_AVAILABLE`); invoice and statement email and print (stage 5).
+- **Not here yet:** card and ACH payments, refunds and pay links (stage 6: a credit-card or ACH payment answers `VALIDATION_STRIPE_PAYMENT_INTENT_REQUIRED`, a refund `STRIPE_REFUND_NOT_AVAILABLE`); invoice and statement email and print (stage 5; built as Billing parts 7b (print, in the web app) and 7c (email, the Billing documents area below)).
 - **Read-only record:** the `GET` writes nothing. The old one also back-filled missing codes and posted paid pay links; codes are now made on insert, and pay links move with stage 6.
+
+## Billing documents (email and stored copies)
+
+`src/features/billing-documents/` (Billing part 7c, `docs/API/Billing_Audit.md`; old `kr-api-v1/billing/send-invoice`, `send-statement`, `payment-notice` (receipt), `sample-pdf` and the document reader): for an invoice, the Statement of Account (whole client or one matter) and a payment receipt, `GET .../email` (recipients and the sent copies), `POST .../email/preview` and `POST .../email`; `POST /v1/billing/clients/{clientId}/documents/{documentNumber}/resend` (the exact stored email again), `GET .../documents/{documentNumber}/file` (a stored PDF or, with `format=html`, the email) and `POST /v1/billing/document-samples/pdf` (super admin, admin; returned, not stored). Reading uses the billing read roles, sending the billing write roles. The route list and every change from the old routes are in `packages/contracts/src/billingDocuments.ts`; the flow is in the header of `rules.ts`.
+
+- **Documents are built here** from the Billing record (`loadBillingRecord`) and the firm profile (`readFirmProfile`, the letterhead office from `officeId`) with `@krhomebase/documents` (the builders, the email builders and `renderDocument.tsx`); the browser sends only the choices. The PDF stylesheet is generated (`pnpm documents:css`).
+- **Order (old, kept):** build, PDF (a failure is reported, not fatal), store (R2 first, then `media_asset`, `document_record` with its seven-character `generatePublicCode` number, retried on a clash, and the audit row in one batch; a failed batch removes the objects), send (billing mailbox, subject tagged, `X-KR-*` headers; a refusal marks the copy `superseded`), an invoice's `sent_at` and lock, then the WorkStream "Emails" entry linked to the copy (`createActivity`; a failure is `workstreamError`). No storage (`DOCUMENTS` binding missing) answers 503 before anything is sent.
+- **Storage:** bucket `krhomebase-media-dev` (the old app's), keys `clients/<client>/matters/<matter>/invoices/<n>/<version>/<file>`, `clients/<client>/[matters/<matter>/]statements/...`, `clients/<client>/matters/<matter>/payments/...`; document types `invoice_sent`, `statement_sent`, `payment_receipt_sent`, so the copies the old app stored open and re-send too.
+- **Not here yet:** pay links in the invoice email and the receipt (part 7d), refund notices (part 7e).
 
 ## Attendance (timekeeping)
 

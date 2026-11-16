@@ -2,11 +2,22 @@
 // file: apps/web/features/billing/components/InvoicesTab.client.tsx
 // Ported from the old app (hb-components/KR-Billing/InvoicesTab.client.tsx). Change: the row Print and Send icons are
 // shown disabled until plan stage 5 (documents and email), which ports the print view and the invoice email.
+// Billing part 7b (Nov 15, 2026): the row Print is back as in the old tab: a locked, void or new invoice opens the
+// print view at once; an unlocked one first asks whether the print goes to the client (`InvoicePrintIntent`, which
+// can lock it). Send stays disabled until part 7c (the invoice email).
+// Billing part 7c (Nov 16, 2026): the row Send is back as in the old tab: it opens `SendInvoiceDialog` without opening
+// the editor (a new, unsaved invoice cannot be sent). New `clientId` prop (from `BillingClientPanel`), which the old tab
+// had too; it also gives the print view its send context. After a delivered email the API has already marked the
+// invoice sent and locked it, and the dialog's call reloaded the record, so the tab only closes the dialog (the old tab
+// called `onSend` to mark it sent).
 
 import { useEffect, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import InvoiceEditDialog from './InvoiceEditDialog.client'
 import InvoiceLockConfirm, { type InvoiceConfirmMode } from './InvoiceLockConfirm.client'
+import InvoicePrintIntent from './InvoicePrintIntent.client'
+import SendInvoiceDialog from './SendInvoiceDialog.client'
+import { printInvoiceFromBilling } from '../printDocuments.client'
 import type { InvoiceRecordAction } from '../api.client'
 import BillingTabHeader from './BillingTabHeader.client'
 import { formatAccountingAmount } from '../formatAccountingAmount'
@@ -57,8 +68,8 @@ const STATUS_CLASSES: Record<BillingInvoice['status'], string> = {
   Void: 'border-[#c7c2bb] bg-[#eeebe6] text-[#6b665f] line-through',
 }
 
-/** Why the row Print and Send icons are disabled. */
-const DOCUMENTS_LATER = 'Printing and emailing invoices arrive in plan stage 5 (documents and email).'
+/** Why the row Send icon is disabled for a new invoice. */
+const SAVE_BEFORE_SENDING = 'Save the invoice before sending it.'
 
 function displayDate(offsetDays = 0): string {
   const date = new Date()
@@ -92,6 +103,8 @@ function InvoiceLockIcon({ locked }: { locked: boolean }) {
 }
 
 export interface InvoicesTabProps {
+  /** Client account id; enables the row Send action and the editor's email dialog. */
+  clientId?: string
   clientNumber: string
   clientDisplayName: string
   invoices: BillingInvoice[]
@@ -120,6 +133,7 @@ export interface InvoicesTabProps {
 
 /** Displays persisted client invoices and opens the production invoice editor. */
 export default function InvoicesTab({
+  clientId,
   clientDisplayName,
   clientNumber,
   invoices,
@@ -145,6 +159,11 @@ export default function InvoicesTab({
   const [problem, setProblem] = useState<string | null>(null)
   /** Voided invoices stay on file but are hidden from the ledger by default. */
   const [showVoided, setShowVoided] = useState(false)
+  /** Unlocked invoice whose Print was clicked: ask review vs. send before opening the print view. */
+  const [printIntent, setPrintIntent] = useState<BillingInvoice | null>(null)
+  /** Invoice whose row Send was clicked: the email dialog is open for it. */
+  const [sending, setSending] = useState<BillingInvoice | null>(null)
+  const canSend = Boolean(clientId)
   // Open the editor for an invoice requested from elsewhere (the time & fee dialog's invoice link).
   useEffect(() => {
     if (!openInvoiceId) return
@@ -178,6 +197,29 @@ export default function InvoicesTab({
       invoice,
       mode: invoice.locked ? (hasPayments ? 'detachPayments' : 'unlock') : 'lock',
     })
+  }
+  /** Opens the print view for one invoice (no prompt). */
+  function openPrintView(invoice: BillingInvoice): void {
+    setProblem(
+      printInvoiceFromBilling({ invoice, entries, clientNumber, staffOptions, accountInvoices: invoices, send: clientId ? { clientId, clientDisplayName } : undefined }),
+    )
+  }
+  /** Row-level Send: opens the email dialog without opening the editor. */
+  function sendRow(event: MouseEvent, invoice: BillingInvoice): void {
+    event.stopPropagation()
+    if (!canSend) return
+    if (invoice.id.startsWith('new_')) {
+      setProblem(SAVE_BEFORE_SENDING)
+      return
+    }
+    setProblem(null)
+    setSending(invoice)
+  }
+  /** Row-level Print: locked invoices open straight away; unlocked ones first ask whether the print goes to the client. */
+  function printRow(event: MouseEvent, invoice: BillingInvoice): void {
+    event.stopPropagation()
+    if (invoice.locked || invoice.status === 'Void' || invoice.id.startsWith('new_') || !onToggleLock) openPrintView(invoice)
+    else setPrintIntent(invoice)
   }
   /** Keeps clicks on the lock and utility cells from opening the editor. */
   function swallow(event: MouseEvent): void {
@@ -305,7 +347,7 @@ export default function InvoicesTab({
                         <InvoiceLockIcon locked={invoice.locked} />
                       </button>
                     </span>
-                    {/* Utility cell: print · send (plan stage 5) · edit */}
+                    {/* Utility cell: print · send · edit */}
                     <span
                       className={LAYOUT_STYLES.utilityCell}
                       data-kr-element="invoice-utility-cell"
@@ -315,9 +357,9 @@ export default function InvoicesTab({
                         aria-label={`Print invoice ${invoice.invoiceNumber || 'draft'}`}
                         className={STYLES.utilityButton}
                         data-kr-action="invoice-row-print"
-                        disabled
-                        title={DOCUMENTS_LATER}
+                        title="Print invoice"
                         type="button"
+                        onClick={(event) => printRow(event, invoice)}
                       >
                         <KRHomebaseIcons.Print />
                       </button>
@@ -325,9 +367,10 @@ export default function InvoicesTab({
                         aria-label={`Email invoice ${invoice.invoiceNumber || 'draft'}`}
                         className={STYLES.utilityButton}
                         data-kr-action="invoice-row-send"
-                        disabled
-                        title={DOCUMENTS_LATER}
+                        disabled={!canSend || invoice.id.startsWith('new_')}
+                        title={!canSend ? 'Sending is unavailable for this account' : invoice.id.startsWith('new_') ? SAVE_BEFORE_SENDING : 'Email invoice to the client'}
                         type="button"
+                        onClick={(event) => sendRow(event, invoice)}
                       >
                         <KRHomebaseIcons.Send />
                       </button>
@@ -377,6 +420,8 @@ export default function InvoicesTab({
           canUnlock={canUnlock}
           onToggleLock={onToggleLock}
           onInvoiceAction={onInvoiceAction}
+          accountInvoices={invoices}
+          clientId={clientId}
           onCancel={() => setEditing(null)}
           onOpenPayment={onOpenPayment}
           onSave={async (invoice) => {
@@ -384,6 +429,37 @@ export default function InvoicesTab({
             setEditing(null)
           }}
           onSaveEntry={onSaveEntry}
+        />
+      ) : null}
+      {/* Email dialog from the row Send: the API marks the invoice sent and locks it; the record reloads. */}
+      {sending && clientId ? (
+        <SendInvoiceDialog
+          accountInvoices={invoices}
+          clientDisplayName={clientDisplayName}
+          clientId={clientId}
+          clientNumber={clientNumber}
+          entries={entries}
+          invoice={sending}
+          staffOptions={staffOptions}
+          onCancel={() => setSending(null)}
+          onSent={() => setSending(null)}
+        />
+      ) : null}
+      {printIntent && onToggleLock ? (
+        <InvoicePrintIntent
+          clientDisplayName={clientDisplayName}
+          clientNumber={clientNumber}
+          invoice={printIntent}
+          onCancel={() => setPrintIntent(null)}
+          onLockAndPrint={async () => {
+            await onToggleLock(printIntent, true)
+            setPrintIntent(null)
+            openPrintView({ ...printIntent, locked: true })
+          }}
+          onPreview={() => {
+            setPrintIntent(null)
+            openPrintView(printIntent)
+          }}
         />
       ) : null}
       {lockPrompt && onToggleLock ? (

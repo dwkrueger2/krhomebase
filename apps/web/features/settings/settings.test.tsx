@@ -53,6 +53,8 @@ describe('Settings areas', () => {
       'user-settings': 'userSettingsSection',
       'application-settings': 'applicationSettingsTab',
       'firm-settings': 'firmSettingsSection',
+      // Billing part 7b: Reports' open report, the old Reports panel's `?report=`.
+      reports: 'report',
     })
     expect(USER_SETTINGS_PAGES.map((page) => page.id)).toEqual(['user-settings', 'dashboard-settings', 'time-card', 'employee-file'])
     for (const old of ['role-specifications', 'team-management', 'other-configuration', 'site-feedback']) {

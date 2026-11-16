@@ -10,14 +10,35 @@
  * A payment opened from the Billing Overview (`openPaymentId`) is scrolled to and outlined, since its receipt preview
  * arrives in stage 5.
  *
+ * Billing part 7b (Nov 15, 2026, `docs/API/Billing_Audit.md`): each live row has the old receipt icons. Receipt opens
+ * the Payment details dialog (`PaymentDetailsDialog`), Print opens the receipt in the print view, and Email waits for
+ * part 7c (shown disabled with a tooltip). The receipt is built from the Billing record on screen
+ * (`receiptFromBilling`). A payment opened from the Billing Overview is still outlined and now also opens its details,
+ * as in the old app.
+ *
+ * Billing part 7c (Nov 16, 2026): Email receipt opens `PaymentNoticeDialog` (receipt only; the refund notice waits for
+ * part 7e), as in the old ledger. Opening the details also reads the payment's sent receipts (`fetchReceiptEmailInfo`)
+ * so the details dialog can preview and resend the newest one; the details themselves still come from the record
+ * (the old ledger waited for the `payment-notice` route before drawing anything). The client id, number and name come
+ * from `receiptSource.client` (the old ledger took them as props).
+ *
  * @returns The posted-payments ledger with its void dialog.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { BillingSentDocument } from '@krhomebase/contracts'
 import KrRequestErrorNote from '@/components/ui/KrRequestErrorNote.client'
 import { describeKrRequestError, krLocalValidationError, type KrRequestErrorInfo } from '@/lib/krRequestError'
+import { L } from '@/lib/KRUtilities'
+import type { BillingRecord } from '@krhomebase/contracts'
+import { paymentDetailsFor } from '@krhomebase/documents/receipt'
+import KRHomebaseIcon from '@/components/ui/KRHomebaseIcon.client'
 import { formatAccountingAmount } from '../formatAccountingAmount'
+import { BillingApiError, fetchReceiptEmailInfo } from '../api.client'
+import { printReceiptFromBilling, receiptFromBilling } from '../printDocuments.client'
 import type { BillingPayment } from '../types'
+import PaymentDetailsDialog from './PaymentDetailsDialog.client'
+import PaymentNoticeDialog from './PaymentNoticeDialog.client'
 
 /** Friendly text for void failures. */
 function friendlyVoidError(code: string): string | null {
@@ -42,6 +63,10 @@ const STYLES = {
   voidChip: 'px-1 rounded border border-[#b3473b] bg-white text-[7pt] font-bold uppercase text-[#9d2c20]',
   ivid: 'ml-0.5 text-[7.5pt] text-[var(--kr-theme-text-muted,#526172)]',
   amount: 'text-right tabular-nums',
+  // Receipt icons on a payment row (Billing part 7b): 20px buttons, as icon buttons in rows are.
+  receiptButton: 'inline-flex size-[20px] cursor-pointer items-center justify-center rounded-[2px] border-0 bg-transparent text-[var(--kr-theme-text-muted,#526172)] hover:enabled:bg-[var(--kr-theme-muted-surface,#eef3f7)] hover:enabled:text-[var(--kr-theme-brand-primary,#21394f)] disabled:cursor-help disabled:opacity-40',
+  receiptIcon: 'size-[14px]',
+  noticeWarn: 'px-2 py-1 border-b border-[var(--kr-theme-danger,#9d2c20)] text-[9pt] text-[var(--kr-theme-danger,#9d2c20)]',
   voidButton: 'px-1.5 py-0.5 rounded border border-[var(--kr-theme-danger,#9d2c20)] bg-(--kr-theme-card-surface) text-[8pt] font-semibold text-[var(--kr-theme-danger,#9d2c20)] disabled:opacity-50',
   empty: 'p-2 text-[9pt] text-[var(--kr-theme-text-muted,#526172)]',
   stripeTag: 'ml-1 px-1 rounded text-[7pt] font-bold uppercase text-white bg-[var(--kr-theme-brand-primary,#21394f)]',
@@ -63,7 +88,8 @@ const LAYOUT_STYLES = {
   toolbar: 'px-2 py-1 gap-2 flex items-center justify-end',
   toolbarToggle: 'gap-1 inline-flex items-center',
   viewport: 'overflow-x-auto',
-  table: 'grid min-w-[760px] grid-cols-[80px_110px_120px_90px_minmax(0,1fr)_90px_80px_76px]',
+  // The last column holds the receipt icons (part 7b) and Void.
+  table: 'grid min-w-[820px] grid-cols-[80px_110px_120px_90px_minmax(0,1fr)_90px_80px_136px]',
   fullRow: 'col-span-full gap-1.5 flex flex-wrap items-center',
   actions: 'gap-1 flex items-center justify-end',
   backdrop: 'p-3 fixed inset-0 z-[1200] flex items-center justify-center',
@@ -82,6 +108,8 @@ export interface PostedPaymentsLedgerProps {
   /** Payment from the Overview ledger to show after switching to Payments. */
   openPaymentId?: string | null
   onOpenPaymentConsumed?: () => void
+  /** The record's client, matters and invoices, for the receipt (Billing part 7b); without it the receipt icons are hidden. */
+  receiptSource?: Pick<BillingRecord, 'client' | 'matters' | 'invoices'>
 }
 
 /** "Invoice #5 (#HITKC87)" for dialogs and titles. */
@@ -102,7 +130,7 @@ function sortKey(date: string): string {
   return match ? `${match[3]}${match[1]}${match[2]}` : date
 }
 
-export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPaymentId, onOpenPaymentConsumed }: PostedPaymentsLedgerProps) {
+export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPaymentId, onOpenPaymentConsumed, receiptSource }: PostedPaymentsLedgerProps) {
   const [showVoided, setShowVoided] = useState(false)
   const [voiding, setVoiding] = useState<BillingPayment | null>(null)
   const [reason, setReason] = useState('')
@@ -110,6 +138,15 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
   const [error, setError] = useState<KrRequestErrorInfo | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [openedId, setOpenedId] = useState<string | null>(null)
+  /** The payment whose receipt details are open. */
+  const [detailsPayment, setDetailsPayment] = useState<BillingPayment | null>(null)
+  /** Why a receipt print view did not open. */
+  const [receiptProblem, setReceiptProblem] = useState<string | null>(null)
+  /** The payment whose receipt email dialog is open. */
+  const [emailing, setEmailing] = useState<BillingPayment | null>(null)
+  /** The open details' sent receipts (newest first), and a sentence while they load or when they could not be read. */
+  const [detailsSent, setDetailsSent] = useState<BillingSentDocument[]>([])
+  const [detailsSentNote, setDetailsSentNote] = useState<string | null>(null)
   const rowRefs = useRef(new Map<string, HTMLDivElement>())
 
   const sorted = useMemo(() => [...payments].sort((a, b) => sortKey(b.receivedDate).localeCompare(sortKey(a.receivedDate))), [payments])
@@ -124,10 +161,42 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
     if (target) {
       if (target.voided) setShowVoided(true)
       setOpenedId(target.id)
+      if (!target.voided && receiptSource) setDetailsPayment(target)
       window.requestAnimationFrame(() => rowRefs.current.get(target.id)?.scrollIntoView({ block: 'center' }))
     }
     onOpenPaymentConsumed?.()
-  }, [openPaymentId, payments, onOpenPaymentConsumed])
+  }, [openPaymentId, payments, onOpenPaymentConsumed, receiptSource])
+
+  const detailsPaymentId = detailsPayment?.id ?? null
+  const receiptClientId = receiptSource?.client.id ?? null
+  // The open details' sent receipts, for Preview sent email and Resend (the details come from the record).
+  useEffect(() => {
+    if (!detailsPaymentId || !receiptClientId) return
+    let cancelled = false
+    setDetailsSent([])
+    setDetailsSentNote('Looking for sent receipt emails...')
+    fetchReceiptEmailInfo(receiptClientId, detailsPaymentId)
+      .then((info) => {
+        if (cancelled) return
+        setDetailsSent(info.sent)
+        setDetailsSentNote(null)
+      })
+      .catch((caught: unknown) => {
+        L(`[KR_POSTED_PAYMENTS:sent] lookup failed payment=${detailsPaymentId} code=${caught instanceof BillingApiError ? caught.code : 'unknown'}`)
+        if (!cancelled) setDetailsSentNote(`The sent receipt emails could not be read: ${caught instanceof Error ? caught.message : 'unknown error'}`)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [detailsPaymentId, receiptClientId])
+
+  /** Opens one payment's receipt in the print view. */
+  function printReceipt(payment: BillingPayment): string | null {
+    if (!receiptSource) return null
+    const problem = printReceiptFromBilling(receiptFromBilling(payment, receiptSource))
+    setReceiptProblem(problem)
+    return problem
+  }
 
   function openVoid(payment: BillingPayment): void {
     setVoiding(payment)
@@ -168,6 +237,11 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
       {notice ? (
         <p className={STYLES.noticeOk} data-kr-element="posted-payments-notice" role="status">
           {notice}
+        </p>
+      ) : null}
+      {receiptProblem ? (
+        <p className={STYLES.noticeWarn} data-kr-element="posted-payments-receipt-problem" role="alert">
+          {receiptProblem}
         </p>
       ) : null}
       {/* Payments table: one row per payment; voided rows add a detail line (reason, refund). */}
@@ -223,6 +297,20 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
                 </div>
                 <div className={cell} role="cell">
                   <div className={LAYOUT_STYLES.actions}>
+                    {/* Receipt icons: details, print, email */}
+                    {!payment.voided && receiptSource ? (
+                      <>
+                        <button aria-label={`Payment receipt for payment ${payment.paymentNumber}`} className={STYLES.receiptButton} data-kr-action="posted-payment-preview-receipt" onClick={() => setDetailsPayment(payment)} title="Payment receipt details" type="button">
+                          <KRHomebaseIcon className={STYLES.receiptIcon} name="preview" />
+                        </button>
+                        <button aria-label={`Print payment receipt for payment ${payment.paymentNumber}`} className={STYLES.receiptButton} data-kr-action="posted-payment-print-receipt" onClick={() => printReceipt(payment)} title="Print payment receipt" type="button">
+                          <KRHomebaseIcon className={STYLES.receiptIcon} name="print" />
+                        </button>
+                        <button aria-label={`Email receipt for payment ${payment.paymentNumber}`} className={STYLES.receiptButton} data-kr-action="posted-payment-email-receipt" onClick={() => setEmailing(payment)} title="Email payment receipt" type="button">
+                          <KRHomebaseIcon className={STYLES.receiptIcon} name="send" />
+                        </button>
+                      </>
+                    ) : null}
                     {payment.voided ? (
                       <span className={STYLES.voidChip}>Voided</span>
                     ) : canVoid ? (
@@ -291,6 +379,28 @@ export default function PostedPaymentsLedger({ payments, canVoid, onVoid, openPa
             </div>
           </section>
         </div>
+      ) : null}
+      {/* Payment receipt details (part 7b), built from the record on screen. */}
+      {detailsPayment && receiptSource ? (
+        <PaymentDetailsDialog
+          clientId={receiptSource.client.id}
+          details={paymentDetailsFor(receiptFromBilling(detailsPayment, receiptSource))}
+          latestSent={detailsSent[0] ?? null}
+          sentNote={detailsSentNote}
+          onClose={() => setDetailsPayment(null)}
+          onPrint={() => printReceipt(detailsPayment)}
+          paymentNumber={detailsPayment.paymentNumber}
+        />
+      ) : null}
+      {/* Receipt email (the refund notice waits for Billing part 7e). */}
+      {emailing && receiptSource ? (
+        <PaymentNoticeDialog
+          clientDisplayName={receiptSource.client.displayName}
+          clientId={receiptSource.client.id}
+          clientNumber={receiptSource.client.clientNumber}
+          payment={emailing}
+          onClose={() => setEmailing(null)}
+        />
       ) : null}
     </fieldset>
   )

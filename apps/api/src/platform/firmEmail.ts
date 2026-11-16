@@ -125,5 +125,22 @@ export function buildFirmEmail(input: FirmEmailInput): FirmEmail {
 
 /** The HTML for an on-screen preview: the `cid:` logo becomes a data address so a frame can show it. */
 export function previewHtml(email: FirmEmail): string {
-  return email.inlineImages.reduce((html, image) => html.split(`cid:${image.contentId}`).join(`data:${image.contentType};base64,${image.base64}`), email.html)
+  return withImagesInline(email.html, email.inlineImages)
+}
+
+/** Swaps each `cid:` image for a data address, for a preview frame (the old `inlineFooterLogo`). */
+export function withImagesInline(html: string, images: readonly InlineImage[]): string {
+  return images.reduce((current, image) => current.split(`cid:${image.contentId}`).join(`data:${image.contentType};base64,${image.base64}`), html)
+}
+
+/**
+ * The footer band on its own, for the billing emails (Billing part 7c): the invoice, statement and receipt email
+ * builders (`@krhomebase/documents`) take it as the last row of their card, as the old `krEmailFooter.ts` gave it.
+ */
+export function emailFooter(): { html: string; text: string; inlineImages: InlineImage[] } {
+  return {
+    html: footerHtml(),
+    text: FOOTER_TEXT,
+    inlineImages: [{ contentId: LOGO_CONTENT_ID, contentType: 'image/png', filename: 'krhomebase-logo.png', base64: EMAIL_LOGO_PNG_BASE64 }],
+  }
 }

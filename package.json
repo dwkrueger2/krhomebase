@@ -1,8 +1,8 @@
 {
   "name": "krhomebase",
   "version": "1.0.0",
-  "patchNum": "47",
-  "patchDate": "11-15",
+  "patchNum": "49",
+  "patchDate": "11-16",
   "private": true,
   "description": "KR Homebase: web (Next.js on vinext) and api (Hono on Cloudflare Workers).",
   "type": "module",
@@ -31,6 +31,7 @@
     "test": "pnpm --dir packages/contracts run test && pnpm --dir packages/tool-sdk run test && pnpm --dir packages/documents run test && pnpm --dir apps/api run test && pnpm --dir apps/external-api run test && pnpm --dir workers/feedback-viewer run test && pnpm --dir apps/web run test",
     "check": "pnpm run typecheck && pnpm run test",
     "openapi": "pnpm --dir apps/api run openapi:write",
+    "documents:css": "pnpm --dir packages/documents run css",
     "types:cf": "pnpm --dir apps/api run types:cf",
     "pack:tool-sdk": "pnpm --dir packages/tool-sdk run pack",
     "snapshot:order": "node scripts/snapshot/order-data.mjs",

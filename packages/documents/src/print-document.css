@@ -1,0 +1,195 @@
+/* file: packages/documents/src/print-document.css */
+/**
+ * KR Homebase shared print-document styles.
+ *
+ * Owner: packages/documents (the templates and `printDocument.tsx`) with apps/web/components/printing
+ * (PaginatedPrintPreview). Imported once from apps/web/app/layout.tsx; the PDF render (Billing part 7c) embeds it too.
+ *
+ * Ported from the old `hb-lib/printing/print-document.css` (Billing part 7b of `docs/API/Billing_Audit.md`). The DM
+ * Sans `@font-face` rules moved to apps/web/app/globals.css beside the app's other fonts (the font files are in
+ * apps/web/styles/fonts), because a font address here would point outside this package.
+ *
+ * Every selector is scoped under .kr-print-* so the file is inert inside the
+ * normal Homebase shell. The `@page` rule lives in the print-view route's own
+ * module CSS so it never changes how the rest of the application prints.
+ *
+ * Client-facing documents use these brand tokens (taken from the 2026-09
+ * Template v1 PDFs) rather than --kr-theme-* so the printed result is the same
+ * no matter which Homebase theme the staff member has selected.
+ */
+
+/** Brand and paper tokens consumed by report components through Tailwind arbitrary values. */
+.kr-print-document,
+.kr-print-page,
+.kr-print-measure {
+  /* Template v1 palette (measured from the PDFs). */
+  --kr-print-navy: #384757;          /* text and outlines */
+  --kr-print-navy-fill: #374657;     /* banners, buttons, filled boxes */
+  --kr-print-cream: #f1eadf;         /* cream text on navy, table header fill, footer rule */
+  --kr-print-cream-line: #e6e1d8;    /* table row rules */
+  --kr-print-denim: #95b8d0;         /* accents on navy */
+  --kr-print-camel: #8a715c;         /* tracked section labels, section rules */
+  --kr-print-chip: #685645;          /* payment-method chips */
+  --kr-print-link: #4c6576;          /* payment link */
+  --kr-print-text: #1b2330;          /* body text */
+  /* Secondary text: the template used #afa8a1 (tan), which is too light to read. Darkened. */
+  --kr-print-secondary-text: #736a62;
+  --kr-print-secondary-line: #afa7a1; /* thin rules keep the template tone */
+  --kr-print-white: #ffffff;
+  --kr-print-font-body: 'DM Sans', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --kr-print-font-display: 'Black Mango', 'Helvetica Neue', Arial, sans-serif;
+  --kr-print-font-serif: 'DM Serif Display', Georgia, 'Times New Roman', serif;
+
+  /* Letter geometry from the templates: 0.75in side margins, footer 0.4in from the bottom edge. */
+  --kr-print-page-width: 8.5in;
+  --kr-print-page-height: 11in;
+  --kr-print-side-margin: 0.75in;
+  --kr-print-top-margin: 0.5in;
+  --kr-print-bottom-reserve: 0.85in;
+  --kr-print-footer-bottom: 0.4in;
+
+  box-sizing: border-box;
+  color: var(--kr-print-text);
+  font-family: var(--kr-print-font-body);
+  font-size: 7.9pt;
+  line-height: 1.4;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/** Gray desk behind the paper on screen. */
+.kr-print-stage {
+  background: #dfe4ea;
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 1.25rem 0 3rem;
+}
+
+/** Inline variant embedded in a Homebase panel (no full-height desk). */
+.kr-print-stage.kr-print-stage-inline {
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem;
+}
+
+/**
+ * Measuring host: the unpaginated document is laid out here at paper width so
+ * PaginatedPrintPreview can read block and row heights. Never visible.
+ */
+.kr-print-measure {
+  box-sizing: border-box;
+  left: -200vw;
+  padding: var(--kr-print-top-margin) var(--kr-print-side-margin) var(--kr-print-bottom-reserve);
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  visibility: hidden;
+  width: var(--kr-print-page-width);
+}
+
+/**
+ * One fixed Letter page. Height is exact so the screen preview shows the same
+ * breaks the printer produces; the print-view route sets `@page` to Letter with
+ * zero margin so each .kr-print-page is exactly one sheet.
+ */
+.kr-print-page {
+  background: var(--kr-print-white);
+  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.18);
+  box-sizing: border-box;
+  height: var(--kr-print-page-height);
+  margin: 0 auto 1.25rem;
+  overflow: hidden;
+  padding: var(--kr-print-top-margin) var(--kr-print-side-margin) var(--kr-print-bottom-reserve);
+  position: relative;
+  width: var(--kr-print-page-width);
+  break-after: page;
+  page-break-after: always;
+}
+
+.kr-print-page:last-child {
+  break-after: auto;
+  page-break-after: auto;
+}
+
+/** Running footer pinned to the bottom of every page: cream rule, tracked labels. */
+.kr-print-page-footer {
+  bottom: var(--kr-print-footer-bottom);
+  color: var(--kr-print-secondary-text);
+  display: flex;
+  font-size: 6.4pt;
+  justify-content: space-between;
+  left: var(--kr-print-side-margin);
+  letter-spacing: 0.14em;
+  position: absolute;
+  right: var(--kr-print-side-margin);
+  text-transform: uppercase;
+}
+
+.kr-print-page-footer::before {
+  background: var(--kr-print-cream);
+  content: '';
+  height: 1.5pt;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: -8pt;
+}
+
+/** Full-bleed block (the Option 1 banner) extends into the side margins. */
+.kr-print-bleed {
+  margin-left: calc(-1 * var(--kr-print-side-margin));
+  margin-right: calc(-1 * var(--kr-print-side-margin));
+}
+
+/** Screen-only elements (toolbars, page labels) never reach paper. */
+.kr-print-screen-only {
+  display: initial;
+}
+
+/** Page label shown above each page on screen. */
+.kr-print-page-label {
+  color: #526172;
+  font-size: 11px;
+  margin: 0 auto 4px;
+  text-align: right;
+  width: var(--kr-print-page-width);
+}
+
+/** Small side-by-side tables inside one unit (not split across pages). */
+.kr-print-subtable {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+/** Tables: fixed layout so measured row heights match the paginated clones exactly. */
+.kr-print-table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.kr-print-table tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+@media print {
+  .kr-print-stage,
+  .kr-print-stage.kr-print-stage-inline {
+    background: transparent;
+    min-height: 0;
+    overflow: visible;
+    padding: 0;
+  }
+
+  .kr-print-page {
+    box-shadow: none;
+    margin: 0;
+  }
+
+  .kr-print-measure,
+  .kr-print-page-label,
+  .kr-print-screen-only {
+    display: none !important;
+  }
+}

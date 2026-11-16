@@ -128,6 +128,8 @@ export const SECTION_SUB_PAGE_PARAMS: Readonly<Partial<Record<BuiltInSectionId, 
   'user-settings': 'userSettingsSection',
   'application-settings': 'applicationSettingsTab',
   'firm-settings': 'firmSettingsSection',
+  // Billing part 7b: the open report (the old Reports panel's `?report=`).
+  reports: 'report',
 }
 
 /** One step of the breadcrumb trail. A step with a `sectionId` can be chosen to open that section. */

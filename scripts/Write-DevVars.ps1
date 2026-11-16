@@ -27,6 +27,9 @@
         KR_PAYMENT_PROVIDER_KEK       from payment-provider-kek.key (Stripe Payment Configuration; added Nov 13, 2026)
         KR_GPT_WORKER_SECRET          from gpt-worker-shared-secret.txt, only when that file exists (GPT Model Gateway;
                                       added Nov 14, 2026; the same value as the GPT models Worker's GPT_WORKER_SHARED_SECRET)
+        KR_CF_BROWSER_RENDERING_TOKEN from cloudflare-custom-token\cloudflare-browser-rendering.token, only when that file
+                                      exists (Billing part 7c, added Nov 16, 2026: the PDFs of emailed invoices,
+                                      statements and receipts)
         KR_SUPER_ADMIN_EMAILS         only when -SuperAdminEmails is given
 
   The script prints setting names and character counts only. It never prints a value.
@@ -128,6 +131,11 @@ $apiSettings = [ordered]@{
 # (workers/gpt-workers/README.md, "Putting it live"). Without the file the API answers GPT_GATEWAY_UNAVAILABLE, as before.
 if (Test-Path -LiteralPath (Join-Path $KeysFolder 'gpt-worker-shared-secret.txt')) {
   $apiSettings['KR_GPT_WORKER_SECRET'] = (Read-KeyValue -FileName 'gpt-worker-shared-secret.txt' -Kind Secret)
+}
+# Billing part 7c (Nov 16, 2026): the Cloudflare Browser Rendering token for the emailed PDFs, when its file has been
+# copied into this repository's keys folder (docs/09_ENV_KeyMappings.md). Without it documents are emailed without a PDF.
+if (Test-Path -LiteralPath (Join-Path $KeysFolder 'cloudflare-custom-token\cloudflare-browser-rendering.token')) {
+  $apiSettings['KR_CF_BROWSER_RENDERING_TOKEN'] = (Read-KeyValue -FileName 'cloudflare-custom-token\cloudflare-browser-rendering.token' -Kind Secret)
 }
 if (-not [string]::IsNullOrWhiteSpace($SuperAdminEmails)) {
   if ($SuperAdminEmails -match '["$`\s]') { throw 'SuperAdminEmails: use plain addresses separated by commas, with no spaces or quotes.' }

@@ -81,6 +81,25 @@ describe('googleWorkspaceMailer', () => {
     expect(body.trimEnd()).toMatch(/--kr-rel-[0-9a-f-]+--$/)
   })
 
+  it('wraps the body and the attached files in multipart/mixed (Billing part 7c PDFs)', async () => {
+    const { env } = await envWithKey()
+    const mime = buildMime(mailConfigFor(env)!, {
+      to: ['a@example.com'],
+      subject: 'Invoice',
+      text: 'T',
+      html: '<img src="cid:logo@x">',
+      inlineImages: [{ contentId: 'logo@x', contentType: 'image/png', filename: 'logo.png', base64: 'AAAA' }],
+      attachments: [{ filename: 'INV-0003 "sent".pdf', contentType: 'application/pdf', base64: 'JVBERi0=' }],
+    })
+    const [headers, ...rest] = mime.split('\r\n\r\n')
+    expect(headers).toMatch(/Content-Type: multipart\/mixed; boundary="kr-mix-/)
+    const body = rest.join('\r\n\r\n')
+    expect(body).toMatch(/Content-Type: multipart\/related; boundary="kr-rel-/)
+    expect(body).toContain(`Content-Disposition: attachment; filename="INV-0003 'sent'.pdf"`)
+    expect(body.indexOf('Content-ID: <logo@x>')).toBeLessThan(body.indexOf('application/pdf'))
+    expect(body.trimEnd()).toMatch(/--kr-mix-[0-9a-f-]+--$/)
+  })
+
   it('trades the JWT for a token, then sends as the sender mailbox; a refusal comes back as not sent', async () => {
     const { env } = await envWithKey()
     const calls: string[] = []

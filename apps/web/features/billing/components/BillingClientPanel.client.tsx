@@ -15,6 +15,8 @@
  *    role; unlock, detach, void and payment void need a super admin.
  *
  * Writes go one route per action (plan difference 1). Not here yet: print and email (stage 5), Stripe (stage 6).
+ * Billing part 7c (Nov 16, 2026): the Invoices and Payments tabs get the client id (`billing.client.id`) for the
+ * invoice and receipt email dialogs, and posting a payment answers its id so the receipt can be emailed.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -196,10 +198,12 @@ export default function BillingClientPanel() {
           : `Invoice #${invoice.invoiceNumber} ${action}ed.`,
     )
   }
-  async function postPayment(input: PostPaymentInput): Promise<void> {
+  /** Posts a payment and answers its id (the Payments tab emails the receipt with it). */
+  async function postPayment(input: PostPaymentInput): Promise<string | void> {
     if (!clientId) return
-    await createPayment(clientId, input)
+    const created = await createPayment(clientId, input)
     setStatus('Payment posted.')
+    return created.id
   }
   /** Super Admin: voids a payment (no card refund until stage 6). */
   async function voidPayment(payment: BillingPayment, reason: string): Promise<void> {
@@ -285,6 +289,7 @@ export default function BillingClientPanel() {
             label: 'Invoices',
             card: (
               <InvoicesTab
+                clientId={billing.client.id}
                 clientNumber={billing.client.clientNumber}
                 clientDisplayName={billing.client.displayName}
                 invoices={billing.invoices}
@@ -313,6 +318,7 @@ export default function BillingClientPanel() {
               <PaymentsTab
                 canPost={canWrite}
                 canVoidPayments={canAdminister}
+                clientId={billing.client.id}
                 clientNumber={billing.client.clientNumber}
                 clientDisplayName={billing.client.displayName}
                 invoices={billing.invoices}
@@ -322,6 +328,7 @@ export default function BillingClientPanel() {
                 onVoidPayment={voidPayment}
                 openPaymentId={openPaymentId}
                 onOpenPaymentConsumed={() => setOpenPaymentId(null)}
+                receiptSource={billing}
               />
             ),
           },

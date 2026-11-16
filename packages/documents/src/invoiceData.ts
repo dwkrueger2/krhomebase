@@ -274,3 +274,39 @@ export function buildInvoiceReportData({
   }
   return rVal
 }
+
+/** Inputs for {@link invoiceReportFromRecord}: one invoice and the client's Billing record pieces. */
+export interface InvoiceReportFromRecordOptions {
+  invoice: InvoiceSource & { entryIds: readonly string[] }
+  /** Every entry of the record; only those attached to the invoice are printed. */
+  entries: readonly InvoiceEntrySource[]
+  clientNumber: string
+  staffOptions: readonly { id: string; label: string; staffCode?: string | null }[]
+  /** Every invoice on the account: fills "Other outstanding balances" and "Less amount received". */
+  accountInvoices?: readonly InvoiceSource[]
+  letterhead: LetterheadProfile
+  billToEmail?: string
+}
+
+/**
+ * Builds the printable invoice from the Billing record: attached entries only, the bare staff code for the Staff
+ * column (the dropdown label "CODE - Name" stays in the UI). Shared by the web app's print (`printDocuments.client.ts`,
+ * part 7b, where this logic began as the old `printInvoiceFromBilling`) and the API's invoice email (part 7c), so the
+ * printed and the emailed invoice show the same figures.
+ */
+export function invoiceReportFromRecord({ invoice, entries, clientNumber, staffOptions, accountInvoices, letterhead, billToEmail }: InvoiceReportFromRecordOptions): InvoiceReportData {
+  const attached = entries.filter((entry) => invoice.entryIds.includes(entry.id))
+  const rVal = buildInvoiceReportData({
+    invoice,
+    entries: attached,
+    clientNumber,
+    letterhead,
+    accountInvoices,
+    billToEmail,
+    staffInitialsFor: (staffId, fallback) => {
+      const option = staffOptions.find((candidate) => candidate.id === staffId)
+      return option?.staffCode ?? deriveStaffCode(option?.label ?? fallback)
+    },
+  })
+  return rVal
+}

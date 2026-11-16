@@ -2,8 +2,8 @@
 /**
  * The Billing port (plan stages 2 to 4): the session cache (one load per client, a second caller joins it, a matter
  * load is not cached, every write reloads, failures carry the API's code), the menu label, one route per write, and
- * the tabs rendered from a made-up record (print and send disabled until stage 5, card and ACH not selectable until
- * stage 6). The API is a stand-in `fetch`. Made-up people and amounts only.
+ * the tabs rendered from a made-up record (print on since Billing part 7b, send on since part 7c when the client id is
+ * known, card and ACH not selectable until stage 6). The email dialogs are in `sendDialogs.test.tsx`. The API is a stand-in `fetch`. Made-up people and amounts only.
  *
  * Run: pnpm --dir apps/web exec vitest run features/billing/billing.test.tsx
  */
@@ -142,10 +142,11 @@ describe('billing screens', () => {
     expect(billingMenuLabel({ clientNumber: '', displayName: 'Pat Sample' })).toBe('Pat Sample')
   })
 
-  it('lists invoices with print and send waiting for stage 5', () => {
+  it('lists invoices with print and send on (Billing part 7c)', () => {
     const html = renderToStaticMarkup(
       <InvoicesTab
         clientDisplayName="Pat Sample"
+        clientId="cl-1"
         clientNumber="501"
         entries={RECORD.timeEntries}
         invoices={RECORD.invoices}
@@ -158,8 +159,11 @@ describe('billing screens', () => {
       />,
     )
     expect(html).toContain('#121')
-    expect(html).toMatch(/data-kr-action="invoice-row-print" disabled=""/)
-    expect(html).toContain('plan stage 5')
+    // Billing part 7b: Print opens the print view; part 7c: Send opens the invoice email.
+    expect(html).not.toMatch(/data-kr-action="invoice-row-print" disabled=""/)
+    expect(html).not.toMatch(/data-kr-action="invoice-row-send" disabled=""/)
+    expect(html).toContain('Email invoice to the client')
+    expect(html).not.toContain('Billing part 7c')
   })
 
   it('offers check, cash and wire, with card and ACH shown but not selectable', () => {
@@ -168,6 +172,7 @@ describe('billing screens', () => {
         canPost
         canVoidPayments={false}
         clientDisplayName="Pat Sample"
+        clientId="cl-1"
         clientNumber="501"
         invoices={RECORD.invoices}
         matterNumbers={['501.0']}
@@ -179,6 +184,10 @@ describe('billing screens', () => {
     expect(html).toContain('Invoice #121')
     expect(html).toMatch(/<option disabled="" value="Credit card">/)
     expect(html).toMatch(/<option value="Check" selected="">/)
+    // Billing part 7c: Email receipt to, on by default.
+    expect(html).toContain('<input data-kr-element="payment-email-receipt" type="checkbox" checked=""/>')
+    expect(html).toContain('data-kr-element="payment-receipt-to"')
+    expect(html).not.toContain('payment-receipt-later')
   })
 
   it('shows time entries with their status and amount', () => {

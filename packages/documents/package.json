@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Printable billing documents (invoice, statement, receipt): data shapes, builders, formatters and templates. Shared by api and web.",
+  "description": "Printable billing documents (invoice, statement, receipt): data shapes, builders, formatters and React templates. Shared by api and web.",
   "exports": {
     "./types": "./src/types.ts",
     "./format": "./src/format.ts",
@@ -12,17 +12,42 @@
     "./invoice": "./src/invoiceData.ts",
     "./statement": "./src/statementData.ts",
     "./receipt": "./src/receiptData.ts",
-    "./samples": "./src/sampleData.ts"
+    "./samples": "./src/sampleData.ts",
+    "./print-document": "./src/printDocument.tsx",
+    "./report-parts": "./src/reportParts.tsx",
+    "./invoice-option-1": "./src/InvoiceReportOption1.tsx",
+    "./invoice-option-2": "./src/InvoiceReportOption2.tsx",
+    "./statement-report": "./src/StatementOfAccountReport.tsx",
+    "./receipt-report": "./src/PaymentReceiptReport.tsx",
+    "./invoice-email": "./src/invoiceEmail.ts",
+    "./statement-email": "./src/statementEmail.ts",
+    "./receipt-email": "./src/receiptEmail.ts",
+    "./print-document.css": "./src/print-document.css",
+    "./render-document": "./src/renderDocument.tsx",
+    "./print-pdf.css": "./src/print-pdf.css"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "css": "node scripts/write-document-css.mjs"
   },
   "dependencies": {
     "@krhomebase/contracts": "workspace:*"
   },
   "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.0"
+    "vitest": "^4.1.0",
+    "@tailwindcss/node": "4.3.4",
+    "@tailwindcss/oxide": "4.3.4",
+    "tailwindcss": "^4.3.4",
+    "@types/node": "^24.0.0"
+  },
+  "peerDependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   }
 }

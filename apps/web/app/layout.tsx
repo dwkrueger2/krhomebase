@@ -3,6 +3,8 @@ import { env } from 'cloudflare:workers'
 import DevViewLoader from '@/components/dev-view/DevViewLoader.client'
 import packageJson from '../package.json'
 import './globals.css'
+// Printable billing documents: the --kr-print-* tokens and Letter page geometry, inert outside .kr-print-* (Billing part 7b).
+import '@krhomebase/documents/print-document.css'
 
 export const metadata = {
   title: 'KR Homebase',

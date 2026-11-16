@@ -13,6 +13,7 @@ import { registerContacts } from './features/contacts/routes.ts'
 import { registerContactEdits } from './features/contact-edits/routes.ts'
 import { registerContactMaintenance } from './features/contact-maintenance/routes.ts'
 import { registerBilling } from './features/billing/routes.ts'
+import { registerBillingDocuments } from './features/billing-documents/routes.ts'
 import { registerTimekeeping } from './features/timekeeping/routes.ts'
 import { registerPreferences } from './features/preferences/routes.ts'
 import { registerThemes } from './features/themes/routes.ts'
@@ -75,6 +76,7 @@ export function createApp() {
   registerContactEdits(app)
   registerContactMaintenance(app)
   registerBilling(app)
+  registerBillingDocuments(app)
   registerTimekeeping(app)
   registerPreferences(app)
   registerThemes(app)

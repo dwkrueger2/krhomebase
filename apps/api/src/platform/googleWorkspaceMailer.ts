@@ -22,6 +22,9 @@
  * - `fetch` is passed in (tests use a stand-in, so no test reaches Google).
  * - Attachments and inline images of the general sender wait for plan stage 5 (invoice and statement email), which
  *   needs them; `sendEmail` sends text and HTML with Cc, Bcc and `X-KR-*` headers.
+ *   Inline images arrived Nov 13, 2026 (the WorkStream footer logo); attachments with Billing part 7c (Nov 16, 2026,
+ *   `docs/API/Billing_Audit.md`): the invoice, statement and receipt PDFs. With attachments the message is
+ *   `multipart/mixed`: the body (alternative, or related with its images) first, then one part per file.
  * - Logs use `logLine` and never carry the key, the token or a message body.
  *
  * Failures never throw: they come back as `{ sent: false, reason }` so a route can save the invitation and show the
@@ -62,7 +65,17 @@ export interface EmailInput {
   sender?: SenderProfile
   /** Images the HTML shows with `cid:<contentId>` (the footer logo); left out, the message has none. */
   inlineImages?: readonly InlineImage[]
+  /** Files attached to the message (the PDF of an invoice, statement or receipt); left out, none. */
+  attachments?: readonly MailAttachment[]
   requestId: string
+}
+
+/** One file attached to a message (Billing part 7c). */
+export interface MailAttachment {
+  filename: string
+  contentType: string
+  /** The bytes, base64. */
+  base64: string
 }
 
 /** One image carried inside the message and shown by the HTML through `cid:` (email clients do not show SVG or data addresses). */
@@ -256,10 +269,11 @@ This is an account-access message sent by Krueger & Richard. If you were not exp
  */
 export function buildMime(
   config: MailConfig,
-  message: { to: readonly string[]; cc?: readonly string[]; bcc?: readonly string[]; subject: string; text: string; html: string; headers?: Readonly<Record<string, string>>; inlineImages?: readonly InlineImage[] },
+  message: { to: readonly string[]; cc?: readonly string[]; bcc?: readonly string[]; subject: string; text: string; html: string; headers?: Readonly<Record<string, string>>; inlineImages?: readonly InlineImage[]; attachments?: readonly MailAttachment[] },
 ): string {
   const boundary = `kr-alt-${crypto.randomUUID()}`
   const related = message.inlineImages?.length ? `kr-rel-${crypto.randomUUID()}` : null
+  const mixed = message.attachments?.length ? `kr-mix-${crypto.randomUUID()}` : null
   const extra = Object.entries(message.headers ?? {})
     .filter(([name]) => KR_HEADER.test(name))
     .map(([name, value]) => `${name}: ${headerSafe(value)}`)
@@ -272,7 +286,11 @@ export function buildMime(
     'MIME-Version: 1.0',
     config.replyTo ? `Reply-To: ${config.replyTo}` : '',
     ...extra,
-    related ? `Content-Type: multipart/related; boundary="${related}"` : `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    mixed
+      ? `Content-Type: multipart/mixed; boundary="${mixed}"`
+      : related
+        ? `Content-Type: multipart/related; boundary="${related}"`
+        : `Content-Type: multipart/alternative; boundary="${boundary}"`,
   ].filter(Boolean)
   const alternative = [
     `--${boundary}`,
@@ -287,7 +305,7 @@ export function buildMime(
     wrap76(base64(message.html)),
     `--${boundary}--`,
   ]
-  if (!related) return [...headers, '', ...alternative, ''].join('\r\n')
+  // The body: the alternatives alone, or inside multipart/related with the images.
   const images = (message.inlineImages ?? []).flatMap((image) => [
     `--${related}`,
     `Content-Type: ${headerSafe(image.contentType)}; name="${headerSafe(image.filename)}"`,
@@ -297,7 +315,15 @@ export function buildMime(
     '',
     wrap76(image.base64),
   ])
-  return [...headers, '', `--${related}`, `Content-Type: multipart/alternative; boundary="${boundary}"`, '', ...alternative, ...images, `--${related}--`, ''].join('\r\n')
+  const bodyHeader = related ? `Content-Type: multipart/related; boundary="${related}"` : `Content-Type: multipart/alternative; boundary="${boundary}"`
+  const bodyParts = related ? [`--${related}`, `Content-Type: multipart/alternative; boundary="${boundary}"`, '', ...alternative, ...images, `--${related}--`] : alternative
+  if (!mixed) return [...headers, '', ...bodyParts, ''].join('\r\n')
+  // Billing part 7c: multipart/mixed holds the body, then each attached file.
+  const files = (message.attachments ?? []).flatMap((file) => {
+    const name = headerSafe(file.filename).replace(/"/g, "'")
+    return [`--${mixed}`, `Content-Type: ${headerSafe(file.contentType)}; name="${name}"`, 'Content-Transfer-Encoding: base64', `Content-Disposition: attachment; filename="${name}"`, '', wrap76(file.base64)]
+  })
+  return [...headers, '', `--${mixed}`, bodyHeader, '', ...bodyParts, ...files, `--${mixed}--`, ''].join('\r\n')
 }
 
 function addressList(values: readonly string[] | undefined): string[] | null {

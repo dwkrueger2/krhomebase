@@ -2,6 +2,15 @@
 // file: apps/web/features/billing/components/InvoiceEditDialog.client.tsx
 // Ported from the old app (hb-components/KR-Billing/InvoiceEditDialog.client.tsx). Changes:
 //  - Print and Send are shown disabled until plan stage 5 (documents and email).
+//    Billing part 7b (Nov 15, 2026): Print is back as in the old editor: it opens the print view with the current
+//    draft (header fields and attached entries); a saved, unlocked invoice first asks whether the print goes to the
+//    client (`InvoicePrintIntent`, which can lock it). Send stays disabled until part 7c.
+//    Billing part 7c (Nov 16, 2026): Send is back as in the old editor: with the new `clientId` prop it opens
+//    `SendInvoiceDialog`; a new, unsaved invoice cannot be sent ("Save the invoice before sending it."). The old
+//    "mark ready to send" path without a client id is not ported, and there is no `onSend` prop: the API marks the
+//    invoice sent and locks it when the email goes, and the send call reloads the record. The email carries the saved
+//    invoice (the API builds it from the database), so unsaved changes in the editor are not in it; the title says so.
+//    Print also hands the print view its send context when the client id is known.
 //  - Status is shown, not chosen: the old select saved "Paid" or "Partially paid" on a draft without a payment. A
 //    status now changes only through a payment, a void, or the lock.
 //  - The four dashed layout-check borders (b1 to b4) were removed.
@@ -12,6 +21,9 @@ import EditTimeAndFeeDialog from './EditTimeAndFeeDialog.client'
 import AddOpenTimeFeesDialog from './AddOpenTimeFeesDialog.client'
 import { formatAccountingAmount } from '../formatAccountingAmount'
 import InvoiceLockConfirm, { type InvoiceConfirmMode } from './InvoiceLockConfirm.client'
+import InvoicePrintIntent from './InvoicePrintIntent.client'
+import SendInvoiceDialog from './SendInvoiceDialog.client'
+import { printInvoiceFromBilling } from '../printDocuments.client'
 import U6CurrencyInput from '@/components/ui/U6CurrencyInput.client'
 import type { InvoiceRecordAction } from '../api.client'
 import type { BillingInvoice, BillingPayment, BillingTimeEntry } from '../types'
@@ -61,8 +73,8 @@ const STYLES = {
   closeButton: 'text-[14pt] leading-none',
 } as const
 
-/** Why Print and Send are disabled. */
-const DOCUMENTS_LATER = 'Printing and emailing invoices arrive in plan stage 5 (documents and email).'
+/** Why Send is disabled for a new invoice. */
+const SAVE_BEFORE_SENDING = 'Save the invoice before sending it.'
 
 const LAYOUT_STYLES = {
   // Centered over the working area (right of the left panel, below the title bar), not the whole viewport.
@@ -89,6 +101,8 @@ const LAYOUT_STYLES = {
 } as const
 
 export interface InvoiceEditDialogProps {
+  /** Client account id; with it, Send opens the email dialog (`data-kr-action="invoice-send"`). */
+  clientId?: string
   allEntries: BillingTimeEntry[]
   payments: readonly BillingPayment[]
   clientNumber: string
@@ -107,6 +121,8 @@ export interface InvoiceEditDialogProps {
   onToggleLock?: (invoice: BillingInvoice, lock: boolean) => Promise<void>
   /** Super-admin record actions: void, detachPayments. */
   onInvoiceAction?: (invoice: BillingInvoice, action: InvoiceRecordAction, reason?: string) => Promise<void>
+  /** Every invoice on the account (print shows prior open balances and payments received). */
+  accountInvoices?: readonly BillingInvoice[]
 }
 
 /** Shows whether the current invoice can be changed, with the accessible reason on its parent. */
@@ -135,6 +151,7 @@ function InvoiceStatusIcon({ locked }: { locked: boolean }) {
 
 /** Production invoice editor; line attachment and invoice updates are persisted by the parent panel. */
 export default function InvoiceEditDialog({
+  clientId,
   allEntries,
   payments,
   clientNumber,
@@ -149,6 +166,7 @@ export default function InvoiceEditDialog({
   canUnlock = false,
   onToggleLock,
   onInvoiceAction,
+  accountInvoices,
 }: InvoiceEditDialogProps) {
   const [draft, setDraft] = useState(invoice)
   const [entries, setEntries] = useState(() =>
@@ -163,6 +181,10 @@ export default function InvoiceEditDialog({
   const [saveError, setSaveError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [lockPrompt, setLockPrompt] = useState<InvoiceConfirmMode | null>(null)
+  /** Print on an unlocked, saved invoice asks review vs. send first. */
+  const [printIntent, setPrintIntent] = useState(false)
+  /** The email dialog is open. */
+  const [sending, setSending] = useState(false)
   const [dialogOffset, setDialogOffset] = useState({ x: 0, y: 0 })
   const dialogRef = useRef<HTMLElement>(null)
   const dragRef = useRef<{
@@ -272,6 +294,42 @@ export default function InvoiceEditDialog({
 
   function returnToTimeFees(id: string): void {
     if (!locked) setEntries((current) => current.filter((entry) => entry.id !== id))
+  }
+
+  /**
+   * Opens the current draft (header fields plus attached entries) in the
+   * session-gated print-view tab through the shared Billing print helper. The
+   * print view carries its own Option 1 / Option 2 and letterhead switches,
+   * so nothing about the template is decided here. Handoff or popup problems
+   * surface as a delivery message.
+   */
+  function printInvoice(): void {
+    if (!locked && !isNew && !isVoid && onToggleLock) {
+      setPrintIntent(true)
+      return
+    }
+    openPrintView()
+  }
+  /** Opens the print view for the current draft (no prompt). */
+  function openPrintView(): void {
+    const problem = printInvoiceFromBilling({
+      invoice: { ...draft, writeOff: -Math.abs(writeOff || 0), amountDue: totalDue, entryIds: entries.map((entry) => entry.id) },
+      entries,
+      clientNumber,
+      staffOptions,
+      accountInvoices,
+      send: clientId ? { clientId, clientDisplayName: clientDisplayName ?? draft.clientLabel } : undefined,
+    })
+    if (problem) setDeliveryMessage(problem)
+  }
+
+  /** Send: opens the email dialog when the client is known; a new invoice must be saved first. */
+  function sendInvoice(): void {
+    if (isNew) {
+      setDeliveryMessage(SAVE_BEFORE_SENDING)
+      return
+    }
+    if (clientId) setSending(true)
   }
 
   async function saveInvoice(): Promise<void> {
@@ -385,10 +443,17 @@ export default function InvoiceEditDialog({
             {deliveryMessage ? <p className={STYLES.deliveryMessage}>{deliveryMessage}</p> : null}
           </div>
           <div className={LAYOUT_STYLES.headerActions}>
-            <button className={STYLES.button} data-kr-action="invoice-print" disabled title={DOCUMENTS_LATER} type="button">
+            <button className={STYLES.button} data-kr-action="invoice-print" title="Open the invoice in the print view" type="button" onClick={printInvoice}>
               Print
             </button>
-            <button className={STYLES.button} data-kr-action="invoice-send" disabled title={DOCUMENTS_LATER} type="button">
+            <button
+              className={STYLES.button}
+              data-kr-action="invoice-send"
+              disabled={busy || isNew || !clientId}
+              title={isNew ? SAVE_BEFORE_SENDING : clientId ? 'Email the saved invoice to the client' : 'Sending is unavailable for this account'}
+              type="button"
+              onClick={sendInvoice}
+            >
               Send
             </button>
             <button
@@ -641,6 +706,29 @@ export default function InvoiceEditDialog({
             }}
           />
         ) : null}
+        {printIntent && onToggleLock ? (
+          <InvoicePrintIntent
+            clientDisplayName={clientDisplayName ?? draft.clientLabel}
+            clientNumber={clientNumber}
+            invoice={draft}
+            onCancel={() => setPrintIntent(false)}
+            onLockAndPrint={async () => {
+              await onToggleLock(draft, true)
+              setDraft((current) => ({
+                ...current,
+                locked: true,
+                lockedReason: 'Invoice is locked',
+              }))
+              setDeliveryMessage(`Invoice #${draft.invoiceNumber || 'draft'} locked for sending.`)
+              setPrintIntent(false)
+              openPrintView()
+            }}
+            onPreview={() => {
+              setPrintIntent(false)
+              openPrintView()
+            }}
+          />
+        ) : null}
         {lockPrompt && onToggleLock ? (
           <InvoiceLockConfirm
             clientDisplayName={clientDisplayName ?? draft.clientLabel}
@@ -678,6 +766,24 @@ export default function InvoiceEditDialog({
                 return
               }
               setLockPrompt(null)
+            }}
+          />
+        ) : null}
+        {/* Email dialog: the API marks the invoice sent and locks it when the email goes; the record reloads. */}
+        {sending && clientId ? (
+          <SendInvoiceDialog
+            accountInvoices={accountInvoices}
+            clientDisplayName={clientDisplayName ?? draft.clientLabel}
+            clientId={clientId}
+            clientNumber={clientNumber}
+            entries={entries}
+            invoice={{ ...draft, writeOff: -Math.abs(writeOff || 0), amountDue: totalDue, entryIds: entries.map((entry) => entry.id) }}
+            staffOptions={staffOptions}
+            onCancel={() => setSending(false)}
+            onSent={() => {
+              setSending(false)
+              setDraft((current) => ({ ...current, locked: true, lockedReason: current.lockedReason ?? 'Locked · sent to client' }))
+              setDeliveryMessage(`Invoice #${draft.invoiceNumber || 'draft'} was emailed and marked sent.`)
             }}
           />
         ) : null}

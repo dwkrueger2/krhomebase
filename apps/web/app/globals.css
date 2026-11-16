@@ -11,6 +11,13 @@
 @import "../styles/chalk-denim.css";
 
 /*
+ * The printable billing documents' templates live in packages/documents (Billing part 7b), outside this app's folder,
+ * so Tailwind is told to read their classes too. Their own stylesheet (`print-document.css`, the `--kr-print-*`
+ * tokens and the page geometry) is imported by app/layout.tsx.
+ */
+@source "../../../packages/documents/src";
+
+/*
  * Brand fonts, ported from the old app's globals.css. The old app served them from /public/fonts; here Vite
  * bundles them from styles/fonts. Black Mango is the login title, DM Serif Display the italic firm name, and
  * Geist the body text of the login card (the old app's `--font-geist-sans`). Geist is under the SIL Open Font
@@ -34,6 +41,25 @@
   font-family: 'DM Serif Display';
   src: url('../styles/fonts/DMSerifDisplay-Italic.ttf') format('truetype');
   font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+/*
+ * DM Sans, the body face of the printed billing documents (`--kr-print-font-body` in
+ * packages/documents/src/print-document.css; Billing part 7b). Ported from the old hb-lib/printing/print-document.css,
+ * which served it from /public/fonts/dm-sans; under the SIL Open Font License (styles/fonts/DMSans-LICENSE.txt).
+ */
+@font-face {
+  font-family: 'DM Sans';
+  src: url('../styles/fonts/DMSans-Variable.ttf') format('truetype');
+  font-weight: 100 1000;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DM Sans';
+  src: url('../styles/fonts/DMSans-Italic-Variable.ttf') format('truetype');
+  font-weight: 100 1000;
   font-style: italic;
   font-display: swap;
 }

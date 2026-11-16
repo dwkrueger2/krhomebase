@@ -1,0 +1,51 @@
+/* file: apps/web/features/billing/components/BillingPrintView.module.css */
+/**
+ * Print-view route styles (`app/print/[document]/page.tsx`, drawn by BillingPrintView).
+ *
+ * Ported from the old `app/krhomebase/print/PrintView.module.css` (Billing part 7b of `docs/API/Billing_Audit.md`).
+ * It is one of the CSS files AGENTS_05 allows: print layout and an `@page` rule. The old route rendered inside the
+ * root <main class="kr-homebase-root-main">, a fixed-height, overflow-hidden flex column; this app's print page has
+ * no frame around it, so the viewport fills the window itself (`height: 100vh`) and scrolls the paginated pages on
+ * screen. The `@page` rule lives here — not in the shared print-document.css — so only this route prints on
+ * zero-margin Letter sheets; each .kr-print-page is then exactly one printed page.
+ */
+
+/** Scrolling viewport for the toolbar and pages. */
+.viewport {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  min-height: 0;
+  overflow: auto;
+}
+
+/** Sticky staff toolbar above the pages; hidden when printing. */
+.toolbar {
+  align-items: center;
+  background: var(--kr-theme-card-surface, #ffffff);
+  border-bottom: 1px solid var(--kr-theme-line, #d7dee5);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 4px 10px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+@media print {
+  @page {
+    size: 8.5in 11in;
+    margin: 0;
+  }
+
+  .viewport {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+
+  .toolbar {
+    display: none !important;
+  }
+}

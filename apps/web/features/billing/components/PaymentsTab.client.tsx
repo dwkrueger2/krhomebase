@@ -13,15 +13,24 @@
  *
  * Validation (unchanged): the amount checks on blur and again before posting; invalid fields turn red.
  *
+ * Billing part 7c (Nov 16, 2026): "Email receipt to" is back as in the old tab: on by default, the address filled with
+ * the client's primary email (or the only one), and after the payment posts the receipt goes with the API's default
+ * subject and message (`sendReceiptEmail` with a blank subject and message; the PDF attached). A failed receipt email
+ * never hides that the payment posted: the posted line stays and a warning says to use Posted Payments to try again.
+ * Changed from the old tab: the addresses come from `fetchStatementEmailInfo(clientId, null)` (the client's addresses;
+ * there is no payment yet to ask about), where the old one used `loadInvoiceRecipients`; there is no card payer email
+ * to fall back on until Stripe (stage 6). New `clientId` prop, and `onPost` answers the new payment's id.
+ *
  * @returns The Payments tab.
  */
 
-import type { PaymentBody } from '@krhomebase/contracts'
+import type { BillingRecord, PaymentBody } from '@krhomebase/contracts'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import KrRequestErrorNote from '@/components/ui/KrRequestErrorNote.client'
 import MenuStyleOne, { type MenuStyleOneProps } from '@/components/ui/MenuStyleOne.client'
 import U6CurrencyInput from '@/components/ui/U6CurrencyInput.client'
 import { describeKrRequestError, type KrRequestErrorInfo } from '@/lib/krRequestError'
+import { fetchStatementEmailInfo, sendReceiptEmail } from '../api.client'
 import { formatAccountingAmount } from '../formatAccountingAmount'
 import type { BillingInvoice, BillingPayment, BillingPaymentType } from '../types'
 import BillingTabHeader from './BillingTabHeader.client'
@@ -46,6 +55,8 @@ const STYLES = {
   laterText: 'text-[9pt] text-[var(--kr-theme-text-muted,#526172)]',
   ivid: 'text-[8.5pt] font-normal text-[var(--kr-theme-text-muted,#526172)]',
   methodArea: 'rounded border border-[var(--kr-theme-line,#d7dee5)] bg-[var(--kr-theme-muted-surface,#f7f9fb)]',
+  warningText: 'text-[9pt] font-semibold text-(color:--kr-theme-danger)',
+  checkLabel: 'gap-1.5 inline-flex items-center text-[9pt] font-semibold text-[var(--kr-theme-text-muted,#526172)]',
 } as const
 
 /** Layout in rendered order; the payment form keeps invoice allocations above payment details. */
@@ -65,6 +76,7 @@ const LAYOUT_STYLES = {
   methodArea: 'p-2 gap-2 grid',
   methodRow: 'gap-x-2 grid grid-cols-4 items-center',
   notesRow: 'mt-1 col-span-3 gap-1 grid',
+  receiptRow: 'mt-1 col-span-3 gap-2 grid grid-cols-[auto_minmax(0,1fr)] items-center',
   actions: 'p-2 gap-2 flex items-start justify-between border-t border-[var(--kr-theme-line,#d7dee5)] bg-[var(--kr-theme-muted-surface,#f7f9fb)]',
   messages: 'gap-0.5 grid',
   linkPanel: 'p-2',
@@ -74,12 +86,15 @@ const LAYOUT_STYLES = {
 const PAYMENT_TYPE_OPTIONS: readonly BillingPaymentType[] = ['Credit card', 'ACH', 'Check', 'Cash', 'Wire']
 const STRIPE_TYPES: readonly BillingPaymentType[] = ['Credit card', 'ACH']
 const STRIPE_LATER = 'Card and ACH payments are taken through Stripe, which arrives in plan stage 6.'
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /** Payment sent to `onPost`: the payment route's body. */
 export type PostPaymentInput = PaymentBody
 
 /** Props for {@link PaymentsTab}. */
 export interface PaymentsTabProps {
+  /** Client account id: the receipt address lookup and the receipt email after posting. */
+  clientId?: string
   clientNumber: string
   clientDisplayName: string
   invoices: BillingInvoice[]
@@ -89,11 +104,13 @@ export interface PaymentsTabProps {
   canPost: boolean
   /** Super Admin: may void posted payments. */
   canVoidPayments: boolean
-  /** Posts the payment. */
-  onPost: (input: PostPaymentInput) => Promise<void>
+  /** Posts the payment; answers the new payment's id (for the receipt email). */
+  onPost: (input: PostPaymentInput) => Promise<string | void>
   onVoidPayment: (payment: BillingPayment, reason: string) => Promise<void>
   openPaymentId?: string | null
   onOpenPaymentConsumed?: () => void
+  /** The record's client, matters and invoices, for the Posted Payments receipts (Billing part 7b). */
+  receiptSource?: Pick<BillingRecord, 'client' | 'matters' | 'invoices'>
 }
 
 /** Friendly text for Billing API error codes (unknown codes fall back to a readable form of the code). */
@@ -113,6 +130,7 @@ function today(): string {
 }
 
 export default function PaymentsTab({
+  clientId,
   clientNumber,
   clientDisplayName,
   invoices,
@@ -124,6 +142,7 @@ export default function PaymentsTab({
   onVoidPayment,
   openPaymentId,
   onOpenPaymentConsumed,
+  receiptSource,
 }: PaymentsTabProps) {
   const [selectedMatter, setSelectedMatter] = useState('ALL')
   // Open = not void and something still due. Voided invoices are never open.
@@ -153,6 +172,10 @@ export default function PaymentsTab({
   const [busy, setBusy] = useState(false)
   const [posted, setPosted] = useState<string | null>(null)
   const [postError, setPostError] = useState<KrRequestErrorInfo | null>(null)
+  /** Email a Payment Receipt after posting (default on; address prefilled with the client's primary email). */
+  const [emailReceipt, setEmailReceipt] = useState(true)
+  const [receiptTo, setReceiptTo] = useState('')
+  const [receiptWarning, setReceiptWarning] = useState<string | null>(null)
 
   useEffect(() => {
     if (openPaymentId) setActivePaymentSection('posted-payments')
@@ -167,6 +190,24 @@ export default function PaymentsTab({
     if (selectedId && !openInvoices.some((invoice) => invoice.id === selectedId)) setSelectedId(openInvoices[0]?.id ?? '')
   }, [openInvoices, selectedId])
 
+  // Receipt address: the client's primary email (or the only one).
+  useEffect(() => {
+    if (!clientId) return
+    let alive = true
+    setReceiptTo('')
+    fetchStatementEmailInfo(clientId, null)
+      .then((info) => {
+        if (!alive) return
+        const primary = info.recipients.filter((item) => item.primary).map((item) => item.email)
+        const seed = primary.length ? primary : info.recipients.slice(0, 1).map((item) => item.email)
+        setReceiptTo((current) => current || seed.join(', '))
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [clientId])
+
   // ── Validation (shown for touched fields, or everything after a Post attempt).
   const amountError = useMemo(() => {
     if (!invoiceAllocations.length || !(amount > 0)) return 'Select at least one open invoice and enter a positive amount.'
@@ -175,9 +216,18 @@ export default function PaymentsTab({
     if (invoiceAllocations.some((allocation) => !(allocation.amount > 0))) return 'Each selected invoice needs a positive payment amount.'
     return undefined
   }, [amount, invoiceAllocations])
+  const receiptAddresses = receiptTo
+    .split(/[,;]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+  const receiptError =
+    clientId && emailReceipt && (!receiptAddresses.length || receiptAddresses.some((item) => !EMAIL_PATTERN.test(item)))
+      ? 'Enter the receipt email address, or uncheck Email receipt.'
+      : undefined
   const allErrors: Record<string, string | undefined> = {
     amount: amountError,
     paymentType: STRIPE_TYPES.includes(paymentType) ? STRIPE_LATER : undefined,
+    receiptTo: receiptError,
   }
   const visibleMessages = Object.entries(allErrors)
     .filter(([field, message]) => message && (attempted || touched.has(field)))
@@ -221,11 +271,12 @@ export default function PaymentsTab({
     setAttempted(true)
     setPosted(null)
     setPostError(null)
+    setReceiptWarning(null)
     if (Object.values(allErrors).some(Boolean)) return
     setBusy(true)
     try {
       const matterIds = new Set(invoiceAllocations.map((allocation) => allocation.matterId))
-      await onPost({
+      const paymentId = await onPost({
         ...(matterIds.size === 1 ? { matterId: invoiceAllocations[0]!.matterId } : {}),
         invoiceAllocations: invoiceAllocations.map(({ invoiceId, amount: allocationAmount }) => ({ invoiceId, amount: allocationAmount })),
         amount,
@@ -234,7 +285,8 @@ export default function PaymentsTab({
         ...(reference.trim() ? { referenceNumber: reference.trim() } : {}),
         ...(notes.trim() ? { memo: notes.trim() } : {}),
       })
-      setPosted(`Payment of ${formatAccountingAmount(amount)} posted across ${invoiceAllocations.length} invoice${invoiceAllocations.length === 1 ? '' : 's'}.`)
+      const postedText = `Payment of ${formatAccountingAmount(amount)} posted across ${invoiceAllocations.length} invoice${invoiceAllocations.length === 1 ? '' : 's'}.`
+      setPosted(postedText)
       setAllocationAmounts((current) => {
         const next = { ...current }
         invoiceAllocations.forEach((allocation) => {
@@ -243,6 +295,17 @@ export default function PaymentsTab({
         return next
       })
       resetForm()
+      // Receipt: sent after the post with the API's default subject and message; a mail failure is reported, the payment stays posted.
+      if (clientId && emailReceipt && paymentId) {
+        try {
+          const sent = await sendReceiptEmail(clientId, paymentId, { to: receiptAddresses, subject: '', message: '', includePdf: true })
+          setPosted(`${postedText} Receipt emailed to ${sent.to.join(', ')}.`)
+        } catch (error) {
+          setReceiptWarning(
+            `The payment is posted, but the receipt was not emailed (${describeKrRequestError(error, 'KR_PAYMENTS', 'email-receipt').message}). Use the send icon in Posted Payments to try again.`,
+          )
+        }
+      }
     } catch (error) {
       setPostError(describeKrRequestError(error, 'KR_PAYMENTS', 'post-payment', friendlyPaymentError))
     } finally {
@@ -378,9 +441,27 @@ export default function PaymentsTab({
           </label>
           <textarea className={`${STYLES.field} min-h-[52px]`} disabled={busy} id="payment-notes" maxLength={500} onChange={(event) => setNotes(event.target.value)} placeholder="Notes from the person taking the payment" rows={2} value={notes} />
         </div>
-        <p className={`${LAYOUT_STYLES.fullRow} ${STYLES.laterText}`} data-kr-element="payment-receipt-later">
-          Emailing a receipt after posting arrives in plan stage 5 (documents and email).
-        </p>
+
+        {/* Receipt: email a Payment Receipt (PDF attached) to the client after posting. */}
+        {clientId ? (
+          <div className={LAYOUT_STYLES.receiptRow} data-kr-element="payment-receipt-row">
+            <label className={STYLES.checkLabel}>
+              <input checked={emailReceipt} data-kr-element="payment-email-receipt" disabled={busy} onChange={(event) => setEmailReceipt(event.target.checked)} type="checkbox" />
+              Email receipt to
+            </label>
+            <input
+              aria-label="Receipt email address"
+              autoComplete="off"
+              className={`${STYLES.field} ${(attempted || touched.has('receiptTo')) && receiptError ? STYLES.invalidField : ''}`}
+              data-kr-element="payment-receipt-to"
+              disabled={busy || !emailReceipt}
+              onBlur={() => touch('receiptTo')}
+              onChange={(event) => setReceiptTo(event.target.value)}
+              placeholder="client@example.com"
+              value={receiptTo}
+            />
+          </div>
+        ) : null}
       </div>
 
       {/* Actions: validation messages / outcome on the left, Post on the right. */}
@@ -393,6 +474,7 @@ export default function PaymentsTab({
           ))}
           <KrRequestErrorNote dataKrElement="post-payment-error" error={postError} />
           {posted ? <span className={STYLES.postedText}>{posted}</span> : null}
+          {receiptWarning ? <span className={STYLES.warningText}>{receiptWarning}</span> : null}
           {!visibleMessages.length && !postError && !posted ? (
             <span className={STYLES.postedText}>Posted receipts on file: {payments.filter((payment) => !payment.voided).length}. Review the proposed allocations before posting.</span>
           ) : null}
@@ -417,7 +499,7 @@ export default function PaymentsTab({
       {
         id: 'posted-payments',
         label: 'Posted Payments',
-        card: <PostedPaymentsLedger canVoid={canVoidPayments} onVoid={onVoidPayment} openPaymentId={openPaymentId} onOpenPaymentConsumed={onOpenPaymentConsumed} payments={payments} />,
+        card: <PostedPaymentsLedger canVoid={canVoidPayments} onVoid={onVoidPayment} openPaymentId={openPaymentId} onOpenPaymentConsumed={onOpenPaymentConsumed} payments={payments} receiptSource={receiptSource} />,
       },
       { id: 'open-invoices', label: 'Open Invoices', card: openInvoicesPanel },
     ],

@@ -2,6 +2,12 @@
 // file: apps/web/features/billing/components/ClientAccountingLedger.client.tsx
 // Ported from the old app (hb-components/KR-Billing/ClientAccountingLedger.client.tsx). Change: the Statement of Account
 // Print and Send icons are shown disabled until plan stage 5 (documents and email), which ports the statement builder.
+// Billing part 7b (Nov 15, 2026): Print is back as in the old register: it opens the Statement of Account (whole client,
+// or the selected matter) in the print view, built from the same rows (`printStatementFromBilling`). Send stays disabled
+// until part 7c (the statement email).
+// Billing part 7c (Nov 16, 2026): Send is back as in the old register: it opens `SendStatementDialog` for the selected
+// matter (its id from `statementSource.matters`) or the whole client, with the statement built from the same rows for
+// the default message (`statementReportFromBilling`); the API builds the statement it sends from the record.
 
 import { useMemo, useState } from 'react'
 import AccountingDatePicker, { parseAccountingDate } from './AccountingDatePicker.client'
@@ -9,6 +15,8 @@ import BillingTabHeader from './BillingTabHeader.client'
 import { formatAccountingAmount } from '../formatAccountingAmount'
 import type { BillingInvoice, BillingMatter, BillingTrustEntry, ClientAccountingLedgerEntry } from '../types'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
+import { printStatementFromBilling, statementReportFromBilling } from '../printDocuments.client'
+import SendStatementDialog from './SendStatementDialog.client'
 
 /** Records the Statement of Account needs beyond the register rows (enables Print / Send). */
 export interface ClientAccountingStatementSource {
@@ -34,6 +42,7 @@ export interface ClientAccountingLedgerProps {
 
 const STYLES = {
   wrapper: 'text-[var(--kr-theme-text,_#243142)] text-[11pt] leading-tight',
+  statementNotice: 'text-[9pt] font-semibold text-[var(--kr-theme-danger,#9d2c20)]',
   shell: 'overflow-hidden border-[2px] border-[var(--kr-theme-line,_#d7dee5)] bg-[var(--kr-theme-card-surface,_#ffffff)] shadow-sm',
   toolbar: 'border-b border-[var(--kr-theme-line,_#c4ccd4)] bg-[var(--kr-theme-muted-surface,_#eef3f7)] text-[11pt]',
   accountName: 'font-semibold text-[11pt] text-[var(--kr-theme-text,_#243142)]',
@@ -90,9 +99,6 @@ const LAYOUT_STYLES = {
   headerActions: 'gap-1 flex items-center',
 } as const
 
-/** Why the statement icons are disabled. */
-const STATEMENT_LATER = 'Printing and emailing the Statement of Account arrive in plan stage 5 (documents and email).'
-
 function amountInput(value?: number): string { return typeof value === 'number' ? String(value) : '' }
 function optionalAmount(value: string): number | undefined { const trimmed = value.trim(); if (!trimmed) return undefined; const parsed = Number(trimmed); return Number.isFinite(parsed) ? parsed : undefined }
 function validOptional(value: string): boolean { return !value.trim() || Number.isFinite(Number(value)) }
@@ -109,6 +115,10 @@ export default function ClientAccountingLedger({ entries, clientDisplayName, cli
   const [showVoided, setShowVoided] = useState(false)
   const [selectedMatter, setSelectedMatter] = useState('ALL')
   const [editing, setEditing] = useState<ClientAccountingLedgerEntry | null>(null)
+  /** Why the statement print view did not open (storage or a blocked pop-up). */
+  const [statementNotice, setStatementNotice] = useState<string | null>(null)
+  /** The statement email dialog is open (for the selected matter, or the whole client). */
+  const [sendingStatement, setSendingStatement] = useState(false)
   const inMatter = useMemo(() => entries.filter((entry) => selectedMatter === 'ALL' || entry.matterNumber === selectedMatter), [entries, selectedMatter])
   const voidedCount = inMatter.filter((entry) => entry.voided).length
   const filtered = useMemo(() => (showVoided ? inMatter : inMatter.filter((entry) => !entry.voided)), [inMatter, showVoided])
@@ -126,19 +136,36 @@ export default function ClientAccountingLedger({ entries, clientDisplayName, cli
   const gridTemplateColumns = expanded ? LAYOUT_STYLES.expanded : LAYOUT_STYLES.collapsed
   const statementScope = selectedMatter === 'ALL' ? 'all matters' : `matter ${selectedMatter}`
 
+  /** Opens the Statement of Account (the register's rows, scoped to the selected matter) in the print view. */
+  function printStatement(): void {
+    if (!statementSource) return
+    setStatementNotice(
+      printStatementFromBilling({ clientId: statementSource.clientId, clientNumber, clientDisplayName, matters: statementSource.matters, ledgerEntries: entries, trustEntries: statementSource.trustEntries, invoices: statementSource.invoices, matterFilter: selectedMatter }),
+    )
+  }
+
+  /** The selected matter for the statement email; null for the whole client. */
+  const statementMatter = statementSource && selectedMatter !== 'ALL' ? statementSource.matters.find((matter) => matter.matterNumber === selectedMatter) ?? null : null
+  /** The statement on screen, built only while the email dialog is open (it fills the default message). */
+  const statementReport = useMemo(
+    () => (sendingStatement && statementSource ? statementReportFromBilling({ clientId: statementSource.clientId, clientNumber, clientDisplayName, matters: statementSource.matters, ledgerEntries: entries, trustEntries: statementSource.trustEntries, invoices: statementSource.invoices, matterFilter: selectedMatter }) : null),
+    [clientDisplayName, clientNumber, entries, selectedMatter, sendingStatement, statementSource],
+  )
+
   return <>
     <section className={`${LAYOUT_STYLES.grid} ${STYLES.wrapper}`} data-kr-id="client-accounting-ledger" data-kr-component="ClientAccountingLedger">
       <div className={STYLES.shell}>
         <BillingTabHeader
           actions={
             <>
-              {/* Statement of Account: Print and Send, left of Single Line View. Disabled until plan stage 5. */}
+              {/* Statement of Account: Print (print view) and Send (the email dialog), left of Single Line View. */}
               {statementSource ? (
                 <div className={LAYOUT_STYLES.headerActions} data-kr-element="client-accounting-statement-actions">
-                  <button aria-label={`Print Statement of Account (${statementScope})`} className={STYLES.utilityButton} data-kr-action="client-accounting-print-statement" disabled title={STATEMENT_LATER} type="button">
+                  {statementNotice ? <span className={STYLES.statementNotice} role="alert">{statementNotice}</span> : null}
+                  <button aria-label={`Print Statement of Account (${statementScope})`} className={STYLES.utilityButton} data-kr-action="client-accounting-print-statement" title={`Print Statement of Account (${statementScope})`} type="button" onClick={printStatement}>
                     <KRHomebaseIcons.Print />
                   </button>
-                  <button aria-label={`Email Statement of Account (${statementScope})`} className={STYLES.utilityButton} data-kr-action="client-accounting-send-statement" disabled title={STATEMENT_LATER} type="button">
+                  <button aria-label={`Email Statement of Account (${statementScope})`} className={STYLES.utilityButton} data-kr-action="client-accounting-send-statement" title={`Email Statement of Account (${statementScope})`} type="button" onClick={() => setSendingStatement(true)}>
                     <KRHomebaseIcons.Send />
                   </button>
                 </div>
@@ -175,6 +202,8 @@ export default function ClientAccountingLedger({ entries, clientDisplayName, cli
         <footer className={`${LAYOUT_STYLES.footer} ${STYLES.footer}`}><div className={LAYOUT_STYLES.footerEnding}><span className={STYLES.footerEndingLabel}>Ending balance </span><div className={STYLES.footerEndingBalance}>{formatAccountingAmount(endingBalance)}</div></div></footer>
       </div>
     </section>
+    {/* Statement email dialog: the selected matter, or the whole client. */}
+    {sendingStatement && statementSource && statementReport ? <SendStatementDialog clientDisplayName={clientDisplayName} clientId={statementSource.clientId} clientNumber={clientNumber} matterId={statementMatter?.id ?? null} matterNumber={statementMatter?.matterNumber ?? null} report={statementReport} onCancel={() => setSendingStatement(false)} onSent={() => setSendingStatement(false)} /> : null}
     {editing && onSave ? <LedgerEntryDialog entry={editing} validMatterNumbers={validMatterNumbers} onCancel={() => setEditing(null)} onSave={async (next) => { await onSave(next); setEditing(null) }} /> : null}
   </>
 }

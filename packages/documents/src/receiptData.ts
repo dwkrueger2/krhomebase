@@ -7,13 +7,18 @@
  * Ported from the old `KR-Billing/Invoicing/buildPaymentReceiptData.ts` (part 7a of `docs/API/Billing_Audit.md`).
  * Used by the print page's receipt (part 7b), the receipt notice and the paid-link webhook's receipt (parts 7c, 7d).
  *
+ * `paymentDetailsFor` and `stripeCardLabel` (part 7b) are the old server helpers of the same names in
+ * `api/_server/krPaymentNotice.ts`, moved here so the Payment details dialog (web) and the receipt notice (API, part
+ * 7c) build the same details from the same receipt.
+ *
  * Changed from the old file: the letterhead is passed in (`letterhead`, from `buildLetterhead`) instead of
  * `firmState` (decision B5), and the receipt date (now, unless given) is its date in the firm's time zone
  * (`format.ts`).
  */
 
 import { formatLongDate, roundMoney } from './format.ts'
-import type { LetterheadProfile, PaymentReceiptData } from './types.ts'
+import type { BillingPayment, BillingRecord } from '@krhomebase/contracts'
+import type { LetterheadProfile, PaymentDetails, PaymentReceiptData } from './types.ts'
 
 /** Closing paragraph printed on every receipt. */
 export const DEFAULT_RECEIPT_FINE_PRINT =
@@ -81,5 +86,76 @@ export function buildPaymentReceiptData(options: BuildPaymentReceiptOptions): Pa
     isTest,
     finePrint: DEFAULT_RECEIPT_FINE_PRINT,
   }
+  return rVal
+}
+
+/** Card label from a Stripe payment memo ("Stripe sandbox · Visa •••• 4242 · notes" → "Visa •••• 4242"); null for other payments. */
+export function stripeCardLabel(memo: string | null | undefined, sourceSystem: string | null | undefined): string | null {
+  if (!sourceSystem?.startsWith('stripe_') || !memo?.startsWith('Stripe ')) return null
+  const rVal = memo.split(' · ')[1]?.trim() || null
+  return rVal
+}
+
+/** The stable details the posted-payment receipt dialog shows, read from the receipt (old `paymentDetailsFor`). */
+export function paymentDetailsFor(receipt: PaymentReceiptData): PaymentDetails {
+  return {
+    receiptNumber: receipt.receiptNumber,
+    paymentDate: receipt.paymentDate,
+    receivedFrom: receipt.receivedFrom.name,
+    clientNumber: receipt.clientNumber,
+    matterNumber: receipt.matterNumber,
+    matterTitle: receipt.matterTitle,
+    appliedTo: receipt.invoiceNumber ? `Invoice #${receipt.invoiceNumber}${receipt.invoiceIvid ? ` (${receipt.invoiceIvid})` : ''}` : 'Not applied to an invoice',
+    paymentMethod: receipt.paymentMethod,
+    processor: receipt.processor,
+    reference: receipt.reference,
+    amountReceived: receipt.amount,
+    invoiceBalanceBefore: receipt.invoiceBalanceBefore,
+    invoiceBalanceAfter: receipt.invoiceBalanceAfter,
+    isTest: receipt.isTest,
+  }
+}
+
+/** The payment fields a receipt reads (the contract's `BillingPayment`). */
+export type ReceiptPaymentSource = Pick<
+  BillingPayment,
+  'id' | 'paymentNumber' | 'invoiceId' | 'invoiceNumber' | 'invoiceIvid' | 'matterId' | 'matterNumber' | 'receivedDate' | 'amount' | 'paymentType' | 'referenceNumber' | 'memo' | 'writeOff' | 'sourceSystem'
+>
+
+/** The record pieces a receipt reads. */
+export interface ReceiptRecordSource {
+  client: Pick<BillingRecord['client'], 'displayName' | 'clientNumber'>
+  matters: readonly Pick<BillingRecord['matters'][number], 'id' | 'matterNumber' | 'title'>[]
+  invoices: readonly Pick<BillingRecord['invoices'][number], 'id' | 'invoiceNumber' | 'ivid' | 'amountDue'>[]
+}
+
+/**
+ * Builds a payment's receipt from the Billing record, as the old receipt notice built it from the database
+ * (`api/_server/krPaymentNotice.ts` `receiptFor`): received from the client, the card label from a Stripe memo, and
+ * the invoice's balance now as the balance after (exact for the latest payment on the invoice, as the old receipt).
+ * Shared by the web app's receipt print (part 7b) and the API's receipt email (part 7c).
+ */
+export function receiptFromRecord(payment: ReceiptPaymentSource, record: ReceiptRecordSource, letterhead: LetterheadProfile, receiptDate?: string | Date): PaymentReceiptData {
+  const invoice = payment.invoiceId ? record.invoices.find((row) => row.id === payment.invoiceId) ?? null : null
+  const matter = record.matters.find((row) => row.id === payment.matterId) ?? null
+  const rVal = buildPaymentReceiptData({
+    letterhead,
+    paymentNumber: payment.paymentNumber || payment.id,
+    paymentDate: payment.receivedDate,
+    receiptDate,
+    receivedFromName: record.client.displayName,
+    clientNumber: record.client.clientNumber,
+    matterNumber: matter?.matterNumber ?? payment.matterNumber,
+    matterTitle: matter?.title ?? '',
+    invoiceNumber: invoice?.invoiceNumber ?? payment.invoiceNumber ?? null,
+    invoiceIvid: invoice?.ivid ?? payment.invoiceIvid ?? null,
+    paymentType: payment.paymentType || 'Payment',
+    paymentDetail: stripeCardLabel(payment.memo, payment.sourceSystem),
+    reference: payment.referenceNumber || null,
+    sourceSystem: payment.sourceSystem,
+    amount: payment.amount,
+    writeOff: payment.writeOff,
+    invoiceBalanceAfter: invoice ? invoice.amountDue : null,
+  })
   return rVal
 }
