@@ -185,8 +185,8 @@ components:
 
 # Design System: KR Homebase
 
-<small>Version 1.19</small><br>
-<small>Updated Nov 16, 2026 12:10pm</small>
+<small>Version 1.20</small><br>
+<small>Updated Nov 16, 2026 8:33pm</small>
 
 This file records the visual system that is already in the code (`apps/web/styles/theme.css`, the component `STYLES` maps) and in the old app's reference pages (`/tests/krh/u/default-theme`, `/tests/krh/u5`, `/tests/krh/u1`). The YAML block above must stay at the very top of the file for design tools to read it, so this file's title and version sit below it. Product facts are in `PRODUCT.md`. Layout rules for code (widths, spacing, corners, label placement) are binding in `apps/web/AGENTS.md`; this file describes them and does not override them.
 
@@ -361,6 +361,7 @@ Compact and firm. Bold text on a solid fill, square corners.
 - **Secondary / muted:** Pale Denim fill, Muted Slate text and border.
 - **Toolbar actions:** 24px tall, 11px bold, padding 2px 7px. Main action in Firm Navy; quiet action in an 8% Ledger Slate tint; attention action in Signal Orange. Hover brightens slightly and the border turns Warm Camel.
 - **Dialog buttons:** Cancel is outlined (Cool Hairline, transparent); confirm is Ledger Slate; a secondary choice is outlined in Ledger Slate.
+- **Save Changes (unsaved work):** hidden with its place kept until the form differs from what was saved, then Signal Orange with white text, the brightest button on the form (root `AGENTS.md`, "Unsaved Changes Standard", the requester, Nov 16, 2026). Leaving a dirty form asks "Leave without saving?" (Leave, Stay) in a custom dialog.
 - **Disabled:** 52% to 65% opacity with a not-allowed (or, while busy, a wait) pointer.
 - **Focus:** a 2px outline, white on navy and Active Blue or Warm Camel on light.
 

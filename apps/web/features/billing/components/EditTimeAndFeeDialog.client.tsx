@@ -3,8 +3,17 @@
 // Ported unchanged from the old app (hb-components/KR-Billing/EditTimeAndFeeDialog.client.tsx) with Billing (plan stages 2 to 4).
 // Billing part 7f (Nov 16, 2026, audit item 5): `readOnly` (a billing reader) shows the entry with every field off and
 // only a Close button: no Move, Copy, Delete or Save.
+// FB-0009 (the requester, Nov 16, 2026): the Billing description box is taller (about seven lines), and Pop out moves
+// the dialog into its own browser window to the right of the main window, 30% taller than the dialog, which the person
+// can resize; the description box grows with it. It is the same component, so the draft carries over, and closing the
+// window brings the dialog back over the page. Saving or cancelling closes the window.
+// The requester, Nov 16, 2026: the Client matter list (and Move/Copy's) names each matter, "107.1 · Estate plan", not
+// only its number (`matterTitles`, `matterOptionLabel`), and no field can widen the dialog: the three columns are
+// `minmax(0,1fr)` and a long title is shortened in the list.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import PopOutBrowserWindow, { openPopoutBrowserWindow } from '@/components/shell/PopOutBrowserWindow.client'
+import KRHomebaseIcon from '@/components/ui/KRHomebaseIcon.client'
 import { roundMinutesToTenths } from '../timeRounding'
 import AccountingDatePicker, { parseAccountingDate } from './AccountingDatePicker.client'
 import U6CurrencyInput from '@/components/ui/U6CurrencyInput.client'
@@ -23,6 +32,8 @@ export interface EditTimeAndFeeDialogProps {
   /** Closes this dialog and opens the invoice editor for the attached invoice. */
   onOpenInvoice?: (invoiceId: string) => void
   matterNumbers: readonly string[]
+  /** Each matter's title by its number, so the lists read "107.1 · Estate plan". Absent: the number alone. */
+  matterTitles?: Readonly<Record<string, string>>
   staffOptions: readonly { id: string; label: string }[]
   onCancel: () => void
   onDelete?: (id: string) => Promise<void>
@@ -35,6 +46,14 @@ const STYLES = {
   backdrop: 'bg-slate-950/40',
   dialog:
     'w-full max-w-3xl overflow-hidden rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) shadow-2xl',
+  // In its own window (FB-0009): the whole window, no frame or shadow.
+  dialogPopped: 'w-full bg-(--kr-theme-card-surface)',
+  popOutButton:
+    'px-[6px] py-[2px] gap-[4px] inline-flex shrink-0 items-center rounded-[2px] border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[9pt] font-semibold text-[var(--kr-theme-text,#243142)] cursor-pointer hover:border-(--kr-theme-accent)',
+  popOutIcon: 'size-[12px]',
+  // About seven lines in the dialog (FB-0009); in its own window it takes what the window gives it.
+  description: 'min-h-[112px] resize-y',
+  descriptionPopped: 'min-h-[max(112px,calc(100vh-430px))] resize-y',
   header:
     'border-b border-[var(--kr-theme-line,#d7dee5)] bg-[var(--kr-theme-muted-surface,#eef3f7)]',
   title: 'text-[12pt] font-semibold text-[var(--kr-theme-text,#243142)]',
@@ -43,7 +62,8 @@ const STYLES = {
   publicCode: 'font-mono text-[8.5pt] tracking-[0.04em] text-[var(--kr-theme-text-muted,#526172)] opacity-80',
   field:
     'px-1.5 py-1 w-full rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[10pt] text-[var(--kr-theme-text,#243142)] outline-none focus:border-[var(--kr-theme-brand-primary,#21394f)] focus:ring-1 focus:ring-[var(--kr-theme-brand-primary,#21394f)]',
-  label: 'gap-1 grid text-[9pt] font-semibold text-[var(--kr-theme-text-muted,#526172)]',
+  // min-w-0: a long choice in a select never widens its column past the dialog.
+  label: 'gap-1 grid min-w-0 text-[9pt] font-semibold text-[var(--kr-theme-text-muted,#526172)]',
   button:
     'px-2 py-1 rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[10pt] font-semibold',
   primaryButton:
@@ -67,9 +87,10 @@ const STYLES = {
 const LAYOUT_STYLES = {
   // Centered over the working area (right of the left panel, below the title bar), not the whole viewport.
   backdrop: 'p-4 fixed right-0 bottom-0 left-[var(--kr-shell-work-left,0px)] top-[var(--kr-shell-work-top,0px)] z-50 flex items-center justify-center',
-  header: 'px-3 py-2',
-  form: 'p-3 gap-2 grid sm:grid-cols-3',
-  formRow: 'gap-2 grid sm:grid-cols-3 sm:col-span-3',
+  header: 'px-3 py-2 gap-[8px] flex items-start justify-between',
+  // Three columns that never grow past their share (minmax(0,1fr)), whatever a select holds.
+  form: 'p-3 gap-2 grid sm:grid-cols-[repeat(3,minmax(0,1fr))]',
+  formRow: 'gap-2 grid sm:grid-cols-[repeat(3,minmax(0,1fr))] sm:col-span-3',
   checkboxColumn: 'gap-1 grid text-[9pt] font-semibold text-[var(--kr-theme-text-muted,#526172)]',
   checkbox: 'gap-2 flex h-[30px] items-center',
   descriptionRow: 'sm:col-span-3',
@@ -91,6 +112,22 @@ const ACTIVITY_CATEGORY_SUGGESTIONS = [
   'Accounting',
   'Administration',
 ]
+
+/** The longest title shown in a matter list; a longer one ends in "...", so the open list stays near the dialog's width. */
+const MATTER_TITLE_MAX = 40
+
+/**
+ * A matter as the lists show it: "107.1 · Estate plan" (title shortened to MATTER_TITLE_MAX), or the number alone.
+ *
+ * @param matterNumber - The matter number, the option's value.
+ * @param matterTitles - Titles by number.
+ */
+export function matterOptionLabel(matterNumber: string, matterTitles?: Readonly<Record<string, string>>): string {
+  const title = (matterTitles?.[matterNumber] ?? '').trim()
+  if (!title) return matterNumber
+  const short = title.length > MATTER_TITLE_MAX ? `${title.slice(0, MATTER_TITLE_MAX - 3).trimEnd()}...` : title
+  return `${matterNumber} · ${short}`
+}
 
 function currentDisplayDate(): string {
   const date = new Date()
@@ -131,6 +168,7 @@ export default function EditTimeAndFeeDialog({
   attachedInvoice,
   onOpenInvoice,
   matterNumbers,
+  matterTitles,
   staffOptions,
   onCancel,
   onDelete,
@@ -142,6 +180,18 @@ export default function EditTimeAndFeeDialog({
   const [action, setAction] = useState<'move' | 'copy' | null>(null)
   const [destinationMatter, setDestinationMatter] = useState(draft.matterNumber)
   const [busy, setBusy] = useState(false)
+  // FB-0009: the browser window the dialog was popped out into, if it was.
+  const [popup, setPopup] = useState<Window | null>(null)
+  const formRef = useRef<HTMLFormElement | null>(null)
+  const popupRef = useRef<Window | null>(null)
+  popupRef.current = popup
+  // Saving, cancelling or closing the billing screen unmounts the dialog: its window goes with it.
+  useEffect(() => {
+    return () => {
+      const open = popupRef.current
+      if (open && !open.closed) open.close()
+    }
+  }, [])
   /** Attached to a locked invoice: every field, Save, Move and Delete are off; Copy stays available. */
   const locked = Boolean(entry && attachedInvoice?.locked)
   const isFlatFee = draft.kind === 'Flat Fee Service'
@@ -165,6 +215,17 @@ export default function EditTimeAndFeeDialog({
   function update(patch: Partial<BillingTimeEntry>): void {
     setDraft((current) => ({ ...current, ...patch }))
   }
+  /**
+   * Pops the dialog out into its own window, to the right of the main window when the screen has room, 30% taller
+   * than the dialog is now. Opened here, in the click, or the browser blocks it.
+   */
+  function popOut(): void {
+    const rect = formRef.current?.getBoundingClientRect()
+    const height = Math.round((rect?.height ?? 560) * 1.3) + 60
+    const width = Math.round(rect?.width ?? 768) + 24
+    const opened = openPopoutBrowserWindow(0, { width, height, side: 'beside' })
+    if (opened) setPopup(opened)
+  }
   async function submitEntry(): Promise<void> {
     setBusy(true)
     try {
@@ -178,14 +239,11 @@ export default function EditTimeAndFeeDialog({
       setBusy(false)
     }
   }
-  return (
-    <div
-      className={`${LAYOUT_STYLES.backdrop} ${STYLES.backdrop}`}
-      data-kr-element="edit-time-fee-backdrop"
-    >
+  const form = (
       <form
+        ref={formRef}
         aria-label={entry ? 'Edit time and fee entry' : 'Add time and fee entry'}
-        className={STYLES.dialog}
+        className={popup ? STYLES.dialogPopped : STYLES.dialog}
         data-kr-id="edit-time-and-fee-dialog"
         onSubmit={(event) => {
           event.preventDefault()
@@ -194,6 +252,7 @@ export default function EditTimeAndFeeDialog({
       >
         {/* Entry dialog header: identify the persisted client-matter billing context. */}
         <header className={`${LAYOUT_STYLES.header} ${STYLES.header}`}>
+          <div>
           <h2 className={STYLES.title}>
             {entry ? (readOnly ? 'Time and fee entry (read only)' : 'Edit time and fee entry') : 'Add billing entry'}
           </h2>
@@ -201,6 +260,14 @@ export default function EditTimeAndFeeDialog({
             Matter-based billing
             {entry?.bcid ? <span className={STYLES.publicCode} data-kr-element="edit-time-fee-bcid" title="Billing Code ID (bcid)"> · #{entry.bcid}</span> : null}
           </p>
+          </div>
+          {/* FB-0009: move the dialog into its own resizable window (not shown once it is in one) */}
+          {popup ? null : (
+            <button className={STYLES.popOutButton} data-kr-action="edit-time-fee-pop-out" title="Pop out into its own window (to the right; resize it as you like)" type="button" onClick={popOut}>
+              <KRHomebaseIcon className={STYLES.popOutIcon} name="external-link" />
+              Pop out
+            </button>
+          )}
         </header>
         {/* Entry fields: explicit rows preserve the three-column form rhythm. */}
         <div className={LAYOUT_STYLES.form}>
@@ -236,11 +303,15 @@ export default function EditTimeAndFeeDialog({
               Client matter
               <select
                 className={STYLES.field}
+                data-kr-element="edit-time-fee-client-matter"
+                title={matterOptionLabel(draft.matterNumber, matterTitles)}
                 value={draft.matterNumber}
                 onChange={(event) => update({ matterNumber: event.target.value })}
               >
                 {matterNumbers.map((matter) => (
-                  <option key={matter}>{matter}</option>
+                  <option key={matter} value={matter}>
+                    {matterOptionLabel(matter, matterTitles)}
+                  </option>
                 ))}
               </select>
             </label>
@@ -353,7 +424,8 @@ export default function EditTimeAndFeeDialog({
           >
             Billing description
             <textarea
-              className={`${STYLES.field} min-h-16 resize-y`}
+              className={`${STYLES.field} ${popup ? STYLES.descriptionPopped : STYLES.description}`}
+              rows={7}
               value={draft.description}
               onChange={(event) => update({ description: event.target.value })}
             />
@@ -384,7 +456,9 @@ export default function EditTimeAndFeeDialog({
                   onChange={(event) => setDestinationMatter(event.target.value)}
                 >
                   {matterNumbers.map((matter) => (
-                    <option key={matter}>{matter}</option>
+                    <option key={matter} value={matter}>
+                      {matterOptionLabel(matter, matterTitles)}
+                    </option>
                   ))}
                 </select>
                 <button className={STYLES.button} type="button" onClick={() => setAction(null)}>
@@ -440,6 +514,21 @@ export default function EditTimeAndFeeDialog({
           </div>
         </footer>
       </form>
+  )
+  // In its own window: the form alone fills it. Closing the window brings the dialog back over the page.
+  if (popup) {
+    return (
+      <PopOutBrowserWindow popupWindow={popup} title={entry ? 'Edit time and fee entry' : 'Add billing entry'} onClose={() => setPopup(null)}>
+        {form}
+      </PopOutBrowserWindow>
+    )
+  }
+  return (
+    <div
+      className={`${LAYOUT_STYLES.backdrop} ${STYLES.backdrop}`}
+      data-kr-element="edit-time-fee-backdrop"
+    >
+      {form}
     </div>
   )
 }

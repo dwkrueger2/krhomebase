@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.26</small><br>
-<small>Updated Nov 16, 2026 4:39pm</small>
+<small>Version 2.27</small><br>
+<small>Updated Nov 16, 2026 8:33pm</small>
 
 ## Agent Guide Index
 
@@ -84,6 +84,17 @@ Before creating or modifying any `.tsx`, `.css`, or `.module.css` file:
 - The reusable confirmation dialog is `U6ConfirmationDialog` in `apps/web/components/dialogs/U6ConfirmationDialog.client.tsx` (`import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'`). The parent screen owns its state: `open`, `busy`, `error`, and the `onCancel`, `onConfirm` and optional `onSecondary` handlers. It shows the rainbow indicator from `apps/web/components/ui/RainbowBusySpinner.client.tsx` while busy. For a specialized interaction, use the owning component's own custom `role="dialog"` implementation.
 - Keep user actions explicit with labeled buttons and preserve busy and error states in the dialog.
 - Do not migrate unrelated native prompts opportunistically; report them, or migrate them when the owning workflow is requested.
+- **The standing order covers outside tools too.** A tool under `workers/` (and any tool built with the tool kit) never uses `alert`, `confirm` or `prompt` either; it draws its own `role="dialog"` (tool kit guide, `packages/tool-sdk/README.md` section 4, "What the frame allows").
+
+## Unsaved Changes Standard
+
+The requester's design principle (Nov 16, 2026): a person always knows when a form holds changes that are not saved, and is asked before they are thrown away.
+
+1. **Dirty means different from what was saved.** A form is dirty while any field differs from the saved value, not merely after it was touched. Changing a field back makes the form clean again.
+2. **The save button shows the state.** Its place is always kept (`invisible` until dirty, so nothing moves when it appears). While the form is dirty it shows, labeled **Save Changes**, as the brightest button on the form: Signal Orange (`--kr-theme-orange`) with white text (`apps/web/DESIGN.md`, Components, Buttons). A form that saves through a review step names the change beside the button instead of adding a second step.
+3. **Leaving asks first.** Leaving a dirty form (another screen, another record, Back, closing its pop-out) opens the custom dialog **"Leave without saving?"** with **Leave** and **Stay**. In `apps/web`: `U6ConfirmationDialog`, with `useReportUnsavedChanges` (`components/ui/unsavedChanges.client.ts`) and the shell leave guard (`addShellLeaveGuard`). In an outside tool: its own `role="dialog"`, and `host.setDirty(true)` so KR Homebase guards leaving the tool.
+4. **Never the browser's own boxes** (the User-Response Dialog Standard above). The one exception no page can avoid: closing or reloading the browser tab or window shows only the browser's own `beforeunload` warning.
+5. **Applies going forward.** New forms follow it; an existing form is brought in line when its workflow is changed (`AGENTS_04`, no rewrites of untouched code).
 
 ## Impeccable (the design skill)
 
@@ -148,8 +159,9 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 | 8792 | `workers/d1-workers/session-worker` (wrangler dev) | `pnpm dev:session` | `pnpm stop:port:8792` |
 | 9341 | `session-worker` debugger | started with it | `pnpm stop:port:9341` |
 | 8793 | `apps/external-api` (wrangler dev) | `pnpm dev:external` | `pnpm stop:port:8793` |
-| 5174 | `workers/feedback-viewer` (vite dev; the Feedback Viewer tool page) | `pnpm dev:feedback-viewer` | `pnpm stop:port:5174` |
+| 5174 | `workers/feedback-viewer` (vite dev; the Feedback Viewer tool page), or the built page with its image Worker (wrangler dev; shows the screenshots) | `pnpm dev:feedback-viewer`, or `pnpm dev:feedback-viewer:worker` | `pnpm stop:port:5174` |
 | 9342 | `external-api` debugger | started with it | `pnpm stop:port:9342` |
+| 9343 | Feedback Viewer image Worker debugger | started with `pnpm dev:feedback-viewer:worker` | `pnpm stop:port:9343` |
 | 3001 | Not used here. The old `apps/kr-homebase` runs on it. | | `pnpm stop:port:3001` |
 | 3000, 3002, 3003 | Not assigned in this repository. Kept from the old repository's scripts. | | `pnpm stop:port:3000`, `:3002`, `:3003` |
 
@@ -219,6 +231,7 @@ pnpm dev:crud         # crud-worker on port 8791 (optional local run; see worker
 pnpm dev:session      # session-worker on port 8792
 pnpm dev:external     # external-api on port 8793 (calls the deployed API)
 pnpm dev:feedback-viewer  # the Feedback Viewer tool page on port 5174 (open it from a local KR Homebase menu)
+pnpm dev:feedback-viewer:worker  # the same port, built and run with its image Worker: shows the screenshots (no hot reload)
 pnpm check            # type check + all tests; must pass before the requester commits
 pnpm openapi          # rewrite apps/api/openapi/openapi.json after changing any route
 pnpm documents:css    # rewrite the PDF stylesheet (packages/documents/src/generated) after changing a document template
@@ -235,6 +248,7 @@ pnpm deploy:feedback-viewer  # build and deploy krhomebase-feedback-viewer (an o
 pnpm deploy:public-article  # deploy krhomebase-public-article-worker (the public site's article reader, bound to krhomebase); the requester runs it (workers/r2-workers/public-article-worker)
 pnpm pack:tool-sdk    # build dist\tool-sdk\krhomebase-tool-sdk-1.0.0.tgz for outside developers
 pnpm feedback:get -Number 12  # read-only: write feedback-cache\FB-0012\FB-0012.md from the live database
+pnpm feedback:get -Open       # read-only: write feedback-cache\index.md, the open requests ("plan open feedback")
 pnpm stop:ports:all   # stop every development server started by this repository
 pnpm listScripts      # show the root scripts
 ```
@@ -263,13 +277,14 @@ pnpm listScripts      # show the root scripts
 | `deploy:external` | `apps/external-api` | `wrangler deploy` |
 | `deploy:pay` | `workers/d1-workers/kr-pay-worker` | `wrangler deploy --config kr-pay-worker.jsonc` |
 | `dev:feedback-viewer` | `workers/feedback-viewer` | `vite dev --port 5174 --strictPort` |
+| `dev:feedback-viewer:worker` | `workers/feedback-viewer` | `vite build`, `scripts/allow-local-frame.mjs` (lets `localhost:3011` frame the local build: `dist/_headers` only), then `wrangler dev --config feedback-viewer.jsonc --port 5174 --inspector-port 9343` (the real screenshots bucket, `remote: true`; the ticket secret from `.dev.vars`, written by `Write-DevVars.ps1`) |
 | `deploy:feedback-viewer` | `workers/feedback-viewer` | `vite build`, then `wrangler deploy --config feedback-viewer.jsonc` |
 | `deploy:public-article` | root | `wrangler deploy --config workers/r2-workers/public-article-worker/public-article-worker.jsonc` |
 | `deploy:hot`, `deploy:warn`, `deploy:status`, `deploy:finish`, `deploy:cancel` | root | `scripts/Deploy-Krhomebase.ps1 -Mode <mode>` (`hot`, `warn`, `status`, `finish` or `cancel`; `deploy:hotDelay3` and `deploy:hotDelay5` are `-Mode warn 3` and `-Mode warn 5`, repository patch 50): Worker versions uploaded (`wrangler versions upload`, `vinext-cloudflare deploy --no-promote`), then made live (`wrangler versions deploy`), API first; `warn` writes and clears the deploy window on `kr_maintenance_gate` (repository patch 34). Pending and last deploy in the git-ignored `deploy-state/`. |
 | `pack:tool-sdk` | `packages/tool-sdk` | build, then `pnpm pack` into `dist/tool-sdk` |
 | `openapi` | `apps/api` | `tsx scripts/write-openapi.ts` |
 | `documents:css` | `packages/documents` | `node scripts/write-document-css.mjs` |
-| `feedback:get` | root | `scripts/Get-Feedback.ps1 -Number <n>`: read-only `wrangler d1 execute` SELECTs on `krhomebase` (config `apps/api/kr-api-wrangler.jsonc`), then writes `feedback-cache/FB-000n/FB-000n.md` |
+| `feedback:get` | root | `scripts/Get-Feedback.ps1 -Number <n>` (or `-Open`): read-only `wrangler d1 execute` SELECTs on `krhomebase` (config `apps/api/kr-api-wrangler.jsonc`), then writes `feedback-cache/FB-000n/FB-000n.md` (or `feedback-cache/index.md`) |
 | `dev:crud`, `dev:session` | `workers/d1-workers/...` | `wrangler dev` with that Worker's config |
 
 ## Homebase Feedback: asking Claude
@@ -293,6 +308,8 @@ A request's detail in the Feedback pop-out has a "Copy for Claude" button that c
 2. Reads `feedback-cache\FB-0012\FB-0012.md`: the text, the markers it names (on the page or not when sent, and where), the captured page (address, section, open item, `kr-web-version`, deployment id and time, window size, theme) and the developer notes, and each screenshot: the PNG (downloaded beside it as `FB-0012-image-1.png` with a read-only `wrangler r2 object get`; open it with Read) and its marks in words with the markers each points at. A screenshot is client data: never copy or commit it.
 3. Finds each marker in the code (`rg -F 'data-kr-element="related-contacts-list"' apps/web`), compares the web version with `git log` and `docs/04_Deployed_Architecture.md`, and answers with a plan that follows the guides for the files it would change.
 4. Does not change the request's status or add notes (a database write); the requester does that (in the viewer, stage F5).
+
+To plan every request still open, the requester writes `plan open feedback`. Claude runs `pnpm feedback:get -Open` (read-only; it writes `feedback-cache\index.md`, every request not Done or Will not do, most urgent first), then steps 1 to 3 for each request in it, and answers with one short plan per request, most urgent first. Reading every open request this way is the requester's naming of them (Project Boundaries, `feedback-cache/`).
 
 ## Collaboration Notes
 

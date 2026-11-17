@@ -59,9 +59,10 @@ const STYLES = {
 /**
  * Renders the button and, while open, the Feedback pop-out.
  *
+ * @param props - `submitterName`: the signed-in person's name, for the new request's starting text (FB-0006).
  * @returns The button (`data-kr-element="homebase-feedback-button"`) and the open pop-out.
  */
-export default function HomebaseFeedbackButton() {
+export default function HomebaseFeedbackButton({ submitterName }: { submitterName?: string } = {}) {
   const [place, setPlace] = useState<FeedbackPlace>(null)
   // Unsent work in New request (the requester, Nov 15, 2026): closing asks "Discard changes without saving?" first.
   const [dirty, setDirty] = useState(false)
@@ -108,7 +109,7 @@ export default function HomebaseFeedbackButton() {
   }
 
   // Made only once open (after a click, in the browser): `window` does not exist while the server draws the page.
-  const panel = place ? <HomebaseFeedbackPanel sourceWindow={window} onDirtyChange={onDirtyChange} /> : null
+  const panel = place ? <HomebaseFeedbackPanel sourceWindow={window} onDirtyChange={onDirtyChange} submitterName={submitterName} /> : null
 
   return (
     <>

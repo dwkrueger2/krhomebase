@@ -1,7 +1,7 @@
 # Homebase Feedback Viewer (an outside tool built with the tool kit)
 
-<small>Version 2.3</small><br>
-<small>Updated Nov 14, 2026 9:45pm</small>
+<small>Version 2.4</small><br>
+<small>Updated Nov 16, 2026 8:45pm</small>
 
 ## Read this first: this tool is a test of the KR Homebase tool kit
 
@@ -34,10 +34,15 @@ KR Homebase shows this page in a sealed frame when a developer chooses **Feedbac
 
 | Screen | What it shows |
 |---|---|
-| The list (`#/`) | Every request, newest first, 50 per page. Filters: status and kind. |
-| One request (`#/FB-0012`) | The request's text and its markers (with whether each was on the page when sent, and where). The page it was sent from (address, section, open item, `kr-web-version`, deployment id and time, window size, theme). Its screenshots, each with its marks in words ("Rectangle around `data-kr-element=...`"). Its notes. A **Copy for Claude** box holding `plan FB-0012`. |
-| Status and priority | Pick the new values and an optional note, then **Review change**. The tool shows exactly what will change, and saves only after **Save change** (kit rule 3). |
-| Add a note | Saves a developer note. |
+| The list (`#/`) | Every request, newest first, 50 per page. Filters: status and kind. Kind, status and priority are small colored pills; each row has a clear tint of its status color and a bar on the left. |
+| One request (`#/FB-0012`) | **‹ Previous** and **Next ›** to the requests around it in the list it was opened from, and **All requests**. The title with its kind, status and priority pills. The request's text and its markers (with whether each was on the page when sent, and where). The page it was sent from (address, section, open item, `kr-web-version`, deployment id and time, window size, theme). Its screenshots, each with its marks in words ("Rectangle around `data-kr-element=...`"). Its notes. A **Copy for Claude** box holding `plan FB-0012`. |
+| Status, priority and notes | One form: status, priority (P1 Urgent to P4 Low) and an optional note. **Save Changes** keeps its place but shows, in Signal Orange, only while the form differs from what is saved, with what it will change written beside it (kit rule 4); one click saves. A note alone is saved as a plain note. Leaving a request with unsaved changes asks **Leave without saving?** (Leave, Stay) in the tool's own dialog (KR Homebase `AGENTS.md`, "Unsaved Changes Standard"). |
+
+**Markers** (bottom right): KR Homebase's Dev View and Pick from page cannot see inside this tool's frame (another site, sandboxed), so the viewer has its own small switch. While it is on, every `data-kr-element` and `data-kr-id` marker of the viewer is outlined; a click copies the marker (`data-kr-element="feedback-viewer-save"`) for a feedback request instead of doing anything else, and shows it selected for Ctrl+C when the frame refuses the clipboard. Escape stops. `src/markerPick.ts`.
+
+**Screenshots** have a tool row in their upper right (`src/magnifier.ts`): **Magnify** (one setting for the page; a Signal Orange border while on; the lens follows the pointer over any screenshot; Escape stops), the lens size (Small, Medium, Large) and **Pop out** (the image alone in its own window).
+
+**Colors** live in one object, `src/feedbackColors.ts` (KR Homebase state colors and WorkStream colors as light tints with dark text). The page's Content-Security-Policy forbids `style="..."` in HTML, so the script writes them onto the page as CSS variables (`--theme-fb-*`) and `viewer.css` only reads them.
 
 A person who may read but not change requests (no `developer_tools` update permission) sees no forms.
 
@@ -53,7 +58,7 @@ The Feedback pop-out in KR Homebase uploads each annotated screenshot to KR Home
 
 Why a ticket: this site (`*.workers.dev`) has no KR Homebase session, so the Worker cannot tell who is asking. The API can, so the API decides and the Worker only checks the signature. A ticket is a short bearer pass for one image: anyone holding the address within 10 minutes can open that one image, as with any signed address.
 
-The ticket rule is written out in `worker/imageWorker.ts` (this tool imports only the kit) and in KR Homebase's `apps/api/src/platform/feedbackImages.ts`; both test files check the same fixed example, so a change on one side fails a test.
+The ticket rule is written out in `worker/imageTicket.ts` (this tool imports only the kit) and in KR Homebase's `apps/api/src/platform/feedbackImages.ts`; both test files check the same fixed example, so a change on one side fails a test.
 
 ## How sign-in and permissions work (path A, the frame)
 
@@ -85,7 +90,7 @@ The super admin enters these values in **Settings → Application Settings → O
 ```text
 Tool: Feedback Viewer
 Description: Lists the numbered Homebase Feedback requests (FB-0012) for Internal Developers: read, triage, add notes, copy for Claude.
-Version: 1.2.0
+Version: 1.3.0
 Built-in fallback icon: tool (KR Homebase default)
 Address (entry URL): https://krhomebase-feedback-viewer.dankrueger.workers.dev/
 Health route: https://krhomebase-feedback-viewer.dankrueger.workers.dev/health-check
@@ -97,7 +102,7 @@ Server access (client secret): no
 
 - **Roles:** a person sees the tool when their account's role is any one of the ticked roles. Super admin is always ticked and locked (KR Homebase adds it to every tool). The real limit is the Internal Developer role set (check 4.5 above): a person with a listed role but without that role set is refused.
 - **Icon route:** the tool serves its own menu icon at `/tool-icon.svg` (`public/tool-icon.svg`): a speech bubble behind a magnifying glass with "FB" drawn in its lens, so it does not read as a search icon. KR Homebase reads it each time the registration is saved; nothing is pasted. The fallback is KR Homebase's default tool icon (the orange diamond). `src/tool.test.ts` checks the file passes `checkToolIcon`.
-- **Health route:** every tool must answer `/health-check` (kit guide). This tool serves `public/health-check`, `{ "status": "ok", "version": "1.2.0", "protocol": 1 }`; `src/tool.test.ts` checks it equals `healthDocument(tool)`. **Check health** on the registration form reads it (and the icon route), and **Details** shows the raw answer. When a person opens the tool and it does not answer, KR Homebase shows a notice in place of the tool, with Try again and Open anyway.
+- **Health route:** every tool must answer `/health-check` (kit guide). This tool serves `public/health-check`, `{ "status": "ok", "version": "1.3.0", "protocol": 1 }`; `src/tool.test.ts` checks it equals `healthDocument(tool)`. **Check health** on the registration form reads it (and the icon route), and **Details** shows the raw answer. When a person opens the tool and it does not answer, KR Homebase shows a notice in place of the tool, with Try again and Open anyway.
 
 ## Files
 
@@ -113,7 +118,8 @@ Server access (client secret): no
 | `index.html`, `vite.config.ts` | The page and its build (`vite build` writes `dist/`). |
 | `public/_headers` | Security headers for every file (copied into `dist/`). |
 | `public/health-check`, `public/tool-icon.svg` | The health route and the icon route every tool serves (kit guide, sections 5.1 and 5.3). |
-| `worker/imageWorker.ts` | The Worker script for `/images/*` only: checks the ticket and serves the screenshot from the bucket (the stated exception above). |
+| `worker/imageWorker.ts` | The Worker script for `/images/*` only: checks the ticket and serves the screenshot from the bucket (the stated exception above). It exports only its handler: the local Workers runtime refuses other named exports. |
+| `worker/imageTicket.ts` | The ticket rule and the image answer the handler uses (tested in `imageWorker.test.ts`). |
 | `feedback-viewer.jsonc` | The Worker: static files from `dist/`, the image script, the bucket binding `FEEDBACK_STORAGE`, the `workers.dev` address. |
 | `src/*.test.ts`, `worker/*.test.ts` | Tests, run by `pnpm check`. |
 
@@ -186,7 +192,7 @@ Both must answer "Success! Uploaded secret KR_FEEDBACK_IMAGE_TICKET_SECRET". To 
 ### 3. Register the tool (super admin, in KR Homebase)
 
 1. **Settings → Application Settings → Outside tools → Register tool.**
-2. Enter the values from the registration sheet above: the menu label, description and tool address (leave the fallback icon at `tool (default)`). Press **Check health**: it must say "Answers, version 1.2.0", and the preview beside the fallback icon shows the FB icon.
+2. Enter the values from the registration sheet above: the menu label, description and tool address (leave the fallback icon at `tool (default)`). Press **Check health**: it must say "Answers, version 1.3.0", and the preview beside the fallback icon shows the FB icon.
 3. Tick both permissions, `homebase-feedback:read` and `homebase-feedback:write`.
 4. Tick the roles from the sheet (any one of them sees the tool; add your own role if it is not there). Leave server access off.
 5. Save. KR Homebase gives the tool a client id (`krt_...`). The tool does not need it in its code, because KR Homebase sends it when the frame connects.
@@ -226,11 +232,16 @@ Both must answer "Success! Uploaded secret KR_FEEDBACK_IMAGE_TICKET_SECRET". To 
    pnpm dev:feedback-viewer
    ```
 
-   This serves `http://localhost:5174`. Stop it with `pnpm stop:port:5174`.
-2. Run KR Homebase locally (`pnpm dev`, port 3011). Register a second tool there with the address `http://localhost:5174/` (kit guide, section 9). **Caution:** the local API uses the live database, so this registration is a real row. Remove it when you are done.
+   This serves `http://localhost:5174` and reloads as you edit. Stop it with `pnpm stop:port:5174`.
+2. Run KR Homebase locally (`pnpm dev`, port 3011). Register a second tool there with the address `http://localhost:5174/` (kit guide, section 9), the permissions `homebase-feedback:read` and `homebase-feedback:write`, and the role Super admin only. **Caution:** the local API uses the live database, so this registration is a real row (the deployed menu lists it too, for super admins), and every status change or note saved from the local viewer is real. Remove the registration when you are done.
 3. Open it from the menu at `http://localhost:3011`.
 
-Screenshots do not show locally: `vite dev` serves only the page, not `worker/imageWorker.ts`, so `/images/...` answers the page instead (the tests cover the script).
+**With the screenshots** (Nov 16, 2026): `vite dev` serves only the page, not `worker/imageWorker.ts`, so under step 1 `/images/...` answers the page and each screenshot shows broken. To see them, run the built page with its Worker instead, on the same port:
+
+1. Once, write the local ticket secret: `.\scripts\Write-DevVars.ps1` from the repository root. It puts one local value of `KR_FEEDBACK_IMAGE_TICKET_SECRET` into `apps\api\.dev.vars` and `workers\feedback-viewer\.dev.vars` (making `feedback-image-ticket-secret.txt` in the keys folder when missing). Restart `pnpm dev` afterwards, so the local API signs the tickets with it.
+2. `pnpm dev:feedback-viewer:worker` (stop `pnpm dev:feedback-viewer` first; both use port 5174). It runs `vite build`, then `scripts/allow-local-frame.mjs` (the built `dist/_headers` lets `http://localhost:3011` frame this local copy; `public/_headers`, and so the deployed viewer, still allow only `https://krhomebase.com`), then `wrangler dev`, with the real bucket (`remote: true` in `feedback-viewer.jsonc`). There is no hot reload: stop it and run it again after an edit.
+
+The screenshots are the live ones: client data, read only. Treat them like `feedback-cache` (never copy or commit one).
 
 ## What this test found about the kit
 

@@ -23,11 +23,15 @@
   "r2_buckets": [
     {
       "binding": "FEEDBACK_STORAGE",
-      "bucket_name": "kr-homebase-feedback"
+      "bucket_name": "kr-homebase-feedback",
+      // The real bucket also under wrangler dev (pnpm dev:feedback-viewer:worker), as the API's binding does: the local
+      // viewer then shows the real screenshots (read only). Deploying ignores this setting.
+      "remote": true
     }
   ],
   // Secret (set by the requester with wrangler secret put, never in this file): KR_FEEDBACK_IMAGE_TICKET_SECRET, the
-  // same value the API holds.
+  // same value the API holds. Locally: .dev.vars beside this file, written by scripts/Write-DevVars.ps1 with the same
+  // value as apps/api/.dev.vars (a local value of its own, not the deployed one).
   // The tool's address is the workers.dev address, a different site from krhomebase.com, as the outside tools
   // design asks (docs/05_Outside_Tools.md, section 3, point 6). No preview addresses.
   "workers_dev": true,

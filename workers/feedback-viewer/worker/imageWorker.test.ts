@@ -1,7 +1,8 @@
 // file: workers/feedback-viewer/worker/imageWorker.test.ts
 // The image script: tickets (the fixed example the KR Homebase API test checks too), refusals, and serving a PNG.
 import { describe, expect, it } from 'vitest'
-import worker, { serveImage, ticketOpens, type ViewerEnv } from './imageWorker.ts'
+import { serveImage, ticketOpens, type ViewerEnv } from './imageTicket.ts'
+import worker from './imageWorker.ts'
 
 const SECRET = 'test-ticket-secret-0123456789abcdef-0123456789'
 const KEY = 'feedback/FB-0012/hfi_00000000-0000-4000-8000-000000000000.png'

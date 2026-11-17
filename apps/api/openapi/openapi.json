@@ -81079,11 +81079,12 @@
                   "kind": {
                     "type": "string",
                     "enum": [
-                      "feature",
                       "issue",
+                      "usability",
+                      "feature",
                       "question"
                     ],
-                    "description": "Feature (a change or addition), issue (something wrong) or question."
+                    "description": "Issue (a bug: something wrong), usability (works, but is hard to use), feature (a change or addition) or question."
                   },
                   "title": {
                     "type": "string",
@@ -81264,11 +81265,12 @@
                             "kind": {
                               "type": "string",
                               "enum": [
-                                "feature",
                                 "issue",
+                                "usability",
+                                "feature",
                                 "question"
                               ],
-                              "description": "Feature (a change or addition), issue (something wrong) or question."
+                              "description": "Issue (a bug: something wrong), usability (works, but is hard to use), feature (a change or addition) or question."
                             },
                             "title": {
                               "type": "string",
@@ -81278,7 +81280,9 @@
                               "type": "string",
                               "enum": [
                                 "new",
+                                "reopened",
                                 "triaged",
+                                "needs_info",
                                 "planned",
                                 "in_progress",
                                 "done",
@@ -82063,8 +82067,9 @@
             "schema": {
               "type": "string",
               "enum": [
-                "feature",
                 "issue",
+                "usability",
+                "feature",
                 "question"
               ],
               "description": "Only this kind."
@@ -82132,11 +82137,12 @@
                               "kind": {
                                 "type": "string",
                                 "enum": [
-                                  "feature",
                                   "issue",
+                                  "usability",
+                                  "feature",
                                   "question"
                                 ],
-                                "description": "Feature (a change or addition), issue (something wrong) or question."
+                                "description": "Issue (a bug: something wrong), usability (works, but is hard to use), feature (a change or addition) or question."
                               },
                               "title": {
                                 "type": "string",
@@ -82146,7 +82152,9 @@
                                 "type": "string",
                                 "enum": [
                                   "new",
+                                  "reopened",
                                   "triaged",
+                                  "needs_info",
                                   "planned",
                                   "in_progress",
                                   "done",
@@ -82545,11 +82553,12 @@
                               "kind": {
                                 "type": "string",
                                 "enum": [
-                                  "feature",
                                   "issue",
+                                  "usability",
+                                  "feature",
                                   "question"
                                 ],
-                                "description": "Feature (a change or addition), issue (something wrong) or question."
+                                "description": "Issue (a bug: something wrong), usability (works, but is hard to use), feature (a change or addition) or question."
                               },
                               "title": {
                                 "type": "string",
@@ -82559,7 +82568,9 @@
                                 "type": "string",
                                 "enum": [
                                   "new",
+                                  "reopened",
                                   "triaged",
+                                  "needs_info",
                                   "planned",
                                   "in_progress",
                                   "done",
@@ -82943,11 +82954,12 @@
                             "kind": {
                               "type": "string",
                               "enum": [
-                                "feature",
                                 "issue",
+                                "usability",
+                                "feature",
                                 "question"
                               ],
-                              "description": "Feature (a change or addition), issue (something wrong) or question."
+                              "description": "Issue (a bug: something wrong), usability (works, but is hard to use), feature (a change or addition) or question."
                             },
                             "title": {
                               "type": "string",
@@ -82957,7 +82969,9 @@
                               "type": "string",
                               "enum": [
                                 "new",
+                                "reopened",
                                 "triaged",
+                                "needs_info",
                                 "planned",
                                 "in_progress",
                                 "done",
@@ -83750,7 +83764,9 @@
                     "type": "string",
                     "enum": [
                       "new",
+                      "reopened",
                       "triaged",
+                      "needs_info",
                       "planned",
                       "in_progress",
                       "done",
@@ -83809,11 +83825,12 @@
                             "kind": {
                               "type": "string",
                               "enum": [
-                                "feature",
                                 "issue",
+                                "usability",
+                                "feature",
                                 "question"
                               ],
-                              "description": "Feature (a change or addition), issue (something wrong) or question."
+                              "description": "Issue (a bug: something wrong), usability (works, but is hard to use), feature (a change or addition) or question."
                             },
                             "title": {
                               "type": "string",
@@ -83823,7 +83840,9 @@
                               "type": "string",
                               "enum": [
                                 "new",
+                                "reopened",
                                 "triaged",
+                                "needs_info",
                                 "planned",
                                 "in_progress",
                                 "done",
@@ -84659,11 +84678,12 @@
                             "kind": {
                               "type": "string",
                               "enum": [
-                                "feature",
                                 "issue",
+                                "usability",
+                                "feature",
                                 "question"
                               ],
-                              "description": "Feature (a change or addition), issue (something wrong) or question."
+                              "description": "Issue (a bug: something wrong), usability (works, but is hard to use), feature (a change or addition) or question."
                             },
                             "title": {
                               "type": "string",
@@ -84673,7 +84693,9 @@
                               "type": "string",
                               "enum": [
                                 "new",
+                                "reopened",
                                 "triaged",
+                                "needs_info",
                                 "planned",
                                 "in_progress",
                                 "done",
@@ -85515,11 +85537,12 @@
                             "kind": {
                               "type": "string",
                               "enum": [
-                                "feature",
                                 "issue",
+                                "usability",
+                                "feature",
                                 "question"
                               ],
-                              "description": "Feature (a change or addition), issue (something wrong) or question."
+                              "description": "Issue (a bug: something wrong), usability (works, but is hard to use), feature (a change or addition) or question."
                             },
                             "title": {
                               "type": "string",
@@ -85529,7 +85552,9 @@
                               "type": "string",
                               "enum": [
                                 "new",
+                                "reopened",
                                 "triaged",
+                                "needs_info",
                                 "planned",
                                 "in_progress",
                                 "done",

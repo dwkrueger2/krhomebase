@@ -1,7 +1,7 @@
 # Homebase Feedback Plan (feature requests and issues for the app itself)
 
-<small>Version 1.7</small><br>
-<small>Updated Nov 16, 2026 4:39pm</small>
+<small>Version 1.8</small><br>
+<small>Updated Nov 16, 2026 9:20pm</small>
 
 **Status:** decided (section 7.1, Nov 13, 2026). Stages F1, F2 and F6 are built (repository patch 33, API patch 30, web patch 542); F5, the viewer (an outside tool, decision 3 changed), is built (repository patch 37, API patch 32, Nov 14, 2026), deployed Nov 15, 2026 and registered as the outside tool "KRH FB Viewer"; F3, the screenshots, is built and deployed (repository patch 40, API patch 34, web patch 545, Nov 14, 2026); F4, Dev View for developers, is built (repository patch 42, web patch 548, Nov 15, 2026) and live with the web app (every web deploy since commit `16a209f`; all stages checked live Nov 16, 2026). Written from the requester's brief of Nov 13, 2026 ("FEED BACK FEATURE").
 
@@ -73,7 +73,7 @@ Workable within the hard rules: Claude may run read-only wrangler commands. A sc
 
 | Table | Holds |
 |---|---|
-| `homebase_feedback` | `id`, `number` (FB-0001, next free, retried on a clash), kind (feature, issue, question), title, body text, status (new, triaged, planned, in progress, done, will not do), priority, the submitter, address, section, open item, `kr-web-version`, deployment id and time, window size, theme, created and changed times |
+| `homebase_feedback` | `id`, `number` (FB-0001, next free, retried on a clash), kind (feature, issue, question; usability since migration 057), title, body text, status (new, triaged, planned, in progress, done, will not do; reopened and needs info since migration 057), priority, the submitter, address, section, open item, `kr-web-version`, deployment id and time, window size, theme, created and changed times |
 | `homebase_feedback_marker` | each `data-kr-*` marker mentioned (attribute, value, found or not at capture time, its box) |
 | `homebase_feedback_image` | R2 key of each PNG, its size, the shapes as JSON (normalized 0 to 1 coordinates), the marker map as JSON |
 | `homebase_feedback_note` | developer notes and status changes over time (who, when, text) |
@@ -173,3 +173,17 @@ What F4 built (Nov 15, 2026; repository patch 42, web patch 548; the requester a
 - **`pnpm dev` and the viewer (web patch 549):** the deployed viewer lets only `https://krhomebase.com` frame it, and that stays (the requester, Nov 15, 2026: the deployed viewer must not be shown by localhost). A local KR Homebase shows a Dev Mode notice instead of the frame, with the health answer the API read from the deployed viewer (`ExternalToolFrame`).
 
 Left for later: showing a screenshot in My requests (the sender's own view) is not built.
+
+## 8. After F6: the requester's changes of Nov 16, 2026
+
+Repository patch 57, API patch 45, web patch 563 (first Homebase Feedback work stream; requests FB-0003, FB-0004, FB-0006, FB-0009, FB-0010).
+
+- **Kinds and statuses (FB-0006, migration 057):** kind `usability` added; `issue` and `feature` keep their stored names and are shown as **Bug** and **Feature request**. Statuses `reopened` and `needs_info` added (from the review of Davis's feedback hub). Priority shown as number and words, **P1 Urgent** to **P4 Low**. The migration rebuilds the four tables (a CHECK rule cannot change in place, and dropping the parent alone would cascade-delete the markers, images and notes); every row is kept.
+- **New request text (FB-0006):** the form starts with `Submitter: <name>`, `Problem Statement:` and `Recommended Solution Details:`. The template alone is not unsent work and cannot be sent.
+- **Pick from page** also copies the picked marker to the clipboard.
+- **Viewer, tool version 1.3.0** (root `AGENTS.md`, "Unsaved Changes Standard", written the same day): one form for status, priority and a note; **Save Changes** shows only while the form differs from what is saved, in Signal Orange, with what it will change beside it, and saves in one click (the Review / Save change steps are gone). Leaving a request with unsaved changes asks **Leave without saving?** (Leave, Stay) in the tool's own dialog. **‹ Previous** and **Next ›** move through the list the request was opened from. Kind, status and priority are small colored pills (the open Status and Priority lists show each choice in its color), and each list row has a clear tint of its status color with a left bar. The colors live in one object, `src/feedbackColors.ts` (KR Homebase state colors and WorkStream colors as light tints with dark text), written onto the page as `--theme-fb-*` variables because the page's Content-Security-Policy forbids inline `style` attributes.
+- **Viewer screenshots:** each has Magnify (a lens in three sizes, for every screenshot) and Pop out (`magnifier.ts`).
+- **Default title:** the New request title starts as the area and its open tab ("Clients-Contacts>WorkStream: ") and follows the main window until the person types their own.
+- **Viewer markers:** Dev View cannot see inside the viewer's frame (another site, sandboxed), so the viewer has its own small **Markers** switch: it outlines the viewer's `data-kr-*` markers and a click copies one for a request (`markerPick.ts`). The pasted chip reads "not on the page", because the Feedback pop-out reads only the main window.
+- **Claude's read path:** `pnpm feedback:get -Open` writes `feedback-cache\index.md` (every open request, most urgent first); the requester's words `plan open feedback` ask Claude to plan them all (root `AGENTS.md`, "Homebase Feedback: asking Claude"). The script's screenshot section now lists the shapes and the marker count correctly (Windows PowerShell read a JSON array as one item).
+- **Later (offered, not built):** status count cards above the list (needs a count from the API), rows that open in place, search operators, and the schema documentation of the four tables (they are not in `docs/Schema_8.0` yet).

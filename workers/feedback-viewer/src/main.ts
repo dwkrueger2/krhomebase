@@ -2,20 +2,31 @@
 /**
  * The Feedback Viewer tool page. Stages:
  *  1. Connect to the KR Homebase page around the frame with the tool kit (`connectToHost`). Opened on its own (not
- *     from the KR Homebase menu), the page shows only how to open it.
- *  2. Show the screen the address after `#` names (`route.ts`): the list, or one request.
- *  3. Handle the forms and buttons (`data-action` in `views.ts`): filter, review and confirm a status change, add a
- *     note, copy for Claude. Every call goes through the kit (`feedbackApi.ts`); KR Homebase checks the person and the
- *     tool on each one.
- *  4. Tell KR Homebase the pop-out title (`setTitle`) and whether unsaved text is waiting (`setDirty`).
+ *     from the KR Homebase menu), the page shows only how to open it. The colors of `feedbackColors.ts` are written
+ *     onto the page root.
+ *  2. Show the screen the address after `#` names (`route.ts`): the list, or one request with arrows to the requests
+ *     before and after it in the list it was opened from.
+ *  3. Handle the forms and buttons (`data-action` in `views.ts`): filter, save a status, priority or note change, copy
+ *     for Claude. Every call goes through the kit (`feedbackApi.ts`); KR Homebase checks the person and the tool on
+ *     each one.
+ *  4. Unsaved changes (root `AGENTS.md`, "Unsaved Changes Standard"): the change form is dirty while it differs from
+ *     what is saved. Save Changes shows only then, with what it will change beside it. Leaving a dirty request (a link,
+ *     an arrow, the browser's back button inside the frame) asks "Leave without saving?" in the tool's own dialog, and
+ *     `setDirty` tells KR Homebase so it asks before the tool itself is closed or left.
+ *  5. The Markers switch (`markerPick.ts`): outline this tool's markers and copy one for a feedback request, since
+ *     KR Homebase's Dev View cannot see inside the frame.
+ *  6. The screenshots' Magnify (a lens in three sizes) and Pop out (`magnifier.ts`).
  */
 
 import { connectToHost, type ToolHost } from '@krhomebase/tool-sdk/frame'
+import { applyFeedbackTheme, paintTones, PRIORITY_TONES, STATUS_TONES, toneOf } from './feedbackColors.ts'
 import { feedbackApi, problemText, type FeedbackApi, type ListFilter } from './feedbackApi.ts'
 import { FEEDBACK_PRIORITIES, FEEDBACK_STATUSES, type FeedbackDetail, type FeedbackPriority, type FeedbackStatus } from './feedbackTypes.ts'
+import { installMagnifier, syncMagnifierControls } from './magnifier.ts'
+import { installMarkerPick } from './markerPick.ts'
 import { listHash, parseRoute } from './route.ts'
 import { tool } from './tool.ts'
-import { busyHtml, detailView, listView, loadingView, messageView, type Notice, type PendingChange } from './views.ts'
+import { busyHtml, detailView, draftChangeWords, isDraftDirty, leaveDialogHtml, listView, loadingView, messageView, type DraftChange, type Neighbors, type Notice } from './views.ts'
 import './viewer.css'
 
 const app = document.getElementById('app') as HTMLElement
@@ -24,35 +35,76 @@ let host: ToolHost | null = null
 let api: FeedbackApi | null = null
 /** Whether the person may change requests; learned from the list reply's `viewer`. */
 let canTriage: boolean | null = null
-/** The request on screen, its change waiting for confirmation, and the list filter to go back to. */
+/** The request on screen and the list filter to go back to. */
 let current: FeedbackDetail | null = null
-let pending: PendingChange | undefined
 let lastListFilter: ListFilter = {}
+/** The request codes of the list last shown, in order, for the Previous and Next arrows. */
+let listCodes: string[] = []
+/** The address after `#` of the screen on show, to put back when the person chooses Stay. */
+let shownHash = ''
+/** True while the change form differs from what is saved. */
+let dirty = false
 /** True while a save is on its way, so a second click does not send it twice. */
 let busy = false
 
 function show(html: string): void {
   app.innerHTML = html
+  paintTones(app)
+  // The magnifier is one setting for the page: every screenshot's tool row shows it (magnifier.ts).
+  syncMagnifierControls(app)
 }
 
-/** Tells KR Homebase whether unsaved text is waiting (a typed note, or a change not yet confirmed). */
-function updateDirty(): void {
-  const typed = Array.from(app.querySelectorAll('textarea')).some((field) => field.value.trim() !== '')
-  host?.setDirty(typed || pending !== undefined)
+/** The change form's values as the person has set them, or null when the form is not on screen. */
+function readDraft(): DraftChange | null {
+  const form = app.querySelector<HTMLFormElement>('form[data-action="change"]')
+  if (!form) return null
+  const data = new FormData(form)
+  const status = String(data.get('status') ?? '')
+  const priority = String(data.get('priority') ?? '')
+  if (!(FEEDBACK_STATUSES as readonly string[]).includes(status) || !(FEEDBACK_PRIORITIES as readonly string[]).includes(priority)) return null
+  return { status: status as FeedbackStatus, priority: priority as FeedbackPriority, note: String(data.get('note') ?? '') }
+}
+
+/**
+ * Stage 4: works out whether the form is dirty, shows or hides Save Changes (its place is kept), writes what will
+ * change beside it, colors the two selects by their chosen values, and tells KR Homebase (`setDirty`).
+ */
+function refreshDirty(): void {
+  const form = app.querySelector<HTMLFormElement>('form[data-action="change"]')
+  const draft = readDraft()
+  dirty = Boolean(current && draft && isDraftDirty(current, draft))
+  if (form && current && draft) {
+    form.classList.toggle('dirty', dirty)
+    const words = form.querySelector('.change-words')
+    if (words) words.textContent = dirty ? draftChangeWords(current, draft) : ''
+    const status = form.querySelector<HTMLSelectElement>('select[name="status"]')
+    const priority = form.querySelector<HTMLSelectElement>('select[name="priority"]')
+    if (status) status.dataset.fbTone = toneOf(STATUS_TONES, draft.status)
+    if (priority) priority.dataset.fbTone = toneOf(PRIORITY_TONES, draft.priority)
+    paintTones(form)
+  }
+  host?.setDirty(dirty)
+}
+
+/** The requests before and after the open one in the list last shown. */
+function neighborsOf(code: string): Neighbors {
+  const index = listCodes.indexOf(code)
+  if (index < 0) return {}
+  return { previous: listCodes[index - 1], next: listCodes[index + 1] }
 }
 
 function showDetail(notice?: Notice): void {
   if (!current) return
-  show(detailView(current, { canTriage: canTriage === true, pending, notice, listFilter: lastListFilter }))
+  show(detailView(current, { canTriage: canTriage === true, notice, listFilter: lastListFilter, neighbors: neighborsOf(current.code) }))
   host?.setTitle(`${current.code} ${current.title}`)
-  updateDirty()
+  refreshDirty()
 }
 
 /** Stage 2: draws the screen the address names. */
 async function render(): Promise<void> {
   if (!api) return
+  shownHash = location.hash
   const route = parseRoute(location.hash)
-  pending = undefined
   if (route.view === 'list') {
     lastListFilter = route.filter
     current = null
@@ -63,24 +115,62 @@ async function render(): Promise<void> {
       return
     }
     canTriage = reply.data.viewer.canTriage
+    listCodes = reply.data.items.map((item) => item.code)
     show(listView(reply.data, route.filter))
     host?.setTitle('Homebase Feedback')
-    updateDirty()
+    refreshDirty()
     return
   }
   show(loadingView('Request'))
-  if (canTriage === null) {
-    const who = await api.viewer()
+  if (canTriage === null || !listCodes.length) {
+    // Opened straight on a request: the list gives what the person may do and the order for the arrows.
+    const who = await api.list(lastListFilter)
     canTriage = who.ok ? who.data.viewer.canTriage : false
+    if (who.ok) listCodes = who.data.items.map((item) => item.code)
   }
   const reply = await api.get(route.number)
   if (!reply.ok) {
     current = null
     show(messageView('Request', problemText(reply.error, reply.requestId)))
+    refreshDirty()
     return
   }
   current = reply.data.feedback
   showDetail()
+}
+
+/**
+ * Stage 4: the "Leave without saving?" dialog. Stay (the default, and Escape) keeps the request and its changes;
+ * Leave throws the changes away and goes on to `onLeave`.
+ */
+function askToLeave(onLeave: () => void): void {
+  if (document.querySelector('[data-kr-element="feedback-viewer-leave-dialog"]')) return
+  const holder = document.createElement('div')
+  holder.innerHTML = leaveDialogHtml(current?.code ?? 'this request')
+  const dialog = holder.firstElementChild as HTMLElement
+  document.body.appendChild(dialog)
+  const close = () => {
+    dialog.remove()
+    document.removeEventListener('keydown', onKey, true)
+  }
+  const onKey = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      close()
+    }
+  }
+  document.addEventListener('keydown', onKey, true)
+  dialog.addEventListener('click', (event) => {
+    const choice = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-dialog]')?.dataset.dialog
+    if (choice === 'stay') close()
+    if (choice === 'leave') {
+      close()
+      dirty = false
+      host?.setDirty(false)
+      onLeave()
+    }
+  })
+  dialog.querySelector<HTMLButtonElement>('button[data-dialog="stay"]')?.focus()
 }
 
 /** Copies the "Copy for Claude" words. The frame may not use the clipboard; then the words are selected for Ctrl+C. */
@@ -106,22 +196,28 @@ async function copyField(button: HTMLButtonElement): Promise<void> {
   }, 2000)
 }
 
-/** Sends a change or a note, then shows the request as KR Homebase saved it, or the refusal. */
-async function save(send: (api: FeedbackApi, item: FeedbackDetail) => ReturnType<FeedbackApi['addNote']>, savedText: string): Promise<void> {
+/** Saves the change form in one step, then shows the request as KR Homebase saved it, or the refusal. */
+async function saveDraft(draft: DraftChange): Promise<void> {
   if (!api || !current || busy) return
   busy = true
   for (const control of Array.from(app.querySelectorAll('button, textarea, select'))) (control as HTMLButtonElement).disabled = true
-  // The rainbow ring beside the button that was pressed (or at the top), while the save is on its way.
-  const place = app.querySelector('[data-action="confirm-change"], form[data-action="note"] button') ?? app.firstElementChild
-  place?.insertAdjacentHTML('afterend', ` ${busyHtml('Saving...')}`)
-  const reply = await send(api, current)
+  // The rainbow ring beside Save Changes while the save is on its way.
+  app.querySelector('.save')?.insertAdjacentHTML('afterend', ` ${busyHtml('Saving...')}`)
+  const reply = await api.change(current.number, draft)
   busy = false
   if (reply.ok) {
     current = reply.data.feedback
-    pending = undefined
-    showDetail({ kind: 'good', text: savedText })
+    showDetail({ kind: 'good', text: 'Changes saved.' })
   } else {
     showDetail({ kind: 'bad', text: problemText(reply.error, reply.requestId) })
+    // Keep what the person chose, so a refused save does not lose it.
+    const form = app.querySelector<HTMLFormElement>('form[data-action="change"]')
+    if (form) {
+      ;(form.elements.namedItem('status') as HTMLSelectElement).value = draft.status
+      ;(form.elements.namedItem('priority') as HTMLSelectElement).value = draft.priority
+      ;(form.elements.namedItem('note') as HTMLTextAreaElement).value = draft.note
+      refreshDirty()
+    }
   }
 }
 
@@ -139,41 +235,51 @@ app.addEventListener('submit', (event) => {
     return
   }
   if (action === 'change' && current) {
-    const status = String(data.get('status') ?? '')
-    const priority = String(data.get('priority') ?? '')
-    if (!(FEEDBACK_STATUSES as readonly string[]).includes(status) || !(FEEDBACK_PRIORITIES as readonly string[]).includes(priority)) return
-    pending = { status: status as FeedbackStatus, priority: priority as FeedbackPriority, note: String(data.get('note') ?? '') }
-    showDetail()
+    const draft = readDraft()
+    if (draft && isDraftDirty(current, draft)) void saveDraft(draft)
+  }
+})
+
+/** Stage 3: buttons, and stage 4: links inside the tool while the form is dirty. */
+app.addEventListener('click', (event) => {
+  const target = event.target as HTMLElement
+  const link = target.closest<HTMLAnchorElement>('a[href^="#"]')
+  if (link && dirty) {
+    event.preventDefault()
+    const hash = link.getAttribute('href') ?? '#/'
+    askToLeave(() => {
+      location.hash = hash
+    })
     return
   }
-  if (action === 'note') {
-    const text = String(data.get('text') ?? '').trim()
-    if (!text) return
-    void save((caller, item) => caller.addNote(item.number, text), 'Note added.')
-  }
+  const button = target.closest('button[data-action]') as HTMLButtonElement | null
+  if (button?.dataset.action === 'copy') void copyField(button)
 })
 
-/** Stage 3: buttons. */
-app.addEventListener('click', (event) => {
-  const button = (event.target as HTMLElement).closest('button[data-action]') as HTMLButtonElement | null
-  if (!button) return
-  const action = button.dataset.action
-  if (action === 'copy') void copyField(button)
-  if (action === 'cancel-change') {
-    pending = undefined
-    showDetail()
-  }
-  if (action === 'confirm-change' && pending) {
-    const change = pending
-    void save((caller, item) => caller.change(item.number, change), 'Change saved.')
-  }
-})
+app.addEventListener('input', () => refreshDirty())
+app.addEventListener('change', () => refreshDirty())
 
-app.addEventListener('input', () => updateDirty())
-window.addEventListener('hashchange', () => void render())
+/** Stage 4: the browser's back and forward buttons inside the frame change the address without a click. */
+window.addEventListener('hashchange', () => {
+  if (dirty && location.hash !== shownHash) {
+    const wanted = location.hash
+    // Put the open request's address back without drawing again, then ask.
+    history.replaceState(null, '', shownHash || '#/')
+    askToLeave(() => {
+      location.hash = wanted
+    })
+    return
+  }
+  void render()
+})
 
 /** Stage 1: connect, then draw. */
 async function start(): Promise<void> {
+  applyFeedbackTheme(document.documentElement)
+  // The Markers switch: pick a marker of this tool for a feedback request (markerPick.ts).
+  installMarkerPick(document)
+  // The screenshots' Magnify and Pop out (magnifier.ts).
+  installMagnifier(app)
   try {
     host = await connectToHost({ hostOrigins: tool.hostOrigins })
   } catch (error) {

@@ -1,8 +1,8 @@
 // file: workers/feedback-viewer/src/views.test.ts
-// The screens: values are escaped, a change is confirmed before it is saved, read-only people see no forms.
+// The screens: values are escaped, Save Changes names what it will change, read-only people see no forms, pills and arrows.
 import { describe, expect, it } from 'vitest'
 import { copyForClaudeText, type FeedbackDetail, type FeedbackListData } from './feedbackTypes.ts'
-import { detailView, escapeHtml, listView, pendingChangeWords } from './views.ts'
+import { detailView, draftChangeWords, escapeHtml, isDraftDirty, leaveDialogHtml, listView } from './views.ts'
 
 const detail: FeedbackDetail = {
   number: 12,
@@ -53,6 +53,7 @@ describe('listView', () => {
     expect(html).toContain('Pat &quot;P&quot; Doe')
     expect(html).toContain('href="#/?status=new&amp;cursor=next1"')
     expect(html).not.toContain('<button> does')
+    expect(html).toContain('<tr data-fb-tone="navy">')
   })
 
   it('says when the person may only read', () => {
@@ -70,16 +71,46 @@ describe('detailView', () => {
     expect(html).toContain(`value="${copyForClaudeText(12)}"`)
     expect(copyForClaudeText(12)).toBe('plan FB-0012')
     expect(html).toContain('data-action="change"')
-    expect(html).toContain('data-action="note"')
+    expect(html).not.toContain('data-action="note"')
   })
 
-  it('asks for confirmation of a change, naming what changes', () => {
-    const pending = { status: 'planned' as const, priority: 'high' as const, note: 'Next week' }
-    const html = detailView(detail, { canTriage: true, pending, listFilter: {} })
-    expect(html).toContain('data-action="confirm-change"')
-    expect(html).not.toContain('data-action="change"')
-    expect(pendingChangeWords(detail, pending)).toBe('Change FB-0012: status from New to Planned and priority from Normal to High, with the note below.')
-    expect(pendingChangeWords(detail, { status: 'new', priority: 'normal', note: '' })).toBe('Nothing changes on FB-0012.')
+  it('keeps one change form whose Save Changes names what it will change', () => {
+    const html = detailView(detail, { canTriage: true, listFilter: {} })
+    expect(html).toContain('Save Changes')
+    expect(html).not.toContain('Review change')
+    expect(html).not.toContain('data-action="note"')
+    const draft = { status: 'planned' as const, priority: 'high' as const, note: 'Next week' }
+    expect(isDraftDirty(detail, draft)).toBe(true)
+    expect(draftChangeWords(detail, draft)).toBe('Status New → Planned, Priority P3 Normal → P2 High, with the note')
+    expect(draftChangeWords(detail, { status: 'new', priority: 'normal', note: 'Only a note' })).toBe('Add the note')
+  })
+
+  it('is clean again when the values are set back', () => {
+    expect(isDraftDirty(detail, { status: 'new', priority: 'normal', note: '  ' })).toBe(false)
+  })
+
+  it('shows the kind, status and priority as colored pills, and the arrows to the neighbors', () => {
+    const html = detailView(detail, { canTriage: true, listFilter: {}, neighbors: { previous: 'FB-0013', next: undefined } })
+    expect(html).toContain('<span class="pill" data-fb-tone="brick">Bug</span>')
+    expect(html).toContain('<span class="pill" data-fb-tone="navy">New</span>')
+    expect(html).toContain('<span class="pill" data-fb-tone="slate">P3 Normal</span>')
+    expect(html).toContain('href="#/FB-0013" rel="prev"')
+    expect(html).toContain('class="nav-arrow off"')
+  })
+
+  it('colors each status and priority choice in the open list', () => {
+    const html = detailView(detail, { canTriage: true, listFilter: {} })
+    expect(html).toContain('<option value="done" data-fb-tone="green">Done</option>')
+    expect(html).toContain('<option value="urgent" data-fb-tone="brickSolid">P1 Urgent</option>')
+    expect(html).toContain('<option value="new" data-fb-tone="navy" selected>New</option>')
+  })
+
+  it('draws its own Leave or Stay dialog', () => {
+    const html = leaveDialogHtml('FB-0012')
+    expect(html).toContain('role="dialog"')
+    expect(html).toContain('Leave without saving?')
+    expect(html).toContain('data-dialog="stay"')
+    expect(html).toContain('data-dialog="leave"')
   })
 
   it('has no forms for a person who may only read', () => {
@@ -113,6 +144,13 @@ describe('screenshots', () => {
     expect(html).toContain('Rectangle around data-kr-element=&quot;related-contacts-list&quot;')
     expect(html).toContain('Text &quot;Too &lt;tall&gt;&quot; (no marker under it)')
     expect(html).toContain('1280 x 720, 20 KB, 40 markers in the shot')
+  })
+
+  it('gives every screenshot its tool row: Magnify, the lens size and Pop out', () => {
+    const html = detailView({ ...detail, images: [image, { ...image, id: 'hfi_2' }] }, { canTriage: true, listFilter: {} })
+    expect(html.match(/data-action="magnify"/g)?.length).toBe(2)
+    expect(html).toContain('<option value="large">Large</option>')
+    expect(html).toContain('data-action="pop-image" data-src="/images/feedback/FB-0012/hfi_00000000-0000-4000-8000-000000000000.png?ticket=1900000000.abc_DEF-123"')
   })
 
   it('says why an image without a ticket is not shown', () => {

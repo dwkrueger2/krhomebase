@@ -31,6 +31,8 @@ export interface HomebaseFeedbackPanelProps {
   sourceWindow: Window
   /** Told whether New request holds work not sent yet (`FeedbackRequestForm`), so closing can ask first. */
   onDirtyChange?: (dirty: boolean) => void
+  /** The signed-in person's name, for the new request's starting text (FB-0006). */
+  submitterName?: string
 }
 
 const LAYOUT_STYLES = {
@@ -64,7 +66,7 @@ type FeedbackTab = 'new' | 'mine' | 'all'
  * @param props - The source window.
  * @returns `<div data-kr-id="HomebaseFeedbackPanel">` with the header and the tabs.
  */
-export default function HomebaseFeedbackPanel({ sourceWindow, onDirtyChange }: HomebaseFeedbackPanelProps) {
+export default function HomebaseFeedbackPanel({ sourceWindow, onDirtyChange, submitterName }: HomebaseFeedbackPanelProps) {
   const [tab, setTab] = useState<FeedbackTab>('new')
   const [isDeveloper, setIsDeveloper] = useState(false)
   const [disabledReason, setDisabledReason] = useState<string | null>(null)
@@ -100,7 +102,7 @@ export default function HomebaseFeedbackPanel({ sourceWindow, onDirtyChange }: H
     {
       id: 'new',
       label: 'New request',
-      card: <FeedbackRequestForm sourceWindow={sourceWindow} disabledReason={disabledReason} isDeveloper={isDeveloper} onDirtyChange={onDirtyChange} onSent={() => setRefreshKey((value) => value + 1)} />,
+      card: <FeedbackRequestForm sourceWindow={sourceWindow} disabledReason={disabledReason} isDeveloper={isDeveloper} onDirtyChange={onDirtyChange} submitterName={submitterName} onSent={() => setRefreshKey((value) => value + 1)} />,
     },
     {
       id: 'mine',

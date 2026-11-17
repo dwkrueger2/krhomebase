@@ -9,28 +9,38 @@
  * The words shown for each value (`*_LABELS`) are this tool's own.
  */
 
-/** Feature (a change or addition), issue (something wrong) or question. */
-export const FEEDBACK_KINDS = ['feature', 'issue', 'question'] as const
+/**
+ * Issue (a bug: something wrong), usability (works, but is hard to use), feature (a change or addition) or question.
+ * `usability` is new in KR Homebase migration 057; the stored values `issue` and `feature` keep their names and are
+ * shown as "Bug" and "Feature request".
+ */
+export const FEEDBACK_KINDS = ['issue', 'usability', 'feature', 'question'] as const
 export type FeedbackKind = (typeof FEEDBACK_KINDS)[number]
 
-/** Where a request stands. */
-export const FEEDBACK_STATUSES = ['new', 'triaged', 'planned', 'in_progress', 'done', 'will_not_do'] as const
+/** Where a request stands, in the order a request usually moves (`reopened` and `needs_info` are new in migration 057). */
+export const FEEDBACK_STATUSES = ['new', 'reopened', 'triaged', 'needs_info', 'planned', 'in_progress', 'done', 'will_not_do'] as const
 export type FeedbackStatus = (typeof FEEDBACK_STATUSES)[number]
 
-/** How urgent a request is. */
-export const FEEDBACK_PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const
+/** The statuses still waiting for work: everything but Done and Will not do. */
+export const OPEN_FEEDBACK_STATUSES: readonly FeedbackStatus[] = FEEDBACK_STATUSES.filter((status) => status !== 'done' && status !== 'will_not_do')
+
+/** How urgent a request is, most urgent first (the order the screens list them: P1 to P4). */
+export const FEEDBACK_PRIORITIES = ['urgent', 'high', 'normal', 'low'] as const
 export type FeedbackPriority = (typeof FEEDBACK_PRIORITIES)[number]
 
-export const KIND_LABELS: Record<FeedbackKind, string> = { feature: 'Feature', issue: 'Issue', question: 'Question' }
+export const KIND_LABELS: Record<FeedbackKind, string> = { issue: 'Bug', usability: 'Usability', feature: 'Feature request', question: 'Question' }
 export const STATUS_LABELS: Record<FeedbackStatus, string> = {
   new: 'New',
+  reopened: 'Reopened',
   triaged: 'Triaged',
+  needs_info: 'Needs info',
   planned: 'Planned',
   in_progress: 'In progress',
   done: 'Done',
   will_not_do: 'Will not do',
 }
-export const PRIORITY_LABELS: Record<FeedbackPriority, string> = { low: 'Low', normal: 'Normal', high: 'High', urgent: 'Urgent' }
+/** Priority as number and words (FB-0006): P1 is the most urgent. */
+export const PRIORITY_LABELS: Record<FeedbackPriority, string> = { urgent: 'P1 Urgent', high: 'P2 High', normal: 'P3 Normal', low: 'P4 Low' }
 
 /** One row of the list. */
 export interface FeedbackSummary {

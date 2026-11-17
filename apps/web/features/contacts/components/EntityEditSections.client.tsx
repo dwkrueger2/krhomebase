@@ -7,6 +7,7 @@
 
 import { useState } from 'react'
 import type { KRContactDraft, KRContactRecord } from '../types'
+import { formatTaxId } from '../taxIdFormat'
 import IndividualSearch from './IndividualSearch.client'
 
 const LAYOUT_STYLES = {
@@ -197,6 +198,11 @@ export function EntityComplianceFields({
             className={STYLES.input}
             disabled={savingContact}
             value={draft.ein ?? ''}
+            // Nine digits get the EIN's hyphen when the field is left (FB-0003).
+            onBlur={() => {
+              const formatted = formatTaxId('entity', draft.ein)
+              if (formatted !== (draft.ein ?? '')) update('ein', formatted)
+            }}
             onChange={(event) => update('ein', event.target.value)}
           />
         </label>

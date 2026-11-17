@@ -117,6 +117,8 @@ export interface InvoicesTabProps {
   payments: readonly BillingPayment[]
   entries: BillingTimeEntry[]
   matterNumbers: readonly string[]
+  /** Each matter's title by its number, for the time entry dialog's matter lists. */
+  matterTitles?: Readonly<Record<string, string>>
   staffOptions: readonly { id: string; label: string; staffCode?: string | null }[]
   onSave: (invoice: BillingInvoice) => Promise<void>
   onSaveEntry: (entry: BillingTimeEntry) => Promise<void>
@@ -148,6 +150,7 @@ export default function InvoicesTab({
   payments,
   entries,
   matterNumbers,
+  matterTitles,
   staffOptions,
   onSave,
   onSaveEntry,
@@ -436,6 +439,7 @@ export default function InvoicesTab({
           clientNumber={clientNumber}
           invoice={editing}
           matterNumbers={matterNumbers}
+          matterTitles={matterTitles}
           staffOptions={staffOptions}
           canUnlock={canUnlock}
           onToggleLock={onToggleLock}

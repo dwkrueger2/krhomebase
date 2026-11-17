@@ -197,7 +197,7 @@ export default async function HomePage() {
         versionLabel={VERSION_LABEL}
         topBarSearch={<ApplicationSearch />}
         topBarStatus={<DataSyncIndicator />}
-        topBarFeedback={<HomebaseFeedbackButton />}
+        topBarFeedback={<HomebaseFeedbackButton submitterName={session.displayName} />}
         topNotice={<MaintenanceBanner />}
         openItemPanels={{ contacts: <ContactDetailPanel viewer={viewer} />, billing: <BillingClientPanel /> }}
         storageScope={session.userId}

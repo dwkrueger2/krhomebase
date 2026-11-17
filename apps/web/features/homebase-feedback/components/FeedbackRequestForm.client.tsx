@@ -42,9 +42,10 @@ import { L } from '@/lib/KRUtilities'
 import { annotationColor, flattenScreenshot } from '../annotation'
 import { HomebaseFeedbackApiError, sendHomebaseFeedback, uploadHomebaseFeedbackImage } from '../api.client'
 import { captureSourceScreenshot } from '../screenshot'
-import { captureSourceContext, markerCaptures, markerPresence } from '../sourcePage'
+import { captureSourceContext, markerCaptures, markerPresence, readSourceArea } from '../sourcePage'
 import { useMarkerSelection } from '../useMarkerSelection.client'
 import { useSourcePageWatch } from '../useSourcePageWatch.client'
+import { feedbackDefaultTitle, feedbackTemplate, hasOwnText, hasOwnTitle } from '../feedbackTemplate'
 import CapturedContextCard from './CapturedContextCard.client'
 import FeedbackScreenshotRow, { type FeedbackShot } from './FeedbackScreenshotRow.client'
 import MarkerChipRow from './MarkerChipRow.client'
@@ -61,6 +62,8 @@ export interface FeedbackRequestFormProps {
   onSent: (feedback: HomebaseFeedbackDetail) => void
   /** Told whether the form holds work not sent yet (a title, text or a screenshot), so closing can ask first. */
   onDirtyChange?: (dirty: boolean) => void
+  /** The signed-in person's name, written into the starting text (FB-0006). */
+  submitterName?: string
 }
 
 const LAYOUT_STYLES = {
@@ -108,10 +111,12 @@ const PLACEHOLDER = 'What should change, or what went wrong? To point at a part 
  * @param props - The source window, why sending is off (if it is) and the sent callback.
  * @returns `<form data-kr-element="feedback-request-form">` and the Clear confirmation.
  */
-export default function FeedbackRequestForm({ sourceWindow, disabledReason, isDeveloper, onSent, onDirtyChange }: FeedbackRequestFormProps) {
+export default function FeedbackRequestForm({ sourceWindow, disabledReason, isDeveloper, onSent, onDirtyChange, submitterName }: FeedbackRequestFormProps) {
+  // The text starts as the request template (FB-0006): Submitter, Problem Statement, Recommended Solution Details.
+  const template = useMemo(() => feedbackTemplate(submitterName), [submitterName])
   const [kind, setKind] = useState<HomebaseFeedbackKind>('issue')
   const [title, setTitle] = useState('')
-  const [body, setBody] = useState('')
+  const [body, setBody] = useState(template)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [sentCode, setSentCode] = useState('')
@@ -127,11 +132,26 @@ export default function FeedbackRequestForm({ sourceWindow, disabledReason, isDe
   const markers = useMemo(() => findFeedbackMarkers(body), [body])
   const presence = useMemo(() => markerPresence(sourceWindow.document, markers), [sourceWindow, markers, pageVersion])
   const context = useMemo(() => captureSourceContext(sourceWindow), [sourceWindow, pageVersion])
+  // The default title follows the main window (the requester, Nov 16, 2026): "Clients-Contacts>WorkStream: ". While the
+  // title is still the last default (or empty), a move to another area or tab replaces it; once the person types their
+  // own, it stays.
+  const defaultTitle = useMemo(() => feedbackDefaultTitle(readSourceArea(sourceWindow)), [sourceWindow, pageVersion])
+  const lastDefaultTitle = useRef('')
+  useEffect(() => {
+    const previous = lastDefaultTitle.current
+    lastDefaultTitle.current = defaultTitle
+    setTitle((current) => (current.trim() === '' || current === previous ? defaultTitle : current))
+  }, [defaultTitle])
   // Selected chips and their lasting outlines in the source window.
   const selection = useMarkerSelection(sourceWindow, markers, presence, pageVersion)
-  const canSend = !disabledReason && !sending && !capturing && Boolean(title.trim()) && Boolean(body.trim())
-  // Unsent work (Nov 15, 2026): a title, text or a screenshot. The pop-out asks before closing while there is some.
-  const dirty = Boolean(title.trim() || body.trim() || screenshots.length)
+  // The template alone is not a request: some text of the person's own is needed to send.
+  const ownText = hasOwnText(body, template)
+  // The default title alone is not a title: words of the person's own are needed to send.
+  const ownTitle = hasOwnTitle(title, defaultTitle)
+  const canSend = !disabledReason && !sending && !capturing && ownTitle && ownText
+  // Unsent work (Nov 15, 2026): a title beyond the default, text beyond the template, or a screenshot. The pop-out asks
+  // before closing.
+  const dirty = Boolean(ownTitle || ownText || screenshots.length)
   useEffect(() => {
     onDirtyChange?.(dirty)
   }, [dirty, onDirtyChange])
@@ -139,6 +159,13 @@ export default function FeedbackRequestForm({ sourceWindow, disabledReason, isDe
 
   // Pick from page (stage F4): waiting for the main window's Dev View to send back a picked marker.
   const [picking, setPicking] = useState(false)
+  // True for a moment after a picked marker was also copied to the clipboard.
+  const [pickCopied, setPickCopied] = useState(false)
+  useEffect(() => {
+    if (!pickCopied) return
+    const timer = window.setTimeout(() => setPickCopied(false), 2500)
+    return () => window.clearTimeout(timer)
+  }, [pickCopied])
   const textRef = useRef<HTMLTextAreaElement | null>(null)
 
   // Stage F4: a picked marker goes into the text at the cursor (or at the end), with a space on each side.
@@ -156,6 +183,12 @@ export default function FeedbackRequestForm({ sourceWindow, disabledReason, isDe
         const tail = after && !/^\s/.test(after) ? ' ' : ''
         return `${before}${lead}${picked.label}${tail}${after}`
       })
+      // The marker also goes to the clipboard, for pasting elsewhere (the requester, Nov 16, 2026). The main window
+      // has the focus right after the pick, so its clipboard accepts the write; a refusal only skips the copy.
+      void sourceWindow.navigator.clipboard?.writeText(picked.label).then(
+        () => setPickCopied(true),
+        () => L('[HOMEBASE_FEEDBACK_FORM:160] picked marker not copied: the clipboard refused'),
+      )
       setSentCode('')
       setPicking(false)
       L(`[HOMEBASE_FEEDBACK_FORM:150] picked ${picked.label.slice(0, 80)}`)
@@ -172,8 +205,8 @@ export default function FeedbackRequestForm({ sourceWindow, disabledReason, isDe
   }
 
   function startOver(): void {
-    setTitle('')
-    setBody('')
+    setTitle(defaultTitle)
+    setBody(template)
     setKind('issue')
     setError('')
     setScreenshots([])
@@ -298,13 +331,13 @@ export default function FeedbackRequestForm({ sourceWindow, disabledReason, isDe
               aria-pressed={picking}
               disabled={sending}
               data-kr-action="feedback-pick-from-page"
-              title="Pick from page: click an element in the main window, and its marker goes into the text where the cursor is. Up and Down arrows climb to a parent; Escape stops."
+              title="Pick from page: click an element in the main window, and its marker goes into the text where the cursor is and onto the clipboard. Up and Down arrows climb to a parent; Escape stops."
               onClick={pickFromPage}
             >
               <KRHomebaseIcons.OutlineTarget className={LAYOUT_STYLES.buttonIcon} />
               Pick from page
             </button>
-            <span className={STYLES.status}>{picking ? 'Click an element in the main window. Escape there stops.' : 'Internal Developers: Dev View and Pick work on the main window.'}</span>
+            <span className={STYLES.status}>{picking ? 'Click an element in the main window. Escape there stops.' : pickCopied ? 'Marker added to the text and copied to the clipboard.' : 'Internal Developers: Dev View and Pick work on the main window.'}</span>
           </div>
         ) : null}
 
@@ -358,9 +391,9 @@ export default function FeedbackRequestForm({ sourceWindow, disabledReason, isDe
             <button
               type="button"
               className={`${STYLES.button} ${STYLES.secondary}`}
-              disabled={sending || (!title && !body && !screenshots.length)}
+              disabled={sending || !dirty}
               data-kr-action="clear-feedback"
-              onClick={() => (body.trim() || title.trim() || screenshots.length ? setClearOpen(true) : startOver())}
+              onClick={() => (dirty ? setClearOpen(true) : startOver())}
             >
               Clear
             </button>

@@ -30,6 +30,7 @@ import SaveButton, { type SaveButtonState } from '@/components/ui/SaveButton.cli
 import KRHomebaseIcon, { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import type { KRContactDraft, KRContactRecord, KRRelatedContact } from '../types'
 import { normalizePhoneNumber } from '../contactValidators'
+import { formatTaxId } from '../taxIdFormat'
 import {
   EntityComplianceFields,
   EntityIdentityFields,
@@ -1004,7 +1005,7 @@ export function IndividualAdditionalFields({
         />
       </label>
 
-      {/* Social Security number row: keeps the value masked during editing. */}
+      {/* Social Security number row: nine digits get their hyphens when the field is left (FB-0003). */}
       <label
         className={`${LAYOUT_STYLES.individualAdditionalRow} ${STYLES.field}`}
         data-kr-element="contact-social-security-number-row"
@@ -1016,6 +1017,10 @@ export function IndividualAdditionalFields({
           disabled={!isIndividual || savingContact}
           // type="password"
           value={draft.ssn ?? ''}
+          onBlur={() => {
+            const formatted = formatTaxId('individual', draft.ssn)
+            if (formatted !== (draft.ssn ?? '')) onDraftChange({ ...draft, ssn: formatted })
+          }}
           onChange={(event) => onDraftChange({ ...draft, ssn: event.target.value })}
         />
       </label>

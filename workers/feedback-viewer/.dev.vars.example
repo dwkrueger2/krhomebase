@@ -1,0 +1,6 @@
+# Names of the settings the Feedback Viewer's Worker (worker/imageWorker.ts) reads when it runs locally with
+# pnpm dev:feedback-viewer:worker. No values here, ever. The git-ignored .dev.vars beside this file is written by
+# scripts/Write-DevVars.ps1. See docs/09_ENV_KeyMappings.md.
+# The image ticket secret: the same value as KR_FEEDBACK_IMAGE_TICKET_SECRET in apps/api/.dev.vars (the local API signs
+# the tickets, this Worker checks them). A local value of its own, not the deployed one.
+KR_FEEDBACK_IMAGE_TICKET_SECRET=

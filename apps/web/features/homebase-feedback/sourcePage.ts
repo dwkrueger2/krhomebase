@@ -79,6 +79,23 @@ const metaContent = (doc: Document, name: string) => doc.querySelector(`meta[nam
 const squeeze = (text: string | null | undefined) => (text ?? '').replace(/\s+/g, ' ').trim()
 
 /**
+ * Where the person is in the source window, for the request's default title (the requester, Nov 16, 2026): the area
+ * is the top bar's title (`TopTitleBar` h1, the menu row's name; never an open item's name, which is only in the
+ * breadcrumb), and the tabs are the selected tab of each visible tab strip (Menu Style One, `role="tab"` with
+ * `aria-selected="true"`), outside the Feedback panel, in page order, at most two.
+ */
+export function readSourceArea(source: Window): { area: string; tabs: string[] } {
+  const doc = source.document
+  const area = squeeze(doc.querySelector('[data-kr-id="TopTitleBar"] h1')?.textContent)
+  const tabs = Array.from(doc.querySelectorAll('[role="tablist"] [role="tab"][aria-selected="true"]'))
+    .filter((tab) => !isFeedbackOwn(tab) && tab.getClientRects().length > 0)
+    .map((tab) => squeeze(tab.textContent))
+    .filter(Boolean)
+    .slice(0, 2)
+  return { area, tabs }
+}
+
+/**
  * Everything a request records about the source window, read now. The top bar's title and breadcrumb come from
  * `TopTitleBar` (`data-kr-id="TopTitleBar"`); an open item's label is the breadcrumb's last step.
  */

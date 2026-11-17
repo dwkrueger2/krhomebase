@@ -4,6 +4,8 @@
 #
 #   pnpm feedback:get -Number 12            writes feedback-cache\FB-0012\FB-0012.md
 #   pnpm feedback:get -Number FB-0012       the same
+#   pnpm feedback:get -Open                 writes feedback-cache\index.md: every request not Done or Will not do,
+#                                           most urgent first (what Claude reads for "plan open feedback")
 #
 # Read-only: it runs one `wrangler d1 execute ... --command` of SELECT statements (AGENTS_06 and the root AGENTS.md
 # hard rule 4 allow read-only commands), and one `wrangler r2 object get` per screenshot (stage F3), which downloads
@@ -16,8 +18,10 @@
 # Run from anywhere; the script finds the repository from its own folder. Windows PowerShell 5.1 or later.
 
 param(
-    [Parameter(Mandatory = $true, Position = 0)]
+    [Parameter(Position = 0)]
     [string]$Number,
+    # Write the list of open requests (feedback-cache\index.md) instead of one request.
+    [switch]$Open,
     # The database to read; `krhomebase` unless told otherwise.
     [string]$Database = "krhomebase",
     # The screenshots bucket (the API binding FEEDBACK_STORAGE).
@@ -30,13 +34,19 @@ $ErrorActionPreference = "Stop"
 $Repo   = Split-Path -Parent $PSScriptRoot
 $Config = Join-Path $Repo "apps\api\kr-api-wrangler.jsonc"
 
-# FB-0012, fb-12 or 12 -> 12. Anything else stops here, so only digits ever reach the SQL.
-if ($Number -notmatch '^(?i:FB-?)?0*(\d{1,9})$') {
+if (-not $Open -and -not $Number) { Write-Error "Name a request (-Number 12) or ask for the open list (-Open)." }
+
+# FB-0012, fb-12 or 12 -> 12. Anything else stops here, so only digits ever reach the SQL. -Open needs no number.
+if ($Open) {
+    $Value = 0
+    $Code = ""
+} elseif ($Number -notmatch '^(?i:FB-?)?0*(\d{1,9})$') {
     Write-Error "Not a feedback number: '$Number'. Use 12 or FB-0012."
+} else {
+    $Value = [int64]$Matches[1]
+    if ($Value -lt 1) { Write-Error "Not a feedback number: '$Number'." }
+    $Code = "FB-{0:D4}" -f $Value
 }
-$Value = [int64]$Matches[1]
-if ($Value -lt 1) { Write-Error "Not a feedback number: '$Number'." }
-$Code = "FB-{0:D4}" -f $Value
 
 <#
 .SYNOPSIS
@@ -85,6 +95,71 @@ function Format-Cell($Value) {
     return ("$Value" -replace '\|', '\|' -replace '\r?\n', ' ')
 }
 
+<#
+.SYNOPSIS
+Reads a JSON array as a PowerShell array of its items.
+.DESCRIPTION
+Windows PowerShell 5.1's ConvertFrom-Json writes a JSON array as one object, so @(... | ConvertFrom-Json) held the
+whole array as a single item: an empty "[]" was read as one shape with no type ("A  shape") and 40 markers as 1.
+Sending the parsed array down the pipeline again lists its items one by one.
+#>
+function ConvertFrom-JsonArray([string]$Json) {
+    if (-not $Json) { return ,@() }
+    $parsed = $Json | ConvertFrom-Json
+    return ,@($parsed | ForEach-Object { $_ })
+}
+
+# The plain words for each stored value (packages/contracts/src/homebaseFeedback.ts).
+$KindWords = @{ issue = 'Bug'; usability = 'Usability'; feature = 'Feature request'; question = 'Question' }
+$PriorityWords = @{ urgent = 'P1 Urgent'; high = 'P2 High'; normal = 'P3 Normal'; low = 'P4 Low' }
+
+<# A stored value with its plain words in front: "Bug (issue)". #>
+function Format-Words([hashtable]$Words, $Value) {
+    if ($null -ne $Value -and $Words.ContainsKey("$Value")) { return "$($Words["$Value"]) (``$Value``)" }
+    return $Value
+}
+
+if ($Open) {
+    # Every request still waiting for work, most urgent first, then oldest first.
+    $openSql = @"
+SELECT f.number, f.kind, f.title, f.status, f.priority, f.created_at, f.web_version,
+       (SELECT COUNT(*) FROM homebase_feedback_image i WHERE i.feedback_id = f.id) AS image_count,
+       (SELECT COUNT(*) FROM homebase_feedback_note n WHERE n.feedback_id = f.id) AS note_count,
+       su.email AS submitter_email, si.preferred_name AS submitter_preferred_name, si.first_name AS submitter_first_name, si.last_name AS submitter_last_name, f.submitted_by_user_id
+  FROM homebase_feedback f LEFT JOIN user su ON su.id = f.submitted_by_user_id LEFT JOIN individual si ON si.id = su.individual_id
+ WHERE f.status NOT IN ('done', 'will_not_do')
+ ORDER BY CASE f.priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END, f.number;
+"@ -replace '\r?\n', ' '
+    Write-Host "Reading the open requests from $Database (read-only)..."
+    $openRows = @((Invoke-ReadOnlyQuery $openSql)[0].results | ForEach-Object { $_ })
+    $index = New-Object System.Collections.Generic.List[string]
+    $index.Add("# Open Homebase Feedback requests")
+    $index.Add("")
+    $index.Add("<small>Read $(Get-Date -Format 'MMM d, yyyy h:mmtt') by scripts/Get-Feedback.ps1 -Open from $Database (read-only). Git-ignored; never commit.</small>")
+    $index.Add("")
+    $index.Add("Every request not Done or Will not do, most urgent first. For each one run ``pnpm feedback:get -Number <n>`` and plan it (root AGENTS.md, ""Homebase Feedback: asking Claude"").")
+    $index.Add("")
+    if ($openRows.Count -eq 0) {
+        $index.Add("None open.")
+    } else {
+        $index.Add("| Request | Priority | Status | Kind | Title | From | Sent | Web version | Images | Notes |")
+        $index.Add("|---|---|---|---|---|---|---|---|---|---|")
+        foreach ($row in $openRows) {
+            $rowCode = "FB-{0:D4}" -f [int64]$row.number
+            $from = Get-PersonLabel $row 'submitter' $row.submitted_by_user_id
+            $index.Add("| $rowCode | $(Format-Cell (Format-Words $PriorityWords $row.priority)) | $(Format-Cell $row.status) | $(Format-Cell (Format-Words $KindWords $row.kind)) | $(Format-Cell $row.title) | $(Format-Cell $from) | $(Format-Cell $row.created_at) | $(Format-Cell $row.web_version) | $($row.image_count) | $($row.note_count) |")
+        }
+    }
+    $index.Add("")
+    $cache = Join-Path $Repo "feedback-cache"
+    New-Item -ItemType Directory -Force -Path $cache | Out-Null
+    $indexFile = Join-Path $cache "index.md"
+    # UTF-8 without a byte order mark, so every tool reads it the same.
+    [System.IO.File]::WriteAllText($indexFile, ($index -join "`n"), (New-Object System.Text.UTF8Encoding($false)))
+    Write-Host "Wrote $indexFile ($($openRows.Count) open)"
+    return
+}
+
 $sql = @"
 SELECT f.id, f.number, f.kind, f.title, f.body, f.status, f.priority, f.submitted_by_user_id, f.submitter_role,
        f.page_address, f.section_id, f.open_item, f.page_title, f.web_version, f.deployment_id, f.deployment_time,
@@ -121,9 +196,9 @@ $lines.Add("<small>Read $(Get-Date -Format 'MMM d, yyyy h:mmtt') by scripts/Get-
 $lines.Add("")
 $lines.Add("| Field | Value |")
 $lines.Add("|---|---|")
-$lines.Add("| Kind | $(Format-Cell $request.kind) |")
+$lines.Add("| Kind | $(Format-Cell (Format-Words $KindWords $request.kind)) |")
 $lines.Add("| Status | $(Format-Cell $request.status) |")
-$lines.Add("| Priority | $(Format-Cell $request.priority) |")
+$lines.Add("| Priority | $(Format-Cell (Format-Words $PriorityWords $request.priority)) |")
 $lines.Add("| Sent by | $(Format-Cell (Get-PersonLabel $request 'submitter' $request.submitted_by_user_id)) ($(Format-Cell $request.submitter_role)) |")
 $lines.Add("| Sent | $(Format-Cell $request.created_at) |")
 $lines.Add("| Changed | $(Format-Cell $request.updated_at) |")
@@ -200,11 +275,11 @@ if ($images.Count -eq 0) {
         $lines.Add("### Image $index ($saved)")
         $lines.Add("")
         $markerCount = 0
-        if ($image.marker_map_json) { $markerCount = @($image.marker_map_json | ConvertFrom-Json).Count }
+        if ($image.marker_map_json) { $markerCount = (ConvertFrom-JsonArray $image.marker_map_json).Count }
         $lines.Add("``$($image.r2_key)``: $($image.width) x $($image.height), $($image.byte_size) bytes, $markerCount markers in the shot, added $($image.created_at).")
         $lines.Add("")
         $shapes = @()
-        if ($image.shapes_json) { $shapes = @($image.shapes_json | ConvertFrom-Json) }
+        if ($image.shapes_json) { $shapes = ConvertFrom-JsonArray $image.shapes_json }
         if ($shapes.Count -eq 0) {
             $lines.Add("- Nothing drawn on it.")
         }

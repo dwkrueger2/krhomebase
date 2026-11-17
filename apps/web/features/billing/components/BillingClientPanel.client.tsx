@@ -163,6 +163,8 @@ export default function BillingClientPanel() {
   }, [label, scope])
 
   const matterNumbers = useMemo(() => billing?.matters.map((matter) => matter.matterNumber) ?? [], [billing])
+  // Titles by number, so the time entry dialog's matter lists read "107.1 · Estate plan" (the requester, Nov 16, 2026).
+  const matterTitles = useMemo(() => Object.fromEntries((billing?.matters ?? []).map((matter) => [matter.matterNumber, matter.title])), [billing])
   const matterIdForNumber = useCallback((matterNumber: string, fallback = '') => billing?.matters.find((matter) => matter.matterNumber === matterNumber)?.id ?? fallback, [billing])
   const canWrite = Boolean(billing?.viewer.canWrite)
   const canAdminister = Boolean(billing?.viewer.canAdminister)
@@ -324,6 +326,7 @@ export default function BillingClientPanel() {
                 clientNumber={billing.client.clientNumber}
                 clientDisplayName={billing.client.displayName}
                 matterNumbers={matterNumbers}
+                matterTitles={matterTitles}
                 staffOptions={billing.staffOptions}
                 invoices={billing.invoices}
                 onOpenInvoice={(invoiceId) => {
@@ -348,6 +351,7 @@ export default function BillingClientPanel() {
                 payments={billing.payments}
                 entries={billing.timeEntries}
                 matterNumbers={matterNumbers}
+                matterTitles={matterTitles}
                 staffOptions={billing.staffOptions}
                 onSave={saveInvoice}
                 onSaveEntry={saveTimeEntry}

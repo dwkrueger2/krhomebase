@@ -86,7 +86,7 @@ export function relatedContactHoverRow(related: KRRelatedContact, directoryConta
 /** "[107] Client Name" when the related contact has a client number, else the name alone. */
 export function relatedContactLabel(related: Pick<KRRelatedContact, 'displayName'>, directoryContact?: Pick<KRContactRecord, 'clientNumber'> | null): string {
   const number = directoryContact?.clientNumber?.trim()
-  const rVal = number ? `[${number}] ${related.displayName}` : related.displayName
+  const rVal = number ? `${number} · ${related.displayName}` : related.displayName
   return rVal
 }
 

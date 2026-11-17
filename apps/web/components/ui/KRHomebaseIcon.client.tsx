@@ -443,6 +443,19 @@ const ICONS = {
         ),
     },
 
+    /** An eye struck through: hide a value shown with `eye` again (the contact card's masked SSN or EIN, FB-0003). */
+    'eye-off': {
+        kind: 'line',
+        size: 12,
+        body: (
+            <>
+                <path d="M2.2 12s3.5-5.2 9.8-5.2S21.8 12 21.8 12 18.3 17.2 12 17.2 2.2 12 2.2 12Z"/>
+                <circle cx="12" cy="12" r="2.6"/>
+                <path d="M4 4l16 16"/>
+            </>
+        ),
+    },
+
     /** A speech bubble with an exclamation mark: send Homebase Feedback (the top bar's Feedback button, plan 12). */
     feedback: {
         kind: 'line',

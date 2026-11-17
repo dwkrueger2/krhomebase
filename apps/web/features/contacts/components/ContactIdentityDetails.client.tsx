@@ -18,13 +18,23 @@
  * Nov 16, 2026 (the requester): a related contact shows the contact editor's hover card on hover
  *   (`useRelatedContactHover`, shared with `ContactEditCard`), and a related contact that is a client shows its number
  *   first, "[107] Client Name" (`relatedContactLabel`). The button's own title tooltip is gone: the card replaces it.
+ * Nov 16, 2026 (FB-0003, FB-0004): the SSN (individual) or EIN (entity) row, masked with an eye to show it and a copy
+ *   button (`ContactTaxIdLine`). Each copy button sits right after the text it copies instead of at the far right of
+ *   the line, and the three address copy buttons have their own icons: address only (pin), name and mailing address
+ *   (envelope), full contact block (card).
+ * Nov 16, 2026 (FB-0004, second pass): hovering an address copy button shows exactly what it copies, in the hover
+ *   card's look, and the card blinks when it copies (`KRCopyPreviewButton`); the copied address has "City, ST, Zip" on
+ *   its own line (`contactCopyText.ts`); the summary's rows sit closer together.
  *
  * Read-only: nothing here writes.
  */
 
 import { useEffect, useRef, useState, type FC, type ReactNode } from 'react'
 import KRCopyButton from '@/components/ui/KRCopyButton.client'
+import KRCopyPreviewButton from '@/components/ui/KRCopyPreviewButton.client'
+import { contactCopyTexts } from '../contactCopyText'
 import type { KRContactRecord } from '../types'
+import ContactTaxIdLine from './ContactTaxIdLine.client'
 import { relatedContactLabel, useRelatedContactHover } from './RelatedContactHover.client'
 
 const LAYOUT_STYLES = {
@@ -35,14 +45,16 @@ const LAYOUT_STYLES = {
   nameRow: 'gap-[8px] flex min-h-[30px] items-baseline',
   name: 'm-0',
   pills: 'gap-[4px] flex flex-wrap items-center',
-  identitySummary: 'pt-[12px] block',
-  contactStack: 'gap-[5px] flex flex-col',
-  contactLine: 'gap-[7px] grid min-w-0 grid-cols-[15px_minmax(0,1fr)_auto] items-center',
+  // Rows close together (the requester, Nov 16, 2026): 6px above the summary, 2px between its rows.
+  identitySummary: 'pt-[6px] block',
+  contactStack: 'gap-[2px] flex flex-col',
+  // Icon, the value (only as wide as its text), then its copy buttons right beside it (FB-0004).
+  contactLine: 'gap-[7px] grid min-w-0 grid-cols-[15px_minmax(0,max-content)_minmax(0,1fr)] items-center',
   contactBody: 'min-w-0',
   addressLink: 'block min-w-0 max-w-full',
   addressCopyRow: 'gap-[4px] flex flex-wrap items-center justify-self-start',
-  phoneRow: 'gap-[3px] flex min-w-0 flex-col',
-  phoneLine: 'gap-[6px] grid min-h-[22px] min-w-0 grid-cols-[15px_44px_minmax(0,1fr)] items-center',
+  phoneRow: 'gap-[1px] flex min-w-0 flex-col',
+  phoneLine: 'gap-[6px] grid min-h-[18px] min-w-0 grid-cols-[15px_44px_minmax(0,1fr)] items-center',
   contactValue: 'gap-[4px] inline-flex min-w-0 items-center',
   clientStateControl: 'relative inline-flex',
   clientStateMenu: 'absolute left-0 top-[calc(100%+4px)] z-20 grid min-w-[140px] gap-[2px] p-[4px]',
@@ -239,9 +251,9 @@ export interface ContactIdentityDetailsProps {
  */
 export default function ContactIdentityDetails({ contact, onEdit, onOpenMatter, onOpenContact }: ContactIdentityDetailsProps) {
   const address = formatContactAddress(contact)
-  const namedAddressCopyBlock = [contact.displayName, address].filter(Boolean).join('\n')
+  // What the three address buttons copy, with "City, ST, Zip" on its own line (FB-0004).
+  const copyTexts = contactCopyTexts(contact)
   const relatedHover = useRelatedContactHover()
-  const letterBlock = [contact.displayName, address, contact.email ? `via email: ${contact.email}` : '', contact.phone ?? ''].filter(Boolean).join('\n')
 
   return (
     <div className={LAYOUT_STYLES.details} data-kr-element="contact-identity-details">
@@ -276,9 +288,9 @@ export default function ContactIdentityDetails({ contact, onEdit, onOpenMatter, 
               </span>
               {address ? (
                 <span className={LAYOUT_STYLES.addressCopyRow}>
-                  <KRCopyButton value={address} label="address only" title="Copy address only" />
-                  <KRCopyButton value={namedAddressCopyBlock} label="name and mailing address" title="Copy name and mailing address" />
-                  <KRCopyButton value={letterBlock} label="full contact block" title="Copy full contact block" />
+                  <KRCopyPreviewButton heading="Address" icon="map-pin" label="address only" value={copyTexts.address} />
+                  <KRCopyPreviewButton heading="Name and Mailing Address" icon="mail" label="name and mailing address" value={copyTexts.nameAndAddress} />
+                  <KRCopyPreviewButton heading="Full Letter Ready Contact Info" icon="contacts" label="full contact block" value={copyTexts.letterBlock} />
                 </span>
               ) : null}
             </div>
@@ -289,6 +301,8 @@ export default function ContactIdentityDetails({ contact, onEdit, onOpenMatter, 
               <ContactPhoneLine label="Office" value={contact.phone ?? ''} />
               <ContactPhoneLine label="Home" value="" />
               <ContactPhoneLine label="Fax" value={contact.fax ?? ''} />
+              {/* SSN or EIN: masked, the eye shows it, then a copy button (FB-0003) */}
+              <ContactTaxIdLine contact={contact} />
             </div>
           </div>
         </div>

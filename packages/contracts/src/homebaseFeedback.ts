@@ -30,16 +30,21 @@
 
 import { z } from 'zod'
 
-/** What kind of request it is. */
-export const HOMEBASE_FEEDBACK_KINDS = ['feature', 'issue', 'question'] as const
-/** Where a request stands. */
-export const HOMEBASE_FEEDBACK_STATUSES = ['new', 'triaged', 'planned', 'in_progress', 'done', 'will_not_do'] as const
+/**
+ * What kind of request it is. `usability` was added by migration 057 (FB-0006, Nov 16, 2026); the stored values `issue`
+ * and `feature` keep their names and are shown as "Bug" and "Feature request".
+ */
+export const HOMEBASE_FEEDBACK_KINDS = ['issue', 'usability', 'feature', 'question'] as const
+/** Where a request stands, in the order a request usually moves. `reopened` and `needs_info` were added by migration 057. */
+export const HOMEBASE_FEEDBACK_STATUSES = ['new', 'reopened', 'triaged', 'needs_info', 'planned', 'in_progress', 'done', 'will_not_do'] as const
 /** How urgent it is (set by a developer; Normal when sent). */
 export const HOMEBASE_FEEDBACK_PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const
 /** The two marker attributes a request may name. */
 export const HOMEBASE_FEEDBACK_MARKER_ATTRIBUTES = ['data-kr-id', 'data-kr-element'] as const
 
-export const HomebaseFeedbackKind = z.enum(HOMEBASE_FEEDBACK_KINDS).describe('Feature (a change or addition), issue (something wrong) or question.')
+export const HomebaseFeedbackKind = z
+  .enum(HOMEBASE_FEEDBACK_KINDS)
+  .describe('Issue (a bug: something wrong), usability (works, but is hard to use), feature (a change or addition) or question.')
 export type HomebaseFeedbackKind = z.infer<typeof HomebaseFeedbackKind>
 export const HomebaseFeedbackStatus = z.enum(HOMEBASE_FEEDBACK_STATUSES).describe('Where the request stands.')
 export type HomebaseFeedbackStatus = z.infer<typeof HomebaseFeedbackStatus>
@@ -49,16 +54,19 @@ export const HomebaseFeedbackMarkerAttribute = z.enum(HOMEBASE_FEEDBACK_MARKER_A
 export type HomebaseFeedbackMarkerAttribute = z.infer<typeof HomebaseFeedbackMarkerAttribute>
 
 /** Plain labels for the screens and the script. */
-export const HOMEBASE_FEEDBACK_KIND_LABELS: Record<HomebaseFeedbackKind, string> = { feature: 'Feature', issue: 'Issue', question: 'Question' }
+export const HOMEBASE_FEEDBACK_KIND_LABELS: Record<HomebaseFeedbackKind, string> = { issue: 'Bug', usability: 'Usability', feature: 'Feature request', question: 'Question' }
 export const HOMEBASE_FEEDBACK_STATUS_LABELS: Record<HomebaseFeedbackStatus, string> = {
   new: 'New',
+  reopened: 'Reopened',
   triaged: 'Triaged',
+  needs_info: 'Needs info',
   planned: 'Planned',
   in_progress: 'In progress',
   done: 'Done',
   will_not_do: 'Will not do',
 }
-export const HOMEBASE_FEEDBACK_PRIORITY_LABELS: Record<HomebaseFeedbackPriority, string> = { low: 'Low', normal: 'Normal', high: 'High', urgent: 'Urgent' }
+/** Priority as number and words (FB-0006): P1 is the most urgent. */
+export const HOMEBASE_FEEDBACK_PRIORITY_LABELS: Record<HomebaseFeedbackPriority, string> = { low: 'P4 Low', normal: 'P3 Normal', high: 'P2 High', urgent: 'P1 Urgent' }
 
 /** The most markers one request keeps. */
 export const HOMEBASE_FEEDBACK_MAX_MARKERS = 50
@@ -240,7 +248,7 @@ export const HOMEBASE_FEEDBACK_IMAGE_TICKET_SECONDS = 600
 /**
  * What an image ticket signs: `homebase-feedback-image|<r2 key>|<expiry, Unix seconds>`, HMAC-SHA256 with the secret
  * `KR_FEEDBACK_IMAGE_TICKET_SECRET` (held by the API and the Feedback viewer Worker, nobody else). The ticket text is
- * `<expiry>.<signature as base64url>`. The viewer Worker (`workers/feedback-viewer/worker/imageWorker.ts`) writes the
+ * `<expiry>.<signature as base64url>`. The viewer Worker (`workers/feedback-viewer/worker/imageTicket.ts`) writes the
  * same rule out itself, because an outside tool cannot import this package; a test keeps the two equal.
  */
 export const HOMEBASE_FEEDBACK_IMAGE_TICKET_PURPOSE = 'homebase-feedback-image'

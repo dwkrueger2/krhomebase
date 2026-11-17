@@ -36,9 +36,12 @@ const LAYOUT_STYLES = {
   controls: 'gap-[8px] grid min-w-0',
   identityRow: 'gap-[10px] flex items-center justify-between min-w-0',
   employeeInfo: 'gap-[1px] flex flex-col items-start min-w-0',
-  // As many buttons per row as fit at 104px or more; in a narrow column View Time Card moves to a second row instead
-  // of being cut off (the old widget had a fixed 400px card).
-  actions: 'gap-[6px] grid grid-cols-[repeat(auto-fit,minmax(104px,1fr))]',
+  // Two columns at every width (FB-0010, the requester, Nov 16, 2026): Clock In and Clock Out share the first row and
+  // View Time Card spans the second. The earlier auto-fit grid squeezed all three onto one row in a narrow card, and
+  // View Time Card's text ran outside its box.
+  actions: 'gap-[6px] grid grid-cols-2',
+  // View Time Card takes the whole second row.
+  actionWide: 'col-span-2',
   meta: 'gap-[8px] flex justify-between',
   busy: 'min-h-[18px]',
 } as const
@@ -222,7 +225,7 @@ export default function EmployeeClockInWidget() {
         >
           Clock Out
         </button>
-        <button className={`${STYLES.actionButton} ${STYLES.viewButton}`} data-kr-action="dashboard-view-time-card" onClick={() => navigation.openSection('timekeeping')} type="button">
+        <button className={`${LAYOUT_STYLES.actionWide} ${STYLES.actionButton} ${STYLES.viewButton}`} data-kr-action="dashboard-view-time-card" onClick={() => navigation.openSection('timekeeping')} type="button">
           View Time Card
         </button>
       </div>

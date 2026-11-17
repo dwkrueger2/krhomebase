@@ -6,10 +6,13 @@
  *
  * Every value from KR Homebase is written through `escapeHtml`. The request text is shown as text
  * (`white-space: pre-wrap` in `viewer.css`), never as HTML. Styling is the class names in `viewer.css`, which use the
- * KR Homebase theme values the tool kit applies to the page (`--kr-theme-*`).
+ * KR Homebase theme values the tool kit applies to the page (`--kr-theme-*`). Kind, status and priority colors come
+ * from `feedbackColors.ts`: an element names its tone with `data-fb-tone` (`toneAttr`) and `main.ts` paints it.
  */
 
 import type { ListFilter } from './feedbackApi.ts'
+import { KIND_TONES, PRIORITY_TONES, STATUS_TONES, toneOf, type FeedbackToneName } from './feedbackColors.ts'
+import { LENS_SIZES } from './magnifier.ts'
 import {
   copyForClaudeText,
   FEEDBACK_KINDS,
@@ -27,6 +30,7 @@ import {
   type FeedbackNote,
   type FeedbackPriority,
   type FeedbackStatus,
+  type FeedbackSummary,
 } from './feedbackTypes.ts'
 import { detailHash, listHash } from './route.ts'
 
@@ -36,8 +40,8 @@ export interface Notice {
   text: string
 }
 
-/** A status and priority change waiting for the person to confirm it (tool kit guide, rule 3). */
-export interface PendingChange {
+/** The change form's values as the person has set them (status, priority, note), not yet saved. */
+export interface DraftChange {
   status: FeedbackStatus
   priority: FeedbackPriority
   note: string
@@ -64,21 +68,50 @@ function noticeHtml(notice: Notice | undefined): string {
   return `<div class="notice ${notice.kind}" role="${notice.kind === 'bad' ? 'alert' : 'status'}">${escapeHtml(notice.text)}</div>`
 }
 
-function optionsHtml(values: readonly string[], labels: Record<string, string>, selected: string | undefined, allLabel?: string): string {
+/** The attribute that names an element's color set (`feedbackColors.ts`), painted by `main.ts`. */
+export function toneAttr(tone: FeedbackToneName): string {
+  return `data-fb-tone="${tone}"`
+}
+
+/** A colored pill: a kind, a status or a priority. */
+export function pillHtml(tone: FeedbackToneName, label: string): string {
+  return `<span class="pill" ${toneAttr(tone)}>${escapeHtml(label)}</span>`
+}
+
+/** The three pills of a request: kind, status, priority. */
+function pillsHtml(item: Pick<FeedbackSummary, 'kind' | 'status' | 'priority'>): string {
+  return [
+    pillHtml(toneOf(KIND_TONES, item.kind), labelOf(KIND_LABELS, item.kind)),
+    pillHtml(toneOf(STATUS_TONES, item.status), labelOf(STATUS_LABELS, item.status)),
+    pillHtml(toneOf(PRIORITY_TONES, item.priority), labelOf(PRIORITY_LABELS, item.priority)),
+  ].join(' ')
+}
+
+/**
+ * The options of a select. With `tones`, each option names its color set (`data-fb-tone`), so the open list shows every
+ * status or priority in its own color (the requester, Nov 16, 2026).
+ */
+function optionsHtml(values: readonly string[], labels: Record<string, string>, selected: string | undefined, allLabel?: string, tones?: Record<string, FeedbackToneName>): string {
   const all = allLabel === undefined ? '' : `<option value=""${selected ? '' : ' selected'}>${escapeHtml(allLabel)}</option>`
-  return all + values.map((value) => `<option value="${escapeHtml(value)}"${value === selected ? ' selected' : ''}>${escapeHtml(labels[value] ?? value)}</option>`).join('')
+  return (
+    all +
+    values
+      .map((value) => `<option value="${escapeHtml(value)}"${tones ? ` ${toneAttr(toneOf(tones, value))}` : ''}${value === selected ? ' selected' : ''}>${escapeHtml(labels[value] ?? value)}</option>`)
+      .join('')
+  )
 }
 
 /** The list: status and kind filters, newest first, one page at a time. */
 export function listView(data: FeedbackListData, filter: ListFilter, notice?: Notice): string {
   const rows = data.items
     .map(
-      (item) => `<tr>
+      // Each row is tinted by its status (the requester, Nov 16, 2026), with a left bar in the status color.
+      (item) => `<tr ${toneAttr(toneOf(STATUS_TONES, item.status))}>
 <td><a href="${escapeHtml(detailHash(item.code))}">${escapeHtml(item.code)}</a></td>
-<td>${escapeHtml(labelOf(KIND_LABELS, item.kind))}</td>
+<td>${pillHtml(toneOf(KIND_TONES, item.kind), labelOf(KIND_LABELS, item.kind))}</td>
 <td><a href="${escapeHtml(detailHash(item.code))}">${escapeHtml(item.title)}</a></td>
-<td>${escapeHtml(labelOf(STATUS_LABELS, item.status))}</td>
-<td>${escapeHtml(labelOf(PRIORITY_LABELS, item.priority))}</td>
+<td>${pillHtml(toneOf(STATUS_TONES, item.status), labelOf(STATUS_LABELS, item.status))}</td>
+<td>${pillHtml(toneOf(PRIORITY_TONES, item.priority), labelOf(PRIORITY_LABELS, item.priority))}</td>
 <td>${escapeHtml(item.submittedByLabel)}</td>
 <td>${escapeHtml(item.sectionId ?? '')}</td>
 <td class="num">${item.markerCount}</td>
@@ -118,12 +151,27 @@ export function shapeWords(shape: FeedbackImage['shapes'][number]): string {
   return shape.nearMarkers.length ? `${what} ${where} ${shape.nearMarkers.join(', ')}` : `${what} (no marker under it)`
 }
 
-/** One screenshot: the image (from this tool's own image script) and its shapes in words. */
+/**
+ * A screenshot's tool row, in its upper right (`magnifier.ts`): Magnify (on or off, for every screenshot), the lens
+ * size, and Pop out (the image alone in its own window). `main.ts` shows the page's magnifier state on it after drawing.
+ */
+export function imageToolsHtml(address: string): string {
+  const sizes = Object.entries(LENS_SIZES)
+    .map(([value, size]) => `<option value="${value}"${value === 'medium' ? ' selected' : ''}>${escapeHtml(size.label)}</option>`)
+    .join('')
+  return `<div class="shot-tools" data-kr-element="feedback-viewer-image-tools">
+<button type="button" class="magnify-button" data-action="magnify" aria-pressed="false" title="Magnify: point at a screenshot to enlarge that part (Escape stops)">Magnify</button>
+<select data-action="magnify-size" aria-label="Magnifier size" title="Magnifier size">${sizes}</select>
+<button type="button" data-action="pop-image" data-src="${escapeHtml(address)}" title="Open this screenshot in its own window">Pop out</button>
+</div>`
+}
+
+/** One screenshot: the image (from this tool's own image script) with its tool row, and its shapes in words. */
 function imageHtml(item: Pick<FeedbackDetail, 'code'>, image: FeedbackImage, index: number): string {
   const address = imageAddress(image)
   const size = image.width && image.height ? `${image.width} x ${image.height}, ` : ''
   const picture = address
-    ? `<a href="${escapeHtml(address)}" target="_blank" rel="noopener"><img src="${escapeHtml(address)}" alt="${escapeHtml(`Screenshot ${index + 1} of ${item.code}`)}" loading="lazy"></a>`
+    ? `<div class="shot-frame">${imageToolsHtml(address)}<img src="${escapeHtml(address)}" alt="${escapeHtml(`Screenshot ${index + 1} of ${item.code}`)}" loading="lazy"></div>`
     : '<p class="meta">This image cannot be shown: KR Homebase has no image ticket secret yet (README.md, go-live steps).</p>'
   const shapes = image.shapes.length ? `<ul class="shapes">${image.shapes.map((shape) => `<li>${escapeHtml(shapeWords(shape))}</li>`).join('')}</ul>` : '<p class="meta">Nothing drawn on it.</p>'
   return `<figure class="shot" data-kr-element="feedback-viewer-image">
@@ -139,20 +187,67 @@ function changeWords(note: FeedbackNote): string {
   return ''
 }
 
-/** The confirmation shown before a status or priority change is saved: what changes, from what, to what. */
-export function pendingChangeWords(item: Pick<FeedbackDetail, 'code' | 'status' | 'priority'>, change: PendingChange): string {
+/**
+ * Whether the change form differs from what is saved (root `AGENTS.md`, "Unsaved Changes Standard": dirty means
+ * different from the saved values, so setting a value back makes the form clean again).
+ */
+export function isDraftDirty(item: Pick<FeedbackDetail, 'status' | 'priority'>, draft: DraftChange): boolean {
+  return draft.status !== item.status || draft.priority !== item.priority || draft.note.trim() !== ''
+}
+
+/**
+ * What Save Changes will change, shown beside the button while the form is dirty (tool kit guide, rule 4: show the
+ * person what the tool will change before it changes it). Empty when nothing would change.
+ */
+export function draftChangeWords(item: Pick<FeedbackDetail, 'status' | 'priority'>, draft: DraftChange): string {
   const parts: string[] = []
-  if (change.status !== item.status) parts.push(`status from ${labelOf(STATUS_LABELS, item.status)} to ${labelOf(STATUS_LABELS, change.status)}`)
-  if (change.priority !== item.priority) parts.push(`priority from ${labelOf(PRIORITY_LABELS, item.priority)} to ${labelOf(PRIORITY_LABELS, change.priority)}`)
-  const what = parts.length ? `Change ${item.code}: ${parts.join(' and ')}` : `Nothing changes on ${item.code}`
-  return change.note.trim() ? `${what}, with the note below.` : `${what}.`
+  if (draft.status !== item.status) parts.push(`Status ${labelOf(STATUS_LABELS, item.status)} → ${labelOf(STATUS_LABELS, draft.status)}`)
+  if (draft.priority !== item.priority) parts.push(`Priority ${labelOf(PRIORITY_LABELS, item.priority)} → ${labelOf(PRIORITY_LABELS, draft.priority)}`)
+  if (draft.note.trim()) parts.push(parts.length ? 'with the note' : 'Add the note')
+  return parts.join(', ')
+}
+
+/** The requests before and after the open one in the list it was opened from (`FB-0011`), for the arrows. */
+export interface Neighbors {
+  previous?: string
+  next?: string
+}
+
+/** The arrows and the way back to the list, above a request. */
+function detailNavHtml(listFilter: ListFilter, neighbors: Neighbors): string {
+  const arrow = (code: string | undefined, label: string, title: string, rel: 'prev' | 'next') =>
+    code
+      ? `<a class="nav-arrow" href="${escapeHtml(detailHash(code))}" rel="${rel}" title="${escapeHtml(`${title}: ${code}`)}" data-kr-element="feedback-viewer-${rel}">${label}</a>`
+      : `<span class="nav-arrow off" aria-disabled="true" title="${escapeHtml(`No ${title.toLowerCase()} in this list`)}">${label}</span>`
+  return `<nav class="detail-nav" data-kr-element="feedback-viewer-detail-nav">
+${arrow(neighbors.previous, '‹ Previous', 'Previous request', 'prev')}
+${arrow(neighbors.next, 'Next ›', 'Next request', 'next')}
+<a href="${escapeHtml(listHash(listFilter))}">All requests</a>
+</nav>`
+}
+
+/**
+ * The "Leave without saving?" dialog (root `AGENTS.md`, "Unsaved Changes Standard"): the tool's own dialog, never the
+ * browser's `confirm` (the frame forbids it). `main.ts` places it outside the screen and wires the two buttons.
+ */
+export function leaveDialogHtml(code: string): string {
+  return `<div class="dialog-backdrop" data-kr-element="feedback-viewer-leave-dialog">
+<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="leave-title" aria-describedby="leave-text">
+<h2 id="leave-title">Leave without saving?</h2>
+<p id="leave-text">Your changes to ${escapeHtml(code)} are not saved. Leave throws them away.</p>
+<div class="dialog-buttons">
+<button type="button" data-dialog="stay">Stay</button>
+<button type="button" class="danger" data-dialog="leave">Leave</button>
+</div>
+</div>
+</div>`
 }
 
 /**
  * One request: its text, markers, images, notes, the page it was sent from, the "Copy for Claude" box, and (for a
  * person who may triage) the status form and the note form.
  */
-export function detailView(item: FeedbackDetail, options: { canTriage: boolean; pending?: PendingChange; notice?: Notice; listFilter: ListFilter }): string {
+export function detailView(item: FeedbackDetail, options: { canTriage: boolean; notice?: Notice; listFilter: ListFilter; neighbors?: Neighbors }): string {
   const context = item.context
   const contextRows: Array<[string, string]> = [
     ['Address', context.pageAddress ?? ''],
@@ -183,36 +278,25 @@ export function detailView(item: FeedbackDetail, options: { canTriage: boolean; 
         .join('')
     : '<p class="meta">No notes yet.</p>'
 
-  const pending = options.pending
+  // One form saves the status, the priority and a note together (the API keeps a note sent with no other change as a
+  // plain note). Save Changes keeps its place but shows only while the form differs from what is saved; `main.ts`
+  // sets `dirty` on the form and writes what will change beside the button (root AGENTS.md, Unsaved Changes Standard).
   const changeForm = !options.canTriage
     ? '<p class="meta">You may read this request but not change it (you need developer_tools update).</p>'
-    : pending
-      ? `<div class="confirm" data-kr-element="feedback-viewer-confirm-change">
-<p>${escapeHtml(pendingChangeWords(item, pending))}</p>
-${pending.note.trim() ? `<div class="body">${escapeHtml(pending.note)}</div>` : ''}
-<button type="button" data-action="confirm-change">Save change</button>
-<button type="button" data-action="cancel-change">Cancel</button>
-</div>`
-      : `<form data-action="change" data-kr-element="feedback-viewer-change">
-<div class="form-row"><label>Status <select name="status">${optionsHtml(FEEDBACK_STATUSES, STATUS_LABELS, item.status)}</select></label>
-<label>Priority <select name="priority">${optionsHtml(FEEDBACK_PRIORITIES, PRIORITY_LABELS, item.priority)}</select></label></div>
+    : `<form data-action="change" data-kr-element="feedback-viewer-change">
+<div class="form-row"><label>Status <select name="status" ${toneAttr(toneOf(STATUS_TONES, item.status))}>${optionsHtml(FEEDBACK_STATUSES, STATUS_LABELS, item.status, undefined, STATUS_TONES)}</select></label>
+<label>Priority <select name="priority" ${toneAttr(toneOf(PRIORITY_TONES, item.priority))}>${optionsHtml(FEEDBACK_PRIORITIES, PRIORITY_LABELS, item.priority, undefined, PRIORITY_TONES)}</select></label></div>
 <label class="block">Note (optional)<textarea name="note" maxlength="10000"></textarea></label>
-<button type="submit">Review change</button>
+<div class="save-row"><button type="submit" class="save" data-kr-element="feedback-viewer-save">Save Changes</button><span class="change-words meta" aria-live="polite"></span></div>
 </form>`
-  const noteForm = options.canTriage
-    ? `<h3>Add a note</h3>
-<form data-action="note" data-kr-element="feedback-viewer-add-note">
-<textarea name="text" maxlength="10000" required></textarea>
-<button type="submit">Add note</button>
-</form>`
-    : ''
 
-  return `<p><a href="${escapeHtml(listHash(options.listFilter))}">All requests</a></p>
+  return `${detailNavHtml(options.listFilter, options.neighbors ?? {})}
 ${noticeHtml(options.notice)}
+<header class="detail-head" data-kr-element="feedback-viewer-detail-head">
 <h2>${escapeHtml(item.code)}: ${escapeHtml(item.title)}</h2>
-<p class="meta">${escapeHtml(labelOf(KIND_LABELS, item.kind))} · ${escapeHtml(labelOf(STATUS_LABELS, item.status))} · ${escapeHtml(labelOf(PRIORITY_LABELS, item.priority))} · from ${escapeHtml(
-    item.submittedByLabel,
-  )} · sent ${when(item.createdAt)}${item.updatedAt ? ` · changed ${when(item.updatedAt)}` : ''}</p>
+<div class="pills">${pillsHtml(item)}</div>
+<p class="meta">From ${escapeHtml(item.submittedByLabel)} · sent ${when(item.createdAt)}${item.updatedAt ? ` · changed ${when(item.updatedAt)}` : ''}</p>
+</header>
 <div class="copy" data-kr-element="feedback-viewer-copy-for-claude">
 <label for="copy-for-claude">Copy for Claude</label>
 <input id="copy-for-claude" type="text" readonly value="${escapeHtml(copyForClaudeText(item.number))}">
@@ -230,9 +314,8 @@ ${images}
 <div data-kr-element="feedback-viewer-notes">${notes}</div>
 </section>
 <section>
-<h3>Status and priority</h3>
+<h3>Status, priority and notes</h3>
 ${changeForm}
-${noteForm}
 <h3>Page it was sent from</h3>
 <table data-kr-element="feedback-viewer-context"><tbody>${contextRows.map(([label, value]) => `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value)}</td></tr>`).join('')}</tbody></table>
 </section>

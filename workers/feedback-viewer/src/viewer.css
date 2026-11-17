@@ -8,6 +8,9 @@
  *
  * Colors and fonts are the KR Homebase theme values the tool kit applies to the page root (`--kr-theme-*`, tool kit
  * guide section 4), with fallbacks for the page opened on its own. Dense, as KR Homebase is.
+ *
+ * Kind, status and priority colors are not written here: they live in one object, `feedbackColors.ts`, which sets
+ * `--fb-fill`, `--fb-line` and `--fb-text` on each element marked `data-fb-tone`. The rules below only read them.
  */
 
 /* Page */
@@ -63,15 +66,175 @@ button:disabled { cursor: default; opacity: 0.6; }
 .copy { display: flex; gap: 6px; align-items: center; margin: 6px 0; }
 .copy input { width: 12em; font-family: ui-monospace, Consolas, monospace; }
 .note { padding: 4px 0; border-bottom: 1px solid var(--kr-theme-line, #d6dde6); }
-.confirm { padding: 6px 8px; border: 1px solid var(--kr-theme-brand-primary, #1f5fbf); border-radius: 3px; }
-.confirm p { margin: 0 0 6px; }
 .paging { margin: 6px 0; }
 
 /* Screenshots: the PNG at the column width (it opens full size), its size line and its shapes in words. */
 .shot { margin: 0 0 8px; }
 .shot img { display: block; max-width: 100%; height: auto; border: 1px solid var(--kr-theme-line, #d6dde6); border-radius: 3px; }
+
+/*
+ * A screenshot's tool row in its upper right (magnifier.ts): Magnify, the lens size, Pop out. While the magnifier is
+ * on, Magnify has a 2px Signal Orange border and the lens follows the pointer over any screenshot.
+ */
+.shot-frame { position: relative; display: inline-block; max-width: 100%; }
+.shot-tools {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  padding: 2px 3px;
+  border: 1px solid var(--kr-theme-line, #d6dde6);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--kr-theme-card-surface, #ffffff) 92%, transparent);
+}
+.shot-tools button, .shot-tools select { height: 20px; padding: 0 7px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.shot-tools select { padding: 0 3px; }
+.magnify-button[aria-pressed="true"] { border: 2px solid var(--kr-theme-orange, #e45e25); color: var(--kr-theme-orange, #e45e25); background: var(--kr-theme-card-surface, #ffffff); }
+.magnify-on .shot img { cursor: crosshair; }
+.lens {
+  position: fixed;
+  z-index: 30;
+  border: 2px solid var(--kr-theme-orange, #e45e25);
+  border-radius: 4px;
+  background-color: var(--kr-theme-card-surface, #ffffff);
+  background-repeat: no-repeat;
+  box-shadow: 0 8px 22px rgba(0, 30, 58, 0.3);
+  pointer-events: none;
+}
+.lens[hidden] { display: none; }
 .shot figcaption { margin: 2px 0; }
 .shapes { margin: 2px 0 0; padding-left: 18px; }
+
+/* Pills: kind, status and priority (colors from feedbackColors.ts). */
+.pill {
+  display: inline-block;
+  padding: 0 5px;
+  border: 1px solid var(--fb-line, #9aa3ad);
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 14px;
+  white-space: nowrap;
+  color: var(--fb-text, #5f6368);
+  background: var(--fb-fill, transparent);
+}
+.pills { display: flex; flex-wrap: wrap; gap: 3px; margin: 2px 0 4px; }
+
+/*
+ * List rows: a clear tint of the status color (the requester, Nov 16, 2026: "more striking" than the first 7%) and a
+ * 4px bar on the left in the full color. Hover deepens the tint.
+ */
+tbody tr[data-fb-tone] { background: color-mix(in srgb, var(--fb-line) 18%, var(--kr-theme-card-surface, #ffffff)); }
+tbody tr[data-fb-tone] td:first-child { box-shadow: inset 4px 0 0 var(--fb-line); }
+tbody tr[data-fb-tone]:hover { background: color-mix(in srgb, var(--fb-line) 30%, var(--kr-theme-card-surface, #ffffff)); }
+
+/* Status and priority selects: a small pill in the chosen value's color. */
+select[data-fb-tone] {
+  height: 20px;
+  padding: 0 4px;
+  border-color: var(--fb-line);
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 18px;
+  color: var(--fb-text);
+  background: var(--fb-fill);
+}
+/*
+ * The open list: each choice in its own color (the requester, Nov 16, 2026), an opaque tint so the list reads the same
+ * on any page, with dark text (`--fb-ink`, readable even for P1 Urgent, whose pill text is white).
+ */
+select[data-fb-tone] option[data-fb-tone] {
+  font-weight: 700;
+  color: var(--fb-ink);
+  background: color-mix(in srgb, var(--fb-line) 24%, #ffffff);
+}
+
+/* One request: the arrows, then the title with its pills under a Warm Camel rule. */
+.detail-nav { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 6px; }
+.nav-arrow {
+  padding: 0 7px;
+  border: 1px solid var(--kr-theme-line, #d6dde6);
+  border-radius: 999px;
+  font-weight: 700;
+  text-decoration: none;
+  background: var(--kr-theme-muted-surface, #f4f5f7);
+}
+.nav-arrow:hover { border-color: var(--kr-theme-accent, #8a715c); }
+.nav-arrow.off { color: var(--kr-theme-text-muted, #5f6368); opacity: 0.5; }
+.detail-head { margin: 0 0 6px; padding: 0 0 4px; border-bottom: 3px solid var(--kr-theme-accent, #8a715c); }
+.detail-head h2 { margin: 0 0 2px; color: var(--kr-theme-brand-primary, #00305b); }
+.detail-head .meta { margin: 0; }
+
+/*
+ * Save Changes (root AGENTS.md, Unsaved Changes Standard): its place is kept while hidden; it shows only on a dirty
+ * form, in Signal Orange, the brightest button on the screen.
+ */
+.save-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 26px; margin-top: 4px; }
+.save {
+  visibility: hidden;
+  padding: 1px 10px;
+  border-color: var(--kr-theme-orange, #e45e25);
+  border-radius: 999px;
+  font-weight: 800;
+  color: #ffffff;
+  background: var(--kr-theme-orange, #e45e25);
+}
+form.dirty .save { visibility: visible; }
+.save:hover { filter: brightness(1.08); }
+
+/* The "Leave without saving?" dialog (the tool's own; the frame may not use the browser's). */
+.dialog-backdrop { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; background: rgba(16, 42, 58, 0.4); }
+.dialog {
+  width: min(440px, calc(100vw - 24px));
+  padding: 10px;
+  border-radius: 4px;
+  background: var(--kr-theme-card-surface, #ffffff);
+  box-shadow: 0 18px 50px rgba(16, 42, 58, 0.22);
+}
+.dialog p { margin: 0 0 10px; }
+.dialog-buttons { display: flex; gap: 6px; justify-content: flex-end; }
+.dialog-buttons button { min-height: 30px; padding: 3px 14px; border-radius: 999px; font-weight: 700; }
+.dialog-buttons .danger { border-color: var(--kr-theme-danger, #9d2c20); color: #ffffff; background: var(--kr-theme-danger, #9d2c20); }
+
+/*
+ * Marker pick (markerPick.ts): the small Markers switch at the bottom right; while it is on, every marked element has a
+ * dashed Signal Orange outline, the one under the pointer a solid one, and the picked marker shows in a small box.
+ * Inspection only, like KR Homebase's Dev View.
+ */
+.pick-toggle {
+  position: fixed;
+  right: 6px;
+  bottom: 6px;
+  z-index: 20;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.75;
+}
+.pick-toggle:hover, .pick-toggle[aria-pressed="true"] { opacity: 1; }
+.pick-toggle[aria-pressed="true"] { border-color: var(--kr-theme-orange, #e45e25); color: #ffffff; background: var(--kr-theme-orange, #e45e25); }
+.pick-on [data-kr-element], .pick-on [data-kr-id] { outline: 1px dashed var(--kr-theme-orange, #e45e25); outline-offset: 1px; cursor: crosshair; }
+.pick-on .pick-hover { outline: 2px solid var(--kr-theme-orange, #e45e25); }
+.pick-box {
+  position: fixed;
+  right: 6px;
+  bottom: 30px;
+  z-index: 20;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 3px 6px;
+  border: 1px solid var(--kr-theme-orange, #e45e25);
+  border-radius: 3px;
+  font-size: 11px;
+  background: var(--kr-theme-card-surface, #ffffff);
+}
+.pick-box[hidden] { display: none; }
+.pick-box input { width: 22em; font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
 
 /* Notices */
 .notice { margin: 4px 0 8px; padding: 4px 8px; border: 1px solid var(--kr-theme-line, #d6dde6); border-radius: 3px; }

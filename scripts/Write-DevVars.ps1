@@ -35,7 +35,14 @@
                                       (added Nov 16, 2026: invitation, WorkStream and billing email from `pnpm dev`).
                                       The whole JSON key file on one line, in single quotes so its double quotes and
                                       its \n markers reach the API unchanged.
+        KR_FEEDBACK_IMAGE_TICKET_SECRET
+                                      from feedback-image-ticket-secret.txt (added Nov 16, 2026: Homebase Feedback
+                                      screenshots in the local viewer). A local value only, never the deployed secret;
+                                      when the file is missing the script makes it (32 random bytes, base64).
         KR_SUPER_ADMIN_EMAILS         only when -SuperAdminEmails is given
+    workers\feedback-viewer\.dev.vars   (the viewer's image Worker under pnpm dev:feedback-viewer:worker)
+        KR_FEEDBACK_IMAGE_TICKET_SECRET  the same value as the API's: the local API signs the image tickets and the
+                                         local viewer's Worker checks them
 
   The script prints setting names and character counts only. It never prints a value.
   It will not replace a `.dev.vars` file that it did not write itself (one without the
@@ -164,6 +171,23 @@ if (Test-Path -LiteralPath (Join-Path $KeysFolder 'cloudflare-custom-token\cloud
 if (Test-Path -LiteralPath (Join-Path $KeysFolder 'krhomebase-google-workspace-mailer-key.json')) {
   $apiSettings['KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY'] = (Read-JsonKeyValue -FileName 'krhomebase-google-workspace-mailer-key.json')
 }
+# Homebase Feedback screenshots (Nov 16, 2026): one local ticket secret, shared by the API and the viewer's image
+# Worker, so the local viewer (pnpm dev:feedback-viewer:worker) can show the screenshots. It is a local value of its own:
+# the deployed secret was made once and set with wrangler secret put (workers/feedback-viewer/README.md, step 2a). When
+# the file is missing it is made here, so nobody has to invent a value.
+$ticketFile = 'feedback-image-ticket-secret.txt'
+$ticketPath = Join-Path $KeysFolder $ticketFile
+if (-not (Test-Path -LiteralPath $ticketPath)) {
+  $ticketBytes = New-Object byte[] 32
+  [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($ticketBytes)
+  [System.IO.File]::WriteAllText($ticketPath, [Convert]::ToBase64String($ticketBytes), $utf8NoBom)
+  Remove-Variable ticketBytes
+  "Made $ticketFile in the keys folder (a new local value; the deployed secret is separate)."
+}
+$apiSettings['KR_FEEDBACK_IMAGE_TICKET_SECRET'] = (Read-KeyValue -FileName $ticketFile -Kind Secret)
+$viewerSettings = [ordered]@{
+  KR_FEEDBACK_IMAGE_TICKET_SECRET = $apiSettings['KR_FEEDBACK_IMAGE_TICKET_SECRET']
+}
 if (-not [string]::IsNullOrWhiteSpace($SuperAdminEmails)) {
   if ($SuperAdminEmails -match '["$`\s]') { throw 'SuperAdminEmails: use plain addresses separated by commas, with no spaces or quotes.' }
   $apiSettings['KR_SUPER_ADMIN_EMAILS'] = $SuperAdminEmails
@@ -172,4 +196,5 @@ if (-not [string]::IsNullOrWhiteSpace($SuperAdminEmails)) {
 Write-DevVarsFile -RelativeFolder 'workers\d1-workers\crud-worker' -Settings $crudSettings
 Write-DevVarsFile -RelativeFolder 'workers\d1-workers\session-worker' -Settings $sessionSettings
 Write-DevVarsFile -RelativeFolder 'apps\api' -Settings $apiSettings
+Write-DevVarsFile -RelativeFolder 'workers\feedback-viewer' -Settings $viewerSettings
 'Done. Values were not printed. Counts above include the \n markers that stand for line breaks.'

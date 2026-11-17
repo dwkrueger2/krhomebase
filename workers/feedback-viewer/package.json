@@ -5,6 +5,7 @@
   "description": "krhomebase-feedback-viewer: the Homebase Feedback viewer, built as a KR Homebase outside tool (path A, the frame) with only the tool kit, as a test of the kit. Static files on a Worker; no bindings. Part of the repository version track (AGENTS_01). Guide: README.md.",
   "scripts": {
     "dev": "vite dev --port 5174 --strictPort",
+    "dev:worker": "vite build && node scripts/allow-local-frame.mjs && wrangler dev --config feedback-viewer.jsonc --port 5174 --inspector-port 9343",
     "build": "vite build",
     "deploy": "vite build && wrangler deploy --config feedback-viewer.jsonc",
     "typecheck": "tsc --noEmit",

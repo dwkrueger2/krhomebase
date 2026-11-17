@@ -119,6 +119,8 @@ export interface InvoiceEditDialogProps {
   clientDisplayName?: string
   invoice: BillingInvoice
   matterNumbers: readonly string[]
+  /** Each matter's title by its number, for the entry dialog's matter lists. */
+  matterTitles?: Readonly<Record<string, string>>
   staffOptions: readonly { id: string; label: string; staffCode?: string | null }[]
   onCancel: () => void
   /** Closes the editor and opens the selected receipt on the Payments tab. */
@@ -170,6 +172,7 @@ export default function InvoiceEditDialog({
   clientDisplayName,
   invoice,
   matterNumbers,
+  matterTitles,
   staffOptions,
   onCancel,
   onOpenPayment,
@@ -754,6 +757,7 @@ export default function InvoiceEditDialog({
           <EditTimeAndFeeDialog
             entry={editingEntry}
             matterNumbers={matterNumbers}
+            matterTitles={matterTitles}
             staffOptions={staffOptions}
             onCancel={() => setEditingEntry(null)}
             onSave={async (next) => {
