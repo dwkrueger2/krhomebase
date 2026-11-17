@@ -13597,12 +13597,59 @@
                                   "string",
                                   "null"
                                 ]
+                              },
+                              "defaultRateClassId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The billing rate class that fills this person's new time entries (FB-0008)."
                               }
                             },
                             "required": [
                               "id",
                               "label",
                               "staffCode"
+                            ]
+                          }
+                        },
+                        "rateClasses": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9_]{1,40}$",
+                                "description": "The class id, for example ks_attorney_sr."
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 60,
+                                "description": "The name shown in the lists, for example \"KS Attorney Rate Sr\"."
+                              },
+                              "rate": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100000,
+                                "description": "Dollars an hour."
+                              },
+                              "active": {
+                                "type": "boolean",
+                                "description": "False: kept, but not offered for new entries."
+                              },
+                              "builtIn": {
+                                "type": "boolean",
+                                "description": "One of the six built-in classes: may be renamed, repriced and turned off, never removed."
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "label",
+                              "rate",
+                              "active",
+                              "builtIn"
                             ]
                           }
                         },
@@ -13655,6 +13702,10 @@
                             "canAdminister": {
                               "type": "boolean",
                               "description": "Super admin: may unlock, detach payments, void invoices and payments."
+                            },
+                            "userId": {
+                              "type": "string",
+                              "description": "The signed-in person: a new time entry starts with them as its staff (FB-0008)."
                             }
                           },
                           "required": [
@@ -48531,6 +48582,13 @@
                                   "null"
                                 ],
                                 "description": "The newest invitation for this email that was not accepted, if any."
+                              },
+                              "defaultRateClassId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The billing rate class that fills a new time entry for this person (FB-0008); empty when none is set."
                               }
                             },
                             "required": [
@@ -48721,6 +48779,47 @@
                         "viewerUserId": {
                           "type": "string",
                           "description": "The signed-in super admin (their own status and Super Admin role set cannot be changed here)."
+                        },
+                        "rateClasses": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9_]{1,40}$",
+                                "description": "The class id, for example ks_attorney_sr."
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 60,
+                                "description": "The name shown in the lists, for example \"KS Attorney Rate Sr\"."
+                              },
+                              "rate": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100000,
+                                "description": "Dollars an hour."
+                              },
+                              "active": {
+                                "type": "boolean",
+                                "description": "False: kept, but not offered for new entries."
+                              },
+                              "builtIn": {
+                                "type": "boolean",
+                                "description": "One of the six built-in classes: may be renamed, repriced and turned off, never removed."
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "label",
+                              "rate",
+                              "active",
+                              "builtIn"
+                            ]
+                          },
+                          "description": "The billing rate classes, for the Default rate choice (FB-0008)."
                         }
                       },
                       "required": [
@@ -49304,6 +49403,13 @@
                                       "null"
                                     ],
                                     "description": "The newest invitation for this email that was not accepted, if any."
+                                  },
+                                  "defaultRateClassId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The billing rate class that fills a new time entry for this person (FB-0008); empty when none is set."
                                   }
                                 },
                                 "required": [
@@ -49494,6 +49600,47 @@
                             "viewerUserId": {
                               "type": "string",
                               "description": "The signed-in super admin (their own status and Super Admin role set cannot be changed here)."
+                            },
+                            "rateClasses": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9_]{1,40}$",
+                                    "description": "The class id, for example ks_attorney_sr."
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 60,
+                                    "description": "The name shown in the lists, for example \"KS Attorney Rate Sr\"."
+                                  },
+                                  "rate": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000,
+                                    "description": "Dollars an hour."
+                                  },
+                                  "active": {
+                                    "type": "boolean",
+                                    "description": "False: kept, but not offered for new entries."
+                                  },
+                                  "builtIn": {
+                                    "type": "boolean",
+                                    "description": "One of the six built-in classes: may be renamed, repriced and turned off, never removed."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "label",
+                                  "rate",
+                                  "active",
+                                  "builtIn"
+                                ]
+                              },
+                              "description": "The billing rate classes, for the Default rate choice (FB-0008)."
                             }
                           },
                           "required": [
@@ -49782,7 +49929,7 @@
     "/v1/users/{userId}": {
       "put": {
         "summary": "Changes a user's account status, staff code and role sets (the list replaces the current one) in one save.",
-        "description": "Roles: super_admin.\n\nSide effects: Writes user, employee and user_role_set; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, USER_NOT_FOUND, SUPER_ADMIN_OR_SELF_STATUS_CHANGE_BLOCKED, SELF_SUPER_ADMIN_DEMOTION_BLOCKED, ROLE_SET_NOT_ASSIGNABLE, PRIMARY_ROLE_SET_INVALID, STAFF_CODE_REQUIRED, USER_NOT_EMPLOYEE, STAFF_CODE_IN_USE, USERS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin.\n\nSide effects: Writes user, employee and user_role_set; Writes lookup (row lk_kr_billing_rate_classes: the default rate class of this person, when sent); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, USER_NOT_FOUND, SUPER_ADMIN_OR_SELF_STATUS_CHANGE_BLOCKED, SELF_SUPER_ADMIN_DEMOTION_BLOCKED, ROLE_SET_NOT_ASSIGNABLE, PRIMARY_ROLE_SET_INVALID, STAFF_CODE_REQUIRED, USER_NOT_EMPLOYEE, STAFF_CODE_IN_USE, BILLING_RATE_CLASS_NOT_FOUND, USERS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "users"
         ],
@@ -49912,6 +50059,14 @@
                     },
                     "maxItems": 20,
                     "description": "Every bar admission the person should have; the rest are cleared. Left out keeps them."
+                  },
+                  "defaultRateClassId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[a-z0-9_]{1,40}$",
+                    "description": "The billing rate class that fills this person's new time entries (FB-0008); null clears it, left out keeps it."
                   }
                 },
                 "required": [
@@ -50233,6 +50388,13 @@
                                       "null"
                                     ],
                                     "description": "The newest invitation for this email that was not accepted, if any."
+                                  },
+                                  "defaultRateClassId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The billing rate class that fills a new time entry for this person (FB-0008); empty when none is set."
                                   }
                                 },
                                 "required": [
@@ -50423,6 +50585,47 @@
                             "viewerUserId": {
                               "type": "string",
                               "description": "The signed-in super admin (their own status and Super Admin role set cannot be changed here)."
+                            },
+                            "rateClasses": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9_]{1,40}$",
+                                    "description": "The class id, for example ks_attorney_sr."
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 60,
+                                    "description": "The name shown in the lists, for example \"KS Attorney Rate Sr\"."
+                                  },
+                                  "rate": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000,
+                                    "description": "Dollars an hour."
+                                  },
+                                  "active": {
+                                    "type": "boolean",
+                                    "description": "False: kept, but not offered for new entries."
+                                  },
+                                  "builtIn": {
+                                    "type": "boolean",
+                                    "description": "One of the six built-in classes: may be renamed, repriced and turned off, never removed."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "label",
+                                  "rate",
+                                  "active",
+                                  "builtIn"
+                                ]
+                              },
+                              "description": "The billing rate classes, for the Default rate choice (FB-0008)."
                             }
                           },
                           "required": [
@@ -50622,7 +50825,7 @@
             }
           },
           "422": {
-            "description": "A blocked status or role change, a role set that cannot be given, or a missing staff code.",
+            "description": "A blocked status or role change, a role set that cannot be given, a missing staff code, or an unknown rate class.",
             "content": {
               "application/json": {
                 "schema": {
@@ -51080,6 +51283,13 @@
                                       "null"
                                     ],
                                     "description": "The newest invitation for this email that was not accepted, if any."
+                                  },
+                                  "defaultRateClassId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The billing rate class that fills a new time entry for this person (FB-0008); empty when none is set."
                                   }
                                 },
                                 "required": [
@@ -51270,6 +51480,47 @@
                             "viewerUserId": {
                               "type": "string",
                               "description": "The signed-in super admin (their own status and Super Admin role set cannot be changed here)."
+                            },
+                            "rateClasses": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9_]{1,40}$",
+                                    "description": "The class id, for example ks_attorney_sr."
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 60,
+                                    "description": "The name shown in the lists, for example \"KS Attorney Rate Sr\"."
+                                  },
+                                  "rate": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000,
+                                    "description": "Dollars an hour."
+                                  },
+                                  "active": {
+                                    "type": "boolean",
+                                    "description": "False: kept, but not offered for new entries."
+                                  },
+                                  "builtIn": {
+                                    "type": "boolean",
+                                    "description": "One of the six built-in classes: may be renamed, repriced and turned off, never removed."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "label",
+                                  "rate",
+                                  "active",
+                                  "builtIn"
+                                ]
+                              },
+                              "description": "The billing rate classes, for the Default rate choice (FB-0008)."
                             }
                           },
                           "required": [
@@ -51946,6 +52197,13 @@
                                       "null"
                                     ],
                                     "description": "The newest invitation for this email that was not accepted, if any."
+                                  },
+                                  "defaultRateClassId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The billing rate class that fills a new time entry for this person (FB-0008); empty when none is set."
                                   }
                                 },
                                 "required": [
@@ -52136,6 +52394,47 @@
                             "viewerUserId": {
                               "type": "string",
                               "description": "The signed-in super admin (their own status and Super Admin role set cannot be changed here)."
+                            },
+                            "rateClasses": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9_]{1,40}$",
+                                    "description": "The class id, for example ks_attorney_sr."
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 60,
+                                    "description": "The name shown in the lists, for example \"KS Attorney Rate Sr\"."
+                                  },
+                                  "rate": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000,
+                                    "description": "Dollars an hour."
+                                  },
+                                  "active": {
+                                    "type": "boolean",
+                                    "description": "False: kept, but not offered for new entries."
+                                  },
+                                  "builtIn": {
+                                    "type": "boolean",
+                                    "description": "One of the six built-in classes: may be renamed, repriced and turned off, never removed."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "label",
+                                  "rate",
+                                  "active",
+                                  "builtIn"
+                                ]
+                              },
+                              "description": "The billing rate classes, for the Default rate choice (FB-0008)."
                             }
                           },
                           "required": [
@@ -52793,6 +53092,13 @@
                                       "null"
                                     ],
                                     "description": "The newest invitation for this email that was not accepted, if any."
+                                  },
+                                  "defaultRateClassId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The billing rate class that fills a new time entry for this person (FB-0008); empty when none is set."
                                   }
                                 },
                                 "required": [
@@ -52983,6 +53289,47 @@
                             "viewerUserId": {
                               "type": "string",
                               "description": "The signed-in super admin (their own status and Super Admin role set cannot be changed here)."
+                            },
+                            "rateClasses": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9_]{1,40}$",
+                                    "description": "The class id, for example ks_attorney_sr."
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 60,
+                                    "description": "The name shown in the lists, for example \"KS Attorney Rate Sr\"."
+                                  },
+                                  "rate": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000,
+                                    "description": "Dollars an hour."
+                                  },
+                                  "active": {
+                                    "type": "boolean",
+                                    "description": "False: kept, but not offered for new entries."
+                                  },
+                                  "builtIn": {
+                                    "type": "boolean",
+                                    "description": "One of the six built-in classes: may be renamed, repriced and turned off, never removed."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "label",
+                                  "rate",
+                                  "active",
+                                  "builtIn"
+                                ]
+                              },
+                              "description": "The billing rate classes, for the Default rate choice (FB-0008)."
                             }
                           },
                           "required": [
@@ -53640,6 +53987,13 @@
                                       "null"
                                     ],
                                     "description": "The newest invitation for this email that was not accepted, if any."
+                                  },
+                                  "defaultRateClassId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The billing rate class that fills a new time entry for this person (FB-0008); empty when none is set."
                                   }
                                 },
                                 "required": [
@@ -53830,6 +54184,47 @@
                             "viewerUserId": {
                               "type": "string",
                               "description": "The signed-in super admin (their own status and Super Admin role set cannot be changed here)."
+                            },
+                            "rateClasses": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9_]{1,40}$",
+                                    "description": "The class id, for example ks_attorney_sr."
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 60,
+                                    "description": "The name shown in the lists, for example \"KS Attorney Rate Sr\"."
+                                  },
+                                  "rate": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100000,
+                                    "description": "Dollars an hour."
+                                  },
+                                  "active": {
+                                    "type": "boolean",
+                                    "description": "False: kept, but not offered for new entries."
+                                  },
+                                  "builtIn": {
+                                    "type": "boolean",
+                                    "description": "One of the six built-in classes: may be renamed, repriced and turned off, never removed."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "label",
+                                  "rate",
+                                  "active",
+                                  "builtIn"
+                                ]
+                              },
+                              "description": "The billing rate classes, for the Default rate choice (FB-0008)."
                             }
                           },
                           "required": [
@@ -57070,6 +57465,647 @@
                       },
                       "required": [
                         "profile",
+                        "saved",
+                        "updatedAt",
+                        "canEdit"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The shared checks refused the save (FIRM_SETTINGS_INVALID; sentences in details.problems).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Firm Settings cannot be read or saved right now (FIRM_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/firm/billing-rates": {
+      "get": {
+        "summary": "The billing rate classes (name and hourly rate) that fill new time entries.",
+        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: UNAUTHENTICATED, FORBIDDEN, FIRM_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "firm"
+        ],
+        "responses": {
+          "200": {
+            "description": "The classes (the six built-in ones until the firm saves its own).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "classes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9_]{1,40}$",
+                                "description": "The class id, for example ks_attorney_sr."
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 60,
+                                "description": "The name shown in the lists, for example \"KS Attorney Rate Sr\"."
+                              },
+                              "rate": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100000,
+                                "description": "Dollars an hour."
+                              },
+                              "active": {
+                                "type": "boolean",
+                                "description": "False: kept, but not offered for new entries."
+                              },
+                              "builtIn": {
+                                "type": "boolean",
+                                "description": "One of the six built-in classes: may be renamed, repriced and turned off, never removed."
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "label",
+                              "rate",
+                              "active",
+                              "builtIn"
+                            ]
+                          },
+                          "description": "Every class, built-in first, then the firm's own, as saved."
+                        },
+                        "saved": {
+                          "type": "boolean",
+                          "description": "False until the classes are saved once (the built-in classes are shown)."
+                        },
+                        "updatedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "When the settings row last changed."
+                        },
+                        "canEdit": {
+                          "type": "boolean",
+                          "description": "The viewer may save (super admin)."
+                        }
+                      },
+                      "required": [
+                        "classes",
+                        "saved",
+                        "updatedAt",
+                        "canEdit"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Firm Settings cannot be read or saved right now (FIRM_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Saves the billing rate classes. Each person's default class is kept (it is set on Users).",
+        "description": "Roles: super_admin.\n\nSide effects: Writes lookup (row lk_kr_billing_rate_classes: the classes only); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, FIRM_SETTINGS_INVALID, FIRM_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "firm"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "classes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9_]{1,40}$",
+                          "description": "The class id, for example ks_attorney_sr."
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 60,
+                          "description": "The name shown in the lists, for example \"KS Attorney Rate Sr\"."
+                        },
+                        "rate": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100000,
+                          "description": "Dollars an hour."
+                        },
+                        "active": {
+                          "type": "boolean",
+                          "description": "False: kept, but not offered for new entries."
+                        },
+                        "builtIn": {
+                          "type": "boolean",
+                          "description": "One of the six built-in classes: may be renamed, repriced and turned off, never removed."
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "label",
+                        "rate",
+                        "active",
+                        "builtIn"
+                      ]
+                    },
+                    "maxItems": 40,
+                    "description": "Every class. The built-in ones must all be there."
+                  }
+                },
+                "required": [
+                  "classes"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The classes as saved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "classes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9_]{1,40}$",
+                                "description": "The class id, for example ks_attorney_sr."
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 60,
+                                "description": "The name shown in the lists, for example \"KS Attorney Rate Sr\"."
+                              },
+                              "rate": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100000,
+                                "description": "Dollars an hour."
+                              },
+                              "active": {
+                                "type": "boolean",
+                                "description": "False: kept, but not offered for new entries."
+                              },
+                              "builtIn": {
+                                "type": "boolean",
+                                "description": "One of the six built-in classes: may be renamed, repriced and turned off, never removed."
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "label",
+                              "rate",
+                              "active",
+                              "builtIn"
+                            ]
+                          },
+                          "description": "Every class, built-in first, then the firm's own, as saved."
+                        },
+                        "saved": {
+                          "type": "boolean",
+                          "description": "False until the classes are saved once (the built-in classes are shown)."
+                        },
+                        "updatedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "When the settings row last changed."
+                        },
+                        "canEdit": {
+                          "type": "boolean",
+                          "description": "The viewer may save (super admin)."
+                        }
+                      },
+                      "required": [
+                        "classes",
                         "saved",
                         "updatedAt",
                         "canEdit"
@@ -81366,6 +82402,10 @@
                               "type": "string",
                               "description": "That person's name (preferred name, else first and last name, else email)."
                             },
+                            "submittedByDeveloper": {
+                              "type": "boolean",
+                              "description": "The sender holds the Internal Developer or Super Admin role set now: their requests come first (the requester, Nov 17, 2026)."
+                            },
                             "sectionId": {
                               "type": [
                                 "string",
@@ -82238,6 +83278,10 @@
                                 "type": "string",
                                 "description": "That person's name (preferred name, else first and last name, else email)."
                               },
+                              "submittedByDeveloper": {
+                                "type": "boolean",
+                                "description": "The sender holds the Internal Developer or Super Admin role set now: their requests come first (the requester, Nov 17, 2026)."
+                              },
                               "sectionId": {
                                 "type": [
                                   "string",
@@ -82654,6 +83698,10 @@
                                 "type": "string",
                                 "description": "That person's name (preferred name, else first and last name, else email)."
                               },
+                              "submittedByDeveloper": {
+                                "type": "boolean",
+                                "description": "The sender holds the Internal Developer or Super Admin role set now: their requests come first (the requester, Nov 17, 2026)."
+                              },
                               "sectionId": {
                                 "type": [
                                   "string",
@@ -83054,6 +84102,10 @@
                             "submittedByLabel": {
                               "type": "string",
                               "description": "That person's name (preferred name, else first and last name, else email)."
+                            },
+                            "submittedByDeveloper": {
+                              "type": "boolean",
+                              "description": "The sender holds the Internal Developer or Super Admin role set now: their requests come first (the requester, Nov 17, 2026)."
                             },
                             "sectionId": {
                               "type": [
@@ -83926,6 +84978,10 @@
                               "type": "string",
                               "description": "That person's name (preferred name, else first and last name, else email)."
                             },
+                            "submittedByDeveloper": {
+                              "type": "boolean",
+                              "description": "The sender holds the Internal Developer or Super Admin role set now: their requests come first (the requester, Nov 17, 2026)."
+                            },
                             "sectionId": {
                               "type": [
                                 "string",
@@ -84778,6 +85834,10 @@
                             "submittedByLabel": {
                               "type": "string",
                               "description": "That person's name (preferred name, else first and last name, else email)."
+                            },
+                            "submittedByDeveloper": {
+                              "type": "boolean",
+                              "description": "The sender holds the Internal Developer or Super Admin role set now: their requests come first (the requester, Nov 17, 2026)."
                             },
                             "sectionId": {
                               "type": [
@@ -85637,6 +86697,10 @@
                             "submittedByLabel": {
                               "type": "string",
                               "description": "That person's name (preferred name, else first and last name, else email)."
+                            },
+                            "submittedByDeveloper": {
+                              "type": "boolean",
+                              "description": "The sender holds the Internal Developer or Super Admin role set now: their requests come first (the requester, Nov 17, 2026)."
                             },
                             "sectionId": {
                               "type": [

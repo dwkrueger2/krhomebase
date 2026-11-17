@@ -460,7 +460,8 @@ export function registerBilling(app: OpenAPIHono<AppEnv>) {
     const { matterId } = c.req.valid('query')
     try {
       const role = c.get('session')?.role ?? ''
-      const viewer = { canWrite: (BILLING_WRITE_ROLES as readonly string[]).includes(role), canAdminister: role === 'super_admin' }
+      // userId (FB-0008): a new time entry starts with the signed-in person as its staff.
+      const viewer = { canWrite: (BILLING_WRITE_ROLES as readonly string[]).includes(role), canAdminister: role === 'super_admin', userId: c.get('session')?.userId ?? '' }
       const data = { ...(await loadBillingRecord(queries, clientId, matterId ?? null)), viewer }
       logLine('BILLING:record', c.get('requestId'), { matters: data.matters.length, entries: data.timeEntries.length, invoices: data.invoices.length, ledger: data.ledgerEntries.length })
       return c.json({ ok: true as const, data, requestId: c.get('requestId') }, 200)

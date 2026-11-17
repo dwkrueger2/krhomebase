@@ -80,16 +80,23 @@ describe('listView', () => {
     expect(html).not.toContain('name="status"')
   })
 
+  it('marks a developer\'s request with the orange D, left of From', () => {
+    const html = listView({ ...list, items: [{ ...detail, submittedByDeveloper: true }] }, {})
+    expect(html).toContain('<td class="dev"><span class="dev-badge" title="Sent by a developer">D</span></td>\n<td>Pat &quot;P&quot; Doe</td>')
+    expect(html).toMatch(/<th class="sortable sorted dev" aria-sort="ascending"><a class="sort" href="#\/\?open=developer-desc-10-1" title="Sent by a developer\. Sorted developers first\. Sort developers last"/)
+  })
+
   it('sorts from the Number, Status and Priority headings and pages with the rows choice', () => {
     const items = Array.from({ length: 12 }, (_, i) => row(i + 1, 'new'))
     const html = listView({ ...list, items }, {})
-    // Priority sorts the open table now (P1 first): its link reverses it; Status starts in workflow order.
-    expect(html).toContain('aria-sort="ascending"><a class="sort" href="#/?open=priority-desc-10-1"')
+    // D sorts the open table now (developers first): its link reverses it; Priority starts P1 first.
+    expect(html).toContain('aria-sort="ascending"><a class="sort" href="#/?open=developer-desc-10-1"')
+    expect(html).toContain('href="#/?open=priority-asc-10-1"')
     expect(html).toContain('href="#/?open=status-asc-10-1"')
     expect(html).toContain('href="#/?completed=number-asc-10-1"')
     expect(html).toContain('1–10 of 12')
-    expect(html).toContain('href="#/?open=priority-asc-10-2" rel="next"')
-    const second = listView({ ...list, items }, { open: { sort: 'priority', direction: 'asc', size: 10, page: 2 } })
+    expect(html).toContain('href="#/?open=developer-asc-10-2" rel="next"')
+    const second = listView({ ...list, items }, { open: { sort: 'developer', direction: 'asc', size: 10, page: 2 } })
     expect(second).toContain('11–12 of 12')
     expect(second).toContain('<option value="25">25</option>')
   })

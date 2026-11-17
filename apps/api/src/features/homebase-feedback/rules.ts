@@ -115,6 +115,7 @@ function summaryOf(row: FeedbackRow): HomebaseFeedbackSummary {
       { email: row.submitter_email, preferred: row.submitter_preferred_name, first: row.submitter_first_name, last: row.submitter_last_name },
       row.submitted_by_user_id,
     ),
+    submittedByDeveloper: Number(row.submitter_developer ?? 0) === 1,
     sectionId: row.section_id,
     markerCount: Number(row.marker_count ?? 0),
     noteCount: Number(row.note_count ?? 0),

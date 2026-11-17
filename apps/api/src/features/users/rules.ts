@@ -35,7 +35,7 @@
  * - Deleting an invitation is allowed only when it is no longer pending (409 `INVITE_STILL_PENDING`); cancel first.
  */
 
-import { BAR_ADMISSION_STATUSES, type BarAdmission, type CreateUserBody, type InvitationResult, type RoleSet, type UpdateUserBody, type UserAccount, type UserInvite, type UserSavedData, type UsersData } from '@krhomebase/contracts'
+import { BAR_ADMISSION_STATUSES, readBillingRateSchedule, type BarAdmission, type CreateUserBody, type InvitationResult, type RoleSet, type UpdateUserBody, type UserAccount, type UserInvite, type UserSavedData, type UsersData } from '@krhomebase/contracts'
 import type { Mailer } from '../../platform/googleWorkspaceMailer.ts'
 import type { AuditEntry } from '../../platform/queries.ts'
 import { clearPermissionCache } from '../permissions/rules.ts'
@@ -152,14 +152,17 @@ function admissionOps(context: UserContext, employeeId: string, current: readonl
 
 /** The Users and Invites screen's data. */
 export async function loadUsers(queries: UserQueries, roleSets: RoleSet[], viewerUserId: string, nowMs = Date.now()): Promise<UsersData> {
-  const [users, employees, assignments, invites, certifications, identities] = await Promise.all([
+  const [users, employees, assignments, invites, certifications, identities, ratesJson] = await Promise.all([
     queries.users(),
     queries.employees(),
     queries.assignments(),
     queries.invites(),
     queries.certifications(),
     queries.ssoIdentities(),
+    queries.billingRates(),
   ])
+  // FB-0008: each person's default billing rate class, and the classes for the choice.
+  const rates = readBillingRateSchedule(ratesJson)
   const employeeOf = new Map(employees.map((row) => [row.user_id, row]))
   const unaccepted = invites.filter((row) => row.status !== 'accepted')
   const accounts: UserAccount[] = users.map((row) => {
@@ -197,6 +200,7 @@ export async function loadUsers(queries: UserQueries, roleSets: RoleSet[], viewe
           }
         : null,
       inviteId: unaccepted.find((invite) => invite.email.toLowerCase() === row.email.toLowerCase())?.id ?? null,
+      defaultRateClassId: rates.defaults[row.id] ?? null,
     }
   })
   return {
@@ -215,6 +219,7 @@ export async function loadUsers(queries: UserQueries, roleSets: RoleSet[], viewe
     })),
     roleSets,
     viewerUserId,
+    rateClasses: rates.classes,
   }
 }
 
@@ -384,6 +389,17 @@ export async function updateUser(context: UserContext, userId: string, body: Upd
   const wantedAdmissions = body.isAttorney === false ? [] : (body.barAdmissions ?? storedAdmissions)
   if (wantedAdmissions.length && !employee) throw new UserError('EMPLOYEE_REQUIRED_FOR_BAR_ADMISSIONS', 'Enroll this user as an Employee before adding bar admissions.', 422)
 
+  // FB-0008: the default billing rate class (left out keeps it; null clears it). It must be one of the classes.
+  let rateDefault: { classId: string | null } | null = null
+  if (body.defaultRateClassId !== undefined) {
+    const rates = readBillingRateSchedule(await queries.billingRates())
+    const current = rates.defaults[userId] ?? null
+    if (body.defaultRateClassId !== null && !rates.classes.some((item) => item.id === body.defaultRateClassId)) {
+      throw new UserError('BILLING_RATE_CLASS_NOT_FOUND', 'That billing rate class does not exist.', 422)
+    }
+    if (body.defaultRateClassId !== current) rateDefault = { classId: body.defaultRateClassId }
+  }
+
   const ops: UserWrite[] = [
     { kind: 'updateUser', id: userId, role: storedRole(roleSets, wanted, primary), roleSetId: primary ?? UNASSIGNED, isActive: body.accountStatus === 'active' ? 1 : 0, accountStatus: body.accountStatus, now },
     ...assignmentOps(context, userId, assignments, wanted, primary),
@@ -397,6 +413,7 @@ export async function updateUser(context: UserContext, userId: string, body: Upd
   // An account that stops being active is signed out everywhere (new: the old route left its sessions open).
   const wasActive = user.account_status === 'active' || (user.account_status === null && user.is_active === 1)
   if (wasActive && body.accountStatus !== 'active') ops.push({ kind: 'endSessions', userId, reason: `account_${body.accountStatus}`, now })
+  if (rateDefault) ops.push({ kind: 'setDefaultRateClass', userId, classId: rateDefault.classId, now })
   await queries.write(ops, [
     audit(context, 'UPDATE', 'user', userId, {
       accountStatus: body.accountStatus,
@@ -406,6 +423,7 @@ export async function updateUser(context: UserContext, userId: string, body: Upd
       ...(jobTitle !== undefined ? { jobTitle } : {}),
       isAttorney,
       barAdmissions: wantedAdmissions.length,
+      ...(rateDefault ? { defaultRateClassId: rateDefault.classId } : {}),
     }),
   ])
   return saved(context, userId, null)

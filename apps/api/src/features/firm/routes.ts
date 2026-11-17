@@ -7,19 +7,32 @@
  *   PUT /v1/firm/profile             save it (super admin)
  *   GET /v1/firm/employee-policies   the employee policies (anyone signed in)
  *   PUT /v1/firm/employee-policies   save them (super admin)
+ *   GET /v1/firm/billing-rates       the billing rate classes (anyone signed in; FB-0008, repository patch 59)
+ *   PUT /v1/firm/billing-rates       save the classes (super admin; each person's default is set on Users)
  *
  * A save the shared checks refuse answers 422 `FIRM_SETTINGS_INVALID` with the sentences in `details.problems`.
  * Outside tools: closed.
  */
 
-import { EmployeePolicies, EmployeePoliciesData, ErrorEnvelope, FirmProfile, FirmProfileData, successEnvelope } from '@krhomebase/contracts'
+import {
+  BillingRatesBody,
+  BillingRatesData,
+  billingRateProblems,
+  EmployeePolicies,
+  EmployeePoliciesData,
+  ErrorEnvelope,
+  FirmProfile,
+  FirmProfileData,
+  readBillingRateSchedule,
+  successEnvelope,
+} from '@krhomebase/contracts'
 import type { Context } from 'hono'
 import type { OpenAPIHono } from '@hono/zod-openapi'
 import { defineRoute } from '../../platform/defineRoute.ts'
 import { failure } from '../../platform/envelope.ts'
 import { logLine } from '../../platform/log.ts'
 import type { AppEnv } from '../../platform/types.ts'
-import { EMPLOYEE_POLICIES_LOOKUP_ID, FIRM_PROFILE_LOOKUP_ID, FirmUnavailableError, firmQueriesFor } from './queries.ts'
+import { BILLING_RATES_LOOKUP_ID, EMPLOYEE_POLICIES_LOOKUP_ID, FIRM_PROFILE_LOOKUP_ID, FirmUnavailableError, firmQueriesFor } from './queries.ts'
 import { builtInProfile, FirmSettingsError, policiesToSave, profileToSave, readEmployeePolicies, readFirmProfile } from './rules.ts'
 
 const json = <T,>(schema: T) => ({ 'application/json': { schema } })
@@ -73,6 +86,29 @@ export const saveEmployeePoliciesRoute = defineRoute({
   responses: { 200: { description: 'The policies as saved.', content: json(successEnvelope(EmployeePoliciesData)) }, 422: invalid422, 503: unavailable503 },
 })
 
+export const billingRatesRoute = defineRoute({
+  method: 'get',
+  path: '/v1/firm/billing-rates',
+  feature: 'firm',
+  summary: 'The billing rate classes (name and hourly rate) that fill new time entries.',
+  access: 'signed-in',
+  errors: ['FIRM_UNAVAILABLE'],
+  sideEffects: ['None'],
+  responses: { 200: { description: 'The classes (the six built-in ones until the firm saves its own).', content: json(successEnvelope(BillingRatesData)) }, 503: unavailable503 },
+})
+
+export const saveBillingRatesRoute = defineRoute({
+  method: 'put',
+  path: '/v1/firm/billing-rates',
+  feature: 'firm',
+  summary: 'Saves the billing rate classes. Each person\'s default class is kept (it is set on Users).',
+  access: SUPER_ADMIN,
+  errors: ['FIRM_SETTINGS_INVALID', 'FIRM_UNAVAILABLE'],
+  sideEffects: ['Writes lookup (row lk_kr_billing_rate_classes: the classes only)', 'Writes audit_log'],
+  request: { body: { content: json(BillingRatesBody), required: true } },
+  responses: { 200: { description: 'The classes as saved.', content: json(successEnvelope(BillingRatesData)) }, 422: invalid422, 503: unavailable503 },
+})
+
 const canEdit = (c: Context<AppEnv>) => c.get('session')?.role === 'super_admin'
 
 function unavailable(c: Context<AppEnv>, error: unknown) {
@@ -124,6 +160,37 @@ export function registerFirm(app: OpenAPIHono<AppEnv>) {
       await queries.saveProfile(text, profile.firmName, now, auditOf(c, FIRM_PROFILE_LOOKUP_ID, { firmName: profile.firmName, locations: profile.locations.length }))
       logLine('FIRM:profile_saved', c.get('requestId'), { locations: profile.locations.length })
       return c.json({ ok: true as const, data: { profile, saved: true, updatedAt: now, canEdit: true }, requestId: c.get('requestId') }, 200)
+    } catch (error) {
+      return failed(c, error)
+    }
+  })
+
+  app.openapi(billingRatesRoute, async (c) => {
+    const queries = firmQueriesFor(c.env)
+    if (!queries) return failure(c, 503, 'FIRM_UNAVAILABLE', 'Firm Settings are not available right now.')
+    try {
+      const row = await queries.billingRatesRow()
+      const schedule = readBillingRateSchedule(row?.description ?? null)
+      const data = { classes: schedule.classes, saved: schedule.savedClasses, updatedAt: row?.updatedAt ?? null, canEdit: canEdit(c) }
+      return c.json({ ok: true as const, data, requestId: c.get('requestId') }, 200)
+    } catch (error) {
+      return unavailable(c, error)
+    }
+  })
+
+  app.openapi(saveBillingRatesRoute, async (c) => {
+    const queries = firmQueriesFor(c.env)
+    if (!queries) return failure(c, 503, 'FIRM_UNAVAILABLE', 'Firm Settings are not available right now.')
+    try {
+      const body = c.req.valid('json')
+      const problems = billingRateProblems(body.classes)
+      if (problems.length) throw new FirmSettingsError(problems)
+      // Read back through the same reader, so what is stored is exactly what every screen will read.
+      const classes = readBillingRateSchedule(JSON.stringify({ classes: body.classes })).classes
+      const now = new Date().toISOString()
+      await queries.saveBillingRateClasses(JSON.stringify(classes), now, auditOf(c, BILLING_RATES_LOOKUP_ID, { classes: classes.map((item) => ({ id: item.id, rate: item.rate, active: item.active })) }))
+      logLine('FIRM:billing_rates_saved', c.get('requestId'), { classes: classes.length })
+      return c.json({ ok: true as const, data: { classes, saved: true, updatedAt: now, canEdit: true }, requestId: c.get('requestId') }, 200)
     } catch (error) {
       return failed(c, error)
     }

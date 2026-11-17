@@ -2,13 +2,14 @@
 /**
  * The list screen's two tables (the requester, Nov 17, 2026; tool version 1.4.0):
  *
- *  - **Open Items** on top: every request not Completed or Will not do. It starts sorted by priority (P1 first), then
- *    status (in the order of `FEEDBACK_STATUSES`, the workflow), then number (newest on top).
+ *  - **Open Items** on top: every request not Completed or Will not do. It starts with developers' requests first (the
+ *    **D** column; the requester, Nov 17, 2026: "Feedback from users with developer role get priority"), then priority
+ *    (P1 first), then status (in the order of `FEEDBACK_STATUSES`, the workflow), then number (newest on top).
  *  - **Completed Items** below: Completed (stored `done`) and Will not do (the requester's choice). It starts sorted by
  *    number, newest on top.
  *
- * Each table shows 10, 25, 50 or 100 rows a page (10 to start) with Previous and Next, and sorts by Number, Status or
- * Priority from its column headings; a second click on the same heading reverses it. The rest of the sort is always
+ * Each table shows 10, 25, 50 or 100 rows a page (10 to start) with Previous and Next, and sorts by Number, Status,
+ * Priority or D (developer) from its column headings; a second click on the same heading reverses it. The rest of the sort is always
  * the default order, so ties stay predictable.
  *
  * The API lists requests newest first only, so the tool loads every request (`feedbackApi.listAll`) and sorts and
@@ -26,7 +27,7 @@ export type TableName = (typeof TABLE_NAMES)[number]
 export const COMPLETED_STATUSES: readonly FeedbackStatus[] = ['done', 'will_not_do']
 
 /** The columns a table sorts by. */
-export const SORT_KEYS = ['number', 'status', 'priority'] as const
+export const SORT_KEYS = ['number', 'status', 'priority', 'developer'] as const
 export type SortKey = (typeof SORT_KEYS)[number]
 export type SortDirection = 'asc' | 'desc'
 
@@ -47,20 +48,21 @@ export interface TableState {
 
 /** How each table starts. */
 export const DEFAULT_TABLES: Record<TableName, TableState> = {
-  open: { sort: 'priority', direction: 'asc', size: 10, page: 1 },
+  open: { sort: 'developer', direction: 'asc', size: 10, page: 1 },
   completed: { sort: 'number', direction: 'desc', size: 10, page: 1 },
 }
 
 /** The first click on a heading: P1, the earliest status, or the newest number first. */
-const FIRST_DIRECTION: Record<SortKey, SortDirection> = { priority: 'asc', status: 'asc', number: 'desc' }
+const FIRST_DIRECTION: Record<SortKey, SortDirection> = { priority: 'asc', status: 'asc', number: 'desc', developer: 'asc' }
 
 /** The table a request belongs in. */
 export function tableOf(item: Pick<FeedbackSummary, 'status'>): TableName {
   return COMPLETED_STATUSES.includes(item.status) ? 'completed' : 'open'
 }
 
-/** Compares two requests by one column, ascending (P1 before P4, New before Will not do, 1 before 2). */
+/** Compares two requests by one column, ascending (a developer's first, P1 before P4, New before Will not do, 1 before 2). */
 function compareBy(key: SortKey, a: FeedbackSummary, b: FeedbackSummary): number {
+  if (key === 'developer') return Number(Boolean(b.submittedByDeveloper)) - Number(Boolean(a.submittedByDeveloper))
   if (key === 'priority') return FEEDBACK_PRIORITIES.indexOf(a.priority) - FEEDBACK_PRIORITIES.indexOf(b.priority)
   if (key === 'status') return FEEDBACK_STATUSES.indexOf(a.status) - FEEDBACK_STATUSES.indexOf(b.status)
   return a.number - b.number

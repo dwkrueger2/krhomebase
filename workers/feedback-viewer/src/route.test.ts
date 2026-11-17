@@ -11,7 +11,7 @@ describe('parseRoute', () => {
     expect(parseRoute('#/?kind=<b>&open=nonsense&completed=number-desc-7-1')).toEqual({ view: 'list', filter: {} })
     expect(parseRoute('#/?open=status-desc-25-2')).toEqual({ view: 'list', filter: { open: { sort: 'status', direction: 'desc', size: 25, page: 2 } } })
     // A table at its default is left out.
-    expect(parseRoute('#/?open=priority-asc-10-1')).toEqual({ view: 'list', filter: {} })
+    expect(parseRoute('#/?open=developer-asc-10-1')).toEqual({ view: 'list', filter: {} })
   })
 
   it('reads one request as FB-0012, fb12 or 12', () => {
@@ -30,7 +30,7 @@ describe('parseRoute', () => {
     const completed = { sort: 'priority', direction: 'asc', size: 50, page: 3 } as const
     expect(parseRoute(listHash({ kind: 'feature', completed }))).toEqual({ view: 'list', filter: { kind: 'feature', completed } })
     expect(listHash({})).toBe('#/')
-    expect(listHash({ open: { sort: 'priority', direction: 'asc', size: 10, page: 1 } })).toBe('#/')
+    expect(listHash({ open: { sort: 'developer', direction: 'asc', size: 10, page: 1 } })).toBe('#/')
     expect(parseRoute(detailHash('FB-0007'))).toEqual({ view: 'detail', number: 7 })
   })
 })

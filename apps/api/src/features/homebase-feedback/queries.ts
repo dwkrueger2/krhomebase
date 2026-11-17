@@ -68,6 +68,8 @@ export interface FeedbackRow {
   submitter_preferred_name: string | null
   submitter_first_name: string | null
   submitter_last_name: string | null
+  /** 1 when the sender is a developer now (`DEVELOPER_SENDER`). */
+  submitter_developer?: number | null
   marker_count: number
   note_count: number
 }
@@ -180,12 +182,25 @@ export interface HomebaseFeedbackQueries {
 const NAME_PARTS = (alias: string, prefix: string) =>
   `${alias}u.email AS ${prefix}_email, ${alias}i.preferred_name AS ${prefix}_preferred_name, ${alias}i.first_name AS ${prefix}_first_name, ${alias}i.last_name AS ${prefix}_last_name`
 
+/**
+ * 1 when the sender holds, now, a role set that grants `developer_tools` read (the built-in Internal Developer) or
+ * the built-in Super Admin (which holds every permission), else 0. Their requests come first (the requester, Nov 17,
+ * 2026). Permission overrides are not counted: this only orders and marks the list.
+ */
+const DEVELOPER_SENDER = `CASE WHEN su.role = 'super_admin' OR EXISTS (
+         SELECT 1 FROM user_role_set urs
+          WHERE urs.user_id = f.submitted_by_user_id AND urs.is_active = 1
+            AND (urs.role_set_id = 'role_super_admin' OR EXISTS (
+                  SELECT 1 FROM role_set_permission rsp
+                   WHERE rsp.role_set_id = urs.role_set_id AND rsp.permission_key = 'developer_tools' AND rsp.can_read = 1))) THEN 1 ELSE 0 END`
+
 const FEEDBACK_SELECT = `SELECT f.id, f.number, f.kind, f.title, f.body, f.status, f.priority, f.submitted_by_user_id, f.submitter_role,
        f.page_address, f.section_id, f.open_item, f.page_title, f.web_version, f.deployment_id, f.deployment_time,
        f.window_width, f.window_height, f.theme, f.created_at, f.updated_at,
        ${NAME_PARTS('s', 'submitter')},
        (SELECT COUNT(*) FROM homebase_feedback_marker m WHERE m.feedback_id = f.id) AS marker_count,
-       (SELECT COUNT(*) FROM homebase_feedback_note n WHERE n.feedback_id = f.id) AS note_count
+       (SELECT COUNT(*) FROM homebase_feedback_note n WHERE n.feedback_id = f.id) AS note_count,
+       ${DEVELOPER_SENDER} AS submitter_developer
   FROM homebase_feedback f
   LEFT JOIN user su ON su.id = f.submitted_by_user_id
   LEFT JOIN individual si ON si.id = su.individual_id`

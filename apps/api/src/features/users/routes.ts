@@ -71,14 +71,14 @@ export const updateUserRoute = defineRoute({
   feature: 'users',
   summary: "Changes a user's account status, staff code and role sets (the list replaces the current one) in one save.",
   access: SUPER_ADMIN,
-  errors: ['USER_NOT_FOUND', 'SUPER_ADMIN_OR_SELF_STATUS_CHANGE_BLOCKED', 'SELF_SUPER_ADMIN_DEMOTION_BLOCKED', 'ROLE_SET_NOT_ASSIGNABLE', 'PRIMARY_ROLE_SET_INVALID', 'STAFF_CODE_REQUIRED', 'USER_NOT_EMPLOYEE', 'STAFF_CODE_IN_USE', 'USERS_UNAVAILABLE'],
-  sideEffects: ['Writes user, employee and user_role_set', 'Writes audit_log'],
+  errors: ['USER_NOT_FOUND', 'SUPER_ADMIN_OR_SELF_STATUS_CHANGE_BLOCKED', 'SELF_SUPER_ADMIN_DEMOTION_BLOCKED', 'ROLE_SET_NOT_ASSIGNABLE', 'PRIMARY_ROLE_SET_INVALID', 'STAFF_CODE_REQUIRED', 'USER_NOT_EMPLOYEE', 'STAFF_CODE_IN_USE', 'BILLING_RATE_CLASS_NOT_FOUND', 'USERS_UNAVAILABLE'],
+  sideEffects: ['Writes user, employee and user_role_set', 'Writes lookup (row lk_kr_billing_rate_classes: the default rate class of this person, when sent)', 'Writes audit_log'],
   request: { params: UserParams, body: { content: json(UpdateUserBody), required: true } },
   responses: {
     200: savedReply,
     404: notFound('user', 'USER_NOT_FOUND'),
     409: refused('Another employee has that staff code (STAFF_CODE_IN_USE).'),
-    422: refused('A blocked status or role change, a role set that cannot be given, or a missing staff code.'),
+    422: refused('A blocked status or role change, a role set that cannot be given, a missing staff code, or an unknown rate class.'),
     503: unavailable503,
   },
 })

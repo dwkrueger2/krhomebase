@@ -23,7 +23,7 @@ export const tool = defineTool({
   description: 'Lists the numbered Homebase Feedback requests (FB-0012) for Internal Developers: read, triage, add notes, copy for Claude.',
   // The tool's own icon is the file public/tool-icon.svg, served at /tool-icon.svg (the kit's rules); KR Homebase
   // reads it when the tool is saved. No built-in fallback is named, so KR Homebase's default (the orange diamond) is it.
-  version: '1.4.0',
+  version: '1.5.0',
   entryUrl: 'https://krhomebase-feedback-viewer.dankrueger.workers.dev/',
   hostOrigins: ['https://krhomebase.com', 'http://localhost:3011'],
   scopes: ['homebase-feedback:read', 'homebase-feedback:write'],

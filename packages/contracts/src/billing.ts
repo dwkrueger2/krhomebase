@@ -29,6 +29,7 @@
  */
 
 import { z } from 'zod'
+import { BillingRateClass } from './billingRates.ts'
 
 const text = (max: number) => z.string().trim().max(max)
 const id = z.string().trim().min(1).max(120)
@@ -198,12 +199,22 @@ export const BillingRecord = z.object({
   payments: z.array(BillingPayment),
   ledgerEntries: z.array(BillingLedgerEntry),
   trustEntries: z.array(BillingTrustEntry),
-  staffOptions: z.array(z.object({ id: z.string(), label: z.string(), staffCode: z.string().nullable() })),
+  staffOptions: z.array(
+    z.object({
+      id: z.string(),
+      label: z.string(),
+      staffCode: z.string().nullable(),
+      defaultRateClassId: z.string().nullable().optional().describe('The billing rate class that fills this person\'s new time entries (FB-0008).'),
+    }),
+  ),
+  /** FB-0008: the firm's active billing rate classes, for the time entry's Rate class choice. */
+  rateClasses: z.array(BillingRateClass).optional(),
   accountTotals: BillingAccountTotals,
   /** What the signed-in person may do here (from the role, the same lists the routes use). */
   viewer: z.object({
     canWrite: z.boolean().describe('May add and change entries, invoices, payments and trust.'),
     canAdminister: z.boolean().describe('Super admin: may unlock, detach payments, void invoices and payments.'),
+    userId: z.string().optional().describe('The signed-in person: a new time entry starts with them as its staff (FB-0008).'),
   }),
 })
 export type BillingRecord = z.infer<typeof BillingRecord>

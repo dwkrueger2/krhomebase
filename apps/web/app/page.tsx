@@ -74,6 +74,7 @@ import ReportsPanel from '@/features/reports/components/ReportsPanel.client'
 import ApplicationSettingsPanel from '@/features/settings/components/ApplicationSettingsPanel.client'
 import FirmSettingsPanel from '@/features/settings/components/FirmSettingsPanel.client'
 import EmployeePoliciesCard from '@/features/firm/components/EmployeePoliciesCard.client'
+import BillingRatesCard from '@/features/firm/components/BillingRatesCard.client'
 import FirmProfileCard from '@/features/firm/components/FirmProfileCard.client'
 import EmployeeDocumentsCard from '@/features/employee-documents/components/EmployeeDocumentsCard.client'
 import { StripePaymentConfigurationPage } from '@/features/payment-providers/components/StripePaymentConfigurationPage.client'
@@ -162,6 +163,7 @@ export default async function HomePage() {
     'firm-settings': (
       <FirmSettingsPanel
         employeePolicies={<EmployeePoliciesCard />}
+        billingRates={<BillingRatesCard />}
         isSuperAdmin={isSuperAdmin}
         profile={<FirmProfileCard />}
         employeeDocuments={<EmployeeDocumentsCard />}

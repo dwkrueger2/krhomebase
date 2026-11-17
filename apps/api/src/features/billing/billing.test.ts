@@ -101,7 +101,19 @@ describe('the billing record', () => {
     expect(result.timeEntries[0]).toMatchObject({ staff: 'SS - Sam Staffer', staffCode: 'SS', amount: 300, billingStatus: 'Bill Next Invoice', date: '03/02/2026' })
     expect(result.timeEntries[0]!.bcid).toMatch(/^[A-Z0-9]{7}$/)
     expect(result.staffOptions.map((option) => option.label)).toContain('SS - Sam Staffer')
-    expect(result.viewer).toEqual({ canWrite: true, canAdminister: false })
+    expect(result.viewer).toEqual({ canWrite: true, canAdminister: false, userId: 'user-staff' })
+  })
+
+  it('carries the active rate classes and each person\'s default class (FB-0008)', async () => {
+    env.sqlite
+      .prepare(
+        `INSERT INTO lookup (id, category, value, label, description) VALUES ('lk_kr_billing_rate_classes', 'kr_billing_rate_classes', 'billing_rate_classes', 'Billing Rate Classes', ?1)`,
+      )
+      .run(JSON.stringify({ classes: [{ id: 'ks_paralegal', label: 'KS Paralegal Rate', rate: 100, active: false, builtIn: true }], defaults: { 'user-staff': 'tx_paralegal' } }))
+    const result = await record()
+    expect(result.rateClasses?.map((item) => item.id)).toEqual(['ks_attorney_sr', 'ks_attorney_jr', 'tx_attorney_sr', 'tx_attorney_jr', 'tx_paralegal'])
+    expect(result.staffOptions.find((option) => option.id === 'user-staff')?.defaultRateClassId).toBe('tx_paralegal')
+    expect(result.staffOptions.find((option) => option.id === 'user-admin')?.defaultRateClassId).toBeNull()
   })
 
   it('falls back to the number prefix when no matter_party links the client', async () => {

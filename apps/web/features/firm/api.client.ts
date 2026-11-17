@@ -7,6 +7,8 @@
  *   PUT /api/v1/firm/profile             save it (super admin)
  *   GET /api/v1/firm/employee-policies   the employee policies (anyone signed in)
  *   PUT /api/v1/firm/employee-policies   save them (super admin)
+ *   GET /api/v1/firm/billing-rates       the billing rate classes (anyone signed in; FB-0008)
+ *   PUT /api/v1/firm/billing-rates       save the classes (super admin)
  *
  * This site forwards them to the API Worker. Both are `lookup` settings rows written only by the API (see the lookup
  * table as described in Schema 8.0: docs/Schema_8.0/table_lookup.html, section "How KR Homebase uses this table").
@@ -14,7 +16,7 @@
  * sentences for a refused save.
  */
 
-import { EmployeePoliciesData, ErrorEnvelope, FirmProfileData, successEnvelope, type EmployeePolicies, type FirmProfile } from '@krhomebase/contracts'
+import { BillingRatesData, EmployeePoliciesData, ErrorEnvelope, FirmProfileData, successEnvelope, type BillingRateClass, type EmployeePolicies, type FirmProfile } from '@krhomebase/contracts'
 import type { z } from 'zod'
 import { L } from '@/lib/KRUtilities'
 
@@ -82,4 +84,14 @@ export function fetchEmployeePolicies(): Promise<EmployeePoliciesData> {
 /** Saves the employee policies (super admin). */
 export function saveEmployeePolicies(policies: EmployeePolicies): Promise<EmployeePoliciesData> {
   return send('employee-policies', EmployeePoliciesData, 'PUT', policies)
+}
+
+/** Reads the billing rate classes (FB-0008; the six built-in ones until the firm saves its own). */
+export function fetchBillingRates(): Promise<BillingRatesData> {
+  return send('billing-rates', BillingRatesData, 'GET')
+}
+
+/** Saves the billing rate classes (super admin). Each person's default class is kept; it is set on Users. */
+export function saveBillingRates(classes: readonly BillingRateClass[]): Promise<BillingRatesData> {
+  return send('billing-rates', BillingRatesData, 'PUT', { classes })
 }

@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.28</small><br>
-<small>Updated Nov 17, 2026 7:20am</small>
+<small>Version 2.29</small><br>
+<small>Updated Nov 17, 2026 8:40am</small>
 
 ## Agent Guide Index
 
@@ -248,7 +248,7 @@ pnpm deploy:feedback-viewer  # build and deploy krhomebase-feedback-viewer (an o
 pnpm deploy:public-article  # deploy krhomebase-public-article-worker (the public site's article reader, bound to krhomebase); the requester runs it (workers/r2-workers/public-article-worker)
 pnpm pack:tool-sdk    # build dist\tool-sdk\krhomebase-tool-sdk-1.0.0.tgz for outside developers
 pnpm feedback:get -Number 12  # read-only: write feedback-cache\FB-0012\FB-0012.md from the live database
-pnpm feedback:get -Open       # read-only: write feedback-cache\index.md, the open requests ("plan open feedback")
+pnpm feedback:get -Open       # read-only: write feedback-cache\index.md, the open requests, developers first ("plan open feedback")
 pnpm stop:ports:all   # stop every development server started by this repository
 pnpm listScripts      # show the root scripts
 ```
@@ -309,7 +309,7 @@ A request's detail in the Feedback pop-out has a "Copy for Claude" button that c
 3. Finds each marker in the code (`rg -F 'data-kr-element="related-contacts-list"' apps/web`), compares the web version with `git log` and `docs/04_Deployed_Architecture.md`, and answers with a plan that follows the guides for the files it would change.
 4. Does not change the request's status or add notes (a database write); the requester does that (in the viewer, stage F5).
 
-To plan every request still open, the requester writes `plan open feedback`. Claude runs `pnpm feedback:get -Open` (read-only; it writes `feedback-cache\index.md`, every request not Completed or Will not do, most urgent first), then steps 1 to 3 for each request in it, and answers with one short plan per request, most urgent first. Reading every open request this way is the requester's naming of them (Project Boundaries, `feedback-cache/`).
+To plan every request still open, the requester writes `plan open feedback`, or in their own words, for example "Read open feedback requests and advise on a plan to resolve each request. Wait for my approval." Claude runs `pnpm feedback:get -Open` (read-only; it writes `feedback-cache\index.md`, every request not Completed or Will not do), then steps 1 to 3 for each request in it, and answers with one short plan per request, in the index's order. **Developers' requests come first** (the requester, Nov 17, 2026): a request whose sender holds the Internal Developer or Super Admin role set is marked **D** in the index (and with an orange D in the Feedback Viewer) and listed before the others, then the most urgent; when a developer's words and another person's differ about the same screen, the developer's govern. Claude changes nothing until the requester approves a plan. Reading every open request this way is the requester's naming of them (Project Boundaries, `feedback-cache/`).
 
 ## Collaboration Notes
 

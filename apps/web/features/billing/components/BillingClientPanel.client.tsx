@@ -165,6 +165,8 @@ export default function BillingClientPanel() {
   const matterNumbers = useMemo(() => billing?.matters.map((matter) => matter.matterNumber) ?? [], [billing])
   // Titles by number, so the time entry dialog's matter lists read "107.1 · Estate plan" (the requester, Nov 16, 2026).
   const matterTitles = useMemo(() => Object.fromEntries((billing?.matters ?? []).map((matter) => [matter.matterNumber, matter.title])), [billing])
+  // FB-0008: the firm's rate classes and the signed-in person, for a new time entry's staff and rate.
+  const billingRates = useMemo(() => ({ classes: billing?.rateClasses ?? [], viewerUserId: billing?.viewer.userId }), [billing])
   const matterIdForNumber = useCallback((matterNumber: string, fallback = '') => billing?.matters.find((matter) => matter.matterNumber === matterNumber)?.id ?? fallback, [billing])
   const canWrite = Boolean(billing?.viewer.canWrite)
   const canAdminister = Boolean(billing?.viewer.canAdminister)
@@ -328,6 +330,7 @@ export default function BillingClientPanel() {
                 matterNumbers={matterNumbers}
                 matterTitles={matterTitles}
                 staffOptions={billing.staffOptions}
+                billingRates={billingRates}
                 invoices={billing.invoices}
                 onOpenInvoice={(invoiceId) => {
                   setOpenInvoiceId(invoiceId)
@@ -353,6 +356,7 @@ export default function BillingClientPanel() {
                 matterNumbers={matterNumbers}
                 matterTitles={matterTitles}
                 staffOptions={billing.staffOptions}
+                billingRates={billingRates}
                 onSave={saveInvoice}
                 onSaveEntry={saveTimeEntry}
                 canUnlock={canAdminister}

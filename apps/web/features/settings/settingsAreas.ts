@@ -34,6 +34,7 @@ export type ApplicationSettingsPageId =
 export type FirmSettingsPageId =
   | 'profile'
   | 'employee-policies'
+  | 'billing-rates'
   | 'employee-documents'
   | 'users'
   | 'edit-user'
@@ -79,6 +80,8 @@ export const APPLICATION_SETTINGS_PAGES: readonly SettingsPageDefinition<Applica
 export const FIRM_SETTINGS_PAGES: readonly SettingsPageDefinition<FirmSettingsPageId>[] = [
   { id: 'profile', label: 'Firm Profile', description: 'Firm identity, contact details, offices and matter numbering.', stage: null },
   { id: 'employee-policies', label: 'Employee Policies', description: 'Clock edit windows, PTO accrual, holiday pay and the holiday calendar.', stage: null },
+  // FB-0008 (web patch 565): read by everyone, saved by a super admin.
+  { id: 'billing-rates', label: 'Billing Rates', description: 'Hourly rate classes; each person\'s default (set on Users) fills their new time entries.', stage: null },
   { id: 'employee-documents', label: 'Employee Documents', description: 'Private HR files for each employee (moved here from Application Settings).', stage: null },
   { id: 'users', label: 'Users', description: 'Who may sign in, their status, role sets, invitations and employee files (moved here from Application Settings).', stage: null, superAdminOnly: true },
   { id: 'data-management', label: 'Data Import', description: 'Controlled data preparation and bulk contact staging.', stage: null, superAdminOnly: true },

@@ -63,9 +63,18 @@ describe('tablePage and sortedBy', () => {
 
   it('reverses the same heading and starts a new heading its own way, on the first page', () => {
     const onPage2 = { ...DEFAULT_TABLES.open, page: 2 }
-    expect(sortedBy(onPage2, 'priority')).toEqual({ sort: 'priority', direction: 'desc', size: 10, page: 1 })
+    expect(sortedBy(onPage2, 'developer')).toEqual({ sort: 'developer', direction: 'desc', size: 10, page: 1 })
+    expect(sortedBy(onPage2, 'priority')).toEqual({ sort: 'priority', direction: 'asc', size: 10, page: 1 })
     expect(sortedBy(onPage2, 'number')).toEqual({ sort: 'number', direction: 'desc', size: 10, page: 1 })
     expect(sortedBy(onPage2, 'status')).toEqual({ sort: 'status', direction: 'asc', size: 10, page: 1 })
+  })
+})
+
+describe('developers first (the D column)', () => {
+  it('starts Open Items with developers\' requests, then priority, status and the newest number', () => {
+    const items = [item(1, 'new', 'urgent'), { ...item(2, 'new', 'low'), submittedByDeveloper: true }, item(3, 'new', 'urgent'), { ...item(4, 'planned', 'low'), submittedByDeveloper: true }]
+    expect(codes(sortItems(items, DEFAULT_TABLES.open.sort, DEFAULT_TABLES.open.direction))).toEqual(['FB-0002', 'FB-0004', 'FB-0003', 'FB-0001'])
+    expect(codes(sortItems(items, 'developer', 'desc'))).toEqual(['FB-0003', 'FB-0001', 'FB-0002', 'FB-0004'])
   })
 })
 

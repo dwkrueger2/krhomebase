@@ -23,12 +23,14 @@
  *   old `IndividualSummaryDetails` card (`personSummary`, from the contacts feature through `app/page.tsx`; its
  *   pencil opens the contact editor), and an employee's documents sit in Employment details (`employeeDocuments`).
  *   Both are elements that read the person's ids from `PersonSlotContext`, which this card provides. Close returns to Users; leaving the tab with changes asks first.
+ * - Nov 17, 2026 (FB-0008, the requester, web patch 565): **Default rate** beside User Status, the billing rate class
+ *   that fills this person's new time entries (Firm Settings → Billing Rates holds the classes). Saved with Save user.
  *
  * @returns The card (`data-kr-element="selected-user-card"`).
  */
 
 import { useMemo, useState, type ReactNode } from 'react'
-import type { UserInvite, UsersData, UserSavedData } from '@krhomebase/contracts'
+import { billingRateClassLabel, type UserInvite, type UsersData, type UserSavedData } from '@krhomebase/contracts'
 import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
 import PermissionMatrix, { permissionMatrixRows } from '@/components/tables/PermissionMatrix.client'
 import MenuStyleOne, { type MenuStyleOneItem } from '@/components/ui/MenuStyleOne.client'
@@ -209,6 +211,21 @@ export default function UserDetailCard({ row, data, onSaved, onClose, onDirtyCha
                       <option value="active">Active</option>
                       <option value="pending">Pending</option>
                       <option value="deactivated">Inactive</option>
+                    </select>
+                  </label>
+                  {/* FB-0008: the billing rate class that fills this person's new time entries */}
+                  <label className={LAYOUT_STYLES.field} data-kr-element="user-default-rate-class" title="Fills the rate of this person's new time entries. The classes are in Firm Settings → Billing Rates.">
+                    <span className={STYLES.label}>Default rate</span>
+                    <select className={STYLES.field} disabled={busy} onChange={(event) => change({ ...draft, defaultRateClassId: event.target.value })} value={draft.defaultRateClassId}>
+                      <option value="">None</option>
+                      {(data.rateClasses ?? [])
+                        .filter((item) => item.active || item.id === draft.defaultRateClassId)
+                        .map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {billingRateClassLabel(item)}
+                            {item.active ? '' : ' (off)'}
+                          </option>
+                        ))}
                     </select>
                   </label>
                 </div>

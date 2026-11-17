@@ -109,6 +109,7 @@ function rowHtml(item: FeedbackSummary): string {
 <td><a href="${escapeHtml(detailHash(item.code))}">${escapeHtml(item.title)}</a></td>
 <td>${pillHtml(toneOf(STATUS_TONES, item.status), labelOf(STATUS_LABELS, item.status))}</td>
 <td>${pillHtml(toneOf(PRIORITY_TONES, item.priority), labelOf(PRIORITY_LABELS, item.priority))}</td>
+<td class="dev">${item.submittedByDeveloper ? '<span class="dev-badge" title="Sent by a developer">D</span>' : ''}</td>
 <td>${escapeHtml(item.submittedByLabel)}</td>
 <td>${escapeHtml(item.sectionId ?? '')}</td>
 <td class="num">${item.markerCount}</td>
@@ -118,12 +119,14 @@ function rowHtml(item: FeedbackSummary): string {
 }
 
 /** The ten columns of both tables; Number, Status and Priority sort (`listTables.ts`). */
-const COLUMNS: ReadonlyArray<{ label: string; sort?: SortKey }> = [
+const COLUMNS: ReadonlyArray<{ label: string; sort?: SortKey; className?: string; title?: string }> = [
   { label: 'Number', sort: 'number' },
   { label: 'Kind' },
   { label: 'Title' },
   { label: 'Status', sort: 'status' },
   { label: 'Priority', sort: 'priority' },
+  // D: sent by a developer (the requester, Nov 17, 2026); just wide enough for its orange badge.
+  { label: 'D', sort: 'developer', className: 'dev', title: 'Sent by a developer' },
   { label: 'From' },
   { label: 'Section' },
   { label: 'Markers' },
@@ -136,17 +139,19 @@ const SORT_WORDS: Record<SortKey, { asc: string; desc: string }> = {
   number: { asc: 'oldest first', desc: 'newest first' },
   status: { asc: 'New first, in workflow order', desc: 'last in the workflow first' },
   priority: { asc: 'P1 Urgent first', desc: 'P4 Low first' },
+  developer: { asc: 'developers first', desc: 'developers last' },
 }
 
 /** A column heading: a link that sorts the table by it (a second click reverses), with an arrow while it sorts. */
 function headingHtml(column: (typeof COLUMNS)[number], name: TableName, filter: ListFilter, state: TableState): string {
-  if (!column.sort) return `<th>${escapeHtml(column.label)}</th>`
+  const extra = column.className ? ` ${column.className}` : ''
+  if (!column.sort) return `<th${extra ? ` class="${extra.trim()}"` : ''}>${escapeHtml(column.label)}</th>`
   const on = state.sort === column.sort
   const next = sortedBy(state, column.sort)
   const ariaSort = on ? ` aria-sort="${state.direction === 'asc' ? 'ascending' : 'descending'}"` : ''
   const arrow = on ? (state.direction === 'asc' ? ' ▲' : ' ▼') : ''
-  const title = `${on ? `Sorted ${SORT_WORDS[column.sort][state.direction]}. ` : ''}Sort ${SORT_WORDS[column.sort][next.direction]}`
-  return `<th class="sortable${on ? ' sorted' : ''}"${ariaSort}><a class="sort" href="${escapeHtml(listHash({ ...filter, [name]: next }))}" title="${escapeHtml(title)}" data-kr-element="feedback-viewer-sort-${name}-${column.sort}">${escapeHtml(column.label)}${arrow}</a></th>`
+  const title = `${column.title ? `${column.title}. ` : ''}${on ? `Sorted ${SORT_WORDS[column.sort][state.direction]}. ` : ''}Sort ${SORT_WORDS[column.sort][next.direction]}`
+  return `<th class="sortable${on ? ' sorted' : ''}${extra}"${ariaSort}><a class="sort" href="${escapeHtml(listHash({ ...filter, [name]: next }))}" title="${escapeHtml(title)}" data-kr-element="feedback-viewer-sort-${name}-${column.sort}">${escapeHtml(column.label)}${arrow}</a></th>`
 }
 
 /**

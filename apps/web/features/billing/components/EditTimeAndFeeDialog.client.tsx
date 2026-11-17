@@ -10,8 +10,23 @@
 // The requester, Nov 16, 2026: the Client matter list (and Move/Copy's) names each matter, "107.1 · Estate plan", not
 // only its number (`matterTitles`, `matterOptionLabel`), and no field can widen the dialog: the three columns are
 // `minmax(0,1fr)` and a long title is shortened in the list.
+// FB-0007 and FB-0008 (the requester, Nov 17, 2026; web patch 565; rules in `../timeEntryChoices.ts`):
+//  - Activity category is a list ending in "Type your own" (which opens a text box), not a text box whose browser
+//    suggestions showed only matches of what was typed. Save waits for a category; the field turns red with
+//    "Select a category, or type your own." once the person has worked on the entry.
+//  - Rate ($/hour) is a list of the firm's billing rate classes (Firm Settings → Billing Rates) and Custom rate. A new
+//    entry starts with the signed-in person as staff and their default class (Users, Individual tab); another staff
+//    member moves the rate to theirs until a rate is chosen by hand. A saved entry keeps its rate.
+//  - Hours and rate show their decimals once the field is left (2 reads 2.0; 380 reads 380.00). "Time" is "Hours"
+//    and "Billing per hour" is "Rate ($/hour)", so the two cannot be confused.
+//  - Unsaved Changes Standard (root AGENTS.md): Save Changes keeps its place but shows, in Signal Orange, only while
+//    the entry differs from what it started as (or a move or copy is open); Cancel, and the browser's Back or Forward,
+//    ask "Leave without saving?" (Leave, Stay) while it does.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { billingRateClassLabel, type BillingRateClass } from '@krhomebase/contracts'
+import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
+import { addShellLeaveGuard } from '@/components/shell/shellHistory'
 import PopOutBrowserWindow, { openPopoutBrowserWindow } from '@/components/shell/PopOutBrowserWindow.client'
 import KRHomebaseIcon from '@/components/ui/KRHomebaseIcon.client'
 import { roundMinutesToTenths } from '../timeRounding'
@@ -20,6 +35,21 @@ import U6CurrencyInput from '@/components/ui/U6CurrencyInput.client'
 import { formatAccountingAmount } from '../formatAccountingAmount'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import type { BillingEntryKind, BillingInvoice, BillingStatus, BillingTimeEntry } from '../types'
+import {
+  ACTIVITY_CATEGORIES,
+  CATEGORY_PROBLEM,
+  categoryChoiceOf,
+  categoryProblem,
+  categoryValue,
+  CUSTOM_RATE,
+  defaultRateClass,
+  formatHours,
+  formatRate,
+  rateChoiceFor,
+  startingStaff,
+  TYPE_OWN_CATEGORY,
+  type CategoryChoice,
+} from '../timeEntryChoices'
 
 /** Hover text on the entry-status info icon. */
 export const TIME_FEE_LOCK_HELP =
@@ -34,12 +64,20 @@ export interface EditTimeAndFeeDialogProps {
   matterNumbers: readonly string[]
   /** Each matter's title by its number, so the lists read "107.1 · Estate plan". Absent: the number alone. */
   matterTitles?: Readonly<Record<string, string>>
-  staffOptions: readonly { id: string; label: string }[]
+  staffOptions: readonly { id: string; label: string; defaultRateClassId?: string | null }[]
+  /** FB-0008: the firm's active billing rate classes, and who is signed in (a new entry starts with them as staff). */
+  billingRates?: BillingRatesForEntry
   onCancel: () => void
   onDelete?: (id: string) => Promise<void>
   onSave: (entry: BillingTimeEntry) => Promise<void>
   /** Part 7f: a billing reader. Every field is off and the footer has only Close. */
   readOnly?: boolean
+}
+
+/** FB-0008: what the dialog needs from the billing record to fill a rate. */
+export interface BillingRatesForEntry {
+  classes: readonly BillingRateClass[]
+  viewerUserId?: string
 }
 
 const STYLES = {
@@ -62,12 +100,16 @@ const STYLES = {
   publicCode: 'font-mono text-[8.5pt] tracking-[0.04em] text-[var(--kr-theme-text-muted,#526172)] opacity-80',
   field:
     'px-1.5 py-1 w-full rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[10pt] text-[var(--kr-theme-text,#243142)] outline-none focus:border-[var(--kr-theme-brand-primary,#21394f)] focus:ring-1 focus:ring-[var(--kr-theme-brand-primary,#21394f)]',
+  // FB-0007: the same field in red while it holds no category.
+  fieldInvalid:
+    'px-1.5 py-1 w-full rounded border border-(--kr-theme-danger) bg-(--kr-theme-card-surface) text-[10pt] text-[var(--kr-theme-text,#243142)] outline-none ring-1 ring-(--kr-theme-danger)',
   // min-w-0: a long choice in a select never widens its column past the dialog.
   label: 'gap-1 grid min-w-0 text-[9pt] font-semibold text-[var(--kr-theme-text-muted,#526172)]',
   button:
     'px-2 py-1 rounded border border-[var(--kr-theme-line,#b8c3cd)] bg-(--kr-theme-card-surface) text-[10pt] font-semibold',
-  primaryButton:
-    'px-2 py-1 rounded border border-[var(--kr-theme-brand-primary,#21394f)] bg-[var(--kr-theme-brand-primary,#21394f)] text-[10pt] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50',
+  // Unsaved Changes Standard: Save Changes in Signal Orange with white text, the brightest button on the form.
+  saveChanges:
+    'px-2 py-1 rounded border border-(--kr-theme-orange) bg-(--kr-theme-orange) text-[10pt] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50',
   deleteButton:
     'px-2 py-1 rounded bg-red-700 text-[10pt] font-semibold text-white disabled:opacity-50',
   calculated:
@@ -94,6 +136,8 @@ const LAYOUT_STYLES = {
   checkboxColumn: 'gap-1 grid text-[9pt] font-semibold text-[var(--kr-theme-text-muted,#526172)]',
   checkbox: 'gap-2 flex h-[30px] items-center',
   descriptionRow: 'sm:col-span-3',
+  // FB-0008: the rate class list, with the Custom rate box beside it when chosen.
+  rateRow: 'gap-1 grid grid-cols-[minmax(0,1fr)_88px]',
   // Calculated amount left, entry status right, on one full-width row.
   summaryRow: 'gap-2 flex flex-wrap items-stretch justify-between sm:col-span-3',
   // display:contents so the fieldset's disabled state reaches every field without changing the grid.
@@ -105,13 +149,6 @@ const LAYOUT_STYLES = {
 } as const
 
 const STATUSES: BillingStatus[] = ['Delay Bill', 'Bill Next Invoice', 'Billed', 'Not Billable']
-const ACTIVITY_CATEGORY_SUGGESTIONS = [
-  'Review',
-  'Drafting',
-  'Client communication',
-  'Accounting',
-  'Administration',
-]
 
 /** The longest title shown in a matter list; a longer one ends in "...", so the open list stays near the dialog's width. */
 const MATTER_TITLE_MAX = 40
@@ -139,9 +176,12 @@ function currentDisplayDate(): string {
 function initialEntry(
   entry: BillingTimeEntry | undefined,
   matterNumbers: readonly string[],
-  staffOptions: readonly { id: string; label: string }[],
+  staffOptions: readonly { id: string; label: string; defaultRateClassId?: string | null }[],
+  billingRates: BillingRatesForEntry | undefined,
 ): BillingTimeEntry {
-  const staff = staffOptions[0]
+  // FB-0008: a new entry is the signed-in person's, at their default class's rate.
+  const staff = startingStaff(staffOptions, billingRates?.viewerUserId)
+  const ownClass = staff ? defaultRateClass(staff.id, staffOptions, billingRates?.classes ?? []) : null
   return (
     entry ?? {
       id: `time_${Date.now()}`,
@@ -152,7 +192,7 @@ function initialEntry(
       activityCategory: '',
       kind: 'Time',
       hours: 0,
-      rate: 0,
+      rate: ownClass?.rate ?? 0,
       amount: 0,
       billingStatus: 'Delay Bill',
       staffId: staff?.id ?? '',
@@ -170,12 +210,28 @@ export default function EditTimeAndFeeDialog({
   matterNumbers,
   matterTitles,
   staffOptions,
+  billingRates,
   onCancel,
   onDelete,
   onSave,
   readOnly = false,
 }: EditTimeAndFeeDialogProps) {
-  const [draft, setDraft] = useState(() => initialEntry(entry, matterNumbers, staffOptions))
+  // What the entry started as: the form is dirty while it differs (Unsaved Changes Standard).
+  const [initial] = useState(() => initialEntry(entry, matterNumbers, staffOptions, billingRates))
+  const [draft, setDraft] = useState(initial)
+  const rateClasses = billingRates?.classes ?? []
+  // FB-0007: the category list's choice and the "Type your own" words; red only once the person has worked on it.
+  const [categoryChoice, setCategoryChoice] = useState<CategoryChoice>(() => categoryChoiceOf(initial.activityCategory))
+  const [ownCategory, setOwnCategory] = useState(() => (categoryChoiceOf(initial.activityCategory) === TYPE_OWN_CATEGORY ? initial.activityCategory : ''))
+  const [categoryTouched, setCategoryTouched] = useState(false)
+  // FB-0008: the rate list's choice; once a rate is chosen by hand (or the entry is saved), staff changes leave it.
+  const [rateChoice, setRateChoice] = useState(() => rateChoiceFor(initial.rate, initial.staffId, staffOptions, rateClasses))
+  const [rateChosen, setRateChosen] = useState(Boolean(entry))
+  // FB-0007: what the hours and rate boxes show; their decimals are written out when the box is left.
+  const [hoursText, setHoursText] = useState(() => formatHours(initial.hours))
+  const [rateText, setRateText] = useState(() => formatRate(initial.rate))
+  // "Leave without saving?": what happens on Leave, while the dialog asks.
+  const [leaveTo, setLeaveTo] = useState<(() => void) | null>(null)
   const [dateValid, setDateValid] = useState(() => Boolean(parseAccountingDate(draft.date)))
   const [action, setAction] = useState<'move' | 'copy' | null>(null)
   const [destinationMatter, setDestinationMatter] = useState(draft.matterNumber)
@@ -201,8 +257,13 @@ export default function EditTimeAndFeeDialog({
     [draft.amount, draft.rate, effectiveHours, isFlatFee],
   )
   const timeValid = !effectiveHours || roundMinutesToTenths(effectiveHours * 60) === effectiveHours
+  const categoryIssue = categoryProblem(categoryChoice, ownCategory)
+  const showCategoryIssue = Boolean(categoryIssue) && !readOnly && !locked && (categoryTouched || Boolean(draft.description.trim()) || draft.hours > 0)
+  // Unsaved Changes Standard: dirty while the entry differs from what it started as, or a move or copy is open.
+  const dirty = !readOnly && (JSON.stringify(draft) !== JSON.stringify(initial) || action !== null)
   const canSave =
     dateValid &&
+    !categoryIssue &&
     Boolean(draft.matterNumber) &&
     Boolean(draft.description.trim()) &&
     timeValid &&
@@ -215,6 +276,34 @@ export default function EditTimeAndFeeDialog({
   function update(patch: Partial<BillingTimeEntry>): void {
     setDraft((current) => ({ ...current, ...patch }))
   }
+  /** FB-0007: a category chosen from the list, or "Type your own" (the typed words are the category). */
+  function chooseCategory(choice: CategoryChoice): void {
+    setCategoryChoice(choice)
+    setCategoryTouched(true)
+    update({ activityCategory: categoryValue(choice, ownCategory) })
+  }
+  /** FB-0008: a class's rate, or Custom rate (the box keeps the rate the entry has). */
+  function chooseRate(choice: string): void {
+    setRateChoice(choice)
+    setRateChosen(true)
+    const chosen = rateClasses.find((item) => item.id === choice)
+    if (chosen) {
+      update({ rate: chosen.rate })
+      setRateText(formatRate(chosen.rate))
+    }
+  }
+  /** Cancel, Back or Forward: at once when nothing changed, else after "Leave without saving?". */
+  function leave(then: () => void): void {
+    if (dirty) setLeaveTo(() => then)
+    else then()
+  }
+  // While the entry is dirty, the browser's Back and Forward ask first too (the shell's leave guard).
+  const leaveRef = useRef(leave)
+  leaveRef.current = leave
+  useEffect(() => {
+    if (!dirty) return
+    return addShellLeaveGuard({ blocks: () => true, ask: (proceed) => leaveRef.current(() => { onCancel(); proceed() }) })
+  }, [dirty, onCancel])
   /**
    * Pops the dialog out into its own window, to the right of the main window when the screen has room, 30% taller
    * than the dialog is now. Opened here, in the click, or the browser blocks it.
@@ -317,20 +406,49 @@ export default function EditTimeAndFeeDialog({
             </label>
           </div>
           <div className={LAYOUT_STYLES.formRow} data-kr-element="edit-time-fee-details-row">
-            <label className={STYLES.label}>
-              Activity category
-              <input
-                className={STYLES.field}
-                list="billing-activity-categories"
-                value={draft.activityCategory}
-                onChange={(event) => update({ activityCategory: event.target.value })}
-              />
-              <datalist id="billing-activity-categories">
-                {ACTIVITY_CATEGORY_SUGGESTIONS.map((category) => (
-                  <option key={category} value={category} />
+            {/* FB-0007: the category list; "Type your own" opens a box for the person's own words. */}
+            <div className={STYLES.label} data-kr-element="edit-time-fee-category">
+              <label htmlFor="edit-time-fee-category-choice">Activity category</label>
+              <select
+                aria-describedby={showCategoryIssue ? 'edit-time-fee-category-problem' : undefined}
+                aria-invalid={showCategoryIssue}
+                className={showCategoryIssue && categoryChoice !== TYPE_OWN_CATEGORY ? STYLES.fieldInvalid : STYLES.field}
+                data-kr-element="edit-time-fee-category-choice"
+                id="edit-time-fee-category-choice"
+                value={categoryChoice}
+                onBlur={() => setCategoryTouched(true)}
+                onChange={(event) => chooseCategory(event.target.value as CategoryChoice)}
+              >
+                <option value="">Select a category</option>
+                {ACTIVITY_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
                 ))}
-              </datalist>
-            </label>
+                <option value={TYPE_OWN_CATEGORY}>Type your own</option>
+              </select>
+              {categoryChoice === TYPE_OWN_CATEGORY ? (
+                <input
+                  aria-invalid={showCategoryIssue}
+                  aria-label="Your own category"
+                  className={showCategoryIssue ? STYLES.fieldInvalid : STYLES.field}
+                  data-kr-element="edit-time-fee-category-own"
+                  maxLength={80}
+                  placeholder="Type your own category"
+                  value={ownCategory}
+                  onBlur={() => setCategoryTouched(true)}
+                  onChange={(event) => {
+                    setOwnCategory(event.target.value)
+                    update({ activityCategory: event.target.value.trim() })
+                  }}
+                />
+              ) : null}
+              {showCategoryIssue ? (
+                <span className={STYLES.validation} id="edit-time-fee-category-problem" role="alert">
+                  {CATEGORY_PROBLEM}
+                </span>
+              ) : null}
+            </div>
             <label className={STYLES.label}>
               Transaction date
               <AccountingDatePicker
@@ -356,15 +474,20 @@ export default function EditTimeAndFeeDialog({
           </div>
           <div className={LAYOUT_STYLES.formRow} data-kr-element="edit-time-fee-amount-row">
             <label className={STYLES.label}>
-              Time
+              Hours
               <input
                 className={`${STYLES.field} disabled:bg-slate-100`}
+                data-kr-element="edit-time-fee-hours"
                 disabled={isFlatFee && !draft.internalTimeTracked}
                 min="0"
                 step="0.1"
                 type="number"
-                value={draft.hours || ''}
-                onChange={(event) => update({ hours: Number(event.target.value) || 0 })}
+                value={hoursText}
+                onBlur={() => setHoursText(formatHours(draft.hours))}
+                onChange={(event) => {
+                  setHoursText(event.target.value)
+                  update({ hours: Number(event.target.value) || 0 })
+                }}
               />
               {!timeValid ? (
                 <span className={STYLES.validation}>
@@ -374,7 +497,7 @@ export default function EditTimeAndFeeDialog({
             </label>
             {/* Flat fee: cents-shift entry (1 2 4 5 6 → $124.56); hourly: plain rate. */}
             <label className={STYLES.label}>
-              {isFlatFee ? 'Flat Fee Amount' : 'Billing per hour'}
+              {isFlatFee ? 'Flat Fee Amount' : 'Rate ($/hour)'}
               {isFlatFee ? (
                 <U6CurrencyInput
                   aria-label="Flat Fee Amount"
@@ -384,17 +507,44 @@ export default function EditTimeAndFeeDialog({
                   onChange={(dollars) => update({ amount: dollars })}
                 />
               ) : (
-                <input
-                  aria-label="Billing per hour"
-                  className={STYLES.field}
-                  data-kr-element="edit-time-fee-rate"
-                  inputMode="decimal"
-                  min="0"
-                  step="0.01"
-                  type="number"
-                  value={draft.rate}
-                  onChange={(event) => update({ rate: Number(event.target.value) || 0 })}
-                />
+                // FB-0008: the firm's rate classes and Custom rate; the box for a custom rate sits beside the list.
+                <span className={rateChoice === CUSTOM_RATE ? LAYOUT_STYLES.rateRow : undefined}>
+                  {rateClasses.length ? (
+                    <select
+                      aria-label="Rate class"
+                      className={STYLES.field}
+                      data-kr-element="edit-time-fee-rate-class"
+                      title={rateChoice === CUSTOM_RATE ? 'Custom rate' : billingRateClassLabel(rateClasses.find((item) => item.id === rateChoice) ?? { label: '', rate: draft.rate })}
+                      value={rateChoice}
+                      onChange={(event) => chooseRate(event.target.value)}
+                    >
+                      {rateClasses.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {billingRateClassLabel(item)}
+                        </option>
+                      ))}
+                      <option value={CUSTOM_RATE}>Custom rate</option>
+                    </select>
+                  ) : null}
+                  {rateChoice === CUSTOM_RATE || !rateClasses.length ? (
+                    <input
+                      aria-label="Rate ($/hour)"
+                      className={STYLES.field}
+                      data-kr-element="edit-time-fee-rate"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      type="number"
+                      value={rateText}
+                      onBlur={() => setRateText(formatRate(draft.rate))}
+                      onChange={(event) => {
+                        setRateText(event.target.value)
+                        setRateChosen(true)
+                        update({ rate: Number(event.target.value) || 0 })
+                      }}
+                    />
+                  ) : null}
+                </span>
               )}
             </label>
             <label className={STYLES.label}>
@@ -404,9 +554,16 @@ export default function EditTimeAndFeeDialog({
                 value={draft.staffId}
                 onChange={(event) => {
                   const selected = staffOptions.find((option) => option.id === event.target.value)
+                  // FB-0008: a new entry's rate follows the staff member's default class until one is chosen by hand.
+                  const theirs = !rateChosen && !isFlatFee ? defaultRateClass(event.target.value, staffOptions, rateClasses) : null
+                  if (theirs) {
+                    setRateChoice(theirs.id)
+                    setRateText(formatRate(theirs.rate))
+                  }
                   update({
                     staffId: event.target.value,
                     staff: selected?.label ?? event.target.value,
+                    ...(theirs ? { rate: theirs.rate } : {}),
                   })
                 }}
               >
@@ -503,16 +660,30 @@ export default function EditTimeAndFeeDialog({
             </button>
           </div>}
           <div className={LAYOUT_STYLES.actionGroup}>
-            <button className={STYLES.button} type="button" onClick={onCancel}>
+            <button className={STYLES.button} data-kr-action="edit-time-fee-cancel" type="button" onClick={() => (readOnly ? onCancel() : leave(onCancel))}>
               {readOnly ? 'Close' : 'Cancel'}
             </button>
             {readOnly ? null : (
-              <button className={STYLES.primaryButton} disabled={!canSave} type="submit">
-                {busy ? 'Saving…' : 'Save'}
+              // Unsaved Changes Standard: the place is kept; the button shows only while the entry has changes.
+              <button aria-hidden={!dirty} className={`${STYLES.saveChanges}${dirty ? '' : ' invisible'}`} data-kr-action="edit-time-fee-save" disabled={!canSave || !dirty} type="submit">
+                {busy ? 'Saving…' : 'Save Changes'}
               </button>
             )}
           </div>
         </footer>
+        <U6ConfirmationDialog
+          cancelLabel="Stay"
+          confirmLabel="Leave"
+          description="This entry has changes that are not saved. Leave throws them away."
+          onCancel={() => setLeaveTo(null)}
+          onConfirm={() => {
+            const go = leaveTo
+            setLeaveTo(null)
+            go?.()
+          }}
+          open={leaveTo !== null}
+          title="Leave without saving?"
+        />
       </form>
   )
   // In its own window: the form alone fills it. Closing the window brings the dialog back over the page.

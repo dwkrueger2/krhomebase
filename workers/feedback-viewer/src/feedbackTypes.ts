@@ -54,6 +54,8 @@ export interface FeedbackSummary {
   priority: FeedbackPriority
   submittedByUserId: string
   submittedByLabel: string
+  /** The sender is a developer (Internal Developer or Super Admin role set): their requests come first (API 1.1.1 p47). */
+  submittedByDeveloper?: boolean
   sectionId: string | null
   markerCount: number
   noteCount: number

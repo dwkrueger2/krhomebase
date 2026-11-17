@@ -93,6 +93,32 @@ describe('user drafts', () => {
   })
 })
 
+describe('default rate (FB-0008)', () => {
+  it('sends the default class only when it changed, and offers the classes beside User Status', () => {
+    const sam = { ...DATA.users[1]!, defaultRateClassId: 'ks_paralegal' }
+    const draft = draftFromUser(sam)
+    expect(draft.defaultRateClassId).toBe('ks_paralegal')
+    expect(updateBodyFromDraft(sam, draft)).not.toHaveProperty('defaultRateClassId')
+    expect(sameUserDraft(draft, { ...draft, defaultRateClassId: 'tx_paralegal' })).toBe(false)
+    expect(updateBodyFromDraft(sam, { ...draft, defaultRateClassId: 'tx_paralegal' }).defaultRateClassId).toBe('tx_paralegal')
+    expect(updateBodyFromDraft(sam, { ...draft, defaultRateClassId: '' }).defaultRateClassId).toBeNull()
+    const data = {
+      ...DATA,
+      users: DATA.users.map((user) => (user.id === 'u-sam' ? sam : user)),
+      rateClasses: [
+        { id: 'ks_paralegal', label: 'KS Paralegal Rate', rate: 100, active: true, builtIn: true },
+        { id: 'tx_paralegal', label: 'TX Paralegal Rate', rate: 100, active: false, builtIn: true },
+      ],
+    }
+    const row = userListRows(data).find((item) => item.key === 'u-sam')!
+    const html = renderToStaticMarkup(<UserDetailCard data={data} onClose={() => {}} onSaved={() => {}} row={row} />)
+    expect(html).toContain('data-kr-element="user-default-rate-class"')
+    expect(html).toMatch(/<option value="ks_paralegal" selected="">KS Paralegal Rate · \$100\.00<\/option>/)
+    // A class turned off is offered only to the person who already has it.
+    expect(html).not.toContain('TX Paralegal Rate')
+  })
+})
+
 describe('create user checks', () => {
   it('formats phones and names the first problem', () => {
     expect(formatPhone('15551234567')).toBe('(555) 123-4567')
