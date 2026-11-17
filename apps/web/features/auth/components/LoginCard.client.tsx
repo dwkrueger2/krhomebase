@@ -110,7 +110,8 @@ const STYLES = {
   // Alert for a failure: red text on a pale red box. Notice: a quiet box for plain reminders.
   alertError: 'rounded-[var(--radius,0.2rem)] border border-[#f0b7bd] bg-[#fff8f9] text-[#d6001c] leading-[1.15]',
   alertNotice: 'rounded-[var(--radius,0.2rem)] border border-(--kr-line-cool) bg-(--kr-surface) text-(color:--kr-ink-2) leading-[1.15]',
-  alertMessage: 'text-[12px] font-bold whitespace-nowrap overflow-hidden text-ellipsis',
+  // The message wraps to as many lines as it needs (web patch 567: the idle sign-out notice was cut with "...").
+  alertMessage: 'text-[12px] font-bold leading-[1.3] break-words text-pretty',
   alertCode: 'font-mono text-[10px] opacity-[0.72] whitespace-nowrap overflow-hidden text-ellipsis',
   // Turnstile panel (.kr-turnstile-panel): pale navy-to-teal wash, 3px corners.
   turnstilePanel: 'rounded-[3px] border border-[rgba(0,48,91,0.14)] [background:linear-gradient(135deg,rgba(0,48,91,0.055),rgba(15,118,110,0.04)),#ffffff]',
@@ -211,7 +212,7 @@ export default function LoginCard({
             <p className={STYLES.subtitle}>{subtitle}</p>
           </div>
 
-          {/* Sign-in failure or reminder from ?auth_error=; long text is cut with an ellipsis and the full text is the tooltip */}
+          {/* Sign-in failure or reminder from ?auth_error=; long text wraps (the code line under a failure stays one line) */}
           {authErrorMessage ? (
             <div
               role="alert"
