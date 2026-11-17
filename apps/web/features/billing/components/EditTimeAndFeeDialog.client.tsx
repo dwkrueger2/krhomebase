@@ -27,6 +27,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { billingRateClassLabel, type BillingRateClass } from '@krhomebase/contracts'
 import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
 import { addShellLeaveGuard } from '@/components/shell/shellHistory'
+import { useReportUnsavedChanges } from '@/components/ui/unsavedChanges.client'
 import PopOutBrowserWindow, { openPopoutBrowserWindow } from '@/components/shell/PopOutBrowserWindow.client'
 import KRHomebaseIcon from '@/components/ui/KRHomebaseIcon.client'
 import { roundMinutesToTenths } from '../timeRounding'
@@ -304,6 +305,8 @@ export default function EditTimeAndFeeDialog({
     if (!dirty) return
     return addShellLeaveGuard({ blocks: () => true, ask: (proceed) => leaveRef.current(() => { onCancel(); proceed() }) })
   }, [dirty, onCancel])
+  // The Log out button asks "Leave without saving?" while the entry is dirty (web patch 566).
+  useReportUnsavedChanges('time-entry', dirty)
   /**
    * Pops the dialog out into its own window, to the right of the main window when the screen has room, 30% taller
    * than the dialog is now. Opened here, in the click, or the browser blocks it.

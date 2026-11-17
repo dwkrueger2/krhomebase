@@ -11,10 +11,15 @@
  * It also supplies `onIdleLogout` (Settings plan, stage 2): when the person has been idle for their auto logout time,
  * the same sign-out runs and the login page shows the `idle_timeout` notice.
  *
+ * Both are forced leaves (`components/shell/forcedLeave.ts`, web patch 566): no "Leave site?" warning stops them. The
+ * Log out button asks "Leave without saving?" first when something holds unsaved work (`useConfirmedLogout` in the
+ * frame), so by the time `onLogout` runs the person has chosen to leave.
+ *
  * @param props - The same props `ApplicationShell` takes, minus `onLogout`.
  */
 
 import ApplicationShell, { type ApplicationShellProps } from '@/components/shell/ApplicationShell.client'
+import { forcedLeave } from '@/components/shell/forcedLeave'
 import { logout } from '@/features/auth/api.client'
 
 export default function SignedInShell(props: Omit<ApplicationShellProps, 'onLogout'>) {
@@ -22,11 +27,11 @@ export default function SignedInShell(props: Omit<ApplicationShellProps, 'onLogo
     <ApplicationShell
       {...props}
       onLogout={() => {
-        void logout().finally(() => window.location.assign('/login'))
+        void forcedLeave.signOutAndLeave(logout, '/login', 'logout')
       }}
       // Idle logout (Settings plan, decision 3): the same sign-out, then the login page says why.
       onIdleLogout={() => {
-        void logout().finally(() => window.location.assign('/login?auth_error=idle_timeout'))
+        void forcedLeave.signOutAndLeave(logout, '/login?auth_error=idle_timeout', 'idle_timeout')
       }}
     />
   )

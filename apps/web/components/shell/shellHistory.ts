@@ -20,7 +20,8 @@
  *   (`useSectionSubPage` with `confirmLeave`, from `SettingsAreaFrame`). Every `popstate` listener asks
  *   `decideShellPopState` first. When a guard blocks the move, the browser is put back on the page's own entry and the
  *   guard asks the person; Continue goes to the entry Back or Forward asked for, Cancel stays. The entry numbers stay
- *   right either way.
+ *   right either way. While KR Homebase signs the person out by force (`forcedLeave.ts`, web patch 566), no guard
+ *   blocks.
  *
  * The decisions are plain functions so they can be tested without a browser (`shellHistory.test.ts`). Only
  * `writeShellHistory` and `noteShellHistoryEntry` touch `window.history`; both take a stand-in for tests.
@@ -39,6 +40,7 @@ import {
   type ShellOpenItem,
   type ShellSectionId,
 } from '@/components/shell/navigation'
+import { isForcedLeave } from '@/components/shell/forcedLeave'
 
 /** The key of the entry number in `history.state`. */
 export const SHELL_HISTORY_INDEX_KEY = 'krShellHistoryIndex'
@@ -272,7 +274,8 @@ export function decideShellPopState(event: { state: unknown }, href: string, his
   if (skipNextPop) {
     skipNextPop = false
     decision = { kind: 'skip' }
-  } else if (passNextPop || !history) {
+  } else if (passNextPop || !history || isForcedLeave()) {
+    // A forced sign-out (forcedLeave.ts) is never stopped by a leave guard.
     passNextPop = false
     decision = { kind: 'proceed', from, to }
   } else {

@@ -1,7 +1,7 @@
 # KR Homebase Tool Kit: Developer Guide
 
-<small>Version 1.5</small><br>
-<small>Updated Nov 15, 2026 7:40pm</small>
+<small>Version 1.6</small><br>
+<small>Updated Nov 17, 2026 11:20am</small>
 
 **Who this is for:** a developer building an outside tool for KR Homebase without access to the KR Homebase code.
 
@@ -67,7 +67,7 @@ else console.log(who.error.code, who.error.message)
 - `host.api.get / post / put / patch / delete` call the KR Homebase API. Paths start with `/v1/`. Every call resolves to `{ ok: true, data, requestId, status }` or `{ ok: false, error: { code, message, details }, requestId, status }`. A refusal never throws.
 - `host.mode` is `workspace` or `popout`.
 - `host.setTitle('...')` sets the words in the pop-out window's title.
-- `host.setDirty(true)` while your page holds unsaved work; `false` once it is saved.
+- `host.setDirty(true)` while your page holds unsaved work; `false` once it is saved. KR Homebase then warns before the window closes and asks before the person logs out. When KR Homebase ends the session itself (server maintenance, the idle limit), it leaves without asking: save as you go.
 - `host.theme` holds the KR Homebase colors and fonts as `--kr-theme-*` values. They are already applied to your page's root element, so `color: var(--kr-theme-text)` matches KR Homebase. Pass `applyTheme: false` to skip that.
 
 ### Pop-out

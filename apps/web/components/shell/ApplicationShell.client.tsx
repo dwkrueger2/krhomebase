@@ -26,6 +26,9 @@
  * While a tool reports unsaved work, moving away from it or popping it out (which reloads it) first asks the
  * person to confirm with `U6ConfirmationDialog`.
  *
+ * Log out (web patch 566): when any screen holds unsaved work, the Log out button asks "Leave without saving?" first
+ * (`useConfirmedLogout`); the forced sign-outs (maintenance, idle limit) never ask (`forcedLeave.ts`).
+ *
  * Open items (plan decisions 6 and 7): a screen opens an item with `useShellNavigation().openItem(...)`, for example a
  * contact under Clients & Contacts. The item becomes a section of its own (`contact:<id>`), listed under its parent
  * row (at most five; a sixth drops the oldest) and in the recently accessed menu (five). It can be popped out like
@@ -70,6 +73,7 @@ import PopOutBrowserWindow, { openPopoutBrowserWindow } from '@/components/shell
 import IdleLogoutMonitor from '@/components/shell/IdleLogoutMonitor.client'
 import PopOutWindow from '@/components/shell/PopOutWindow.client'
 import TopTitleBar from '@/components/shell/TopTitleBar.client'
+import { useConfirmedLogout } from '@/components/shell/useConfirmedLogout.client'
 import {
   buildBreadcrumbTrail,
   buildNavItems,
@@ -223,6 +227,8 @@ export default function ApplicationShell({
   // Outside tools that reported unsaved work, and the move waiting for the person to confirm it.
   const [dirtyToolIds, setDirtyToolIds] = useState<ReadonlySet<ShellSectionId>>(() => new Set())
   const [pendingMove, setPendingMove] = useState<{ label: string; run: () => void } | null>(null)
+  // The Log out button asks first while anything holds unsaved work (web patch 566).
+  const confirmedLogout = useConfirmedLogout(onLogout)
   // True once the address was read after the first draw (stage 2a). State, not a ref, so the address sync below sees
   // it only in the draw that also has the section read from the address (a development double run of the first
   // effects would otherwise write the starting section as a new history entry).
@@ -639,7 +645,7 @@ export default function ApplicationShell({
             onCloseItem={(item) => closeOpenItem(item.parentId, item.itemId)}
           />
         }
-        footer={<LeftPanelFooter user={user} collapsed={collapsed} onLogout={onLogout} />}
+        footer={<LeftPanelFooter user={user} collapsed={collapsed} onLogout={confirmedLogout.request} />}
         collapseButton={
           <LeftPanelCollapseButton
             collapsed={collapsed}
@@ -690,6 +696,9 @@ export default function ApplicationShell({
           setPendingMove(null)
         }}
       />
+
+      {/* Log out with unsaved work: "Leave without saving?" (Leave, Stay) */}
+      {confirmedLogout.dialog}
     </div>
     </ShellNavigationContext.Provider>
   )

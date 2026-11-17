@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.29</small><br>
-<small>Updated Nov 17, 2026 8:40am</small>
+<small>Version 2.30</small><br>
+<small>Updated Nov 17, 2026 11:20am</small>
 
 ## Agent Guide Index
 
@@ -93,8 +93,9 @@ The requester's design principle (Nov 16, 2026): a person always knows when a fo
 1. **Dirty means different from what was saved.** A form is dirty while any field differs from the saved value, not merely after it was touched. Changing a field back makes the form clean again.
 2. **The save button shows the state.** Its place is always kept (`invisible` until dirty, so nothing moves when it appears). While the form is dirty it shows, labeled **Save Changes**, as the brightest button on the form: Signal Orange (`--kr-theme-orange`) with white text (`apps/web/DESIGN.md`, Components, Buttons). A form that saves through a review step names the change beside the button instead of adding a second step.
 3. **Leaving asks first.** Leaving a dirty form (another screen, another record, Back, closing its pop-out) opens the custom dialog **"Leave without saving?"** with **Leave** and **Stay**. In `apps/web`: `U6ConfirmationDialog`, with `useReportUnsavedChanges` (`components/ui/unsavedChanges.client.ts`) and the shell leave guard (`addShellLeaveGuard`). In an outside tool: its own `role="dialog"`, and `host.setDirty(true)` so KR Homebase guards leaving the tool.
-4. **Never the browser's own boxes** (the User-Response Dialog Standard above). The one exception no page can avoid: closing or reloading the browser tab or window shows only the browser's own `beforeunload` warning.
+4. **Never the browser's own boxes** (the User-Response Dialog Standard above). The one exception no page can avoid: closing or reloading the browser tab or window shows only the browser's own `beforeunload` warning. In `apps/web` that warning is asked for only through `useUnloadWarning` (`components/shell/useUnloadWarning.client.ts`); never add a bare `beforeunload` listener.
 5. **Applies going forward.** New forms follow it; an existing form is brought in line when its workflow is changed (`AGENTS_04`, no rewrites of untouched code).
+6. **Log out asks; a forced sign-out does not** (the requester, Nov 17, 2026, repository patch 60). The Log out button asks "Leave without saving?" (Leave, Stay) while any screen holds unsaved work (`useConfirmedLogout`; screens report through `useReportUnsavedChanges` or `useUnloadWarning`). When KR Homebase ends the session itself (the `pnpm deploy:warn` countdown, the idle limit, a save that ended every session), the page leaves without asking (`components/shell/forcedLeave.ts`): no warning, dialog or leave guard may stop it, because the session is already closed.
 
 ## Impeccable (the design skill)
 

@@ -13,7 +13,9 @@
  *     offset measured with each reading), so it ends when the API closes.
  *  3. At 0:00, or as soon as a reading says maintenance (a laptop opened late), it signs the person out
  *     (`DELETE /api/v1/auth/session`) and goes to `/login?auth_error=maintenance`, where the status line waits for
- *     green. Once only.
+ *     green. Once only. It is a forced leave (`components/shell/forcedLeave.ts`, web patch 566): the page is marked
+ *     before the sign-out call, so no "Leave site?" warning or leave guard stops it, and the move is tried again while
+ *     the page is still here.
  *  4. Green after a hot deploy: when the web version now live (`GET /deployment`) differs from the one this page
  *     loaded with (`<meta name="kr-deployment-id">`), a quiet bar says "KR Homebase was updated" with Reload, because a
  *     page from the old version can fail to load its next screen. Never under `pnpm dev` (the ids read `local`).
@@ -22,6 +24,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
+import { forcedLeave } from '@/components/shell/forcedLeave'
 import { L } from '@/lib/KRUtilities'
 import { fetchServerStatus, fetchWebDeploymentId, signOutForMaintenance, type ServerStatusReading } from '@/features/maintenance/api.client'
 import { BANNER_POLL_MS, bannerText, msUntilLogout, webWasUpdated } from '@/features/maintenance/serverStatus'
@@ -107,7 +110,7 @@ export default function MaintenanceBanner() {
     if (!mustLeave || leavingRef.current) return
     leavingRef.current = true
     L(`[MAINTENANCE_BANNER:105] signing out for maintenance status=${status?.status ?? 'unknown'}`)
-    void signOutForMaintenance().finally(() => window.location.assign('/login?auth_error=maintenance'))
+    void forcedLeave.signOutAndLeave(signOutForMaintenance, '/login?auth_error=maintenance', 'maintenance')
   }, [mustLeave, status?.status])
 
   if (status && status.status !== 'green' && msLeft !== null) {

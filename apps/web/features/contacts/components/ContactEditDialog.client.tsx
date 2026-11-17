@@ -31,6 +31,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import U6ConfirmationDialog from '@/components/dialogs/U6ConfirmationDialog.client'
 import PopOutBrowserWindow, { openPopoutBrowserWindow } from '@/components/shell/PopOutBrowserWindow.client'
+import { forcedLeave } from '@/components/shell/forcedLeave'
 import SaveDialog from '@/components/ui/SaveDialog.client'
 import { L } from '@/lib/KRUtilities'
 import { ContactApiError, fetchContactDetail, lookupClientNumber, setClientStatus, suggestClientNumber, updateContact } from '../contactEdits.client'
@@ -404,9 +405,10 @@ export default function ContactEditDialog({ contact: listContact, inline = false
         notes: text(draft.notes),
       })
       if (saved.requiresLogin) {
-        // Every session of this account was ended with the save; sign in again with the new email.
+        // Every session of this account was ended with the save; sign in again with the new email. A forced leave
+        // (web patch 566): the session is gone, so no "Leave site?" warning may keep the page.
         setEmailConfirmOpen(false)
-        window.location.assign('/login')
+        forcedLeave.leave('/login', 'session_ended')
         return
       }
       let savedContact = saved.contact ?? contact
