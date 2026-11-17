@@ -32,6 +32,17 @@ export const CONTENT_ASSET_LICENSE_MIGRATION = join(here, '..', '..', '..', 'doc
 export const HOMEBASE_FEEDBACK_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch033_11_13_homebase_feedback.sql')
 /** Migration 034: the deploy window columns on kr_maintenance_gate (repository patch 34). Built with fullSchema. */
 export const DEPLOY_WINDOW_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch034_11_14_deploy_window.sql')
+/** Migration 058: the outside tools' `local_only` and `developers_only` columns (repository patch 58). Always added. */
+export const TOOL_VISIBILITY_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch058_11_17_tool_visibility.sql')
+
+/**
+ * A migration's statements without its own `kr_schema_migration` row (the last statement, after the line
+ * "-- Last statement"): the test database has no migration log unless a test builds one.
+ */
+function withoutLogRow(sql: string): string {
+  const cut = sql.indexOf('-- Last statement')
+  return cut === -1 ? sql : sql.slice(0, cut)
+}
 
 /** Headers that make the sign-in middleware ask the Session Worker. */
 export const SIGNED_IN_HEADERS = { cookie: 'kr_session=test-session-token' } as const
@@ -104,12 +115,13 @@ class TestStatement {
  * Makes an in-memory D1 database with the outside-tool tables, from the real migration file. With
  * `{ fullSchema: true }` it first builds every table of `docs/Schema_8.0/schema_d1_v8_0.sql`, then the
  * `user_preference` table, the `content_asset` license columns and the Homebase Feedback tables from their migration
- * files, and the deploy window columns (migration 034). Pass `withoutLicenseMigration: true` to leave the license columns out (a database before migration 031), and
- * `withoutFeedbackMigration: true` to leave the feedback tables out (a database before migration 033).
+ * files, and the deploy window columns (migration 034). Pass `withoutLicenseMigration: true` to leave the license columns out (a database before migration 031),
+ * `withoutFeedbackMigration: true` to leave the feedback tables out (a database before migration 033), and
+ * `withoutToolVisibilityMigration: true` to leave the tools' visibility columns out (a database before migration 058).
  *
  * @returns `db` (pass it as the `krhomebase` binding) and `sqlite` (to look at rows directly in a test).
  */
-export function createTestD1(options: { fullSchema?: boolean; withoutLicenseMigration?: boolean; withoutFeedbackMigration?: boolean } = {}) {
+export function createTestD1(options: { fullSchema?: boolean; withoutLicenseMigration?: boolean; withoutFeedbackMigration?: boolean; withoutToolVisibilityMigration?: boolean } = {}) {
   const sqlite = new DatabaseSync(':memory:')
   sqlite.exec('PRAGMA foreign_keys = ON;')
   // fullSchema: every table of Schema 8.0, for areas that read the firm's records (contacts, permissions).
@@ -119,6 +131,7 @@ export function createTestD1(options: { fullSchema?: boolean; withoutLicenseMigr
   if (options.fullSchema && !options.withoutFeedbackMigration) sqlite.exec(readFileSync(HOMEBASE_FEEDBACK_MIGRATION, 'utf8'))
   if (options.fullSchema) sqlite.exec(readFileSync(DEPLOY_WINDOW_MIGRATION, 'utf8'))
   sqlite.exec(readFileSync(WORKSPACE_TOOLS_MIGRATION, 'utf8'))
+  if (!options.withoutToolVisibilityMigration) sqlite.exec(withoutLogRow(readFileSync(TOOL_VISIBILITY_MIGRATION, 'utf8')))
   const db = {
     prepare: (sql: string) => new TestStatement(sqlite, sql),
     batch: async (statements: TestStatement[]) => {

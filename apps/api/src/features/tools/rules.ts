@@ -5,16 +5,21 @@
  *  - Where a tool may be hosted (`parseToolEntryUrl`): https only, except http://localhost and
  *    http://127.0.0.1 for a developer's own computer, and never the app's own origin. A frame from the app's
  *    own origin would escape the sandbox, because the frame is given `allow-scripts allow-same-origin`.
- *  - Who may use a tool (`toolUsableBy`): the tool is active and the person's role is on its list (any one of
- *    them); `super_admin` is always on it (`withSuperAdmin`, the requester, Nov 14, 2026).
+ *  - Who may use a tool (`toolRefusal`, `toolUsableBy`): the tool is active; a local-only tool only on a
+ *    development server (`pnpm dev`); the person's role is on its list (any one of them; `super_admin` is always on
+ *    it, `withSuperAdmin`, the requester, Nov 14, 2026); a developers-only tool only for a person who holds
+ *    `developer_tools` read (repository patch 58, the requester, Nov 17, 2026; migration 058). The same answer
+ *    decides the menu, the tool's health check and every frame call. A server call (path B) has no person: there
+ *    only the local-only option applies.
  *  - What a call may do (`scopeAllows`): the route's `toolAccess` is `'any'`, or it names a permission the
  *    tool (or token) was granted. A route without `toolAccess` is closed to every tool.
  *  - Secrets and tokens: made from 32 random bytes, stored only as SHA-256 hashes, compared in constant time.
  *    SHA-256 (not a slow password hash) is right here because the values are random, not chosen by a person.
  *
  * Error reasons (used as `details.reason` with `TOOL_FORBIDDEN` or `TOOL_TOKEN_INVALID`): `tool_unknown`,
- * `tool_disabled`, `route_not_open_to_tools`, `scope_not_granted`, `role_not_allowed`, `token_missing`,
- * `token_invalid`, `token_expired`, `server_access_disabled`, `ip_not_allowed`, `secret_invalid`.
+ * `tool_disabled`, `tool_local_only`, `developers_only`, `route_not_open_to_tools`, `scope_not_granted`,
+ * `role_not_allowed`, `token_missing`, `token_invalid`, `token_expired`, `server_access_disabled`, `ip_not_allowed`,
+ * `secret_invalid`.
  */
 
 import type { SessionUser, ToolScope } from '@krhomebase/contracts'
@@ -37,6 +42,10 @@ export interface ToolRecord {
   origin: string
   entryUrl: string
   allowedRoles: string[]
+  /** Shown and usable only on a development server (migration 058; a missing column reads as false). */
+  localOnly: boolean
+  /** Shown and usable only by people who hold `developer_tools` read (migration 058). */
+  developersOnly: boolean
   scopes: ToolScope[]
   status: 'active' | 'disabled'
   serverAccessEnabled: boolean
@@ -104,9 +113,39 @@ export function withSuperAdmin<T extends string>(roles: readonly T[]): (T | type
   return [...new Set([ALWAYS_ALLOWED_ROLE, ...roles])] as (T | typeof ALWAYS_ALLOWED_ROLE)[]
 }
 
-/** True when the tool is active and the person is a super admin or holds any one role on the tool's list. */
-export function toolUsableBy(tool: Pick<ToolRecord, 'status' | 'allowedRoles'>, session: Pick<SessionUser, 'role'>): boolean {
-  return tool.status === 'active' && (session.role === ALWAYS_ALLOWED_ROLE || tool.allowedRoles.includes(session.role))
+/** The permission a developers-only tool asks for (the built-in role set "Internal Developer" grants it). */
+export const TOOL_DEVELOPER_PERMISSION = { resource: 'developer_tools', action: 'read' } as const
+
+/** Who is asking and where, for `toolRefusal`. Built by `toolViewerFor` in `platform/authGuard.ts`. */
+export interface ToolViewer {
+  role: SessionUser['role']
+  /** The API runs under `pnpm dev` (`isDevelopmentServer`, `platform/runtime.ts`). */
+  developmentServer: boolean
+  /** The person holds `developer_tools` read. Read only when a developers-only tool is in question; false otherwise. */
+  isDeveloper: boolean
+}
+
+/** Why a person may not use a tool (`details.reason`). */
+export type ToolRefusal = 'tool_disabled' | 'tool_local_only' | 'role_not_allowed' | 'developers_only'
+
+/**
+ * Why this person may not see or use the tool here, or null when they may. The checks run in this order, so the
+ * reason names the first one that fails.
+ *
+ * @param tool - The registration.
+ * @param viewer - The person's role, whether this is a development server, and whether they are a developer.
+ */
+export function toolRefusal(tool: Pick<ToolRecord, 'status' | 'allowedRoles' | 'localOnly' | 'developersOnly'>, viewer: ToolViewer): ToolRefusal | null {
+  if (tool.status !== 'active') return 'tool_disabled'
+  if (tool.localOnly && !viewer.developmentServer) return 'tool_local_only'
+  if (viewer.role !== ALWAYS_ALLOWED_ROLE && !tool.allowedRoles.includes(viewer.role)) return 'role_not_allowed'
+  if (tool.developersOnly && !viewer.isDeveloper) return 'developers_only'
+  return null
+}
+
+/** True when the person may see and use the tool here (`toolRefusal` finds nothing). */
+export function toolUsableBy(tool: Pick<ToolRecord, 'status' | 'allowedRoles' | 'localOnly' | 'developersOnly'>, viewer: ToolViewer): boolean {
+  return toolRefusal(tool, viewer) === null
 }
 
 /**

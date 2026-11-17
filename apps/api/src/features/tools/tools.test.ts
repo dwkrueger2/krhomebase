@@ -43,11 +43,13 @@ describe('tool rules', () => {
   })
 
   it('lets listed roles and always the super admin use an active tool', () => {
-    expect(toolUsableBy({ status: 'active', allowedRoles: ['staff'] }, { role: 'staff' })).toBe(true)
-    expect(toolUsableBy({ status: 'active', allowedRoles: ['staff'] }, { role: 'billing' })).toBe(false)
+    const tool = { status: 'active' as const, allowedRoles: ['staff'], localOnly: false, developersOnly: false }
+    const as = (role: string) => ({ role, developmentServer: false, isDeveloper: false })
+    expect(toolUsableBy(tool, as('staff'))).toBe(true)
+    expect(toolUsableBy(tool, as('billing'))).toBe(false)
     // A row saved before the super admin became automatic still shows to a super admin.
-    expect(toolUsableBy({ status: 'active', allowedRoles: ['staff'] }, { role: 'super_admin' })).toBe(true)
-    expect(toolUsableBy({ status: 'disabled', allowedRoles: ['staff'] }, { role: 'super_admin' })).toBe(false)
+    expect(toolUsableBy(tool, as('super_admin'))).toBe(true)
+    expect(toolUsableBy({ ...tool, status: 'disabled' }, as('super_admin'))).toBe(false)
     expect(withSuperAdmin(['staff', 'super_admin', 'staff'])).toEqual(['super_admin', 'staff'])
   })
 

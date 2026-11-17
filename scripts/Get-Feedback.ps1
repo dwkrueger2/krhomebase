@@ -4,7 +4,7 @@
 #
 #   pnpm feedback:get -Number 12            writes feedback-cache\FB-0012\FB-0012.md
 #   pnpm feedback:get -Number FB-0012       the same
-#   pnpm feedback:get -Open                 writes feedback-cache\index.md: every request not Done or Will not do,
+#   pnpm feedback:get -Open                 writes feedback-cache\index.md: every request not Completed or Will not do,
 #                                           most urgent first (what Claude reads for "plan open feedback")
 #
 # Read-only: it runs one `wrangler d1 execute ... --command` of SELECT statements (AGENTS_06 and the root AGENTS.md
@@ -112,6 +112,8 @@ function ConvertFrom-JsonArray([string]$Json) {
 # The plain words for each stored value (packages/contracts/src/homebaseFeedback.ts).
 $KindWords = @{ issue = 'Bug'; usability = 'Usability'; feature = 'Feature request'; question = 'Question' }
 $PriorityWords = @{ urgent = 'P1 Urgent'; high = 'P2 High'; normal = 'P3 Normal'; low = 'P4 Low' }
+# `done` is shown as Completed (repository patch 58); the stored value is unchanged.
+$StatusWords = @{ new = 'New'; reopened = 'Reopened'; triaged = 'Triaged'; needs_info = 'Needs info'; planned = 'Planned'; in_progress = 'In progress'; done = 'Completed'; will_not_do = 'Will not do' }
 
 <# A stored value with its plain words in front: "Bug (issue)". #>
 function Format-Words([hashtable]$Words, $Value) {
@@ -137,7 +139,7 @@ SELECT f.number, f.kind, f.title, f.status, f.priority, f.created_at, f.web_vers
     $index.Add("")
     $index.Add("<small>Read $(Get-Date -Format 'MMM d, yyyy h:mmtt') by scripts/Get-Feedback.ps1 -Open from $Database (read-only). Git-ignored; never commit.</small>")
     $index.Add("")
-    $index.Add("Every request not Done or Will not do, most urgent first. For each one run ``pnpm feedback:get -Number <n>`` and plan it (root AGENTS.md, ""Homebase Feedback: asking Claude"").")
+    $index.Add("Every request not Completed or Will not do, most urgent first. For each one run ``pnpm feedback:get -Number <n>`` and plan it (root AGENTS.md, ""Homebase Feedback: asking Claude"").")
     $index.Add("")
     if ($openRows.Count -eq 0) {
         $index.Add("None open.")
@@ -147,7 +149,7 @@ SELECT f.number, f.kind, f.title, f.status, f.priority, f.created_at, f.web_vers
         foreach ($row in $openRows) {
             $rowCode = "FB-{0:D4}" -f [int64]$row.number
             $from = Get-PersonLabel $row 'submitter' $row.submitted_by_user_id
-            $index.Add("| $rowCode | $(Format-Cell (Format-Words $PriorityWords $row.priority)) | $(Format-Cell $row.status) | $(Format-Cell (Format-Words $KindWords $row.kind)) | $(Format-Cell $row.title) | $(Format-Cell $from) | $(Format-Cell $row.created_at) | $(Format-Cell $row.web_version) | $($row.image_count) | $($row.note_count) |")
+            $index.Add("| $rowCode | $(Format-Cell (Format-Words $PriorityWords $row.priority)) | $(Format-Cell (Format-Words $StatusWords $row.status)) | $(Format-Cell (Format-Words $KindWords $row.kind)) | $(Format-Cell $row.title) | $(Format-Cell $from) | $(Format-Cell $row.created_at) | $(Format-Cell $row.web_version) | $($row.image_count) | $($row.note_count) |")
         }
     }
     $index.Add("")
@@ -197,7 +199,7 @@ $lines.Add("")
 $lines.Add("| Field | Value |")
 $lines.Add("|---|---|")
 $lines.Add("| Kind | $(Format-Cell (Format-Words $KindWords $request.kind)) |")
-$lines.Add("| Status | $(Format-Cell $request.status) |")
+$lines.Add("| Status | $(Format-Cell (Format-Words $StatusWords $request.status)) |")
 $lines.Add("| Priority | $(Format-Cell (Format-Words $PriorityWords $request.priority)) |")
 $lines.Add("| Sent by | $(Format-Cell (Get-PersonLabel $request 'submitter' $request.submitted_by_user_id)) ($(Format-Cell $request.submitter_role)) |")
 $lines.Add("| Sent | $(Format-Cell $request.created_at) |")
@@ -305,7 +307,7 @@ if ($notes.Count -eq 0) {
     foreach ($note in $notes) {
         $who = Get-PersonLabel $note 'author' $note.author_user_id
         $what = switch ($note.note_type) {
-            'status_change'   { "Status $($note.from_value) to $($note.to_value)" }
+            'status_change'   { "Status $(Format-Words $StatusWords $note.from_value) to $(Format-Words $StatusWords $note.to_value)" }
             'priority_change' { "Priority $($note.from_value) to $($note.to_value)" }
             default           { '' }
         }

@@ -5,7 +5,10 @@
  *     from the KR Homebase menu), the page shows only how to open it. The colors of `feedbackColors.ts` are written
  *     onto the page root.
  *  2. Show the screen the address after `#` names (`route.ts`): the list, or one request with arrows to the requests
- *     before and after it in the list it was opened from.
+ *     before and after it in the list it was opened from. The list (tool version 1.4.0) is two tables, Open Items and
+ *     Completed Items, sorted and paged in the page (`listTables.ts`) from every request, loaded once
+ *     (`feedbackApi.listAll`) and kept while the person sorts and pages; it is loaded again after a request was open,
+ *     when the kind changes, and when the page is reloaded.
  *  3. Handle the forms and buttons (`data-action` in `views.ts`): filter, save a status, priority or note change, copy
  *     for Claude. Every call goes through the kit (`feedbackApi.ts`); KR Homebase checks the person and the tool on
  *     each one.
@@ -20,11 +23,12 @@
 
 import { connectToHost, type ToolHost } from '@krhomebase/tool-sdk/frame'
 import { applyFeedbackTheme, paintTones, PRIORITY_TONES, STATUS_TONES, toneOf } from './feedbackColors.ts'
-import { feedbackApi, problemText, type FeedbackApi, type ListFilter } from './feedbackApi.ts'
-import { FEEDBACK_PRIORITIES, FEEDBACK_STATUSES, type FeedbackDetail, type FeedbackPriority, type FeedbackStatus } from './feedbackTypes.ts'
+import { feedbackApi, problemText, type FeedbackAll, type FeedbackApi } from './feedbackApi.ts'
+import { FEEDBACK_PRIORITIES, FEEDBACK_STATUSES, type FeedbackDetail, type FeedbackKind, type FeedbackPriority, type FeedbackStatus } from './feedbackTypes.ts'
+import { listOrder, PAGE_SIZES, TABLE_NAMES, type PageSize, type TableName } from './listTables.ts'
 import { installMagnifier, syncMagnifierControls } from './magnifier.ts'
 import { installMarkerPick } from './markerPick.ts'
-import { listHash, parseRoute } from './route.ts'
+import { listHash, parseRoute, tablesOf, type ListFilter } from './route.ts'
 import { tool } from './tool.ts'
 import { busyHtml, detailView, draftChangeWords, isDraftDirty, leaveDialogHtml, listView, loadingView, messageView, type DraftChange, type Neighbors, type Notice } from './views.ts'
 import './viewer.css'
@@ -40,6 +44,8 @@ let current: FeedbackDetail | null = null
 let lastListFilter: ListFilter = {}
 /** The request codes of the list last shown, in order, for the Previous and Next arrows. */
 let listCodes: string[] = []
+/** Every request of the kind last listed, kept while the person sorts and pages; null to load again. */
+let listCache: { kind: FeedbackKind | undefined; data: FeedbackAll } | null = null
 /** The address after `#` of the screen on show, to put back when the person chooses Stay. */
 let shownHash = ''
 /** True while the change form differs from what is saved. */
@@ -100,6 +106,16 @@ function showDetail(notice?: Notice): void {
   refreshDirty()
 }
 
+/** Every request of one kind (or all): the kept copy when it is of that kind, else loaded through the API. */
+async function loadList(kind: FeedbackKind | undefined): Promise<{ ok: true; data: FeedbackAll } | { ok: false; text: string }> {
+  if (listCache && listCache.kind === kind) return { ok: true, data: listCache.data }
+  if (!api) return { ok: false, text: 'Not connected to KR Homebase.' }
+  const reply = await api.listAll(kind)
+  if (!reply.ok) return { ok: false, text: problemText(reply.error, reply.requestId) }
+  listCache = { kind, data: reply.data }
+  return { ok: true, data: reply.data }
+}
+
 /** Stage 2: draws the screen the address names. */
 async function render(): Promise<void> {
   if (!api) return
@@ -108,15 +124,15 @@ async function render(): Promise<void> {
   if (route.view === 'list') {
     lastListFilter = route.filter
     current = null
-    show(loadingView('Requests'))
-    const reply = await api.list(route.filter)
-    if (!reply.ok) {
-      show(messageView('Requests', problemText(reply.error, reply.requestId), false))
+    if (!listCache || listCache.kind !== route.filter.kind) show(loadingView('Requests'))
+    const list = await loadList(route.filter.kind)
+    if (!list.ok) {
+      show(messageView('Requests', list.text, false))
       return
     }
-    canTriage = reply.data.viewer.canTriage
-    listCodes = reply.data.items.map((item) => item.code)
-    show(listView(reply.data, route.filter))
+    canTriage = list.data.viewer.canTriage
+    listCodes = listOrder(list.data.items, tablesOf(route.filter))
+    show(listView(list.data, route.filter))
     host?.setTitle('Homebase Feedback')
     refreshDirty()
     return
@@ -124,10 +140,12 @@ async function render(): Promise<void> {
   show(loadingView('Request'))
   if (canTriage === null || !listCodes.length) {
     // Opened straight on a request: the list gives what the person may do and the order for the arrows.
-    const who = await api.list(lastListFilter)
+    const who = await loadList(lastListFilter.kind)
     canTriage = who.ok ? who.data.viewer.canTriage : false
-    if (who.ok) listCodes = who.data.items.map((item) => item.code)
+    if (who.ok) listCodes = listOrder(who.data.items, tablesOf(lastListFilter))
   }
+  // A request may change while it is open (here or elsewhere), so the list is read again on the way back.
+  listCache = null
   const reply = await api.get(route.number)
   if (!reply.ok) {
     current = null
@@ -228,10 +246,12 @@ app.addEventListener('submit', (event) => {
   const data = new FormData(form)
   const action = form.dataset.action
   if (action === 'filter') {
-    // parseRoute keeps only known values, so the address never carries anything else.
-    const query = new URLSearchParams({ status: String(data.get('status') ?? ''), kind: String(data.get('kind') ?? '') })
-    const route = parseRoute(`#/?${query.toString()}`)
-    location.hash = route.view === 'list' ? listHash(route.filter) : '#/'
+    // parseRoute keeps only known values, so the address never carries anything else. A new kind keeps each table's
+    // sort and rows a page, and starts both on their first page.
+    const route = parseRoute(`#/?${new URLSearchParams({ kind: String(data.get('kind') ?? '') }).toString()}`)
+    const tables = tablesOf(lastListFilter)
+    const kind = route.view === 'list' ? route.filter.kind : undefined
+    location.hash = listHash({ kind, open: { ...tables.open, page: 1 }, completed: { ...tables.completed, page: 1 } })
     return
   }
   if (action === 'change' && current) {
@@ -257,7 +277,17 @@ app.addEventListener('click', (event) => {
 })
 
 app.addEventListener('input', () => refreshDirty())
-app.addEventListener('change', () => refreshDirty())
+app.addEventListener('change', (event) => {
+  // A table's rows a page (10, 25, 50, 100): kept in the address, back on the first page.
+  const select = (event.target as HTMLElement).closest<HTMLSelectElement>('select[data-action="page-size"]')
+  const name = select?.dataset.table as TableName | undefined
+  const size = Number(select?.value) as PageSize
+  if (select && name && (TABLE_NAMES as readonly string[]).includes(name) && (PAGE_SIZES as readonly number[]).includes(size)) {
+    location.hash = listHash({ ...lastListFilter, [name]: { ...tablesOf(lastListFilter)[name], size, page: 1 } })
+    return
+  }
+  refreshDirty()
+})
 
 /** Stage 4: the browser's back and forward buttons inside the frame change the address without a click. */
 window.addEventListener('hashchange', () => {

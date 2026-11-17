@@ -1,7 +1,8 @@
 // file: workers/feedback-viewer/src/views.test.ts
 // The screens: values are escaped, Save Changes names what it will change, read-only people see no forms, pills and arrows.
 import { describe, expect, it } from 'vitest'
-import { copyForClaudeText, type FeedbackDetail, type FeedbackListData } from './feedbackTypes.ts'
+import type { FeedbackAll } from './feedbackApi.ts'
+import { copyForClaudeText, type FeedbackDetail } from './feedbackTypes.ts'
 import { detailView, draftChangeWords, escapeHtml, isDraftDirty, leaveDialogHtml, listView } from './views.ts'
 
 const detail: FeedbackDetail = {
@@ -37,7 +38,16 @@ const detail: FeedbackDetail = {
   notes: [{ id: 'n1', noteType: 'status_change', text: null, fromValue: 'new', toValue: 'triaged', authorUserId: 'u2', authorLabel: 'Dev', createdAt: '2026-11-14T10:00:00Z' }],
 }
 
-const list: FeedbackListData = { items: [detail], nextCursor: 'next1', viewer: { userId: 'u2', isDeveloper: true, canTriage: true } }
+const list: FeedbackAll = { items: [detail], viewer: { userId: 'u2', isDeveloper: true, canTriage: true } }
+/** A request of the given number, status and priority, for the two tables. */
+const row = (number: number, status: FeedbackDetail['status'], priority: FeedbackDetail['priority'] = 'normal') => ({
+  ...detail,
+  number,
+  code: `FB-${String(number).padStart(4, '0')}`,
+  title: `Request ${number}`,
+  status,
+  priority,
+})
 
 describe('escapeHtml', () => {
   it('escapes markup and quotes', () => {
@@ -46,14 +56,42 @@ describe('escapeHtml', () => {
 })
 
 describe('listView', () => {
-  it('shows the rows escaped, links to each request and the next page', () => {
-    const html = listView(list, { status: 'new' })
+  it('shows the rows escaped and links to each request', () => {
+    const html = listView(list, {})
     expect(html).toContain('href="#/FB-0012"')
     expect(html).toContain('Save &lt;button&gt; does nothing')
     expect(html).toContain('Pat &quot;P&quot; Doe')
-    expect(html).toContain('href="#/?status=new&amp;cursor=next1"')
     expect(html).not.toContain('<button> does')
     expect(html).toContain('<tr data-fb-tone="navy">')
+  })
+
+  it('puts open requests on top and Completed and Will not do below, each keeping ten rows of space', () => {
+    const html = listView({ ...list, items: [row(1, 'done'), row(2, 'new'), row(3, 'will_not_do'), row(4, 'planned', 'urgent')] }, {})
+    const open = html.slice(html.indexOf('feedback-viewer-open-table'), html.indexOf('feedback-viewer-completed-table'))
+    const completed = html.slice(html.indexOf('feedback-viewer-completed-table'))
+    // Open Items: P1 first, then the rest; Completed Items: newest number first.
+    expect(open.indexOf('FB-0004')).toBeLessThan(open.indexOf('FB-0002'))
+    expect(open).not.toContain('FB-0001')
+    expect(completed.indexOf('FB-0003')).toBeLessThan(completed.indexOf('FB-0001'))
+    expect(completed).toContain('>Completed</span>')
+    expect(open.match(/class="filler"/g)?.length).toBe(8)
+    expect(html).toContain('<table data-kr-element="feedback-viewer-list">')
+    expect(html).toContain('<table data-kr-element="feedback-viewer-completed-list">')
+    expect(html).not.toContain('name="status"')
+  })
+
+  it('sorts from the Number, Status and Priority headings and pages with the rows choice', () => {
+    const items = Array.from({ length: 12 }, (_, i) => row(i + 1, 'new'))
+    const html = listView({ ...list, items }, {})
+    // Priority sorts the open table now (P1 first): its link reverses it; Status starts in workflow order.
+    expect(html).toContain('aria-sort="ascending"><a class="sort" href="#/?open=priority-desc-10-1"')
+    expect(html).toContain('href="#/?open=status-asc-10-1"')
+    expect(html).toContain('href="#/?completed=number-asc-10-1"')
+    expect(html).toContain('1–10 of 12')
+    expect(html).toContain('href="#/?open=priority-asc-10-2" rel="next"')
+    const second = listView({ ...list, items }, { open: { sort: 'priority', direction: 'asc', size: 10, page: 2 } })
+    expect(second).toContain('11–12 of 12')
+    expect(second).toContain('<option value="25">25</option>')
   })
 
   it('says when the person may only read', () => {
@@ -100,7 +138,7 @@ describe('detailView', () => {
 
   it('colors each status and priority choice in the open list', () => {
     const html = detailView(detail, { canTriage: true, listFilter: {} })
-    expect(html).toContain('<option value="done" data-fb-tone="green">Done</option>')
+    expect(html).toContain('<option value="done" data-fb-tone="green">Completed</option>')
     expect(html).toContain('<option value="urgent" data-fb-tone="brickSolid">P1 Urgent</option>')
     expect(html).toContain('<option value="new" data-fb-tone="navy" selected>New</option>')
   })

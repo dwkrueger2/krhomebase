@@ -10,8 +10,9 @@
  * from `feedbackColors.ts`: an element names its tone with `data-fb-tone` (`toneAttr`) and `main.ts` paints it.
  */
 
-import type { ListFilter } from './feedbackApi.ts'
+import type { FeedbackAll } from './feedbackApi.ts'
 import { KIND_TONES, PRIORITY_TONES, STATUS_TONES, toneOf, type FeedbackToneName } from './feedbackColors.ts'
+import { PAGE_SIZES, RESERVED_ROWS, sortedBy, tableOf, tablePage, type SortKey, type TableName, type TableState } from './listTables.ts'
 import { LENS_SIZES } from './magnifier.ts'
 import {
   copyForClaudeText,
@@ -26,13 +27,12 @@ import {
   STATUS_LABELS,
   type FeedbackDetail,
   type FeedbackImage,
-  type FeedbackListData,
   type FeedbackNote,
   type FeedbackPriority,
   type FeedbackStatus,
   type FeedbackSummary,
 } from './feedbackTypes.ts'
-import { detailHash, listHash } from './route.ts'
+import { detailHash, listHash, tablesOf, type ListFilter } from './route.ts'
 
 /** A line shown above the screen: a refusal (`bad`) or a saved change (`good`). */
 export interface Notice {
@@ -101,12 +101,9 @@ function optionsHtml(values: readonly string[], labels: Record<string, string>, 
   )
 }
 
-/** The list: status and kind filters, newest first, one page at a time. */
-export function listView(data: FeedbackListData, filter: ListFilter, notice?: Notice): string {
-  const rows = data.items
-    .map(
-      // Each row is tinted by its status (the requester, Nov 16, 2026), with a left bar in the status color.
-      (item) => `<tr ${toneAttr(toneOf(STATUS_TONES, item.status))}>
+/** One request as a list row, tinted by its status with a left bar in the status color (the requester, Nov 16, 2026). */
+function rowHtml(item: FeedbackSummary): string {
+  return `<tr ${toneAttr(toneOf(STATUS_TONES, item.status))}>
 <td><a href="${escapeHtml(detailHash(item.code))}">${escapeHtml(item.code)}</a></td>
 <td>${pillHtml(toneOf(KIND_TONES, item.kind), labelOf(KIND_LABELS, item.kind))}</td>
 <td><a href="${escapeHtml(detailHash(item.code))}">${escapeHtml(item.title)}</a></td>
@@ -117,31 +114,89 @@ export function listView(data: FeedbackListData, filter: ListFilter, notice?: No
 <td class="num">${item.markerCount}</td>
 <td class="num">${item.noteCount}</td>
 <td>${when(item.createdAt)}</td>
-</tr>`,
-    )
-    .join('\n')
-  const table = data.items.length
-    ? `<table data-kr-element="feedback-viewer-list">
-<thead><tr><th>Number</th><th>Kind</th><th>Title</th><th>Status</th><th>Priority</th><th>From</th><th>Section</th><th>Markers</th><th>Notes</th><th>Sent (UTC)</th></tr></thead>
+</tr>`
+}
+
+/** The ten columns of both tables; Number, Status and Priority sort (`listTables.ts`). */
+const COLUMNS: ReadonlyArray<{ label: string; sort?: SortKey }> = [
+  { label: 'Number', sort: 'number' },
+  { label: 'Kind' },
+  { label: 'Title' },
+  { label: 'Status', sort: 'status' },
+  { label: 'Priority', sort: 'priority' },
+  { label: 'From' },
+  { label: 'Section' },
+  { label: 'Markers' },
+  { label: 'Notes' },
+  { label: 'Sent (UTC)' },
+]
+
+/** What a sorted column's arrow means, in words for its tooltip. */
+const SORT_WORDS: Record<SortKey, { asc: string; desc: string }> = {
+  number: { asc: 'oldest first', desc: 'newest first' },
+  status: { asc: 'New first, in workflow order', desc: 'last in the workflow first' },
+  priority: { asc: 'P1 Urgent first', desc: 'P4 Low first' },
+}
+
+/** A column heading: a link that sorts the table by it (a second click reverses), with an arrow while it sorts. */
+function headingHtml(column: (typeof COLUMNS)[number], name: TableName, filter: ListFilter, state: TableState): string {
+  if (!column.sort) return `<th>${escapeHtml(column.label)}</th>`
+  const on = state.sort === column.sort
+  const next = sortedBy(state, column.sort)
+  const ariaSort = on ? ` aria-sort="${state.direction === 'asc' ? 'ascending' : 'descending'}"` : ''
+  const arrow = on ? (state.direction === 'asc' ? ' ▲' : ' ▼') : ''
+  const title = `${on ? `Sorted ${SORT_WORDS[column.sort][state.direction]}. ` : ''}Sort ${SORT_WORDS[column.sort][next.direction]}`
+  return `<th class="sortable${on ? ' sorted' : ''}"${ariaSort}><a class="sort" href="${escapeHtml(listHash({ ...filter, [name]: next }))}" title="${escapeHtml(title)}" data-kr-element="feedback-viewer-sort-${name}-${column.sort}">${escapeHtml(column.label)}${arrow}</a></th>`
+}
+
+/**
+ * One of the two tables: its heading with the count and the rows-a-page choice, its page of rows (the table keeps
+ * the height of `RESERVED_ROWS` rows), and Previous and Next.
+ */
+function tableHtml(name: TableName, title: string, emptyWords: string, items: readonly FeedbackSummary[], filter: ListFilter): string {
+  const state = tablesOf(filter)[name]
+  const page = tablePage(items, state)
+  const sizes = PAGE_SIZES.map((size) => `<option value="${size}"${size === state.size ? ' selected' : ''}>${size}</option>`).join('')
+  const rows = page.rows.length ? page.rows.map(rowHtml) : [`<tr class="empty"><td colspan="${COLUMNS.length}">${escapeHtml(emptyWords)}</td></tr>`]
+  // Empty rows below a short page keep the table's height, so the table under it does not jump.
+  const fillers = Array.from({ length: Math.max(0, RESERVED_ROWS - rows.length) }, () => `<tr class="filler" aria-hidden="true"><td colspan="${COLUMNS.length}"></td></tr>`)
+  const pageLink = (to: number, label: string, rel: 'prev' | 'next') =>
+    to >= 1 && to <= page.pages && to !== page.page
+      ? `<a href="${escapeHtml(listHash({ ...filter, [name]: { ...state, page: to } }))}" rel="${rel}" data-kr-element="feedback-viewer-${name}-${rel}">${label}</a>`
+      : `<span class="off" aria-disabled="true">${label}</span>`
+  const marker = name === 'open' ? 'feedback-viewer-list' : 'feedback-viewer-completed-list'
+  return `<section class="list-table" data-kr-element="feedback-viewer-${name}-table">
+<div class="table-head">
+<h3>${escapeHtml(title)} <span class="count">${page.total}</span></h3>
+<label class="rows">Rows <select data-action="page-size" data-table="${name}" aria-label="${escapeHtml(`${title}: rows a page`)}">${sizes}</select></label>
+</div>
+<table data-kr-element="${marker}">
+<thead><tr>${COLUMNS.map((column) => headingHtml(column, name, filter, state)).join('')}</tr></thead>
 <tbody>
-${rows}
+${[...rows, ...fillers].join('\n')}
 </tbody>
-</table>`
-    : '<p class="meta">No requests match.</p>'
-  const first = filter.cursor ? `<a href="${escapeHtml(listHash({ ...filter, cursor: undefined }))}">First page</a>` : ''
-  const next = data.nextCursor ? `<a href="${escapeHtml(listHash({ ...filter, cursor: data.nextCursor }))}">Next page</a>` : ''
-  const paging = first || next ? `<p class="paging">${[first, next].filter(Boolean).join(' · ')}</p>` : ''
+</table>
+<p class="paging" data-kr-element="feedback-viewer-${name}-paging">${pageLink(page.page - 1, '‹ Previous', 'prev')} <span class="range">${page.total ? `${page.from}–${page.to} of ${page.total}` : 'None'}</span> ${pageLink(page.page + 1, 'Next ›', 'next')}</p>
+</section>`
+}
+
+/**
+ * The list (tool version 1.4.0, the requester, Nov 17, 2026): the Kind filter, then **Open Items** and, below it,
+ * **Completed Items** (Completed and Will not do), each sorted and paged on its own (`listTables.ts`).
+ */
+export function listView(data: FeedbackAll, filter: ListFilter, notice?: Notice): string {
+  const open = data.items.filter((item) => tableOf(item) === 'open')
+  const completed = data.items.filter((item) => tableOf(item) === 'completed')
   const readOnly = data.viewer.canTriage ? '' : '<p class="meta">You may read requests but not change them (you need developer_tools update).</p>'
   return `${noticeHtml(notice)}
 <h2>Requests</h2>
 <form class="inline" data-action="filter" data-kr-element="feedback-viewer-filter">
-<label>Status <select name="status">${optionsHtml(FEEDBACK_STATUSES, STATUS_LABELS, filter.status, 'All')}</select></label>
 <label>Kind <select name="kind">${optionsHtml(FEEDBACK_KINDS, KIND_LABELS, filter.kind, 'All')}</select></label>
 <button type="submit">Show</button>
 </form>
 ${readOnly}
-${table}
-${paging}`
+${tableHtml('open', 'Open Items', 'No open requests.', open, filter)}
+${tableHtml('completed', 'Completed Items', 'No completed requests.', completed, filter)}`
 }
 
 /** One shape in words: what it is, and the markers it points at. */

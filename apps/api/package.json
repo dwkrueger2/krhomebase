@@ -1,8 +1,8 @@
 {
   "name": "@krhomebase/api",
   "version": "1.1.1",
-  "patchNum": "45",
-  "patchDate": "11-16",
+  "patchNum": "46",
+  "patchDate": "11-17",
   "private": true,
   "type": "module",
   "description": "KR Homebase API Worker. All business rules; the only code that talks to D1.",

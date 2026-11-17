@@ -1207,6 +1207,14 @@
                                 },
                                 "description": "Roles that see the tool in the menu and may use it."
                               },
+                              "localOnly": {
+                                "type": "boolean",
+                                "description": "True: shown and usable only while KR Homebase runs on a development computer (pnpm dev, a localhost address). The deployed app treats the tool as not there."
+                              },
+                              "developersOnly": {
+                                "type": "boolean",
+                                "description": "True: shown and usable only by people who hold developer_tools read (the Internal Developer role set; Super Admin holds every permission), whatever their role."
+                              },
                               "scopes": {
                                 "type": "array",
                                 "items": {
@@ -1293,6 +1301,8 @@
                               "origin",
                               "entryUrl",
                               "allowedRoles",
+                              "localOnly",
+                              "developersOnly",
                               "scopes",
                               "status",
                               "serverAccessEnabled",
@@ -1571,6 +1581,16 @@
                     "maxItems": 20,
                     "description": "Roles that see and may use the tool (any one of them). The API always adds super_admin."
                   },
+                  "localOnly": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "True: shown and usable only while KR Homebase runs on a development computer (pnpm dev, a localhost address). The deployed app treats the tool as not there."
+                  },
+                  "developersOnly": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "True: shown and usable only by people who hold developer_tools read (the Internal Developer role set; Super Admin holds every permission), whatever their role."
+                  },
                   "scopes": {
                     "type": "array",
                     "items": {
@@ -1712,6 +1732,14 @@
                               },
                               "description": "Roles that see the tool in the menu and may use it."
                             },
+                            "localOnly": {
+                              "type": "boolean",
+                              "description": "True: shown and usable only while KR Homebase runs on a development computer (pnpm dev, a localhost address). The deployed app treats the tool as not there."
+                            },
+                            "developersOnly": {
+                              "type": "boolean",
+                              "description": "True: shown and usable only by people who hold developer_tools read (the Internal Developer role set; Super Admin holds every permission), whatever their role."
+                            },
                             "scopes": {
                               "type": "array",
                               "items": {
@@ -1798,6 +1826,8 @@
                             "origin",
                             "entryUrl",
                             "allowedRoles",
+                            "localOnly",
+                            "developersOnly",
                             "scopes",
                             "status",
                             "serverAccessEnabled",
@@ -2194,6 +2224,14 @@
                               },
                               "description": "Roles that see the tool in the menu and may use it."
                             },
+                            "localOnly": {
+                              "type": "boolean",
+                              "description": "True: shown and usable only while KR Homebase runs on a development computer (pnpm dev, a localhost address). The deployed app treats the tool as not there."
+                            },
+                            "developersOnly": {
+                              "type": "boolean",
+                              "description": "True: shown and usable only by people who hold developer_tools read (the Internal Developer role set; Super Admin holds every permission), whatever their role."
+                            },
                             "scopes": {
                               "type": "array",
                               "items": {
@@ -2280,6 +2318,8 @@
                             "origin",
                             "entryUrl",
                             "allowedRoles",
+                            "localOnly",
+                            "developersOnly",
                             "scopes",
                             "status",
                             "serverAccessEnabled",
@@ -2652,6 +2692,14 @@
                     "maxItems": 20,
                     "description": "New list of roles (any one of them sees the tool). The API always adds super_admin."
                   },
+                  "localOnly": {
+                    "type": "boolean",
+                    "description": "True: shown and usable only while KR Homebase runs on a development computer (pnpm dev, a localhost address). The deployed app treats the tool as not there."
+                  },
+                  "developersOnly": {
+                    "type": "boolean",
+                    "description": "True: shown and usable only by people who hold developer_tools read (the Internal Developer role set; Super Admin holds every permission), whatever their role."
+                  },
                   "scopes": {
                     "type": "array",
                     "items": {
@@ -2793,6 +2841,14 @@
                               },
                               "description": "Roles that see the tool in the menu and may use it."
                             },
+                            "localOnly": {
+                              "type": "boolean",
+                              "description": "True: shown and usable only while KR Homebase runs on a development computer (pnpm dev, a localhost address). The deployed app treats the tool as not there."
+                            },
+                            "developersOnly": {
+                              "type": "boolean",
+                              "description": "True: shown and usable only by people who hold developer_tools read (the Internal Developer role set; Super Admin holds every permission), whatever their role."
+                            },
                             "scopes": {
                               "type": "array",
                               "items": {
@@ -2879,6 +2935,8 @@
                             "origin",
                             "entryUrl",
                             "allowedRoles",
+                            "localOnly",
+                            "developersOnly",
                             "scopes",
                             "status",
                             "serverAccessEnabled",

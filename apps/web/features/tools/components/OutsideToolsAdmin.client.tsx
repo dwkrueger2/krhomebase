@@ -17,6 +17,9 @@
  * Tightened to the Density Contract (DESIGN.md, Nov 14, 2026, web patch 544): one-line header (the guide reference
  * moved into the title's tooltip), 8px card padding, register rows with 1px cell padding and 12px text, an uppercase
  * heading row, 20px row buttons. The Tool column shows the menu icon (the tool's own SVG icon when it has one).
+ *
+ * Nov 17, 2026 (web patch 564, migration 058): the Roles column adds a "local only" and a "developers only" tag for a
+ * tool registered with those options (`ToolRegistrationForm`, Shown row).
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -50,6 +53,7 @@ const LAYOUT_STYLES = {
   toolCell: 'gap-[6px] flex items-center',
   actions: 'gap-[3px] flex flex-wrap',
   overlap: 'mt-[6px] gap-[6px] flex items-center',
+  tag: 'ml-[4px] inline-block',
 } as const
 
 const STYLES = {
@@ -208,7 +212,11 @@ export default function OutsideToolsAdmin() {
                     </div>
                   </td>
                   <td className={`${LAYOUT_STYLES.cell} ${STYLES.td} ${STYLES.mono}`}>{tool.origin}</td>
-                  <td className={`${LAYOUT_STYLES.cell} ${STYLES.td}`} title="Anyone holding any one of these roles sees the tool">{tool.allowedRoles.join(', ')}</td>
+                  <td className={`${LAYOUT_STYLES.cell} ${STYLES.td}`} title="Anyone holding any one of these roles sees the tool">
+                    {tool.allowedRoles.join(', ')}
+                    {tool.localOnly && <span className={`${LAYOUT_STYLES.tag} ${STYLES.badgeOff}`} title="Shown only under pnpm dev" data-kr-element="tool-tag-local-only">local only</span>}
+                    {tool.developersOnly && <span className={`${LAYOUT_STYLES.tag} ${STYLES.badgeOff}`} title="Shown only to people who hold developer_tools read" data-kr-element="tool-tag-developers-only">developers only</span>}
+                  </td>
                   <td className={`${LAYOUT_STYLES.cell} ${STYLES.td}`}>{tool.scopes.length ? tool.scopes.join(', ') : 'none'}</td>
                   <td className={`${LAYOUT_STYLES.cell} ${STYLES.td}`}>
                     <span className={tool.status === 'active' ? STYLES.badgeOn : STYLES.badgeOff}>{tool.status}</span>

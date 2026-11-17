@@ -4,6 +4,7 @@ import type { ToolApi } from '@krhomebase/tool-sdk/frame'
 import type { ApiReply, HttpMethod } from '@krhomebase/tool-sdk/types'
 import { describe, expect, it } from 'vitest'
 import { feedbackApi, PAGE_SIZE, problemText } from './feedbackApi.ts'
+import type { FeedbackListData, FeedbackSummary } from './feedbackTypes.ts'
 
 /** A stand-in for host.api that records each call and answers ok with empty data. */
 function recordingApi() {
@@ -24,14 +25,31 @@ function recordingApi() {
 }
 
 describe('feedbackApi', () => {
-  it('lists with the filters and the page size', async () => {
-    const { api, calls } = recordingApi()
-    await feedbackApi(api).list({ status: 'new', kind: 'issue', cursor: 'c1' })
-    await feedbackApi(api).list({})
-    expect(calls).toEqual([
-      { method: 'GET', path: `/v1/homebase-feedback?limit=${PAGE_SIZE}&status=new&kind=issue&cursor=c1` },
-      { method: 'GET', path: `/v1/homebase-feedback?limit=${PAGE_SIZE}` },
-    ])
+  it('loads every request through the pages, with the kind', async () => {
+    const paths: string[] = []
+    const page = (codes: string[], nextCursor: string | null): FeedbackListData => ({
+      items: codes.map((code) => ({ code }) as FeedbackSummary),
+      nextCursor,
+      viewer: { userId: 'u1', isDeveloper: true, canTriage: false },
+    })
+    const pages: Record<string, FeedbackListData> = { '': page(['FB-0003', 'FB-0002'], 'c1'), c1: page(['FB-0001'], null) }
+    const api = {
+      get: <T,>(path: string) => {
+        paths.push(path)
+        const cursor = new URLSearchParams(path.split('?')[1]).get('cursor') ?? ''
+        return Promise.resolve({ ok: true, data: pages[cursor] as T, requestId: 'r1', status: 200 } as ApiReply<T>)
+      },
+    } as unknown as ToolApi
+    const reply = await feedbackApi(api).listAll('issue')
+    expect(paths).toEqual([`/v1/homebase-feedback?limit=${PAGE_SIZE}&kind=issue`, `/v1/homebase-feedback?limit=${PAGE_SIZE}&kind=issue&cursor=c1`])
+    expect(reply.ok && reply.data.items.map((item) => item.code)).toEqual(['FB-0003', 'FB-0002', 'FB-0001'])
+    expect(reply.ok && reply.data.viewer.canTriage).toBe(false)
+  })
+
+  it('passes a refusal on as it is', async () => {
+    const api = { get: () => Promise.resolve({ ok: false, error: { code: 'PERMISSION_REQUIRED', message: 'x' }, requestId: 'r2', status: 403 }) } as unknown as ToolApi
+    const reply = await feedbackApi(api).listAll()
+    expect(reply.ok ? '' : reply.error.code).toBe('PERMISSION_REQUIRED')
   })
 
   it('reads one request, changes it, adds a note and asks what the person may do', async () => {

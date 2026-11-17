@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.27</small><br>
-<small>Updated Nov 16, 2026 8:33pm</small>
+<small>Version 2.28</small><br>
+<small>Updated Nov 17, 2026 7:20am</small>
 
 ## Agent Guide Index
 
@@ -309,7 +309,7 @@ A request's detail in the Feedback pop-out has a "Copy for Claude" button that c
 3. Finds each marker in the code (`rg -F 'data-kr-element="related-contacts-list"' apps/web`), compares the web version with `git log` and `docs/04_Deployed_Architecture.md`, and answers with a plan that follows the guides for the files it would change.
 4. Does not change the request's status or add notes (a database write); the requester does that (in the viewer, stage F5).
 
-To plan every request still open, the requester writes `plan open feedback`. Claude runs `pnpm feedback:get -Open` (read-only; it writes `feedback-cache\index.md`, every request not Done or Will not do, most urgent first), then steps 1 to 3 for each request in it, and answers with one short plan per request, most urgent first. Reading every open request this way is the requester's naming of them (Project Boundaries, `feedback-cache/`).
+To plan every request still open, the requester writes `plan open feedback`. Claude runs `pnpm feedback:get -Open` (read-only; it writes `feedback-cache\index.md`, every request not Completed or Will not do, most urgent first), then steps 1 to 3 for each request in it, and answers with one short plan per request, most urgent first. Reading every open request this way is the requester's naming of them (Project Boundaries, `feedback-cache/`).
 
 ## Collaboration Notes
 

@@ -21,6 +21,12 @@
  *    tool that fails, the frame shows a notice instead (`ExternalToolFrame`).
  *  - Thin rules separate the Roles, Permissions and Server access sections.
  *  - Spacing follows the Density Contract (DESIGN.md): 3px label gaps, 24px fields and buttons, 8px form padding.
+ *
+ * Added Nov 17, 2026 (web patch 564, the requester; migration 058): a **Shown** row under Roles with two options.
+ * **Local development only** keeps the tool to KR Homebase under `pnpm dev` (the local app and the deployed app read
+ * the same tool list, so a tool at a localhost address showed in the deployed menu too); a localhost address with the
+ * box unticked gets a hint. **Developers only** shows the tool only to people who hold `developer_tools` read (the
+ * Internal Developer role set), whatever their role. The API applies both (`toolRefusal`).
  */
 
 import { useState, type FormEvent } from 'react'
@@ -78,6 +84,7 @@ const LAYOUT_STYLES = {
   labelRowEnd: 'gap-[3px] flex items-center',
   section: 'pt-[4px] border-t',
   checks: 'gap-x-[10px] gap-y-[1px] grid grid-cols-2 lg:grid-cols-4',
+  visibility: 'gap-x-[10px] gap-y-[1px] flex flex-wrap items-center',
   check: 'gap-[4px] flex items-center',
   actions: 'gap-[6px] pt-[2px] flex justify-end',
 } as const
@@ -111,6 +118,15 @@ const STYLES = {
 // const b3 = STYLES.b3
 // const b4 = STYLES.b4
 
+/** True for an address on this computer (`localhost`, `127.0.0.1`, `[::1]`), which a deployed app cannot load. */
+export function isLocalToolAddress(address: string): boolean {
+  try {
+    return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(address.trim()).hostname)
+  } catch {
+    return false
+  }
+}
+
 /** Splits "a, b c" into ["a", "b", "c"], dropping blanks and repeats. */
 function splitList(text: string): string[] {
   return [...new Set(text.split(/[\s,]+/).map((part) => part.trim()).filter(Boolean))]
@@ -139,6 +155,8 @@ export default function ToolRegistrationForm({ tool, busy, error, onSave, onCanc
   const [roles, setRoles] = useState<ReadonlySet<ToolRoleName>>(
     new Set([LOCKED_ROLE, ...(tool?.allowedRoles ?? ['staff']).filter((role): role is ToolRoleName => (ToolRoleNames as readonly string[]).includes(role))]),
   )
+  const [localOnly, setLocalOnly] = useState(tool?.localOnly ?? false)
+  const [developersOnly, setDevelopersOnly] = useState(tool?.developersOnly ?? false)
   const [scopes, setScopes] = useState<ReadonlySet<ToolScope>>(new Set(tool?.scopes ?? []))
   const [serverAccess, setServerAccess] = useState(tool?.serverAccessEnabled ?? false)
   const [ipList, setIpList] = useState((tool?.serverIpAllowlist ?? []).join(', '))
@@ -174,6 +192,8 @@ export default function ToolRegistrationForm({ tool, busy, error, onSave, onCanc
       menuOrder: Number.parseInt(menuOrder, 10) || 0,
       entryUrl: entryUrl.trim(),
       allowedRoles: ToolRoleNames.filter((role) => role === LOCKED_ROLE || roles.has(role)),
+      localOnly,
+      developersOnly,
       scopes: ToolScopes.filter((scope) => scopes.has(scope)),
       serverAccessEnabled: serverAccess,
       serverIpAllowlist: serverAccess ? splitList(ipList) : [],
@@ -284,6 +304,24 @@ export default function ToolRegistrationForm({ tool, busy, error, onSave, onCanc
               ),
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Shown: two narrowing options (migration 058); the API applies them to the menu, the health check and every call */}
+      <div className={`${LAYOUT_STYLES.rowTop} ${LAYOUT_STYLES.section} ${STYLES.section}`} data-kr-element="tool-visibility-row">
+        <span className={STYLES.label} title="Narrows who sees the tool beyond its roles">Shown</span>
+        <div className={LAYOUT_STYLES.visibility}>
+          <label className={`${LAYOUT_STYLES.check} ${STYLES.checkRow}`} title="Shown only while KR Homebase runs on a development computer (pnpm dev). The deployed app treats the tool as not there." data-kr-element="tool-local-only">
+            <input type="checkbox" checked={localOnly} onChange={(e) => setLocalOnly(e.target.checked)} />
+            Local development only (pnpm dev)
+          </label>
+          <label className={`${LAYOUT_STYLES.check} ${STYLES.checkRow}`} title="Shown only to people who hold developer_tools read (the Internal Developer role set; Super Admin holds every permission)" data-kr-element="tool-developers-only">
+            <input type="checkbox" checked={developersOnly} onChange={(e) => setDevelopersOnly(e.target.checked)} />
+            Developers only (Internal Developer)
+          </label>
+          {!localOnly && isLocalToolAddress(entryUrl) && (
+            <span className={STYLES.hint} data-kr-element="tool-local-address-hint">This address is on this computer, so the deployed app cannot load it: tick Local development only.</span>
+          )}
         </div>
       </div>
 

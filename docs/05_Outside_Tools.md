@@ -1,7 +1,7 @@
 # Outside Tools: Design, Security and Operation
 
-<small>Version 1.5</small><br>
-<small>Updated Nov 15, 2026 11:30pm</small>
+<small>Version 1.6</small><br>
+<small>Updated Nov 17, 2026 7:20am</small>
 
 **Headline:** other developers can add a tool to the left menu without a redeploy. A super admin registers the tool's address and grants it permissions. KR Homebase shows the tool in a sealed frame, in the workspace or popped out. The tool reaches data only through KR Homebase, and only within its grant.
 
@@ -53,6 +53,8 @@ Path B: tool server (client secret)
 
 **Who sees a tool.** The super admin ticks roles from the fixed list of roles an account can hold (`ToolRoleNames` in contracts, the `user.role` CHECK list). A person sees the tool when their role is **any one** of them (`toolUsableBy`). `super_admin` is always on the list (the requester, Nov 14, 2026): the API adds it to every saved list (`withSuperAdmin`), `toolUsableBy` honours it for rows saved earlier, and the form shows it ticked, grey and locked. A frame call still needs the person's own permission for each route.
 
+**Two Shown options narrow it** (repository patch 58, the requester, Nov 17, 2026; migration 058, columns `local_only` and `developers_only`, both 0 by default). **Local development only**: the tool is shown and usable only while the API runs under `pnpm dev` (`KR_APP_BASE_URL` a localhost address, `isDevelopmentServer` in `apps/api/src/platform/runtime.ts`); the deployed API treats it as not there, also on the server path. It exists because `pnpm dev` reads the live database: a tool registered at `http://localhost:5174` for local testing showed in the deployed menu too. **Developers only**: shown and usable only by people who hold `developer_tools` read (the built-in Internal Developer role set, which is not a `user.role` value and so cannot be a role on the list; Super Admin holds every permission). It applies on the frame path only (the server path has no person). `toolRefusal` (`apps/api/src/features/tools/rules.ts`) checks, in order: active (`tool_disabled`), local only (`tool_local_only`), role (`role_not_allowed`), developers only (`developers_only`); the same answer decides the menu, the health check (a hidden tool answers 404) and every frame call (403 `TOOL_FORBIDDEN` with that reason). The permission is read only when a developers-only tool is in question (`toolViewerFor` in `authGuard.ts`), once per menu. The registration form shows both as a **Shown** row under Roles, with a hint when a localhost address is not marked local only; the tool list tags them.
+
 **The tool's own icon.** A tool serves its own menu icon at `/tool-icon.svg` as SVG text of the "tool icon" type (`checkToolIcon`, written out in both `packages/tool-sdk/src/toolIcon.ts` and `packages/contracts/src/toolIcon.ts`, kept equal by the kit's sync test): `viewBox="0 0 24 24"`, only shape elements, only drawing attributes, `fill` and `stroke` `none`, `currentColor`, a hex color or a KR theme color (`var(--kr-theme-orange)`; the requester, Nov 15, 2026), comments allowed and removed, no text, styles, scripts, links, images, declarations or entities, at most 4000 characters without comments. The API reads and checks it on every registration save and stores the standard form beside the fallback icon name (default `tool`, KR Homebase's orange diamond) in the `icon` column (`<name> <svg ...>`; no migration). The web app checks it again and draws it from the checked elements with React (`components/ui/ToolSvgIcon.client.tsx`), never as HTML; a refused icon falls back to the built-in one.
 
 **The health route and the icon route.** Every tool must answer `GET <origin>/health-check` with `{ "status": "ok", "version": "<tool version>" }` and may add `"protocol": 1` (the kit's `healthDocument`), and should serve its menu icon at `GET <origin>/tool-icon.svg`. The API reads both (`apps/api/src/platform/toolHealth.ts`), never the browser: only those fixed paths on the registered origin, `https` only, no redirects, no cookies, 5 seconds and 4096 bytes at most; a good health answer is reused for 60 seconds per Worker instance, a failure never; a `localhost` origin is not read (`not_checked`). Routes: `POST /v1/tools/registrations/health-check` (super admin, the form's **Check health**, with the raw answer for its **Details** dialog and the icon found; it does not block saving) and `GET /v1/tools/menu/{clientId}/health` (a person who may open the tool). The menu does not wait for it: `ExternalToolFrame` draws the frame at once and asks in the background; when the answer is `failed`, it replaces the frame with a notice (the problem, **Try again**, **Open anyway**). The icon is read again on every registration save and stored; the super admin never types it.
@@ -63,7 +65,7 @@ Path B: tool server (client secret)
 1. The frame loads only the registered address. The sandbox allows scripts, forms, new tabs, downloads and the tool's own storage. It blocks changing the KR Homebase page's address and browser alert boxes. `allow=""` blocks camera, microphone and location, and the frame sends no referrer.
 2. The host page accepts a message only when the browser reports it came from that frame's window and from the registered origin. The browser sets both values, so a page cannot fake them. Replies go only to that origin.
 3. The host page checks the method and the path (`/v1/` only; no `..`, `//` or `\`). It then calls the API with the person's cookie and `x-kr-tool-id`. The tool never sees the cookie.
-4. The API checks the session first, as it does for every call. It then checks that the tool exists and is active, that the person's role is on the tool's list, and that the route's `toolAccess` is `'any'` or a permission the tool was granted. **A tool never sees more than the person using it.**
+4. The API checks the session first, as it does for every call. It then checks that the tool exists and is active, that it is not local only on a deployed server, that the person's role is on the tool's list, that a developers-only tool's person holds `developer_tools` read, and that the route's `toolAccess` is `'any'` or a permission the tool was granted. **A tool never sees more than the person using it.**
 5. Another site cannot make the browser send the cookie with `x-kr-tool-id`. The cookie is `SameSite=Lax`, so the browser does not send it on another site's background requests, and a custom header from another site needs a CORS permission (cross-site request permission) that KR Homebase never gives.
 6. **Host tools on their own domain, not on a `krhomebase.com` subdomain.** Browsers treat a subdomain as the same site, so a `SameSite=Lax` cookie would travel with its requests. The CORS rule above still blocks them, but a separate domain keeps two guards instead of one.
 
@@ -72,7 +74,7 @@ Path B: tool server (client secret)
 2. The token carries the granted permissions, or fewer when the server asks for fewer. It lasts 15 minutes.
 3. Only requests from `krhomebase-external-api` may use a bearer token. That Worker adds `x-kr-gateway: external-api`. The web app strips that header from every browser request (`apps/web/app/api/[...path]/route.ts`), and the API has no public address, so nothing else can set it.
 4. Gateway requests never read a cookie. The gateway forwards only `accept`, `content-type`, `authorization`, `user-agent` and `x-request-id`, and removes `Set-Cookie` from replies.
-5. The API checks the token, the tool (active, server access on), the caller's IP address (when the tool has an address list) and the route's permission.
+5. The API checks the token, the tool (active, server access on, not local only on a deployed server), the caller's IP address (when the tool has an address list) and the route's permission.
 6. **Rate limit:** about 120 calls a minute per token (or per address for the token request), counted per Cloudflare location.
 7. On the server path, `toolAccess` is the only gate. A route's `access` roles do not apply, because there is no person. Open a route to tools only after deciding what a tool server may do there with no person present.
 
@@ -110,13 +112,13 @@ Each business area opens its routes when it is built, by adding `toolAccess: '<a
 | Server-path door | `apps/external-api/` (`src/gateway.ts`, `kr-external-api-wrangler.jsonc`) |
 | Menu, frame, host bridge | `apps/web/components/shell/` (`navigation.ts`, `ExternalToolFrame.client.tsx`, `toolHost.ts`, `ApplicationShell.client.tsx`) and `apps/web/lib/toolRelay.ts` |
 | Super-admin screen | `apps/web/features/tools/components/OutsideToolsAdmin.client.tsx` (under Settings, Application Settings) |
-| Tables | `docs/Schema_8.0/migrations/Migration_Patch016_11_09_workspace_tools.sql` |
+| Tables | `docs/Schema_8.0/migrations/Migration_Patch016_11_09_workspace_tools.sql`, and the Shown options: `Migration_Patch058_11_17_tool_visibility.sql` |
 
 ## 6. Tables
 
 | Table | Holds |
 |---|---|
-| `workspace_tool` | One row per tool: client id, menu text, origin and address, roles and permissions (JSON lists), status, server access, IP list, secret hashes. |
+| `workspace_tool` | One row per tool: client id, menu text, origin and address, roles and permissions (JSON lists), the Shown options `local_only` and `developers_only` (0 or 1, migration 058), status, server access, IP list, secret hashes. |
 | `workspace_tool_token` | Server-path tokens: hash, tool, permissions, end time. Old rows are deleted when a new token is issued. |
 | `workspace_tool_audit` | Calls and changes, no bodies. No foreign key, so rows outlive a removed tool. |
 

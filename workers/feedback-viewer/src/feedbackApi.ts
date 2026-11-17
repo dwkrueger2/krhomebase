@@ -11,14 +11,7 @@
 
 import type { ToolApi } from '@krhomebase/tool-sdk/frame'
 import type { ApiReply } from '@krhomebase/tool-sdk/types'
-import type { FeedbackKind, FeedbackListData, FeedbackPriority, FeedbackSavedData, FeedbackStatus } from './feedbackTypes.ts'
-
-/** Which requests the list shows. Empty values mean "all". */
-export interface ListFilter {
-  status?: FeedbackStatus
-  kind?: FeedbackKind
-  cursor?: string
-}
+import type { FeedbackKind, FeedbackListData, FeedbackPriority, FeedbackSavedData, FeedbackStatus, FeedbackSummary } from './feedbackTypes.ts'
 
 /** A status and priority change, with an optional note saved with it. */
 export interface FeedbackChange {
@@ -27,11 +20,24 @@ export interface FeedbackChange {
   note?: string
 }
 
-/** Requests per page. The API allows 1 to 100. */
-export const PAGE_SIZE = 50
+/** Requests per call while loading the list. The API allows 1 to 100. */
+export const PAGE_SIZE = 100
+
+/** At most this many calls for one list (10,000 requests), so a broken cursor can never loop for ever. */
+export const MAX_LIST_CALLS = 100
+
+/** Every request of one kind (or all), and what the person may do. */
+export interface FeedbackAll {
+  items: FeedbackSummary[]
+  viewer: FeedbackListData['viewer']
+}
 
 export interface FeedbackApi {
-  list(filter: ListFilter): Promise<ApiReply<FeedbackListData>>
+  /**
+   * Every request (one kind, or all), loaded 100 at a time through the API's pages (tool version 1.4.0): the list
+   * screen sorts and pages them itself (`listTables.ts`), because the API lists newest first only.
+   */
+  listAll(kind?: FeedbackKind): Promise<ApiReply<FeedbackAll>>
   /** One row only, to learn what the person may do (`viewer`) when the tool opens straight on a request. */
   viewer(): Promise<ApiReply<FeedbackListData>>
   get(number: number): Promise<ApiReply<FeedbackSavedData>>
@@ -40,19 +46,27 @@ export interface FeedbackApi {
 }
 
 /**
- * The four calls this tool makes.
+ * The calls this tool makes.
  *
  * @param api - `host.api` from the tool kit.
  * @returns The calls, each resolving with the API's reply.
  */
 export function feedbackApi(api: ToolApi): FeedbackApi {
   return {
-    list(filter) {
-      const query = new URLSearchParams({ limit: String(PAGE_SIZE) })
-      if (filter.status) query.set('status', filter.status)
-      if (filter.kind) query.set('kind', filter.kind)
-      if (filter.cursor) query.set('cursor', filter.cursor)
-      return api.get<FeedbackListData>(`/v1/homebase-feedback?${query.toString()}`)
+    async listAll(kind) {
+      const items: FeedbackSummary[] = []
+      let cursor: string | null = null
+      for (let call = 0; call < MAX_LIST_CALLS; call++) {
+        const query = new URLSearchParams({ limit: String(PAGE_SIZE) })
+        if (kind) query.set('kind', kind)
+        if (cursor) query.set('cursor', cursor)
+        const reply = await api.get<FeedbackListData>(`/v1/homebase-feedback?${query.toString()}`)
+        if (!reply.ok) return reply
+        items.push(...reply.data.items)
+        cursor = reply.data.nextCursor
+        if (!cursor) return { ...reply, data: { items, viewer: reply.data.viewer } }
+      }
+      return { ok: false, error: { code: 'LIST_TOO_LONG', message: `More than ${MAX_LIST_CALLS * PAGE_SIZE} requests: the list stopped there.` }, requestId: '', status: 0 }
     },
     viewer() {
       return api.get<FeedbackListData>('/v1/homebase-feedback?limit=1')
