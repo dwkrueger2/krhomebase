@@ -21,6 +21,13 @@
  *    passes its events up the component tree to the dialog's "click outside closes" handler, which closed the editor
  *    on a click in the card (the requester's report, Nov 13, 2026).
  *  - The card's marker is `data-kr-id="ContactEditCard-Dialog-KRModuleCard"` (was `data-kr-component`).
+ *
+ * Changed Nov 17, 2026 (FB-0015, the requester):
+ *  - A field a save was refused for is marked: red border and tint, red label, `aria-invalid` and its reason as the
+ *    tooltip (`fieldProblems`, from `ContactEditDialog`; the marks come from `contactFieldMarks.client.ts`). Marked so
+ *    far: the address, the individual's name, email, preferred name, date of birth and SSN, Notes, and a business's
+ *    state of formation. The line under the card names every field with its reason.
+ *  - The address panel has a 6px gap between its rows, as the phone grid has (it had none).
  */
 
 import { createPortal } from 'react-dom'
@@ -38,6 +45,8 @@ import {
 } from './EntityEditSections.client'
 import IndividualSearch from './IndividualSearch.client'
 import { useOptionalDataStore } from '../DataStoreProvider.client'
+import type { ContactFieldProblems } from '../contactSaveProblems'
+import { ContactFieldMarksContext, contactFieldMark, useContactFieldMarks } from './contactFieldMarks.client'
 import { ContactLedgerRowHoverCard } from './ContactLedger.client'
 import { relatedContactHoverRow } from './RelatedContactHover.client'
 
@@ -51,7 +60,8 @@ const LAYOUT_STYLES = {
   fieldFullAddress: 'gap-1.5 grid grid-cols-[92px_minmax(0,1fr)] items-center',
   fieldCityStateZipRow: 'gap-1.5 grid grid-cols-[minmax(0,1fr)_132px_minmax(0,1fr)] items-center',
   formContactAddressGrid: 'mb-1.5 gap-1.5 grid grid-cols-1 min-w-0',
-  detailsPanel: 'p-1.5',
+  // The address rows: the same 6px gap as the phone grid (FB-0015: the rows touched).
+  detailsPanel: 'p-1.5 gap-1.5 grid min-w-0',
   identityGrid_c1: 'gap-1.5 grid grid-cols-1 min-w-0 mb-1.5',
   identityGridRow_c2: 'gap-1.5 grid min-w-0 grid-cols-2',
   identityGrid2: 'gap-1.5 grid grid-cols-[92px_minmax(0,1fr)] min-w-full items-center',
@@ -195,7 +205,12 @@ export interface ContactEditCardProps {
   onEditRelatedContact?: (contactId: string) => void
   /** No card border: the editor fills a pop-out window. */
   plain?: boolean
+  /** Fields a save was refused for, each with its reason; they are marked in red (FB-0015). */
+  fieldProblems?: ContactFieldProblems
 }
+
+/** No problems: the default, shared so the context value does not change on every draw. */
+const NO_FIELD_PROBLEMS: ContactFieldProblems = {}
 
 export default function ContactEditCard({
   contact,
@@ -217,6 +232,7 @@ export default function ContactEditCard({
   errorMessage = '',
   onEditRelatedContact,
   plain = false,
+  fieldProblems = NO_FIELD_PROBLEMS,
 }: ContactEditCardProps) {
   const [phoneError, setPhoneError] = useState<string | null>(null)
   const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumberFieldValue[]>(() =>
@@ -242,8 +258,10 @@ export default function ContactEditCard({
   }
 
   if (!open || !contact) return null
+  const notesMark = contactFieldMark(fieldProblems, 'notes')
   // @formatter:off
   return (
+    <ContactFieldMarksContext.Provider value={fieldProblems}>
     <KRModuleCard
       // The card's name is a data-kr-id (the requester, Nov 13, 2026: Dev View lists ids, and "dialog" finds it).
       krId="ContactEditCard-Dialog"
@@ -410,10 +428,11 @@ export default function ContactEditCard({
 
         {/* Notes Section */}
 
-        <label data-kr-element="contact-edit-contact-notes" className={STYLES.field}>
+        <label data-kr-element="contact-edit-contact-notes" className={`${STYLES.field} ${notesMark.label}`}>
           <span>Notes</span>
           <textarea
-            className={STYLES.textarea}
+            {...notesMark.props}
+            className={`${STYLES.textarea} ${notesMark.input}`}
             value={draft.notes}
             onChange={(event) => onDraftChange({ ...draft, notes: event.target.value })}
           />
@@ -447,6 +466,7 @@ export default function ContactEditCard({
         />
       </div>
     </KRModuleCard>
+    </ContactFieldMarksContext.Provider>
   )
 }
 
@@ -456,43 +476,53 @@ interface ClientEditCardAddressProps {
   heading?: string
 }
 function ClientEditCardAddress({ draft, onDraftChange, heading }: ClientEditCardAddressProps) {
+  const mark = useContactFieldMarks()
+  const line1 = mark('addressLine1')
+  const line2 = mark('addressLine2')
+  const city = mark('city')
+  const state = mark('state')
+  const postalCode = mark('postalCode')
   return (
     <div data-kr-id="contact-edit-address-grid" className={LAYOUT_STYLES.formContactAddressGrid}>
       {heading ? <h3 className={STYLES.cardTitle}>{heading}</h3> : null}
       <div className={`${LAYOUT_STYLES.detailsPanel} ${STYLES.detailsBorder}`}>
-        <label className={`${LAYOUT_STYLES.fieldFullAddress} ${STYLES.field}`}>
+        <label className={`${LAYOUT_STYLES.fieldFullAddress} ${STYLES.field} ${line1.label}`}>
           <span>Address line 1</span>
           <input
-            className={STYLES.input}
+            {...line1.props}
+            className={`${STYLES.input} ${line1.input}`}
             value={draft.addressLine1}
             onChange={(event) => onDraftChange({ ...draft, addressLine1: event.target.value })}
           />
         </label>
-        <label className={`${LAYOUT_STYLES.fieldFullAddress} ${STYLES.field}`}>
+        <label className={`${LAYOUT_STYLES.fieldFullAddress} ${STYLES.field} ${line2.label}`}>
           <span>Address line 2</span>
           <input
-            className={STYLES.input}
+            {...line2.props}
+            className={`${STYLES.input} ${line2.input}`}
             value={draft.addressLine2}
             onChange={(event) => onDraftChange({ ...draft, addressLine2: event.target.value })}
           />
         </label>
         {/*City, State, Zip Row*/}
         <div className={LAYOUT_STYLES.fieldCityStateZipRow}>
-          <label className={`${LAYOUT_STYLES.fieldLabel} ${STYLES.field}`}>
+          <label className={`${LAYOUT_STYLES.fieldLabel} ${STYLES.field} ${city.label}`}>
             <span>City</span>
             <input
-              className={STYLES.input}
+              {...city.props}
+              className={`${STYLES.input} ${city.input}`}
               value={draft.city}
               onChange={(event) => onDraftChange({ ...draft, city: event.target.value })}
             />
           </label>
           <label
-            className={`${LAYOUT_STYLES.fieldLabel} ${STYLES.field}`}
+            className={`${LAYOUT_STYLES.fieldLabel} ${STYLES.field} ${state.label}`}
             data-kr-field-size="state"
           >
             <span>State</span>
             <input
-              className={`${STYLES.input} ${STYLES.compactStateInput}`}
+              {...state.props}
+              className={`${STYLES.input} ${STYLES.compactStateInput} ${state.input}`}
               value={draft.state}
               onChange={(event) =>
                 onDraftChange({ ...draft, state: event.target.value.toUpperCase().slice(0, 2) })
@@ -500,13 +530,14 @@ function ClientEditCardAddress({ draft, onDraftChange, heading }: ClientEditCard
             />
           </label>
           <label
-          className={`${LAYOUT_STYLES.fieldLabel} ${STYLES.field}`}
+          className={`${LAYOUT_STYLES.fieldLabel} ${STYLES.field} ${postalCode.label}`}
             data-kr-field-size="postal-code"
           >
             <span>ZIP</span>
             <input
+              {...postalCode.props}
               // className={`${STYLES.input} ${STYLES.compactPostalInput}`}
-              className={`${STYLES.input} `}
+              className={`${STYLES.input} ${postalCode.input}`}
               value={draft.postalCode}
               onChange={(event) => onDraftChange({ ...draft, postalCode: event.target.value })}
             />
@@ -877,16 +908,23 @@ interface IndividualNameFieldsProps {
 
 /* Returns email, first Name, Middle Name, Last Name,  all in one vertical component */
 function IndividualNameFields(props: IndividualNameFieldsProps) {
+  const mark = useContactFieldMarks()
+  const email = mark('email')
+  const firstName = mark('firstName')
+  const middleName = mark('middleName')
+  const lastName = mark('lastName')
+  const suffix = mark('suffix')
   return (
     <div className={LAYOUT_STYLES.identityGrid_c1}>
       {/*email*/}
       <label
-        className={`${STYLES.field} ${LAYOUT_STYLES.identityGrid2}`}
+        className={`${STYLES.field} ${LAYOUT_STYLES.identityGrid2} ${email.label}`}
         data-kr-element="contact-edit-email-field"
       >
         <span>Email</span>
         <input
-          className={STYLES.input}
+          {...email.props}
+          className={`${STYLES.input} ${email.input}`}
           type="email"
           disabled={props.contact?.detailsLoaded === false || props.contact?.canEditLoginEmail === false}
           value={props.draft.email}
@@ -894,10 +932,11 @@ function IndividualNameFields(props: IndividualNameFieldsProps) {
         />
       </label>
       {/*First Name*/}
-      <label className={`${STYLES.field}  ${LAYOUT_STYLES.identityGrid2}`}>
+      <label className={`${STYLES.field}  ${LAYOUT_STYLES.identityGrid2} ${firstName.label}`}>
         <span>First name</span>
         <input
-          className={STYLES.input}
+          {...firstName.props}
+          className={`${STYLES.input} ${firstName.input}`}
           value={props.draft.firstName ?? ''}
           onChange={(event) => {
             const nextDraft = { ...props.draft, firstName: event.target.value }
@@ -906,10 +945,11 @@ function IndividualNameFields(props: IndividualNameFieldsProps) {
         />
       </label>
       {/*Middle Name*/}
-      <label className={`${STYLES.field}  ${LAYOUT_STYLES.identityGrid2}`}>
+      <label className={`${STYLES.field}  ${LAYOUT_STYLES.identityGrid2} ${middleName.label}`}>
         <span>Middle name</span>
         <input
-          className={STYLES.input}
+          {...middleName.props}
+          className={`${STYLES.input} ${middleName.input}`}
           value={props.draft.middleName ?? ''}
           onChange={(event) =>
             props.onDraftChange({ ...props.draft, middleName: event.target.value })
@@ -918,11 +958,12 @@ function IndividualNameFields(props: IndividualNameFieldsProps) {
       </label>
       {/*Last Name*/} {/*Suffix Name*/}
       <label
-        className={`${STYLES.field}  grid gap-1.5 grid-cols-[92px_minmax(0,1fr)_52px] items-center`}
+        className={`${STYLES.field}  grid gap-1.5 grid-cols-[92px_minmax(0,1fr)_52px] items-center ${lastName.label || suffix.label}`}
       >
         <span>Last name</span>
         <input
-          className={STYLES.input}
+          {...lastName.props}
+          className={`${STYLES.input} ${lastName.input}`}
           value={props.draft.lastName ?? ''}
           onChange={(event) => {
             const nextDraft = { ...props.draft, lastName: event.target.value }
@@ -930,9 +971,10 @@ function IndividualNameFields(props: IndividualNameFieldsProps) {
           }}
         />
         <input
-          className={STYLES.input}
+          className={`${STYLES.input} ${suffix.input}`}
           value={props.draft.suffix ?? ''}
           title={'Enter Suffix'}
+          {...suffix.props}
           onChange={(event) => props.onDraftChange({ ...props.draft, suffix: event.target.value })}
         />
       </label>
@@ -967,6 +1009,10 @@ export function IndividualAdditionalFields({
   savingContact = false,
 }: IndividualAdditionalFieldsProps) {
   const isIndividual = contact?.kind === 'individual'
+  const mark = useContactFieldMarks()
+  const preferredName = mark('preferredName')
+  const dob = mark('dob')
+  const ssn = mark('ssn')
 
   return (
     <div
@@ -975,12 +1021,13 @@ export function IndividualAdditionalFields({
     >
       {/* Preferred name row: stores the optional familiar name on individual. */}
       <label
-        className={`${LAYOUT_STYLES.individualAdditionalRow} ${STYLES.field}`}
+        className={`${LAYOUT_STYLES.individualAdditionalRow} ${STYLES.field} ${preferredName.label}`}
         data-kr-element="contact-preferred-name-row"
       >
         <span>Preferred name</span>
         <input
-          className={STYLES.input}
+          {...preferredName.props}
+          className={`${STYLES.input} ${preferredName.input}`}
           disabled={!isIndividual || savingContact}
           value={draft.preferredName ?? ''}
           onChange={(event) => {
@@ -992,12 +1039,13 @@ export function IndividualAdditionalFields({
 
       {/* Date of birth row: uses the browser date control for the stored ISO date. */}
       <label
-        className={`${LAYOUT_STYLES.individualAdditionalRow} ${STYLES.field}`}
+        className={`${LAYOUT_STYLES.individualAdditionalRow} ${STYLES.field} ${dob.label}`}
         data-kr-element="contact-date-of-birth-row"
       >
         <span>Date of birth</span>
         <input
-          className={STYLES.input}
+          {...dob.props}
+          className={`${STYLES.input} ${dob.input}`}
           disabled={!isIndividual || savingContact}
           type="date"
           value={dateInputValue(draft.dob)}
@@ -1007,13 +1055,14 @@ export function IndividualAdditionalFields({
 
       {/* Social Security number row: nine digits get their hyphens when the field is left (FB-0003). */}
       <label
-        className={`${LAYOUT_STYLES.individualAdditionalRow} ${STYLES.field}`}
+        className={`${LAYOUT_STYLES.individualAdditionalRow} ${STYLES.field} ${ssn.label}`}
         data-kr-element="contact-social-security-number-row"
       >
         <span>SSN </span>
         <input
+          {...ssn.props}
           autoComplete="off"
-          className={STYLES.input}
+          className={`${STYLES.input} ${ssn.input}`}
           disabled={!isIndividual || savingContact}
           // type="password"
           value={draft.ssn ?? ''}

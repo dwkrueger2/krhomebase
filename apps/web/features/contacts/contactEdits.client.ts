@@ -37,6 +37,8 @@ export class ContactApiError extends Error {
     readonly code: string,
     message: string,
     readonly status: number,
+    /** The API's `error.details`: for `VALIDATION_FAILED`, the fields refused (FB-0015; read by `contactSaveProblems.ts`). */
+    readonly details?: unknown,
   ) {
     super(message)
   }
@@ -64,7 +66,7 @@ async function call<T>(path: string, schema: z.ZodType<T>, init?: { method: stri
   const parsed = successEnvelope(schema).safeParse(body)
   if (response.ok && parsed.success) return parsed.data.data as T
   const error = ErrorEnvelope.safeParse(body)
-  if (error.success) throw new ContactApiError(error.data.error.code, ERROR_SENTENCES[error.data.error.code] ?? error.data.error.message, response.status)
+  if (error.success) throw new ContactApiError(error.data.error.code, ERROR_SENTENCES[error.data.error.code] ?? error.data.error.message, response.status, error.data.error.details)
   throw new ContactApiError('HTTP_ERROR', `The request failed (HTTP ${response.status}).`, response.status)
 }
 

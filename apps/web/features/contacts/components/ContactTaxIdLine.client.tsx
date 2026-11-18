@@ -12,6 +12,10 @@
  * Showing is not recorded (the requester, Nov 16, 2026: no audit for viewing).
  *
  * Read-only: nothing here writes.
+ *
+ * Changed Nov 17, 2026 (FB-0014): the browser cache now keeps the last four digits, so a contact read from it shows
+ * the masked number instead of "No SSN recorded"; and a business read from the cache (which keeps no full EIN) shows
+ * its EIN from the one-contact read, as a person's SSN is.
  */
 
 import { useEffect, useState } from 'react'
@@ -53,23 +57,23 @@ export default function ContactTaxIdLine({ contact }: { contact: KRContactRecord
   const isEntity = contact.kind === 'entity'
   const label = isEntity ? 'EIN' : 'SSN'
   const [shown, setShown] = useState(false)
-  const [loadedSsn, setLoadedSsn] = useState<string | null>(null)
+  const [loadedNumber, setLoadedNumber] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [problem, setProblem] = useState('')
 
   // Another contact in the same card: hide again and forget the number read for the last one.
   useEffect(() => {
     setShown(false)
-    setLoadedSsn(null)
+    setLoadedNumber(null)
     setProblem('')
   }, [contact.id])
 
-  const fullValue = isEntity ? (contact.ein ?? '') : (contact.ssn ?? loadedSsn ?? '')
+  const fullValue = (isEntity ? contact.ein : contact.ssn) || loadedNumber || ''
   const last4 = isEntity ? (contact.einLast4 ?? contact.ein?.replace(/\D/g, '').slice(-4)) : (contact.ssnLast4 ?? contact.ssn?.replace(/\D/g, '').slice(-4))
   const masked = maskTaxId(contact.kind, last4)
   const formatted = formatTaxId(contact.kind, fullValue)
 
-  /** Shows the number, reading the full SSN once when the record does not carry it. */
+  /** Shows the number, reading the full SSN or EIN once when the record does not carry it. */
   async function show(): Promise<void> {
     setProblem('')
     if (fullValue) {
@@ -79,7 +83,7 @@ export default function ContactTaxIdLine({ contact }: { contact: KRContactRecord
     setLoading(true)
     try {
       const detail = await fetchContactDetail(contact.id)
-      setLoadedSsn(detail.ssn ?? '')
+      setLoadedNumber((isEntity ? detail.ein : detail.ssn) ?? '')
       setShown(true)
     } catch (error) {
       const code = error instanceof ContactApiError ? error.code : 'UNKNOWN'

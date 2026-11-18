@@ -1,6 +1,7 @@
 // file: apps/web/lib/client-data-store/types.ts
-// Ported from the old repository (apps/kr-homebase/src/hb-lib/hb-client-data-store/types.ts). One change: the
-// optional `clientDisplayName` on ClientContactElement (Nov 9, 2026), marked below.
+// Ported from the old repository (apps/kr-homebase/src/hb-lib/hb-client-data-store/types.ts). Two changes, marked
+// below: the optional `clientDisplayName` on ClientContactElement (Nov 9, 2026), and its optional `ssnLast4` and
+// `einLast4` (Nov 17, 2026, FB-0014).
 // Design notes: lib/client-data-store/Readme-client-data-store.md.
 /** Type contract for the encrypted data store owned by the client browser. */
 
@@ -158,6 +159,13 @@ export interface ClientContactElement extends ClientDataElement {
   readonly status: string
   readonly isMinor: boolean
   readonly isAttorney: boolean
+  /**
+   * Changed (Nov 17, 2026, FB-0014): the last four digits of the SSN or EIN, for the masked row of the identity
+   * summary (`•••-••-6789`). The full numbers are still never cached. Absent in caches written before; the contacts
+   * sync reloads such a cache in full once (`contactsStore.client.ts`).
+   */
+  readonly ssnLast4?: string | null
+  readonly einLast4?: string | null
   readonly createdAt: string
   /** Client relationship values shown in the ledger. */
   readonly isClient: boolean
@@ -299,6 +307,8 @@ export const CLIENT_DATA_COLLECTION_DEFINITIONS = {
       { key: 'isClient', storageClass: 'detail', sensitive: false, searchable: false },
       { key: 'isMinor', storageClass: 'detail', sensitive: true, searchable: false },
       { key: 'isAttorney', storageClass: 'detail', sensitive: true, searchable: false },
+      { key: 'ssnLast4', storageClass: 'detail', sensitive: true, searchable: false },
+      { key: 'einLast4', storageClass: 'detail', sensitive: true, searchable: false },
       { key: 'clientId', storageClass: 'detail', sensitive: true, searchable: false },
       { key: 'clientNumber', storageClass: 'search', sensitive: true, searchable: true },
       { key: 'clientType', storageClass: 'search', sensitive: false, searchable: true },

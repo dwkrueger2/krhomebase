@@ -25,6 +25,13 @@
  * Changed: the old controller checked the client save by reading the account back; the API now answers with the
  * saved account from the same batch, so that extra read is gone. The saved contact goes into the data store without
  * its SSN and date of birth.
+ *
+ * Changed Nov 17, 2026 (FB-0015, the requester): a refused save names its fields. The body is checked against the
+ * API's contract before it is sent (`contactSaveProblems`), and a `VALIDATION_FAILED` reply is read by field
+ * (`problemsFromApiDetails`); the card marks each field in red with its sentence, and the line under the card says
+ * "Check the fields marked in red." with each field's reason. A field's mark clears when the person changes it. A state stored as a full
+ * name ("Texas", from the seeded contacts) is shown and saved as its code (`stateForEditor`): before this every save
+ * of such a contact was refused, whatever field was changed.
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
@@ -36,6 +43,8 @@ import SaveDialog from '@/components/ui/SaveDialog.client'
 import { L } from '@/lib/KRUtilities'
 import { ContactApiError, fetchContactDetail, lookupClientNumber, setClientStatus, suggestClientNumber, updateContact } from '../contactEdits.client'
 import { normalizePhoneNumber, validateEmailAddress, validateRequiredText } from '../contactValidators'
+import { contactSaveProblems, problemsFromApiDetails, problemSummary, stateForEditor, type ContactFieldProblems } from '../contactSaveProblems'
+import type { ContactUpdateBody } from '@krhomebase/contracts'
 import type { KRContactDraft, KRContactRecord } from '../types'
 import { useOptionalDataStore } from '../DataStoreProvider.client'
 import ContactEditCard, { getIndividualDisplayName } from './ContactEditCard.client'
@@ -86,7 +95,7 @@ function dateInputValue(value: string | null | undefined): string {
   return `${year}-${month!.padStart(2, '0')}-${day!.padStart(2, '0')}`
 }
 
-/** The editor's working copy of a contact (unchanged). */
+/** The editor's working copy of a contact. A state is shown as its two-letter code (FB-0015, `stateForEditor`). */
 export function draftFromContact(contact: KRContactRecord): KRContactDraft {
   return {
     displayName: contact.kind === 'individual' ? getIndividualDisplayName(contact) : contact.displayName,
@@ -94,7 +103,7 @@ export function draftFromContact(contact: KRContactRecord): KRContactDraft {
     partnershipType: contact.partnershipType ?? '',
     managementStructure: contact.managementStructure ?? '',
     ein: contact.ein ?? '',
-    stateOfFormation: contact.stateOfFormation ?? '',
+    stateOfFormation: stateForEditor(contact.stateOfFormation),
     formationDate: dateInputValue(contact.formationDate),
     entityStatus: contact.entityStatus ?? '',
     sosFileNumber: contact.sosFileNumber ?? '',
@@ -121,7 +130,7 @@ export function draftFromContact(contact: KRContactRecord): KRContactDraft {
     addressLine1: contact.addressLine1,
     addressLine2: contact.addressLine2,
     city: contact.city,
-    state: contact.state,
+    state: stateForEditor(contact.state),
     postalCode: contact.postalCode,
     notes: contact.notes ?? '',
     isClient: contact.isClient,
@@ -174,6 +183,8 @@ export default function ContactEditDialog({ contact: listContact, inline = false
   const [availability, setAvailability] = useState<ClientNumberAvailabilityState>({ state: 'idle' })
   const [suggestionLoading, setSuggestionLoading] = useState(false)
   const [error, setError] = useState('')
+  /** The fields a save was refused for, each with its sentence (FB-0015). */
+  const [fieldProblems, setFieldProblems] = useState<ContactFieldProblems>({})
   const [emailConfirmOpen, setEmailConfirmOpen] = useState(false)
   const dialogRef = useRef<HTMLElement>(null)
   const availabilityRequestRef = useRef(0)
@@ -189,6 +200,17 @@ export default function ContactEditDialog({ contact: listContact, inline = false
     if (unchanged) onClose()
     else setDiscardOpen(true)
   }, [onClose, savingContact, unchanged])
+
+  /** A change from the card: the changed fields lose their red mark. */
+  function changeDraft(next: KRContactDraft): void {
+    setFieldProblems((current) => {
+      const before = draft as unknown as Record<string, unknown>
+      const after = next as unknown as Record<string, unknown>
+      const kept = Object.fromEntries(Object.entries(current).filter(([field]) => after[field] === before[field])) as ContactFieldProblems
+      return Object.keys(kept).length === Object.keys(current).length ? current : kept
+    })
+    setDraft(next)
+  }
 
   // Escape asks to close, as the other dialogs do.
   useEffect(() => {
@@ -248,6 +270,7 @@ export default function ContactEditDialog({ contact: listContact, inline = false
     if (!open) return
     let cancelled = false
     setError('')
+    setFieldProblems({})
     setAvailability({ state: 'idle' })
     setDetailsLoading(true)
     const startedAt = performance.now()
@@ -326,6 +349,7 @@ export default function ContactEditDialog({ contact: listContact, inline = false
       const latest = await fetchContactDetail(contact.id)
       setContact(latest)
       setDraft(draftFromContact(latest))
+      setFieldProblems({})
     } catch {
       // Keep the conflict message when the reload also fails.
     }
@@ -340,9 +364,15 @@ export default function ContactEditDialog({ contact: listContact, inline = false
 
     const displayName = contact.kind === 'individual' ? getIndividualDisplayName(draft) : draft.displayName.trim()
     const name = validateRequiredText(displayName, 'Display name')
-    if (!name.ok) return setError(name.message ?? 'Display name is required.')
+    if (!name.ok) {
+      setFieldProblems(contact.kind === 'individual' ? { firstName: 'Enter a first name, a last name or a preferred name.' } : { displayName: 'Enter the name.' })
+      return setError(name.message ?? 'Display name is required.')
+    }
     const email = validateEmailAddress(draft.email)
-    if (!email.ok) return setError(email.message ?? 'Email is invalid.')
+    if (!email.ok) {
+      setFieldProblems({ email: email.message ?? 'Email is invalid.' })
+      return setError(email.message ?? 'Email is invalid.')
+    }
     const phone = normalizePhoneNumber(draft.phone)
     if (!phone.ok) return setError(phone.message ?? 'Phone is invalid.')
     const phoneSecondary = normalizePhoneNumber(draft.phoneSecondary ?? '')
@@ -357,53 +387,63 @@ export default function ContactEditDialog({ contact: listContact, inline = false
       return setError(`Client Number ${clientNumber} is already assigned to ${availability.assignedTo ?? 'another contact'}.`)
     }
 
+    const text = (value: string | undefined | null) => value?.trim() || null
+    const body: ContactUpdateBody = {
+      kind: contact.kind,
+      expectedUpdatedAt: contact.updatedAt,
+      confirmLoginEmailChange,
+      displayName,
+      entitySubtype: text(draft.entitySubtype),
+      partnershipType: text(draft.partnershipType),
+      managementStructure: text(draft.managementStructure),
+      ein: text(draft.ein),
+      stateOfFormation: text(stateForEditor(draft.stateOfFormation))?.toUpperCase() ?? null,
+      formationDate: text(draft.formationDate),
+      entityStatus: text(draft.entityStatus),
+      sosFileNumber: text(draft.sosFileNumber),
+      stateTaxpayerNumber: text(draft.stateTaxpayerNumber),
+      xtNumber: text(draft.xtNumber),
+      registeredAgentName: text(draft.registeredAgentName),
+      boiStatus: text(draft.boiStatus),
+      boiConfirmationNumber: text(draft.boiConfirmationNumber),
+      pointOfContactId: draft.pointOfContactId ?? null,
+      registeredAgentId: draft.registeredAgentId ?? null,
+      relatedContactIds: draft.relatedContactIds ?? [],
+      titlePrefix: text(draft.titlePrefix),
+      firstName: text(draft.firstName),
+      middleName: text(draft.middleName),
+      lastName: text(draft.lastName),
+      suffix: text(draft.suffix),
+      preferredName: text(draft.preferredName),
+      dob: text(draft.dob),
+      ssn: text(draft.ssn),
+      isAttorney: draft.isAttorney ?? false,
+      email: email.value || null,
+      phone: phone.value || null,
+      phoneSecondary: phoneSecondary.value || null,
+      fax: fax.value || null,
+      addressLine1: text(draft.addressLine1),
+      addressLine2: text(draft.addressLine2),
+      city: text(draft.city),
+      state: text(stateForEditor(draft.state))?.toUpperCase() ?? null,
+      postalCode: text(draft.postalCode),
+      notes: text(draft.notes),
+    }
+    // FB-0015: the fields the API would refuse are named before anything is sent.
+    const problems = contactSaveProblems(body)
+    if (Object.keys(problems).length) {
+      L(`[CONTACT_EDIT:395] Save stopped: fields not in the expected form contactId=${contact.id} fields=${Object.keys(problems).join(',')}`)
+      setFieldProblems(problems)
+      return setError('')
+    }
+
     setSavingContact(true)
     setSavePhase('saving')
     setError('')
-    const text = (value: string | undefined | null) => value?.trim() || null
+    setFieldProblems({})
     try {
       L(`[CONTACT_EDIT:251] Contact PATCH start contactId=${contact.id} kind=${contact.kind}`)
-      const saved = await updateContact(contact.id, {
-        kind: contact.kind,
-        expectedUpdatedAt: contact.updatedAt,
-        confirmLoginEmailChange,
-        displayName,
-        entitySubtype: text(draft.entitySubtype),
-        partnershipType: text(draft.partnershipType),
-        managementStructure: text(draft.managementStructure),
-        ein: text(draft.ein),
-        stateOfFormation: text(draft.stateOfFormation)?.toUpperCase() ?? null,
-        formationDate: text(draft.formationDate),
-        entityStatus: text(draft.entityStatus),
-        sosFileNumber: text(draft.sosFileNumber),
-        stateTaxpayerNumber: text(draft.stateTaxpayerNumber),
-        xtNumber: text(draft.xtNumber),
-        registeredAgentName: text(draft.registeredAgentName),
-        boiStatus: text(draft.boiStatus),
-        boiConfirmationNumber: text(draft.boiConfirmationNumber),
-        pointOfContactId: draft.pointOfContactId ?? null,
-        registeredAgentId: draft.registeredAgentId ?? null,
-        relatedContactIds: draft.relatedContactIds ?? [],
-        titlePrefix: text(draft.titlePrefix),
-        firstName: text(draft.firstName),
-        middleName: text(draft.middleName),
-        lastName: text(draft.lastName),
-        suffix: text(draft.suffix),
-        preferredName: text(draft.preferredName),
-        dob: text(draft.dob),
-        ssn: text(draft.ssn),
-        isAttorney: draft.isAttorney ?? false,
-        email: email.value || null,
-        phone: phone.value || null,
-        phoneSecondary: phoneSecondary.value || null,
-        fax: fax.value || null,
-        addressLine1: text(draft.addressLine1),
-        addressLine2: text(draft.addressLine2),
-        city: text(draft.city),
-        state: text(draft.state)?.toUpperCase() ?? null,
-        postalCode: text(draft.postalCode),
-        notes: text(draft.notes),
-      })
+      const saved = await updateContact(contact.id, body)
       if (saved.requiresLogin) {
         // Every session of this account was ended with the save; sign in again with the new email. A forced leave
         // (web patch 566): the session is gone, so no "Leave site?" warning may keep the page.
@@ -445,6 +485,11 @@ export default function ContactEditDialog({ contact: listContact, inline = false
       if (code === 'CONTACT_CONFLICT') {
         await reloadAfterConflict()
         setError('Another user changed this contact. The latest server data was refreshed; review it before saving again.')
+      } else if (code === 'VALIDATION_FAILED' && caught instanceof ContactApiError) {
+        // FB-0015: mark the fields the API named; its general sentence only when it named none the card knows.
+        const refused = problemsFromApiDetails(caught.details)
+        setFieldProblems(refused)
+        setError(Object.keys(refused).length ? '' : caught.message)
       } else if (code === 'VALIDATION_CLIENT_NUMBER_ALREADY_ASSIGNED') {
         setError(`Client Number ${clientNumber ?? rawClientNumber} is already assigned. The contact fields were saved, but the client account was not changed.`)
       } else {
@@ -494,13 +539,14 @@ export default function ContactEditDialog({ contact: listContact, inline = false
                   clientNumberSuggestionLoading={suggestionLoading}
                   contact={contact}
                   draft={draft}
-                  errorMessage={error}
+                  errorMessage={error || problemSummary(fieldProblems)}
+                  fieldProblems={fieldProblems}
                   open
                   savingContact={savingContact}
                   saveState={savingContact ? 'Saving' : detailsLoading || contact.detailsLoaded !== true || unchanged ? 'Disabled' : 'Can Save'}
                   onCheckClientNumberAvailability={checkClientNumberAvailability}
                   onClose={requestClose}
-                  onDraftChange={setDraft}
+                  onDraftChange={changeDraft}
                   onEditRelatedContact={openRelatedWindow}
                   plain={inline}
                   onSave={() => void save()}
@@ -528,6 +574,7 @@ export default function ContactEditDialog({ contact: listContact, inline = false
                 onConfirm={() => {
                   setDiscardOpen(false)
                   setDraft(draftFromContact(contact))
+                  setFieldProblems({})
                   onClose()
                 }}
               />
