@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 import type { ToolMenuItem } from '@krhomebase/contracts'
 import ApplicationShell from '@/components/shell/ApplicationShell.client'
 import ExternalToolFrame, { TOOL_FRAME_SANDBOX } from '@/components/shell/ExternalToolFrame.client'
-import { attachToolHost, MAX_IN_FLIGHT } from '@/components/shell/toolHost'
+import { attachToolHost, FRAME_SENDER_NAME, makeFrameSender, MAX_IN_FLIGHT } from '@/components/shell/toolHost'
 import type { ToolRelayReply } from '@/lib/toolRelay'
 import { buildBreadcrumbs, buildNavItems, findNavItem, isShellSectionId, isToolSectionId, SHELL_NAV_ITEMS, type ShellSectionId } from '@/components/shell/navigation'
 
@@ -72,6 +72,8 @@ describe('attachToolHost', () => {
     const relayed: unknown[] = []
     const stop = attachToolHost({
       hostWindow: w.host,
+      // The workspace: the frame is in this code's own window.
+      ownWindow: w.host,
       frameWindow: () => w.frame,
       clientId: TOOL.clientId,
       origin: TOOL.origin,
@@ -128,6 +130,66 @@ describe('attachToolHost', () => {
     expect(t.dirty).toEqual([true])
     t.stop()
     expect(t.listeners.size).toBe(0)
+  })
+})
+
+/** A stand-in pop-out window: appending a script element "runs" it by placing a recording helper (web patch 568). */
+function popoutWindow(placesHelper = true) {
+  const viaHelper: { message: unknown; origin: string }[] = []
+  const appended: { textContent: string }[] = []
+  const popout: Record<string, unknown> = {}
+  popout.document = {
+    createElement: () => ({ textContent: '', remove: () => undefined }),
+    head: {
+      appendChild: (script: { textContent: string }) => {
+        appended.push(script)
+        if (placesHelper) popout[FRAME_SENDER_NAME] = (_target: Window, message: unknown, origin: string) => viaHelper.push({ message, origin })
+      },
+    },
+  }
+  return { popout: popout as unknown as Window, viaHelper, appended }
+}
+
+describe('makeFrameSender (pop-out replies)', () => {
+  const message = { kind: 'krh:init', protocol: 1, clientId: TOOL.clientId, mode: 'popout', theme: {} } as const
+
+  it('sends directly when the frame is in the window this code belongs to', () => {
+    const w = windows()
+    makeFrameSender(w.host, w.host)(w.frame, message, TOOL.origin)
+    expect(w.posted).toEqual([{ message, origin: TOOL.origin }])
+  })
+
+  it('sends through a helper placed once in the pop-out window, so the tool sees its parent as the sender', () => {
+    const w = windows()
+    const p = popoutWindow()
+    const send = makeFrameSender(p.popout, w.host)
+    send(w.frame, message, TOOL.origin)
+    makeFrameSender(p.popout, w.host)(w.frame, message, TOOL.origin)
+    expect(p.appended).toHaveLength(1)
+    expect(p.appended[0]!.textContent).toContain(`window.${FRAME_SENDER_NAME} = function`)
+    expect(p.viaHelper).toEqual([
+      { message, origin: TOOL.origin },
+      { message, origin: TOOL.origin },
+    ])
+    expect(w.posted).toEqual([])
+  })
+
+  it('falls back to sending directly when the helper could not be placed', () => {
+    const w = windows()
+    const p = popoutWindow(false)
+    makeFrameSender(p.popout, w.host)(w.frame, message, TOOL.origin)
+    expect(w.posted).toEqual([{ message, origin: TOOL.origin }])
+  })
+
+  it('answers a hello from a popped-out tool through the helper', () => {
+    const w = windows()
+    const p = popoutWindow()
+    const popoutHost = Object.assign(p.popout, { addEventListener: w.host.addEventListener, removeEventListener: w.host.removeEventListener })
+    const stop = attachToolHost({ hostWindow: popoutHost, ownWindow: w.host, frameWindow: () => w.frame, clientId: TOOL.clientId, origin: TOOL.origin, mode: 'popout', theme: () => ({}), relay: async () => ({ status: 200, body: {} }) })
+    w.send({ kind: 'krh:hello', protocol: 1 })
+    expect(p.viaHelper).toEqual([{ message: { kind: 'krh:init', protocol: 1, clientId: TOOL.clientId, mode: 'popout', theme: {} }, origin: TOOL.origin }])
+    expect(w.posted).toEqual([])
+    stop()
   })
 })
 
