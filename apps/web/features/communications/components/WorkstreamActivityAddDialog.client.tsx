@@ -17,6 +17,9 @@
  *  - Drawn in the dark Communication Colors with the shared editor (the old dialog was light around the dark editor),
  *    into `document.body` with `data-kr-theme-scope`; the parent owns open, busy and error.
  *  - Density Contract: labels beside fields, 24px controls, 10px padding.
+ *  - Nov 18, 2026 (FB-0016, web patch 570): the dialog carries the WorkStream panel's color class
+ *    (`Communications.module.css`), since it is drawn outside the panel; a Task saved here gets its task on the
+ *    Tasks screen, assigned to the Assignee chosen (the API's rule).
  */
 
 import type { Matter, WorkstreamSubgroup } from '@krhomebase/contracts'
@@ -24,6 +27,8 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { parseWorkstreamSlashCommands } from '../communicationTypes'
 import { LEDGER_ADD_TYPE_OPTIONS, titleFromNote } from '../workstreamLedgerRows'
+// Read, not only imported: a CSS module imported for its side effect is left out of the production build (web patch 554).
+import communicationColors from './Communications.module.css'
 import WorkstreamEditor, { type WorkstreamEditorAssigneeOption } from './WorkstreamEditor.client'
 
 /** What Add activity hands to the parent to save. */
@@ -118,7 +123,13 @@ export default function WorkstreamActivityAddDialog({ assigneeOptions, currentUs
 
   const dialog = (
     <div className={`${LAYOUT_STYLES.backdrop} ${STYLES.backdrop}`} data-kr-theme-scope="krhomebase">
-      <section aria-labelledby="workstream-add-activity-title" aria-modal="true" className={`${LAYOUT_STYLES.dialog} ${STYLES.dialog}`} data-kr-element="workstream-add-activity-dialog" role="dialog">
+      <section
+        aria-labelledby="workstream-add-activity-title"
+        aria-modal="true"
+        className={`${LAYOUT_STYLES.dialog} ${STYLES.dialog} ${communicationColors.panelColors}`}
+        data-kr-element="workstream-add-activity-dialog"
+        role="dialog"
+      >
         <header className={`${LAYOUT_STYLES.header} ${STYLES.rule}`}>
           <div>
             <p className={STYLES.eyebrow}>WorkStream activity</p>

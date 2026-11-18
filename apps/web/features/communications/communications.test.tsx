@@ -113,6 +113,7 @@ const activity = (extra: Partial<WorkstreamActivity> = {}): WorkstreamActivity =
   documentLabel: null,
   taskId: null,
   assigneeUserId: null,
+  assigneeUserIds: [],
   assigneeContactId: null,
   assigneeLabel: null,
   performedByUserId: 'u-dan',
@@ -120,6 +121,8 @@ const activity = (extra: Partial<WorkstreamActivity> = {}): WorkstreamActivity =
   createdAt: '2026-11-13T15:30:00.000Z',
   updatedAt: null,
   ...extra,
+  // Every type of the entry (FB-0016): the main one alone unless the test gives the list.
+  subgroups: extra.subgroups ?? [extra.subgroup ?? 'PhoneCalls'],
 })
 
 const VIEWER = { userId: 'u-dan', displayName: 'Dan Dan Krueger', email: 'dan@example.com', role: 'super_admin' }
@@ -234,6 +237,9 @@ describe('entries and paging', () => {
     expect(theirs.attachments).toEqual([{ label: 'Deed', url: 'https://example.com/d' }])
     expect(theirs.assigneeLabel).toBe('Pat Staff')
     expect(communicationEntryFromActivity(activity({ clientId: null, clientNumber: null, clientDisplayName: null, matterId: null, matterNumber: null, leadId: 'ld-1', lcid: 'L421' }), me).sourceLabel).toBe('Lead L421')
+    // FB-0016: every type of one entry; the task's assignee shows when Task is any of them.
+    const both = communicationEntryFromActivity(activity({ subgroups: ['PhoneCalls', 'Tasks'], assigneeLabel: 'Pat Staff' }), me)
+    expect(both).toMatchObject({ activityType: 'PhoneCalls', activityTypes: ['PhoneCalls', 'Tasks'], assigneeLabel: 'Pat Staff' })
   })
 
   it('says when older entries exist (D10)', () => {

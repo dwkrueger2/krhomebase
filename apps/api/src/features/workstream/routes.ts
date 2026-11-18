@@ -11,8 +11,8 @@
  *   POST   /v1/workstream/email/preview      the email as it will look
  *   POST   /v1/workstream/email              send it and record an Emails entry
  *   GET    /v1/workstream/{wsid}             one entry
- *   POST   /v1/workstream                    create an entry
- *   PATCH  /v1/workstream/{wsid}             change the fields sent
+ *   POST   /v1/workstream                    create an entry (one entry for every type chosen; a Task type makes a task)
+ *   PATCH  /v1/workstream/{wsid}             change the fields sent (types, task assignees)
  *   POST   /v1/workstream/{wsid}/move        move an entry to another client's .0 matter
  *   DELETE /v1/workstream/{wsid}             delete an entry (super admin)
  *
@@ -47,6 +47,8 @@ import { failure } from '../../platform/envelope.ts'
 import { mailerFor } from '../../platform/googleWorkspaceMailer.ts'
 import { logLine } from '../../platform/log.ts'
 import type { AppEnv } from '../../platform/types.ts'
+import { taskQueriesFor } from '../tasks/queries.ts'
+import { createTask, replaceTaskAssignees, type TaskActor } from '../tasks/rules.ts'
 import { WorkstreamUnavailableError, workstreamQueriesFor, type WorkstreamQueries } from './queries.ts'
 import {
   createActivity,
@@ -64,12 +66,16 @@ import {
   WORKSTREAM_ROLES,
   WorkstreamError,
   type WorkstreamActor,
+  type WorkstreamTaskPort,
 } from './rules.ts'
 
 const json = <T,>(schema: T) => ({ 'application/json': { schema } })
 const error = (description: string) => ({ description, content: json(ErrorEnvelope) })
 const STAFF = { roles: WORKSTREAM_ROLES }
 const WRITES = ['Writes workstream_activity', 'Writes audit_log']
+/** Create and change also write the other types and, for the Task type, the task (FB-0016, FB-0017). */
+const ENTRY_WRITES = ['Writes workstream_activity and workstream_activity_type', 'Writes task and task_assignee (an entry with the Task type)', 'Writes audit_log']
+const TASK_ERRORS = ['WORKSTREAM_ASSIGNEE_NOT_FOUND']
 const unavailable503 = error('WorkStream cannot be read or saved right now (WORKSTREAM_UNAVAILABLE).')
 const notFound404 = error('No entry with that id (WORKSTREAM_NOT_FOUND), or no such client or lead (WORKSTREAM_CLIENT_NOT_FOUND, WORKSTREAM_LEAD_NOT_FOUND).')
 const owner422 = error('Owner or matter refused: WORKSTREAM_OWNER_REQUIRED, WORKSTREAM_MATTER_NOT_FOR_CLIENT, WORKSTREAM_LEAD_HAS_NO_MATTER, WORKSTREAM_GENERAL_MATTER_MISSING, WORKSTREAM_ASSIGNEE_CONFLICT, WORKSTREAM_CURSOR_INVALID.')
@@ -179,10 +185,10 @@ export const createWorkstreamRoute = defineRoute({
   method: 'post',
   path: '/v1/workstream',
   feature: 'workstream',
-  summary: "Records a WorkStream entry for a client (on the chosen matter, else the client's .0) or for a lead.",
+  summary: "Records one WorkStream entry, with every activity type chosen, for a client (on the chosen matter, else the client's .0) or for a lead; the Task type also makes a task on the Tasks screen.",
   access: STAFF,
-  errors: [...OWNER_ERRORS, 'WORKSTREAM_ASSIGNEE_CONFLICT', 'WORKSTREAM_WSID_EXHAUSTED', 'WORKSTREAM_UNAVAILABLE'],
-  sideEffects: WRITES,
+  errors: [...OWNER_ERRORS, 'WORKSTREAM_ASSIGNEE_CONFLICT', ...TASK_ERRORS, 'WORKSTREAM_WSID_EXHAUSTED', 'WORKSTREAM_UNAVAILABLE'],
+  sideEffects: ENTRY_WRITES,
   request: { body: { content: json(WorkstreamCreateBody), required: true } },
   responses: { 200: savedReply, 404: notFound404, 409: error('No free WorkStream id after eight tries (WORKSTREAM_WSID_EXHAUSTED).'), 422: owner422, 503: unavailable503 },
 })
@@ -191,10 +197,10 @@ export const updateWorkstreamRoute = defineRoute({
   method: 'patch',
   path: '/v1/workstream/{wsid}',
   feature: 'workstream',
-  summary: 'Changes the fields sent (type, matter of the same client, subject, note, next steps, time, assignee); the rest stay as they are.',
+  summary: "Changes the fields sent (types, matter of the same client, subject, note, next steps, time, assignee, the task's assignees); the rest stay as they are. Adding the Task type makes the task.",
   access: STAFF,
-  errors: ['WORKSTREAM_NOT_FOUND', 'WORKSTREAM_MATTER_NOT_FOR_CLIENT', 'WORKSTREAM_LEAD_HAS_NO_MATTER', 'WORKSTREAM_UNAVAILABLE'],
-  sideEffects: WRITES,
+  errors: ['WORKSTREAM_NOT_FOUND', 'WORKSTREAM_MATTER_NOT_FOR_CLIENT', 'WORKSTREAM_LEAD_HAS_NO_MATTER', ...TASK_ERRORS, 'WORKSTREAM_TASK_TYPE_REQUIRED', 'WORKSTREAM_UNAVAILABLE'],
+  sideEffects: ENTRY_WRITES,
   request: { params: WorkstreamParams, body: { content: json(WorkstreamUpdateBody), required: true } },
   responses: { 200: savedReply, 404: notFound404, 422: owner422, 503: unavailable503 },
 })
@@ -252,6 +258,27 @@ function handle(app: OpenAPIHono<AppEnv>, route: ReturnType<typeof defineRoute>,
 
 const valid = <T,>(c: Context<AppEnv>, part: 'param' | 'query' | 'json') => (c.req as any).valid(part) as T
 
+/**
+ * The Tasks rules for an entry's Task type (FB-0017), run as the same person: the task is made and reassigned with
+ * the Tasks area's own checks and audit rows. Undefined without the database binding.
+ */
+function taskPortFor(c: Context<AppEnv>, actor: WorkstreamActor, now: string): WorkstreamTaskPort | undefined {
+  const queries = taskQueriesFor(c.env)
+  if (!queries) return undefined
+  const taskActor: TaskActor = { userId: actor.userId, email: actor.email ?? '', role: actor.role ?? '', requestId: actor.requestId }
+  return {
+    async create(input) {
+      const owner = { ...(input.clientId ? { clientId: input.clientId } : {}), ...(input.matterId ? { matterId: input.matterId } : {}) }
+      // The assignees are always given, so the creator's Task Settings default is never asked.
+      const saved = await createTask(queries, taskActor, { title: input.title, description: input.description, ...owner, assigneeUserIds: input.assigneeUserIds }, now, async () => false)
+      return saved.task.id
+    },
+    async assign(taskId, assigneeUserIds) {
+      await replaceTaskAssignees(queries, taskActor, taskId, { userIds: assigneeUserIds }, now)
+    },
+  }
+}
+
 export function registerWorkstream(app: OpenAPIHono<AppEnv>) {
   const now = () => new Date().toISOString()
   // Fixed paths first, so `feed`, `assignees` and `email` are never read as a `{wsid}`.
@@ -261,9 +288,15 @@ export function registerWorkstream(app: OpenAPIHono<AppEnv>) {
   handle(app, workstreamEmailPreviewRoute, 'email-preview', (q, actor, c) => previewEmail(q, actor, valid<WorkstreamEmailBody>(c, 'json')))
   handle(app, workstreamEmailSendRoute, 'email-send', (q, actor, c) => sendEmail(q, mailerFor(c.env as never), actor, valid<WorkstreamEmailBody>(c, 'json'), now()))
   handle(app, listWorkstreamRoute, 'list', (q, _actor, c) => listActivities(q, valid<WorkstreamListQuery>(c, 'query')))
-  handle(app, createWorkstreamRoute, 'create', (q, actor, c) => createActivity(q, actor, valid<WorkstreamCreateBody>(c, 'json'), now()))
+  handle(app, createWorkstreamRoute, 'create', (q, actor, c) => {
+    const at = now()
+    return createActivity(q, actor, valid<WorkstreamCreateBody>(c, 'json'), at, taskPortFor(c, actor, at))
+  })
   handle(app, getWorkstreamRoute, 'get', (q, _actor, c) => getActivity(q, valid<WorkstreamParams>(c, 'param').wsid))
-  handle(app, updateWorkstreamRoute, 'update', (q, actor, c) => updateActivity(q, actor, valid<WorkstreamParams>(c, 'param').wsid, valid<WorkstreamUpdateBody>(c, 'json'), now()))
+  handle(app, updateWorkstreamRoute, 'update', (q, actor, c) => {
+    const at = now()
+    return updateActivity(q, actor, valid<WorkstreamParams>(c, 'param').wsid, valid<WorkstreamUpdateBody>(c, 'json'), at, taskPortFor(c, actor, at))
+  })
   handle(app, moveWorkstreamRoute, 'move', (q, actor, c) => moveActivity(q, actor, valid<WorkstreamParams>(c, 'param').wsid, valid<WorkstreamMoveBody>(c, 'json').clientId, now(), valid<WorkstreamMoveBody>(c, 'json').matterId))
   handle(app, deleteWorkstreamRoute, 'delete', (q, actor, c) => deleteActivity(q, actor, valid<WorkstreamParams>(c, 'param').wsid))
 }

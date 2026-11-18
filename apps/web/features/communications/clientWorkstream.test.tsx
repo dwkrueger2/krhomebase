@@ -15,6 +15,7 @@ import WorkstreamActivityAddDialog from './components/WorkstreamActivityAddDialo
 import WorkstreamActivityCards from './components/WorkstreamActivityCards.client'
 import WorkstreamActivityLedger, { type WorkstreamActivityLedgerProps } from './components/WorkstreamActivityLedger.client'
 import WorkstreamSummaryCard from './components/WorkstreamSummaryCard.client'
+import { taskProblemSentence } from './components/ClientWorkstreamTab.client'
 import { generalMatterNumber, ledgerContextLine, ledgerRowFromActivity, mergeSavedActivity, nextStepsFromText, titleFromNote } from './workstreamLedgerRows'
 
 const activity = (extra: Partial<WorkstreamActivity> = {}): WorkstreamActivity => ({
@@ -39,6 +40,7 @@ const activity = (extra: Partial<WorkstreamActivity> = {}): WorkstreamActivity =
   documentLabel: null,
   taskId: null,
   assigneeUserId: 'u-dan',
+  assigneeUserIds: ['u-dan'],
   assigneeContactId: null,
   assigneeLabel: 'DK - Dan Krueger',
   performedByUserId: 'u-dan',
@@ -46,6 +48,8 @@ const activity = (extra: Partial<WorkstreamActivity> = {}): WorkstreamActivity =
   createdAt: '2026-11-13T15:30:00.000Z',
   updatedAt: null,
   ...extra,
+  // Every type of the entry (FB-0016): the main one alone unless the test gives the list.
+  subgroups: extra.subgroups ?? [extra.subgroup ?? 'Notes'],
 })
 
 const matter = (id: string, matterNumber: string, title: string): Matter => ({
@@ -112,6 +116,14 @@ describe('ledger rows', () => {
     expect(mergeSavedActivity(list, activity({ wsid: 'A000001', clientId: 'cl-501' }), 'cl-306').map((entry) => entry.wsid)).toEqual(['A000002'])
   })
 
+  it('labels an entry with several types once, with every type (FB-0016)', () => {
+    const row = ledgerRowFromActivity(activity({ subgroups: ['Notes', 'Tasks'] }), '306')
+    expect(row).toMatchObject({ subgroups: ['Notes', 'Tasks'], kindLabel: 'Note · Task' })
+    expect(ledgerContextLine(row)).toBe('Client 306 · Matter 306.1 · Note · Task · WSID AB12CD3')
+    expect(renderToStaticMarkup(<WorkstreamActivityCards presentation="SingleLine" row={row} onSelect={noop} onTogglePresentation={noop} />)).toContain('title="Note · Task"')
+    expect(taskProblemSentence('TASK_MATTER_NOT_FOR_CLIENT')).toContain('its task on the Tasks screen was not (TASK_MATTER_NOT_FOR_CLIENT)')
+  })
+
   it('takes the first line as the title (160 characters) and one next step per line', () => {
     expect(titleFromNote('  First   line\nsecond')).toBe('First line')
     expect(titleFromNote('x'.repeat(200))).toHaveLength(160)
@@ -169,6 +181,12 @@ describe('client WorkStream ledger', () => {
     expect(html).toContain('by Dan Krueger')
     expect(html).toContain('Open full view')
     expect(html).toContain('Edit note')
+    expect(html).not.toContain('workstream-summary-task')
+    // An entry with a task names it (FB-0017).
+    const withTask = renderToStaticMarkup(
+      <WorkstreamSummaryCard assigneeOptions={[]} canDelete={false} contacts={[]} row={ledgerRowFromActivity(activity({ subgroups: ['Notes', 'Tasks'], taskId: 'T4K9QWS' }), '306')} onDelete={async () => undefined} onReassigned={noop} onUpdate={async () => undefined} />,
+    )
+    expect(withTask).toContain('data-kr-element="workstream-summary-task">Task #T4K9QWS</span>')
   })
 
   it('draws Add activity with the client\'s matters, the default assignee and Other', () => {

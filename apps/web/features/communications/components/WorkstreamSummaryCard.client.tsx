@@ -20,6 +20,10 @@
  *  - Saves go through the parent (`onUpdate`, `onDelete`), which calls the API and replaces the row.
  *  - Density Contract: 8px card padding, 12px note text, 24px buttons, 4px corners; the full view is drawn into
  *    `document.body` with `data-kr-theme-scope` (AGENTS: portals).
+ *  - Nov 18, 2026 (FB-0016, FB-0017, web patch 570): the full view opens on a row's double-click (`openRequest`); its
+ *    type buttons have their colors (it is drawn outside the WorkStream panel, so it carries the panel's color class
+ *    from `Communications.module.css`); Edit note keeps every type chosen and, while Task is one, the task's people
+ *    (several), as the composer does. A task named on the entry shows as "Task #<id>".
  */
 
 import type { WorkstreamActivity, WorkstreamSubgroup } from '@krhomebase/contracts'
@@ -29,19 +33,23 @@ import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.
 import KRCopyButton from '@/components/ui/KRCopyButton.client'
 import type { KRContactRecord } from '@/features/contacts/types'
 import { communicationDateLabel, sanitizeWorkstreamNoteHtml } from '../communicationTypes'
-import { LEDGER_ACTIVITY_LABELS, ledgerContextLine, type LedgerActivityRow } from '../workstreamLedgerRows'
+import { activityTypesLabel, activityTypesOf, ledgerContextLine, type LedgerActivityRow } from '../workstreamLedgerRows'
+// Read, not only imported: a CSS module imported for its side effect is left out of the production build (web patch 554).
+import communicationColors from './Communications.module.css'
 import WorkstreamEditor, { type WorkstreamEditorAssigneeOption } from './WorkstreamEditor.client'
 import WorkstreamReassignDialog from './WorkstreamReassignDialog.client'
 
 /** The fields the full-view edit saves. */
 export interface WorkstreamSummaryUpdate {
-  subgroup: WorkstreamSubgroup
+  /** Every type chosen, the main one first (FB-0016). */
+  subgroups: WorkstreamSubgroup[]
   title: string
   note: string
   /** HTML from the editor; null turns the note back to plain text. */
   noteHtml: string | null
   nextSteps: string[]
-  assigneeUserId: string | null
+  /** The task's people, sent only while Task is one of the types (FB-0017). */
+  assigneeUserIds?: string[]
 }
 
 export interface WorkstreamSummaryCardProps {
@@ -57,6 +65,8 @@ export interface WorkstreamSummaryCardProps {
   onDelete: (wsid: string) => Promise<void>
   /** The entry after a reassign (it may now belong to another client). */
   onReassigned: (activity: WorkstreamActivity) => void
+  /** Grows each time this entry's row is double-clicked: the full view opens (FB-0016). 0 or left out: never. */
+  openRequest?: number
 }
 
 /** Color, type, border, and general-esthetic utilities. */
@@ -131,13 +141,14 @@ function matterLabel(row: LedgerActivityRow): string {
 }
 
 /** Renders the selected entry's card and its full view. */
-export default function WorkstreamSummaryCard({ assigneeOptions, canDelete, contacts, onDelete, onReassigned, onUpdate, row }: WorkstreamSummaryCardProps) {
+export default function WorkstreamSummaryCard({ assigneeOptions, canDelete, contacts, onDelete, onReassigned, onUpdate, openRequest = 0, row }: WorkstreamSummaryCardProps) {
   const { activity } = row
+  const savedTypes = activityTypesOf(activity)
+  const savedTypesKey = savedTypes.join(',')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(activity.title)
-  const [editType, setEditType] = useState<WorkstreamSubgroup>(activity.subgroup)
-  const [editAssignee, setEditAssignee] = useState<string | null>(activity.assigneeUserId)
+  const [editTypes, setEditTypes] = useState<WorkstreamSubgroup[]>(savedTypes)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteError, setDeleteError] = useState('')
@@ -149,9 +160,13 @@ export default function WorkstreamSummaryCard({ assigneeOptions, canDelete, cont
     setDialogOpen(false)
     setEditing(false)
     setEditTitle(activity.title)
-    setEditType(activity.subgroup)
-    setEditAssignee(activity.assigneeUserId)
-  }, [activity.assigneeUserId, activity.subgroup, activity.title, activity.updatedAt, row.id])
+    setEditTypes(savedTypesKey.split(',') as WorkstreamSubgroup[])
+  }, [activity.title, activity.updatedAt, row.id, savedTypesKey])
+
+  // A double-click on this entry's row opens the full view (after the reset above, which runs first).
+  useEffect(() => {
+    if (openRequest > 0) setDialogOpen(true)
+  }, [openRequest])
 
   useEffect(() => {
     if (!dialogOpen) return undefined
@@ -167,14 +182,15 @@ export default function WorkstreamSummaryCard({ assigneeOptions, canDelete, cont
 
   function openEditor(): void {
     setEditTitle(activity.title)
-    setEditType(activity.subgroup)
-    setEditAssignee(activity.assigneeUserId)
+    setEditTypes(savedTypes)
     setDialogOpen(true)
     setEditing(true)
   }
 
-  async function saveEdit(note: string, nextSteps: string[], noteHtml?: string): Promise<void> {
-    await onUpdate(row.id, { subgroup: editType, title: editTitle.trim() || activity.title, note, noteHtml: noteHtml ?? null, nextSteps, assigneeUserId: editAssignee })
+  async function saveEdit(note: string, nextSteps: string[], noteHtml?: string, assigneeUserIds?: string[]): Promise<void> {
+    const update: WorkstreamSummaryUpdate = { subgroups: editTypes, title: editTitle.trim() || activity.title, note, noteHtml: noteHtml ?? null, nextSteps }
+    if (editTypes.includes('Tasks')) update.assigneeUserIds = assigneeUserIds ?? activity.assigneeUserIds
+    await onUpdate(row.id, update)
     setEditing(false)
   }
 
@@ -210,10 +226,18 @@ export default function WorkstreamSummaryCard({ assigneeOptions, canDelete, cont
               if (event.target === event.currentTarget && !editing) setDialogOpen(false)
             }}
           >
-            <section aria-labelledby={titleId} aria-modal="true" className={`${LAYOUT_STYLES.dialog} ${STYLES.dialog}`} data-kr-id="workstream-summary-edit-dialog" role="dialog">
+            <section
+              aria-labelledby={titleId}
+              aria-modal="true"
+              className={`${LAYOUT_STYLES.dialog} ${STYLES.dialog} ${communicationColors.panelColors}`}
+              data-kr-id="workstream-summary-edit-dialog"
+              role="dialog"
+            >
               <header className={`${LAYOUT_STYLES.dialogHeader} ${STYLES.dialogRule}`}>
                 <div>
-                  <p className={STYLES.dialogEyebrow}>{LEDGER_ACTIVITY_LABELS[editing ? editType : activity.subgroup]} · {editing ? 'edit' : 'full view'}</p>
+                  <p className={STYLES.dialogEyebrow}>
+                    {activityTypesLabel(editing ? editTypes : savedTypes)} · {editing ? 'edit' : 'full view'}
+                  </p>
                   <h2 className={STYLES.dialogTitle} id={titleId}>
                     {activity.title}
                   </h2>
@@ -234,16 +258,15 @@ export default function WorkstreamSummaryCard({ assigneeOptions, canDelete, cont
                 {editing ? (
                   <WorkstreamEditor
                     key={`${row.id}-${activity.updatedAt ?? ''}`}
-                    activityType={editType}
+                    activityTypes={editTypes}
                     assigneeOptions={assigneeOptions}
-                    assigneeUserId={editAssignee}
+                    assigneeUserIds={activity.assigneeUserIds ?? []}
                     dataKrElement="workstream-edit-editor"
                     nextSteps={activity.nextSteps}
                     note={activity.note}
                     noteHtml={activity.noteHtml}
                     title={editTitle}
-                    onActivityTypeChange={setEditType}
-                    onAssigneeChange={setEditAssignee}
+                    onActivityTypesChange={setEditTypes}
                     onCancel={() => setEditing(false)}
                     onSave={saveEdit}
                     onTitleChange={setEditTitle}
@@ -265,6 +288,8 @@ export default function WorkstreamSummaryCard({ assigneeOptions, canDelete, cont
                         {activity.documentLabel || activity.documentUrl}
                       </a>
                     ) : null}
+                    {/* The task made for the Task type (Tasks screen). */}
+                    {activity.taskId ? <p className={STYLES.dialogHelper}>Task #{activity.taskId}</p> : null}
                     <p className={STYLES.dialogHelper}>{updatedLine(activity)}</p>
                   </>
                 )}
@@ -314,6 +339,11 @@ export default function WorkstreamSummaryCard({ assigneeOptions, canDelete, cont
               {activity.documentLabel || activity.documentUrl}
             </a>
           </div>
+        ) : null}
+        {activity.taskId ? (
+          <span className={STYLES.updated} data-kr-element="workstream-summary-task">
+            Task #{activity.taskId}
+          </span>
         ) : null}
         <span className={STYLES.updated}>{updatedLine(activity)}</span>
         <div className={LAYOUT_STYLES.actions}>

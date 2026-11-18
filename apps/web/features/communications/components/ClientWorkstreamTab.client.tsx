@@ -18,6 +18,10 @@
  *  - The contacts feature passes the client's matters (`useClientMatters`), so the matter choices need no request.
  *
  * Saves go to the live database, also under `pnpm dev`.
+ *
+ * Changed Nov 18, 2026 (FB-0016, FB-0017, web patch 570): a row's double-click opens its full view; an edit sends
+ * every type chosen and, with Task, the task's people; a task the API could not make or reassign (`taskError`)
+ * keeps the saved entry and says so.
  */
 
 import type { Matter, WorkstreamActivity, WorkstreamAssignee } from '@krhomebase/contracts'
@@ -60,6 +64,30 @@ function reason(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback
 }
 
+/** Spacing for the task notice above the ledger. */
+const LAYOUT_STYLES = {
+  notice: 'mb-[4px]',
+} as const
+
+/** The task notice: a short warning line in the danger color. */
+const STYLES = {
+  notice: 'text-[11px] font-[700] text-(color:--kr-theme-danger)',
+// b1: ' border-red-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
+// b2: ' border-blue-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
+// b3: ' border-green-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
+// b4: ' border-purple-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
+} as const
+
+// const b1 = STYLES.b1
+// const b2 = STYLES.b2
+// const b3 = STYLES.b3
+// const b4 = STYLES.b4
+
+/** The sentence for a saved entry whose task could not be made or reassigned (FB-0017). */
+export function taskProblemSentence(taskError: string): string {
+  return `The entry was saved, but its task on the Tasks screen was not (${taskError}). Save it again to try once more.`
+}
+
 /** Renders a client's WorkStream tab. */
 export default function ClientWorkstreamTab({ clientId, clientNumber, displayName, matters, viewer = null }: ClientWorkstreamTabProps) {
   const contacts = useOptionalDataStore()?.contacts ?? NO_CONTACTS
@@ -76,6 +104,10 @@ export default function ClientWorkstreamTab({ clientId, clientNumber, displayNam
   const [overrides, setOverrides] = useState<Record<string, LedgerRowPresentation>>({})
   const [addOpen, setAddOpen] = useState(false)
   const [emailOpen, setEmailOpen] = useState(false)
+  // A row's double-click: which entry's full view to open, counted so the same row can open it again (FB-0016).
+  const [openRequest, setOpenRequest] = useState<{ id: string; count: number }>({ id: '', count: 0 })
+  // A new entry saved without its task (FB-0017): said above the ledger until the next save.
+  const [taskNotice, setTaskNotice] = useState<string | null>(null)
   const requestRef = useRef(0)
 
   const sortedMatters = useMemo(() => [...matters].sort((left, right) => matterSequence(left) - matterSequence(right)), [matters])
@@ -146,7 +178,7 @@ export default function ClientWorkstreamTab({ clientId, clientNumber, displayNam
   }
 
   async function create(input: WorkstreamActivityCreateInput): Promise<void> {
-    const { activity } = await createWorkstreamEntry({
+    const { activity, taskError } = await createWorkstreamEntry({
       subgroup: input.subgroup,
       clientId,
       matterId: input.matterId ?? undefined,
@@ -159,11 +191,19 @@ export default function ClientWorkstreamTab({ clientId, clientNumber, displayNam
     })
     keep(activity)
     setAddOpen(false)
+    setTaskNotice(taskError ? taskProblemSentence(taskError) : null)
+    if (taskError) L(`[CLIENT_WORKSTREAM:180] task not made wsid=${activity.wsid} code=${taskError}`)
   }
 
   async function update(wsid: string, change: WorkstreamSummaryUpdate): Promise<void> {
-    const { activity } = await updateWorkstreamEntry(wsid, change)
+    const { activity, taskError } = await updateWorkstreamEntry(wsid, change)
     keep(activity)
+    setTaskNotice(null)
+    if (taskError) {
+      L(`[CLIENT_WORKSTREAM:180] task not saved wsid=${wsid} code=${taskError}`)
+      // The entry is saved; the editor shows the sentence and stays open for another try.
+      throw new Error(taskProblemSentence(taskError))
+    }
   }
 
   async function remove(wsid: string): Promise<void> {
@@ -186,6 +226,12 @@ export default function ClientWorkstreamTab({ clientId, clientNumber, displayNam
 
   return (
     <div data-kr-id={`ClientWorkstreamTab-${clientNumber ?? clientId}`}>
+      {/* A saved entry whose task was not made (FB-0017); Edit note and save it again to try once more. */}
+      {taskNotice ? (
+        <p className={`${LAYOUT_STYLES.notice} ${STYLES.notice}`} data-kr-element="workstream-task-notice" role="alert">
+          {taskNotice}
+        </p>
+      ) : null}
       <WorkstreamActivityLedger
         contextLabel={`${clientLabel} · ${matterLine}`}
         error={error}
@@ -204,6 +250,7 @@ export default function ClientWorkstreamTab({ clientId, clientNumber, displayNam
             onDelete={remove}
             onReassigned={(moved) => keep(moved, false)}
             onUpdate={update}
+            openRequest={openRequest.id === row.id ? openRequest.count : 0}
           />
         )}
         rows={rows}
@@ -217,6 +264,10 @@ export default function ClientWorkstreamTab({ clientId, clientNumber, displayNam
           setSelectedId(null)
         }}
         onLoadMore={() => void loadMore()}
+        onOpen={(id) => {
+          setSelectedId(id)
+          setOpenRequest((current) => ({ id, count: current.count + 1 }))
+        }}
         onPresentationChange={(next) => {
           setPresentation(next)
           setOverrides({})

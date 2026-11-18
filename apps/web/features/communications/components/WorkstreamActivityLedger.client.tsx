@@ -19,6 +19,7 @@
  *  - The selected entry's card slides out to the right (the requester, Nov 16, 2026, web patch 554): the narrow tab on
  *    its left edge hides it, so the rows take the width, and brings it back. The choice is remembered in this browser
  *    (`localStorage`, read after mount; the card shows when storage cannot be read).
+ *  - Nov 18, 2026 (FB-0016, web patch 570): a row's double-click opens that entry's full view (`onOpen`).
  */
 
 import { useEffect, useId, useState, type ReactNode } from 'react'
@@ -41,6 +42,8 @@ export interface WorkstreamActivityLedgerProps {
   /** Rows switched apart from the ledger-wide presentation. */
   presentationOverrides: Readonly<Record<string, LedgerRowPresentation>>
   onToggleRow: (row: LedgerActivityRow) => void
+  /** A row's double-click: open that entry's full view (FB-0016). */
+  onOpen?: (id: string) => void
   loading: boolean
   /** The reason the list could not be read, or null. */
   error: string | null
@@ -120,7 +123,7 @@ const DETAIL_HIDDEN_KEY = 'kr.workstream.summaryCardHidden'
 
 /** Renders the client WorkStream ledger. */
 export default function WorkstreamActivityLedger(props: WorkstreamActivityLedgerProps) {
-  const { contextLabel, error, filter, hasMore, loading, loadingMore, onAdd, onEmail, onFilterChange, onLoadMore, onPresentationChange, onRetry, onSelect, onToggleRow, presentation, presentationOverrides, renderDetail, rows, selectedId, subtitle, title } = props
+  const { contextLabel, error, filter, hasMore, loading, loadingMore, onAdd, onEmail, onFilterChange, onLoadMore, onOpen, onPresentationChange, onRetry, onSelect, onToggleRow, presentation, presentationOverrides, renderDetail, rows, selectedId, subtitle, title } = props
   const selected = rows.find((row) => row.id === selectedId) ?? rows[0] ?? null
   const detailId = useId()
   const [detailHidden, setDetailHidden] = useState(false)
@@ -211,7 +214,15 @@ export default function WorkstreamActivityLedger(props: WorkstreamActivityLedger
             </div>
           ) : rows.length ? (
             rows.map((row) => (
-              <WorkstreamActivityCards key={row.id} presentation={presentationOverrides[row.id] ?? presentation} row={row} selected={selected?.id === row.id} onSelect={(chosen) => onSelect(chosen.id)} onTogglePresentation={onToggleRow} />
+              <WorkstreamActivityCards
+                key={row.id}
+                presentation={presentationOverrides[row.id] ?? presentation}
+                row={row}
+                selected={selected?.id === row.id}
+                onOpen={onOpen ? (chosen) => onOpen(chosen.id) : undefined}
+                onSelect={(chosen) => onSelect(chosen.id)}
+                onTogglePresentation={onToggleRow}
+              />
             ))
           ) : (
             <p className={`${LAYOUT_STYLES.status} ${STYLES.empty}`}>No Workstream activity matches this filter.</p>

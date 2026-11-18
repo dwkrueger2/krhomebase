@@ -16,6 +16,7 @@
  * - Reactions, quotes, the "＋ 🙂" reaction button and the "⋮" more-actions button are gone: the API stores none of
  *   them and both buttons did nothing. Reply stays (it selects the entry, as before) with an SVG icon.
  * - Density Contract: 24px avatars, 3px row padding, 4px corners on the bubble (it had 3px and 14px), 12px text.
+ * - Nov 18, 2026 (FB-0016, web patch 570): the type badge names every type of the entry ("Note + Task").
  */
 
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
@@ -170,7 +171,10 @@ export default function CommunicationThread({ collapsedView, contextLabel = 'Fir
       <div className={LAYOUT_STYLES.messageList}>
         {messages.length ? messages.map((message) => {
           const selected = message.wsid === selectedWsid
-          const activityLabel = WORKSTREAM_COMMUNICATION_ACTIVITY_OPTIONS.find((option) => option.value === message.activityType)?.label ?? message.activityType
+          // Every type of the entry, the main one first (FB-0016): "Note + Task".
+          const activityLabel = (message.activityTypes?.length ? message.activityTypes : [message.activityType])
+            .map((type) => WORKSTREAM_COMMUNICATION_ACTIVITY_OPTIONS.find((option) => option.value === type)?.label ?? type)
+            .join(' + ')
           const expanded = !collapsedView || expandedMessageIds.has(message.wsid)
           return (
             <article key={message.wsid} className={`${LAYOUT_STYLES.row} ${collapsedView ? LAYOUT_STYLES.collapsedRow : ''} ${STYLES.row} ${selected ? STYLES.rowSelected : ''}`} data-kr-collapsed-expanded={collapsedView ? expanded : undefined} data-kr-element="communication-entry" onClick={() => toggleMessage(message)}>

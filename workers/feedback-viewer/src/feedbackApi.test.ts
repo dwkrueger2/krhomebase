@@ -60,12 +60,14 @@ describe('feedbackApi', () => {
     await feedback.change(12, { status: 'done', priority: 'normal', note: '   ' })
     await feedback.addNote(12, '  Looked at it. ')
     await feedback.viewer()
+    await feedback.whoIsCalling()
     expect(calls).toEqual([
       { method: 'GET', path: '/v1/homebase-feedback/12' },
       { method: 'PATCH', path: '/v1/homebase-feedback/12', body: { status: 'planned', priority: 'high', note: 'Next week.' } },
       { method: 'PATCH', path: '/v1/homebase-feedback/12', body: { status: 'done', priority: 'normal' } },
       { method: 'POST', path: '/v1/homebase-feedback/12/notes', body: { text: 'Looked at it.' } },
       { method: 'GET', path: '/v1/homebase-feedback?limit=1' },
+      { method: 'GET', path: '/v1/tools/context' },
     ])
   })
 })

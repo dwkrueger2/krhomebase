@@ -1,7 +1,7 @@
 # Homebase Feedback Viewer (an outside tool built with the tool kit)
 
-<small>Version 2.7</small><br>
-<small>Updated Nov 17, 2026 10:10pm</small>
+<small>Version 2.8</small><br>
+<small>Updated Nov 18, 2026 9:40am</small>
 
 ## Read this first: this tool is a test of the KR Homebase tool kit
 
@@ -36,7 +36,7 @@ KR Homebase shows this page in a sealed frame when a developer chooses **Feedbac
 |---|---|
 | The list (`#/`) | Two tables (tool version 1.4.0, the requester, Nov 17, 2026; `src/listTables.ts`). **Open Items** on top: every request not Completed or Will not do, sorted developers' requests first (1.5.0: the **D** column, a small orange D left of From for a sender with the Internal Developer or Super Admin role set; the API's `submittedByDeveloper`), then P1 first, then status in workflow order, then the newest number. **Completed Items** below: Completed and Will not do, newest number first. Each table shows 10, 25, 50 or 100 rows a page (10 to start, keeping ten rows of height so the table below does not jump) with Previous and Next, and sorts from its **Number**, **Status**, **Priority** and **D** headings (a second click reverses). The Kind filter applies to both. The API lists newest first only, so the tool loads every request (100 a call) and sorts and pages them in the page; sorting and paging use that copy, which is read again after a request was open. Kind, status and priority are small colored pills; each row has a clear tint of its status color and a bar on the left. The status `done` shows as **Completed**. |
 | One request (`#/FB-0012`) | **‹ Previous** and **Next ›** to the requests around it in the list it was opened from, and **All requests**. The title with its kind, status and priority pills. The request's text and its markers (with whether each was on the page when sent, and where). The page it was sent from (address, section, open item, `kr-web-version`, deployment id and time, window size, theme). Its screenshots, each with its marks in words ("Rectangle around `data-kr-element=...`"). Its notes. A **Copy for Claude** box holding `plan FB-0012`. |
-| Status, priority and notes | One form: status, priority (P1 Urgent to P4 Low) and an optional note. **Save and Mark Complete** (1.6.0, FB-0013) beside it, in the Completed color, while the request is still open: one click saves the form with the status Completed. **Save Changes** keeps its place but shows, in Signal Orange, only while the form differs from what is saved, with what it will change written beside it (kit rule 4); one click saves. A note alone is saved as a plain note. Leaving a request with unsaved changes asks **Leave without saving?** (Leave, Stay) in the tool's own dialog (KR Homebase `AGENTS.md`, "Unsaved Changes Standard"). |
+| Status, priority and notes | One form: status, priority (P1 Urgent to P4 Low) and an optional note. **Save and Mark Complete** (1.6.0, FB-0013) beside it, in the Completed color, while the request is still open: one click saves the form with the status Completed. Since 1.7.0 (the requester, Nov 18, 2026) its note ends with **FB Marked complete by** and the signed-in person's name, on a line of its own (the name from `GET /v1/tools/context`; the status change note records the person too), and once saved the request closes and the list shows again with "FB-0014 saved and marked Completed." above it. Notes keep their line breaks. **Save Changes** keeps its place but shows, in Signal Orange, only while the form differs from what is saved, with what it will change written beside it (kit rule 4); one click saves. A note alone is saved as a plain note. Leaving a request with unsaved changes asks **Leave without saving?** (Leave, Stay) in the tool's own dialog (KR Homebase `AGENTS.md`, "Unsaved Changes Standard"). |
 
 **Markers** (bottom right): KR Homebase's Dev View and Pick from page cannot see inside this tool's frame (another site, sandboxed), so the viewer has its own small switch. While it is on, every `data-kr-element` and `data-kr-id` marker of the viewer is outlined; a click copies the marker (`data-kr-element="feedback-viewer-save"`) for a feedback request instead of doing anything else, and shows it selected for Ctrl+C when the frame refuses the clipboard. Escape stops. `src/markerPick.ts`.
 
@@ -90,7 +90,7 @@ The super admin enters these values in **Settings → Application Settings → O
 ```text
 Tool: Feedback Viewer
 Description: Lists the numbered Homebase Feedback requests (FB-0012) for Internal Developers: read, triage, add notes, copy for Claude.
-Version: 1.6.0
+Version: 1.7.0
 Built-in fallback icon: tool (KR Homebase default)
 Address (entry URL): https://krhomebase-feedback-viewer.dankrueger.workers.dev/
 Health route: https://krhomebase-feedback-viewer.dankrueger.workers.dev/health-check
@@ -103,7 +103,7 @@ Server access (client secret): no
 - **Roles:** a person sees the tool when their account's role is any one of the ticked roles. Super admin is always ticked and locked (KR Homebase adds it to every tool). The real limit is the Internal Developer role set (check 4.5 above): a person with a listed role but without that role set is refused.
 - **Shown: Developers only** (KR Homebase repository patch 58, migration 058): tick it, so only people who hold the Internal Developer role set (`developer_tools` read) see the tool in the menu; without it everyone with a listed role saw the menu item and was refused inside. The kit's `defineTool` has no field for this option, so the sheet does not print it ("What this test found", item 9).
 - **Icon route:** the tool serves its own menu icon at `/tool-icon.svg` (`public/tool-icon.svg`): a speech bubble behind a magnifying glass with "FB" drawn in its lens, so it does not read as a search icon. KR Homebase reads it each time the registration is saved; nothing is pasted. The fallback is KR Homebase's default tool icon (the orange diamond). `src/tool.test.ts` checks the file passes `checkToolIcon`.
-- **Health route:** every tool must answer `/health-check` (kit guide). This tool serves `public/health-check`, `{ "status": "ok", "version": "1.6.0", "protocol": 1 }`; `src/tool.test.ts` checks it equals `healthDocument(tool)`. **Check health** on the registration form reads it (and the icon route), and **Details** shows the raw answer. When a person opens the tool and it does not answer, KR Homebase shows a notice in place of the tool, with Try again and Open anyway.
+- **Health route:** every tool must answer `/health-check` (kit guide). This tool serves `public/health-check`, `{ "status": "ok", "version": "1.7.0", "protocol": 1 }`; `src/tool.test.ts` checks it equals `healthDocument(tool)`. **Check health** on the registration form reads it (and the icon route), and **Details** shows the raw answer. When a person opens the tool and it does not answer, KR Homebase shows a notice in place of the tool, with Try again and Open anyway.
 
 ## Files
 
@@ -194,7 +194,7 @@ Both must answer "Success! Uploaded secret KR_FEEDBACK_IMAGE_TICKET_SECRET". To 
 ### 3. Register the tool (super admin, in KR Homebase)
 
 1. **Settings → Application Settings → Outside tools → Register tool.**
-2. Enter the values from the registration sheet above: the menu label, description and tool address (leave the fallback icon at `tool (default)`). Press **Check health**: it must say "Answers, version 1.6.0", and the preview beside the fallback icon shows the FB icon.
+2. Enter the values from the registration sheet above: the menu label, description and tool address (leave the fallback icon at `tool (default)`). Press **Check health**: it must say "Answers, version 1.7.0", and the preview beside the fallback icon shows the FB icon.
 3. Tick both permissions, `homebase-feedback:read` and `homebase-feedback:write`.
 4. Tick the roles from the sheet (any one of them sees the tool; add your own role if it is not there). Under **Shown**, tick **Developers only**. Leave server access off.
 5. Save. KR Homebase gives the tool a client id (`krt_...`). The tool does not need it in its code, because KR Homebase sends it when the frame connects.

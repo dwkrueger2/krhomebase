@@ -4,7 +4,11 @@
  * (Schema 8.0):
  *
  * - `workstream_activity`: the entries. Exactly one of `client_id` and `lead_id`; `wsid` UNIQUE (seven letters and
- *   digits); `subgroup` one of the seven activity types; `visibility` always `internal`.
+ *   digits); `subgroup` one of the seven activity types (the main one); `visibility` always `internal`; `task_id` the
+ *   task made for the Task type (FB-0017; no foreign key, so the entry can still be deleted).
+ * - `workstream_activity_type` (migration 002, FB-0016): the entry's other activity types, one row each
+ *   (`activity_id`, `subgroup`), removed with the entry. A type filter matches the main type or any of these.
+ * - `task_assignee`: read only, the current assignees of an entry's task (`assigneeUserIds`).
  * - `client`, `lead`, `matter`, `matter_party`: the owner checks and the labels on each entry. A matter belongs to a
  *   client through its primary-client `matter_party` row; the `.0` matter is the client's General Matters.
  * - `user`, `individual`, `employee`: the assignee list and the "recorded by" name.
@@ -53,6 +57,10 @@ export interface ActivityRow {
   assignee_user_id: string | null
   assignee_contact_id: string | null
   assignee_label: string | null
+  /** JSON array of the other activity types (`workstream_activity_type`). */
+  extra_subgroups_json: string | null
+  /** JSON array of the task's current assignee user ids, oldest assignment first; null without a task. */
+  task_assignee_ids_json: string | null
   performed_by_user_id: string | null
   performer_preferred_name: string | null
   performer_first_name: string | null
@@ -125,6 +133,8 @@ export interface ActivityInsert {
   leadId: string | null
   matterId: string | null
   subgroup: string
+  /** The other activity types, saved as `workstream_activity_type` rows in the same batch. */
+  extraSubgroups: readonly string[]
   activityAt: string
   subject: string
   noteBody: string | null
@@ -147,6 +157,8 @@ export interface ActivityUpdate {
   leadId: string | null
   matterId: string | null
   subgroup: string
+  /** The new set of other activity types, or null to leave the `workstream_activity_type` rows as they are. */
+  extraSubgroups: readonly string[] | null
   activityAt: string
   subject: string
   noteBody: string | null
@@ -171,6 +183,8 @@ export interface WorkstreamQueries {
   /** Saves a new entry; false when its `wsid` was already taken. */
   insert(row: ActivityInsert, audit: AuditEntry): Promise<boolean>
   update(row: ActivityUpdate, audit: AuditEntry): Promise<void>
+  /** Keeps the task made for the entry's Task type (FB-0017). */
+  linkTask(id: string, taskId: string, now: string, audit: AuditEntry): Promise<void>
   remove(id: string, audit: AuditEntry): Promise<void>
   /** Active staff users (no `client` or `external_cpa` accounts), with names and staff codes. */
   staffUsers(): Promise<PersonRow[]>
@@ -183,7 +197,14 @@ export interface WorkstreamQueries {
 const ACTIVITY_SELECT = `SELECT w.id, w.wsid, w.subgroup, w.client_id, c.client_number, c.display_name AS client_display_name,
        w.lead_id, l.lcid, w.matter_id, m.matter_number, m.title AS matter_title, w.activity_at, w.subject, w.note_body,
        w.note_format, w.next_steps_json, w.document_record_id, w.document_url, w.document_label, w.task_id,
-       w.assignee_user_id, w.assignee_contact_id, w.assignee_label, w.performed_by_user_id,
+       w.assignee_user_id, w.assignee_contact_id, w.assignee_label,
+       (SELECT json_group_array(t.subgroup) FROM workstream_activity_type t WHERE t.activity_id = w.id) AS extra_subgroups_json,
+       CASE WHEN w.task_id IS NULL THEN NULL ELSE
+         (SELECT json_group_array(a.user_id) FROM (SELECT ta.user_id FROM task_assignee ta JOIN task tk ON tk.id = ta.task_id
+            WHERE ta.task_id = w.task_id AND ta.assignment_role = 'assignee' AND ta.is_current = 1
+            -- The first assignee (task.assigned_to_user_id) first: assignees saved together share one assigned_at.
+            ORDER BY ta.user_id IS tk.assigned_to_user_id DESC, ta.assigned_at, ta.id) a) END AS task_assignee_ids_json,
+       w.performed_by_user_id,
        pi.preferred_name AS performer_preferred_name, pi.first_name AS performer_first_name, pi.last_name AS performer_last_name,
        pu.email AS performer_email, w.created_at, w.updated_at
   FROM workstream_activity w
@@ -200,6 +221,13 @@ export function createWorkstreamQueries(db: D1Database): WorkstreamQueries {
     } catch (error) {
       throw new WorkstreamUnavailableError(error)
     }
+  }
+
+  /** One `workstream_activity_type` row per other activity type of an entry. */
+  function typeStatements(activityId: string, subgroups: readonly string[], now: string): D1PreparedStatement[] {
+    return subgroups.map((subgroup) =>
+      db.prepare('INSERT INTO workstream_activity_type (activity_id, subgroup, created_at) VALUES (?1, ?2, ?3)').bind(activityId, subgroup, now),
+    )
   }
 
   function personSelect(where: string) {
@@ -253,8 +281,17 @@ export function createWorkstreamQueries(db: D1Database): WorkstreamQueries {
           const matter = bind(filter.matterId)
           where.push(filter.includeNoMatter ? `(w.matter_id = ${matter} OR w.matter_id IS NULL)` : `w.matter_id = ${matter}`)
         }
-        if (filter.subgroup) where.push(`w.subgroup = ${bind(filter.subgroup)}`)
-        if (filter.subgroups?.length) where.push(`w.subgroup IN (SELECT value FROM json_each(${bind(JSON.stringify(filter.subgroups))}))`)
+        // A type matches the main type or any other type of the entry (FB-0016).
+        if (filter.subgroup) {
+          const one = bind(filter.subgroup)
+          where.push(`(w.subgroup = ${one} OR EXISTS (SELECT 1 FROM workstream_activity_type t WHERE t.activity_id = w.id AND t.subgroup = ${one}))`)
+        }
+        if (filter.subgroups?.length) {
+          const many = bind(JSON.stringify(filter.subgroups))
+          where.push(
+            `(w.subgroup IN (SELECT value FROM json_each(${many})) OR EXISTS (SELECT 1 FROM workstream_activity_type t WHERE t.activity_id = w.id AND t.subgroup IN (SELECT value FROM json_each(${many}))))`,
+          )
+        }
         if (filter.assigneeUserId) where.push(`w.assignee_user_id = ${bind(filter.assigneeUserId)}`)
         if (cursor) {
           const at = bind(cursor.activityAt)
@@ -301,6 +338,7 @@ export function createWorkstreamQueries(db: D1Database): WorkstreamQueries {
               row.performedByUserId,
               row.now,
             ),
+          ...typeStatements(row.id, row.extraSubgroups, row.now),
           auditStatement(db, audit),
         ])
         return true
@@ -337,9 +375,14 @@ export function createWorkstreamQueries(db: D1Database): WorkstreamQueries {
               row.assigneeLabel,
               row.now,
             ),
+          ...(row.extraSubgroups ? [db.prepare('DELETE FROM workstream_activity_type WHERE activity_id = ?1').bind(row.id), ...typeStatements(row.id, row.extraSubgroups, row.now)] : []),
           auditStatement(db, audit),
         ]),
       )
+    },
+
+    async linkTask(id, taskId, now, audit) {
+      await run(() => db.batch([db.prepare('UPDATE workstream_activity SET task_id = ?2, updated_at = ?3 WHERE id = ?1').bind(id, taskId, now), auditStatement(db, audit)]))
     },
 
     async remove(id, audit) {

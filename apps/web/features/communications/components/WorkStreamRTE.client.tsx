@@ -23,6 +23,8 @@
  *   mock state belonged to a test prototype.
  * - The send button is a 24px square with 4px corners and the `send` icon (it was a 26px circle); the editor box has
  *   4px corners (7px before) and 12px text with 1.3 line height. Ellipses are "...".
+ * - Nov 18, 2026 (FB-0017, web patch 570): a cleared note is emptied, so the prompt shows again; the edit dialog
+ *   starts the task assignees from the entry (`initialAssigneeUserIds`).
  */
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
@@ -63,6 +65,8 @@ export interface WorkStreamRTEProps {
   /** Contacts for the cue lookups and the client lookup (the browser's data store). */
   contextCandidates?: readonly KRContactRecord[]
   assigneeOptions?: readonly WorkStreamRTEAssigneeOption[]
+  /** The task assignees chosen at first (the edit dialog: the entry's own); left out, the current user. */
+  initialAssigneeUserIds?: readonly string[]
   matterOptions?: readonly WorkStreamRTEMatterOption[]
   selectedMatterNumber?: string | null
   onMatterChange?: (matter: WorkStreamRTEMatterOption | null) => void
@@ -146,6 +150,7 @@ export default function WorkStreamRTE({
   disabled = false,
   editorAriaLabel = 'WorkStream rich text editor',
   editorDataKrElement = 'communications-composer-input-workstream-editor',
+  initialAssigneeUserIds,
   initialBody = '',
   initialHtml,
   leadButtonLabel,
@@ -170,7 +175,7 @@ export default function WorkStreamRTE({
   const [contextMatches, setContextMatches] = useState<KRContactRecord[]>([])
   const [contextLookupLoading, setContextLookupLoading] = useState(false)
   const [contextHighlightedIndex, setContextHighlightedIndex] = useState(0)
-  const [assigneeIds, setAssigneeIds] = useState<string[]>(currentUserId ? [currentUserId] : [])
+  const [assigneeIds, setAssigneeIds] = useState<string[]>(() => (initialAssigneeUserIds ? [...initialAssigneeUserIds] : currentUserId ? [currentUserId] : []))
   const [linkEditorOpen, setLinkEditorOpen] = useState(false)
   const [linkLabel, setLinkLabel] = useState('')
   const [linkUrl, setLinkUrl] = useState('')
@@ -349,6 +354,8 @@ export default function WorkStreamRTE({
    * then the draft and its cue are updated.
    */
   function handleInput(element: HTMLDivElement): void {
+    // FB-0017: a cleared editor keeps a stray line break, so `:empty` (the prompt) never matched again; empty it.
+    if (!(element.textContent ?? '').trim() && !element.querySelector('a, img')) element.innerHTML = ''
     const nextBody = element.innerText || element.textContent || ''
     const trigger = detectCommunicationActivityTypeTrigger(nextBody)
     if (!trigger) suppressedAutoTriggerRef.current = null

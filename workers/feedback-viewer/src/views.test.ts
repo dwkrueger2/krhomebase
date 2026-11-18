@@ -3,7 +3,21 @@
 import { describe, expect, it } from 'vitest'
 import type { FeedbackAll } from './feedbackApi.ts'
 import { copyForClaudeText, type FeedbackDetail } from './feedbackTypes.ts'
-import { detailView, draftChangeWords, escapeHtml, isDraftDirty, leaveDialogHtml, listView } from './views.ts'
+import { completionNote, detailView, draftChangeWords, escapeHtml, isDraftDirty, leaveDialogHtml, listView } from './views.ts'
+
+describe('completionNote', () => {
+  it('ends the note with who marked the request complete, on a line of its own', () => {
+    expect(completionNote('  Fixed in web 569.  ', 'Dan Krueger')).toBe('Fixed in web 569.\n\nFB Marked complete by Dan Krueger')
+    expect(completionNote('   ', ' Dan Krueger ')).toBe('FB Marked complete by Dan Krueger')
+    expect(completionNote('', '')).toBe('FB Marked complete')
+  })
+
+  it('stays within the note limit by shortening the typed note, never the line', () => {
+    const note = completionNote('x'.repeat(10_000), 'Dan Krueger')
+    expect(note.length).toBeLessThanOrEqual(10_000)
+    expect(note.endsWith('\n\nFB Marked complete by Dan Krueger')).toBe(true)
+  })
+})
 
 const detail: FeedbackDetail = {
   number: 12,

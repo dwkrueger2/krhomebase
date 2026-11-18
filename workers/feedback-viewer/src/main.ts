@@ -19,6 +19,9 @@
  *  5. The Markers switch (`markerPick.ts`): outline this tool's markers and copy one for a feedback request, since
  *     KR Homebase's Dev View cannot see inside the frame.
  *  6. The screenshots' Magnify (a lens in three sizes) and Pop out (`magnifier.ts`).
+ *  7. Save and Mark Complete (tool 1.7.0, the requester, Nov 18, 2026): the note ends with "FB Marked complete by
+ *     <name>" (the signed-in person, read once with `whoIsCalling`), and once saved the request closes and the list
+ *     shows again, with the result above it.
  */
 
 import { connectToHost, type ToolHost } from '@krhomebase/tool-sdk/frame'
@@ -30,7 +33,7 @@ import { installMagnifier, syncMagnifierControls } from './magnifier.ts'
 import { installMarkerPick } from './markerPick.ts'
 import { listHash, parseRoute, tablesOf, type ListFilter } from './route.ts'
 import { tool } from './tool.ts'
-import { busyHtml, detailView, draftChangeWords, isDraftDirty, leaveDialogHtml, listView, loadingView, messageView, type DraftChange, type Neighbors, type Notice } from './views.ts'
+import { busyHtml, completionNote, detailView, draftChangeWords, isDraftDirty, leaveDialogHtml, listView, loadingView, messageView, type DraftChange, type Neighbors, type Notice } from './views.ts'
 import './viewer.css'
 
 const app = document.getElementById('app') as HTMLElement
@@ -52,6 +55,10 @@ let shownHash = ''
 let dirty = false
 /** True while a save is on its way, so a second click does not send it twice. */
 let busy = false
+/** The signed-in person's name for the Save and Mark Complete note; null until read (stage 7). */
+let personName: string | null = null
+/** The result to show above the list the next time it is drawn (after Save and Mark Complete). */
+let listNotice: Notice | undefined
 
 function show(html: string): void {
   app.innerHTML = html
@@ -132,7 +139,8 @@ async function render(): Promise<void> {
     }
     canTriage = list.data.viewer.canTriage
     listCodes = listOrder(list.data.items, tablesOf(route.filter))
-    show(listView(list.data, route.filter))
+    show(listView(list.data, route.filter, listNotice))
+    listNotice = undefined
     host?.setTitle('Homebase Feedback')
     refreshDirty()
     return
@@ -215,28 +223,52 @@ async function copyField(button: HTMLButtonElement): Promise<void> {
 }
 
 /**
- * Saves the change form in one step, then shows the request as KR Homebase saved it, or the refusal.
- *
- * @param draft - The form's values (with the status Completed for Save and Mark Complete).
- * @param savedText - The message shown when the save succeeds.
+ * Stage 7: the signed-in person's name, read once from KR Homebase (`/v1/tools/context`). '' when it cannot be read;
+ * it is then asked again the next time.
  */
-async function saveDraft(draft: DraftChange, savedText = 'Changes saved.'): Promise<void> {
+async function personNameOnce(): Promise<string> {
+  if (personName !== null || !api) return personName ?? ''
+  const who = await api.whoIsCalling()
+  if (!who.ok) return ''
+  personName = who.data.user?.displayName ?? ''
+  return personName
+}
+
+/**
+ * Saves the change form in one step, then shows the request as KR Homebase saved it, or the refusal.
+ * Save and Mark Complete (`complete`, stage 7) sends the status Completed with "FB Marked complete by <name>" at the
+ * end of the note, and once saved closes the request and shows the list again.
+ *
+ * @param draft - The form's values as the person set them.
+ * @param complete - True for Save and Mark Complete.
+ */
+async function saveDraft(draft: DraftChange, complete = false): Promise<void> {
   if (!api || !current || busy) return
   busy = true
+  const number = current.number
   for (const control of Array.from(app.querySelectorAll('button, textarea, select'))) (control as HTMLButtonElement).disabled = true
   // The rainbow ring beside Save Changes while the save is on its way.
   app.querySelector('.save')?.insertAdjacentHTML('afterend', ` ${busyHtml('Saving...')}`)
-  const reply = await api.change(current.number, draft)
+  const sent: DraftChange = complete ? { ...draft, status: 'done', note: completionNote(draft.note, await personNameOnce()) } : draft
+  const reply = await api.change(number, sent)
   busy = false
-  if (reply.ok) {
+  if (reply.ok && complete) {
+    // Close the request and go back to the list it was opened from, with the result above it. The form is saved, so
+    // nothing asks "Leave without saving?".
+    dirty = false
+    host?.setDirty(false)
+    listCache = null
+    listNotice = { kind: 'good', text: `${reply.data.feedback.code} saved and marked Completed.` }
+    location.hash = listHash(lastListFilter)
+  } else if (reply.ok) {
     current = reply.data.feedback
-    showDetail({ kind: 'good', text: savedText })
+    showDetail({ kind: 'good', text: 'Changes saved.' })
   } else {
     showDetail({ kind: 'bad', text: problemText(reply.error, reply.requestId) })
     // Keep what the person chose, so a refused save does not lose it.
     const form = app.querySelector<HTMLFormElement>('form[data-action="change"]')
     if (form) {
-      ;(form.elements.namedItem('status') as HTMLSelectElement).value = draft.status
+      ;(form.elements.namedItem('status') as HTMLSelectElement).value = sent.status
       ;(form.elements.namedItem('priority') as HTMLSelectElement).value = draft.priority
       ;(form.elements.namedItem('note') as HTMLTextAreaElement).value = draft.note
       refreshDirty()
@@ -263,7 +295,7 @@ app.addEventListener('submit', (event) => {
     const draft = readDraft()
     // Save and Mark Complete (FB-0013): the form's values with the status Completed, saved even when nothing else changed.
     const submitter = (event as SubmitEvent).submitter as HTMLButtonElement | null
-    if (draft && submitter?.value === 'complete') void saveDraft({ ...draft, status: 'done' }, 'Saved and marked Completed.')
+    if (draft && submitter?.value === 'complete') void saveDraft(draft, true)
     else if (draft && isDraftDirty(current, draft)) void saveDraft(draft)
   }
 })

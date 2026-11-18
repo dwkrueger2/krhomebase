@@ -16,6 +16,8 @@
  * - `communicationEntryFromActivity` reads the new API's camelCase `WorkstreamActivity` instead of the old raw row,
  *   names the author from `performedByLabel`, and labels each entry with its client, matter or lead (the firm feed
  *   mixes every client).
+ * - Nov 18, 2026 (FB-0016, web patch 570): an entry carries every type it has (`activityTypes`, the main one first);
+ *   the task's assignee shows when Task is any of them.
  */
 
 import type { WorkstreamActivity, WorkstreamSubgroup } from '@krhomebase/contracts'
@@ -106,7 +108,10 @@ export interface CommunicationEntry {
   createdLabel: string
   edited?: boolean
   direction: 'inbound' | 'outbound' | 'internal'
+  /** The main type. */
   activityType: WorkstreamCommunicationActivityType
+  /** Every type of the entry, the main one first (FB-0016). */
+  activityTypes: WorkstreamCommunicationActivityType[]
   /** The saved subject line (new; the old thread did not show it). */
   subject: string
   body: string
@@ -201,6 +206,7 @@ export function communicationEntryFromActivity(activity: WorkstreamActivity, cur
     ? currentUser
     : { id: activity.performedByUserId ?? 'workstream-user', name: otherName, handle: otherName.toLowerCase().replace(/[^a-z0-9]+/g, '-'), role: 'WorkStream', initials: communicationInitials(otherName, ''), avatarTone: 'blue' }
   const bodyHtml = activity.noteHtml?.trim() ? activity.noteHtml : undefined
+  const activityTypes = activity.subgroups?.length ? activity.subgroups : [activity.subgroup]
   return {
     wsid: activity.wsid,
     author,
@@ -209,11 +215,12 @@ export function communicationEntryFromActivity(activity: WorkstreamActivity, cur
     edited: Boolean(activity.updatedAt),
     direction: 'internal',
     activityType: activity.subgroup,
+    activityTypes,
     subject: activity.title,
     body: bodyHtml ? activity.note : activity.note || activity.title,
     bodyHtml,
     attachments: activity.documentUrl ? [{ label: activity.documentLabel || 'Linked document', url: activity.documentUrl }] : [],
-    assigneeLabel: activity.subgroup === 'Tasks' && activity.assigneeLabel ? activity.assigneeLabel : undefined,
+    assigneeLabel: activityTypes.includes('Tasks') && activity.assigneeLabel ? activity.assigneeLabel : undefined,
     sourceLabel: communicationOwnerLabel(activity),
   }
 }

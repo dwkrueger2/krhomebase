@@ -6,19 +6,23 @@
  * one type, the owner rule), the feed, a change of only the fields sent, a move to another client's `.0`, delete
  * (super admin only), the assignee list (no client accounts), email recipients, the email preview and send (a
  * stand-in mailer: subject tag, inline logo, the Emails entry), and the audit rows (no note text, no matter id).
+ * Since Nov 18, 2026 (FB-0016, FB-0017): one entry with several types (saved, listed under each, changed as a set,
+ * kept through a move, removed with the entry), the task made for the Task type and its assignees, `taskError`, and
+ * migration 002's repairs run on made-up rows with the live ids.
  *
  * Run: pnpm --dir apps/api exec vitest run src/features/workstream/workstream.test.ts
  */
 
+import { readFileSync } from 'node:fs'
 import type { DatabaseSync } from 'node:sqlite'
 import { ErrorEnvelope, WorkstreamAssigneesData, WorkstreamEmailPreviewData, WorkstreamEmailRecipientsData, WorkstreamListData, WorkstreamSavedData } from '@krhomebase/contracts'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../app.ts'
 import type { EmailInput, Mailer } from '../../platform/googleWorkspaceMailer.ts'
 import { clearSessionCache } from '../../platform/sessionClient.ts'
-import { createTestD1, SIGNED_IN_HEADERS, signedInEnv } from '../../../test/fakes.ts'
+import { createTestD1, SIGNED_IN_HEADERS, signedInEnv, WORKSTREAM_TYPES_MIGRATION } from '../../../test/fakes.ts'
 import { createWorkstreamQueries } from './queries.ts'
-import { decodeCursor, plainTextFromHtml, sanitizeNoteHtml, sendEmail, type WorkstreamActor } from './rules.ts'
+import { activityTypes, changedTypes, createActivity, decodeCursor, plainTextFromHtml, sanitizeNoteHtml, sendEmail, type WorkstreamActor } from './rules.ts'
 
 const app = createApp()
 let env: { db: D1Database; sqlite: DatabaseSync }
@@ -200,10 +204,160 @@ describe('multi-type lists and reassigning (Nov 13, 2026)', () => {
     expect(await errorCode(await call('GET', '/v1/workstream?clientId=cl-55&subgroups=Notes,Bogus'), 422)).toBe('WORKSTREAM_SUBGROUP_INVALID')
   })
 
+  it('keeps an entry\'s types through a reassign', async () => {
+    const created = await create({ subgroup: 'Notes', subgroups: ['Notes', 'WIP'], clientId: 'cl-66', title: 'Two types' })
+    const moved = await data(await call('POST', `/v1/workstream/${created.wsid}/move`, { clientId: 'cl-55' }), WorkstreamSavedData)
+    expect(moved.activity.subgroups).toEqual(['Notes', 'WIP'])
+  })
+
   it('reassigns an entry to a chosen matter of another client (D16), and refuses a matter of a third client', async () => {
     const created = await create({ subgroup: 'Notes', clientId: 'cl-66', title: 'Internal note' })
     const moved = await data(await call('POST', `/v1/workstream/${created.wsid}/move`, { clientId: 'cl-55', matterId: 'm55-1' }), WorkstreamSavedData)
     expect(moved.activity).toMatchObject({ clientId: 'cl-55', matterNumber: '055.1' })
     expect(await errorCode(await call('POST', `/v1/workstream/${created.wsid}/move`, { clientId: 'cl-55', matterId: 'm66-0' }), 422)).toBe('WORKSTREAM_MATTER_NOT_FOR_CLIENT')
+  })
+})
+
+describe('several types on one entry and its task (FB-0016, FB-0017; Nov 18, 2026)', () => {
+  it('saves one entry with every type chosen, the main one first, and finds it under each type', async () => {
+    const activity = await create({ subgroup: 'PhoneCalls', subgroups: ['SentFiles', 'PhoneCalls', 'Notes'], clientId: 'cl-55', title: 'Called and sent' })
+    expect(activity.subgroup).toBe('PhoneCalls')
+    expect(activity.subgroups).toEqual(['PhoneCalls', 'Notes', 'SentFiles'])
+    expect(one(`SELECT COUNT(*) AS n FROM workstream_activity`)).toEqual({ n: 1 })
+    expect(one(`SELECT group_concat(subgroup) AS types FROM (SELECT subgroup FROM workstream_activity_type WHERE activity_id = ? ORDER BY subgroup)`, activity.id)).toEqual({ types: 'Notes,SentFiles' })
+    for (const type of ['PhoneCalls', 'SentFiles', 'Notes']) {
+      const list = await data(await call('GET', `/v1/workstream?clientId=cl-55&subgroup=${type}`), WorkstreamListData)
+      expect(list.activities.map((row) => row.wsid)).toEqual([activity.wsid])
+    }
+    const feed = await data(await call('GET', '/v1/workstream/feed?subgroups=SentFiles,WIP'), WorkstreamListData)
+    expect(feed.activities.map((row) => row.wsid)).toEqual([activity.wsid])
+    expect((await data(await call('GET', '/v1/workstream?clientId=cl-55&subgroup=Tasks'), WorkstreamListData)).activities).toEqual([])
+    expect(one(`SELECT COUNT(*) AS n FROM task`)).toEqual({ n: 0 })
+  })
+
+  it('makes a task for the Task type with the chosen assignees, linked both ways', async () => {
+    const saved = await data(await call('POST', '/v1/workstream', { subgroup: 'Notes', subgroups: ['Notes', 'Tasks'], clientId: 'cl-55', matterId: 'm55-1', title: 'Follow up', assigneeUserIds: ['u-sam', 'u-admin', 'u-sam'] }), WorkstreamSavedData)
+    expect(saved.taskError).toBeNull()
+    const { activity } = saved
+    expect(activity).toMatchObject({ subgroups: ['Notes', 'Tasks'], assigneeUserId: 'u-sam', assigneeLabel: 'Samuel Staff', assigneeUserIds: ['u-sam', 'u-admin'] })
+    expect(activity.taskId).toMatch(/^[A-Z0-9]{7}$/)
+    expect(one(`SELECT title, description, status, client_id, matter_id, assigned_to_user_id, created_by_user_id FROM task WHERE id = ?`, activity.taskId)).toEqual({
+      title: 'Follow up',
+      description: `From WorkStream entry WS #${activity.wsid}.`,
+      status: 'open',
+      client_id: 'cl-55',
+      matter_id: 'm55-1',
+      assigned_to_user_id: 'u-sam',
+      created_by_user_id: 'u-admin',
+    })
+    expect(one(`SELECT COUNT(*) AS n FROM task_assignee WHERE task_id = ? AND is_current = 1`, activity.taskId)).toEqual({ n: 2 })
+    expect(one(`SELECT action FROM audit_log WHERE target_id = ? AND action = 'LINK_TASK'`, activity.id)).toEqual({ action: 'LINK_TASK' })
+  })
+
+  it('assigns the task to the person saving when no assignee is chosen, and to nobody for an empty list', async () => {
+    const mine = await create({ subgroup: 'Tasks', clientId: 'cl-55', title: 'Mine' }, 'staff')
+    expect(mine.assigneeUserIds).toEqual(['u-sam'])
+    const nobody = await create({ subgroup: 'Tasks', clientId: 'cl-55', title: 'Nobody', assigneeUserIds: [] })
+    expect(nobody).toMatchObject({ assigneeUserId: null, assigneeUserIds: [] })
+    expect(nobody.taskId).toBeTruthy()
+  })
+
+  it('refuses a task assignee who is not active staff, before anything is saved', async () => {
+    expect(await errorCode(await call('POST', '/v1/workstream', { subgroup: 'Tasks', clientId: 'cl-55', title: 'X', assigneeUserIds: ['u-client'] }), 422)).toBe('WORKSTREAM_ASSIGNEE_NOT_FOUND')
+    expect(one(`SELECT COUNT(*) AS n FROM workstream_activity`)).toEqual({ n: 0 })
+  })
+
+  it('changes the types as a whole set, adds the task when Task is added, and sends assignees to the task', async () => {
+    const created = await create({ subgroup: 'Notes', clientId: 'cl-55', title: 'Note first' })
+    expect(created.taskId).toBeNull()
+    const added = await data(await call('PATCH', `/v1/workstream/${created.wsid}`, { subgroups: ['Tasks', 'Notes'], assigneeUserIds: ['u-sam'] }), WorkstreamSavedData)
+    expect(added.activity).toMatchObject({ subgroup: 'Notes', subgroups: ['Notes', 'Tasks'], assigneeUserIds: ['u-sam'] })
+    const taskId = added.activity.taskId
+    expect(taskId).toBeTruthy()
+    const reassigned = await data(await call('PATCH', `/v1/workstream/${created.wsid}`, { assigneeUserIds: ['u-admin'] }), WorkstreamSavedData)
+    expect(reassigned.activity).toMatchObject({ taskId, assigneeUserId: 'u-admin', assigneeUserIds: ['u-admin'] })
+    expect(one(`SELECT user_id FROM task_assignee WHERE task_id = ? AND is_current = 1`, taskId)).toEqual({ user_id: 'u-admin' })
+    // Taking Task away keeps the task; the entry keeps its link.
+    const dropped = await data(await call('PATCH', `/v1/workstream/${created.wsid}`, { subgroups: ['Notes'] }), WorkstreamSavedData)
+    expect(dropped.activity).toMatchObject({ subgroups: ['Notes'], taskId })
+    expect(one(`SELECT COUNT(*) AS n FROM task`)).toEqual({ n: 1 })
+    expect(await errorCode(await call('PATCH', `/v1/workstream/${created.wsid}`, { assigneeUserIds: ['u-sam'] }), 422)).toBe('WORKSTREAM_TASK_TYPE_REQUIRED')
+    // The type rows go with the entry.
+    run(`INSERT INTO workstream_activity_type (activity_id, subgroup, created_at) VALUES (?, 'WIP', 'now')`, created.id)
+    expect((await call('DELETE', `/v1/workstream/${created.wsid}`)).status).toBe(200)
+    expect(one(`SELECT COUNT(*) AS n FROM workstream_activity_type`)).toEqual({ n: 0 })
+  })
+
+  it('works out the changed types: a whole set keeps the main type when it can, a main type alone keeps the others', () => {
+    expect(changedTypes(['Notes'], { subgroups: ['Tasks', 'Notes'] })).toEqual(['Notes', 'Tasks'])
+    expect(changedTypes(['Notes', 'Tasks'], { subgroups: ['Tasks'] })).toEqual(['Tasks'])
+    expect(changedTypes(['Notes', 'Tasks'], { subgroups: ['Tasks', 'Notes'], subgroup: 'Tasks' })).toEqual(['Tasks', 'Notes'])
+    expect(changedTypes(['Notes', 'Tasks'], { subgroup: 'WIP' })).toEqual(['WIP', 'Tasks'])
+    expect(changedTypes(['Notes', 'Tasks'], { subgroups: ['Notes', 'Tasks'] })).toBeNull()
+    expect(changedTypes(['Notes'], {})).toBeNull()
+    expect(activityTypes('PhoneCalls', ['Notes', 'PhoneCalls'])).toEqual(['PhoneCalls', 'Notes'])
+  })
+
+  it('reports a task that could not be made in taskError, and the entry stands', async () => {
+    const queries = createWorkstreamQueries(env.db)
+    const actor: WorkstreamActor = { userId: 'u-admin', email: 'admin@example.com', role: 'super_admin', displayName: 'Ada Admin', requestId: 'req-2' }
+    const failing = { create: async () => Promise.reject(Object.assign(new Error('no'), { code: 'TASK_MATTER_NOT_FOR_CLIENT' })), assign: async () => undefined }
+    const saved = await createActivity(queries, actor, { subgroup: 'Tasks', clientId: 'cl-55', title: 'Stands' }, '2026-11-18T12:00:00.000Z', failing)
+    expect(saved.taskError).toBe('TASK_MATTER_NOT_FOR_CLIENT')
+    expect(saved.activity).toMatchObject({ title: 'Stands', taskId: null })
+    const withoutTasks = await createActivity(queries, actor, { subgroup: 'Tasks', clientId: 'cl-55', title: 'No port' }, '2026-11-18T12:00:00.000Z')
+    expect(withoutTasks.taskError).toBe('WORKSTREAM_TASK_UNAVAILABLE')
+  })
+})
+
+describe('migration 002 repairs (FB-0016, FB-0017)', () => {
+  /** The file's repair statements (after the table and before its log row), run again on rows made to match. */
+  function repairs(): string {
+    const sql = readFileSync(WORKSTREAM_TYPES_MIGRATION, 'utf8')
+    return sql.slice(sql.indexOf('-- 2a.'), sql.indexOf('-- Last statement'))
+  }
+
+  function entry(id: string, wsid: string, subgroup: string, note: string, steps = '[]') {
+    run(
+      `INSERT INTO workstream_activity (id, wsid, client_id, matter_id, subgroup, activity_at, subject, note_body, note_format, next_steps_json, assignee_user_id, performed_by_user_id, created_at, updated_at)
+       VALUES (?, ?, 'cl-55', 'm55-0', ?, '2026-11-17T14:04:30.000Z', 'Follow up', ?, 'plain', ?, 'u-sam', 'u-sam', '2026-11-17T14:04:30.000Z', '2026-11-17T14:04:30.000Z')`,
+      id,
+      wsid,
+      subgroup,
+      note,
+      steps,
+    )
+  }
+
+  it('merges each copy into the entry it copied and makes the task for the Task type', () => {
+    entry('wsa_43e99431-0ad4-40e0-b7d7-370bd3ce5c6b', 'HI43VF2', 'PhoneCalls', 'Same')
+    entry('wsa_afbd67f7-6c6d-4627-a368-630ed0de1abb', 'FVY4EAM', 'SentFiles', 'Same')
+    entry('wsa_026446a6-c710-49a3-9192-cadf05d89d41', 'SHZ7GWE', 'Notes', 'Davis', '["Call back"]')
+    entry('wsa_278dd46c-4102-487c-9684-557f8d25b9a0', 'X9OI5W6', 'Tasks', 'Davis')
+    env.sqlite.exec(repairs())
+    expect(env.sqlite.prepare(`SELECT w.wsid, w.subgroup, t.subgroup AS other, w.task_id FROM workstream_activity w LEFT JOIN workstream_activity_type t ON t.activity_id = w.id ORDER BY w.wsid`).all()).toEqual([
+      { wsid: 'HI43VF2', subgroup: 'PhoneCalls', other: 'SentFiles', task_id: null },
+      { wsid: 'SHZ7GWE', subgroup: 'Notes', other: 'Tasks', task_id: 'T4K9QWS' },
+    ])
+    expect(one(`SELECT title, description, status, client_id, matter_id, assigned_to_user_id, created_by_user_id FROM task WHERE id = 'T4K9QWS'`)).toEqual({
+      title: 'Follow up',
+      description: 'From WorkStream entry WS #SHZ7GWE.',
+      status: 'open',
+      client_id: 'cl-55',
+      matter_id: 'm55-0',
+      assigned_to_user_id: 'u-sam',
+      created_by_user_id: 'u-sam',
+    })
+    expect(one(`SELECT user_id, is_current FROM task_assignee WHERE task_id = 'T4K9QWS'`)).toEqual({ user_id: 'u-sam', is_current: 1 })
+    expect(env.sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+  })
+
+  it('leaves a pair alone when the copy has changed (another note)', () => {
+    entry('wsa_43e99431-0ad4-40e0-b7d7-370bd3ce5c6b', 'HI43VF2', 'PhoneCalls', 'Same')
+    entry('wsa_afbd67f7-6c6d-4627-a368-630ed0de1abb', 'FVY4EAM', 'SentFiles', 'Changed since')
+    env.sqlite.exec(repairs())
+    expect(one(`SELECT COUNT(*) AS n FROM workstream_activity`)).toEqual({ n: 2 })
+    expect(one(`SELECT COUNT(*) AS n FROM workstream_activity_type`)).toEqual({ n: 0 })
+    expect(one(`SELECT COUNT(*) AS n FROM task`)).toEqual({ n: 0 })
   })
 })

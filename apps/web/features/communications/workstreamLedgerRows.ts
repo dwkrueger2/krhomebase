@@ -10,6 +10,8 @@
  *  - The matter number is the entry's own (`matterNumber`); the old adapter showed every entry under the client's first
  *    matter (reference section 3.6, point 2). An older entry with no matter shows the client's `.0`.
  *  - The old "kind" names (`phone_call`, `work`) are gone: the filter uses the API's activity types (`subgroup`).
+ *  - Nov 18, 2026 (FB-0016, web patch 570): an entry with several types is one row, labeled with every type
+ *    ("Note · Task"), and a type filter finds it under each of them (the API matches any of its types).
  */
 
 import type { WorkstreamActivity, WorkstreamSubgroup } from '@krhomebase/contracts'
@@ -58,6 +60,9 @@ export interface LedgerActivityRow {
   /** The public seven-character id (`wsid`): the row's key and the id every change uses. */
   id: string
   subgroup: WorkstreamSubgroup
+  /** Every type of the entry, the main one first. */
+  subgroups: WorkstreamSubgroup[]
+  /** The types' labels, joined: "Note · Task". */
   kindLabel: string
   matterNumber: string
   occurredLabel: string
@@ -75,6 +80,16 @@ export function generalMatterNumber(clientNumber: string | null | undefined): st
   return trimmed ? `${trimmed}.0` : null
 }
 
+/** The entry's types (an entry from an older API carries only `subgroup`). */
+export function activityTypesOf(activity: Pick<WorkstreamActivity, 'subgroup' | 'subgroups'>): WorkstreamSubgroup[] {
+  return activity.subgroups?.length ? activity.subgroups : [activity.subgroup]
+}
+
+/** "Note · Task": every type's ledger label, the main one first. */
+export function activityTypesLabel(types: readonly WorkstreamSubgroup[]): string {
+  return types.map((type) => LEDGER_ACTIVITY_LABELS[type]).join(' · ')
+}
+
 /**
  * Builds the ledger row for one saved entry.
  *
@@ -83,10 +98,12 @@ export function generalMatterNumber(clientNumber: string | null | undefined): st
  */
 export function ledgerRowFromActivity(activity: WorkstreamActivity, clientNumber: string | null | undefined): LedgerActivityRow {
   const note = activity.note.trim()
+  const subgroups = activityTypesOf(activity)
   return {
     id: activity.wsid,
     subgroup: activity.subgroup,
-    kindLabel: LEDGER_ACTIVITY_LABELS[activity.subgroup],
+    subgroups,
+    kindLabel: activityTypesLabel(subgroups),
     matterNumber: activity.matterNumber ?? generalMatterNumber(activity.clientNumber ?? clientNumber) ?? '—',
     occurredLabel: communicationDateLabel(activity.activityAt),
     actorLabel: activity.assigneeLabel || activity.performedByLabel || 'WorkStream user',

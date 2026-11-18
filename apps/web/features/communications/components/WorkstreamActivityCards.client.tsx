@@ -11,6 +11,8 @@
  *  - Density Contract: 12px titles and 10.5px small print (the old 9px was below the contract's smallest text), a
  *    20px row, 20px expand button with the Chevron icon (no text glyph; AGENTS: icons live in `KRHomebaseIcons`).
  *  - The type column is wider (84px) so "Work in progress" fits; long values end in an ellipsis.
+ *  - Nov 18, 2026 (FB-0016, web patch 570): a double-click opens the entry's full view, as "Open full view" does
+ *    (`onOpen`); an entry with several types lists them all ("Note · Task"), in full on hover.
  */
 
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
@@ -26,6 +28,8 @@ export interface WorkstreamActivityCardsProps {
   onSelect: (row: LedgerActivityRow) => void
   /** Switches only this row between the two presentations. */
   onTogglePresentation: (row: LedgerActivityRow) => void
+  /** A double-click: opens the entry's full view (FB-0016). */
+  onOpen?: (row: LedgerActivityRow) => void
 }
 
 /** Color, type, border, and general-esthetic utilities for a row. */
@@ -57,7 +61,7 @@ const LAYOUT_STYLES = {
 } as const
 
 /** Renders one ledger row, single line or expanded. */
-export default function WorkstreamActivityCards({ onSelect, onTogglePresentation, presentation, row, selected = false }: WorkstreamActivityCardsProps) {
+export default function WorkstreamActivityCards({ onOpen, onSelect, onTogglePresentation, presentation, row, selected = false }: WorkstreamActivityCardsProps) {
   const expanded = presentation === 'Expanded'
   return (
     <article
@@ -74,9 +78,12 @@ export default function WorkstreamActivityCards({ onSelect, onTogglePresentation
         title={expanded ? undefined : row.summary}
         type="button"
         onClick={() => onSelect(row)}
+        onDoubleClick={() => onOpen?.(row)}
       >
         <span className={`${LAYOUT_STYLES.line} ${expanded ? LAYOUT_STYLES.lineExpanded : ''}`}>
-          <span className={`${LAYOUT_STYLES.truncate} ${STYLES.kind}`}>{row.kindLabel}</span>
+          <span className={`${LAYOUT_STYLES.truncate} ${STYLES.kind}`} title={row.subgroups.length > 1 ? row.kindLabel : undefined}>
+            {row.kindLabel}
+          </span>
           <span className={`${LAYOUT_STYLES.truncate} ${STYLES.matter}`}>{row.matterNumber}</span>
           {expanded ? (
             <span className={LAYOUT_STYLES.content}>

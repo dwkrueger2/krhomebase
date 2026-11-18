@@ -249,6 +249,23 @@ function changeWords(note: FeedbackNote): string {
 }
 
 /**
+ * The note Save and Mark Complete sends (the requester, Nov 18, 2026, tool 1.7.0): the person's own note, if any,
+ * then the line "FB Marked complete by <name>" on a line of its own. The name is the signed-in person's, from
+ * `/v1/tools/context`; when it could not be read the line has no name (the status change note still names its
+ * author). Kept within the note's 10,000 characters by shortening the person's note, never the line.
+ *
+ * @param note - The note the person typed (may be empty).
+ * @param displayName - The signed-in person's name, or '' when unknown.
+ * @returns The note to send.
+ */
+export function completionNote(note: string, displayName: string): string {
+  const name = displayName.trim()
+  const line = name ? `FB Marked complete by ${name}` : 'FB Marked complete'
+  const text = note.trim().slice(0, 10_000 - line.length - 2).trimEnd()
+  return text ? `${text}\n\n${line}` : line
+}
+
+/**
  * Whether the change form differs from what is saved (root `AGENTS.md`, "Unsaved Changes Standard": dirty means
  * different from the saved values, so setting a value back makes the form clean again).
  */
@@ -335,7 +352,7 @@ export function detailView(item: FeedbackDetail, options: { canTriage: boolean; 
   const images = item.images.length ? item.images.map((image, index) => imageHtml(item, image, index)).join('\n') : '<p class="meta">No screenshots.</p>'
   const notes = item.notes.length
     ? item.notes
-        .map((note) => `<div class="note"><div class="meta">${escapeHtml(note.authorLabel)}, ${when(note.createdAt)}</div><div>${escapeHtml(changeWords(note))}${escapeHtml(note.text ?? '')}</div></div>`)
+        .map((note) => `<div class="note"><div class="meta">${escapeHtml(note.authorLabel)}, ${when(note.createdAt)}</div><div class="note-text">${escapeHtml(changeWords(note))}${escapeHtml(note.text ?? '')}</div></div>`)
         .join('')
     : '<p class="meta">No notes yet.</p>'
 
@@ -343,7 +360,8 @@ export function detailView(item: FeedbackDetail, options: { canTriage: boolean; 
   // plain note). Save Changes keeps its place but shows only while the form differs from what is saved; `main.ts`
   // sets `dirty` on the form and writes what will change beside the button (root AGENTS.md, Unsaved Changes Standard).
   // Save and Mark Complete (FB-0013, tool 1.6.0) shows while the request is still open: one click saves the form with
-  // the status Completed. It is drawn in the Completed color, so Save Changes stays the brightest button.
+  // the status Completed. It is drawn in the Completed color, so Save Changes stays the brightest button. Since tool
+  // 1.7.0 its note ends with "FB Marked complete by <name>" (`completionNote`), and the tool goes back to the list.
   const completeButton = (OPEN_FEEDBACK_STATUSES as readonly string[]).includes(item.status)
     ? `<button type="submit" class="save-complete" name="intent" value="complete" ${toneAttr(toneOf(STATUS_TONES, 'done'))} data-kr-element="feedback-viewer-save-complete">Save and Mark Complete</button>`
     : ''

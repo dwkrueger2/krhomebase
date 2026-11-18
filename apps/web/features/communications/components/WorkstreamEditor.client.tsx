@@ -16,6 +16,9 @@
  *    the old editor's task multi-assignee menu was never saved by the API.
  *  - The old line "Rich text and links are saved ... after server-side sanitization" is dropped (save is the proof).
  *  - Density Contract: labels beside their fields, 24px controls, 3px gaps; Save shows `RainbowBusySpinner`.
+ *  - Nov 18, 2026 (FB-0016, FB-0017, web patch 570): the edit behaves as the composer does. "Log as one or more" keeps
+ *    every type chosen (it kept one), and while Task is chosen the composer's "Assignees" menu picks the task's
+ *    people (several); the plain one-person Assignee list is gone. `onSave` receives the chosen assignees.
  */
 
 import { useState } from 'react'
@@ -38,18 +41,18 @@ export interface WorkstreamEditorProps {
   /** Title field; left out, no title field is drawn. */
   title?: string
   onTitleChange?: (title: string) => void
-  /** The entry's type; with `onActivityTypeChange` the type buttons are shown. */
-  activityType?: WorkstreamCommunicationActivityType
-  onActivityTypeChange?: (activityType: WorkstreamCommunicationActivityType) => void
+  /** The entry's types; with `onActivityTypesChange` the "Log as one or more" buttons are shown. */
+  activityTypes?: readonly WorkstreamCommunicationActivityType[]
+  onActivityTypesChange?: (activityTypes: WorkstreamCommunicationActivityType[]) => void
   /** Called when the note's words imply a type (the add dialog follows it until the person picks one). */
   onActivityTypeDetected?: (activityType: WorkstreamCommunicationActivityType) => void
-  /** Staff users; shown as the Assignee choice when `onAssigneeChange` is given. */
+  /** Staff users for the task's "Assignees" menu, shown while Task is one of the types (with the type buttons). */
   assigneeOptions?: readonly WorkstreamEditorAssigneeOption[]
-  assigneeUserId?: string | null
-  onAssigneeChange?: (userId: string | null) => void
+  /** The task's assignees at first. */
+  assigneeUserIds?: readonly string[]
   onCancel: () => void
-  /** Saves; a rejection keeps the draft and shows its message. */
-  onSave: (note: string, nextSteps: string[], noteHtml?: string) => void | Promise<void>
+  /** Saves; a rejection keeps the draft and shows its message. `assigneeUserIds` is the assignee menu's choice. */
+  onSave: (note: string, nextSteps: string[], noteHtml?: string, assigneeUserIds?: string[]) => void | Promise<void>
   saveLabel?: string
   /** The editor's `data-kr-element`, so the add and edit editors can be told apart. */
   dataKrElement?: string
@@ -83,16 +86,15 @@ const LAYOUT_STYLES = {
 
 /** Edits one WorkStream note: title, rich text, next steps, and (when asked) the assignee. */
 export default function WorkstreamEditor({
-  activityType,
+  activityTypes,
   assigneeOptions = [],
-  assigneeUserId = null,
+  assigneeUserIds,
   dataKrElement = 'workstream-rich-text-editor',
   nextSteps,
   note,
   noteHtml,
-  onActivityTypeChange,
+  onActivityTypesChange,
   onActivityTypeDetected,
-  onAssigneeChange,
   onCancel,
   onSave,
   onTitleChange,
@@ -102,14 +104,16 @@ export default function WorkstreamEditor({
   const [draftNote, setDraftNote] = useState(note)
   const [draftHtml, setDraftHtml] = useState(noteHtml ?? '')
   const [draftSteps, setDraftSteps] = useState(nextSteps.join('\n'))
+  const [draftAssignees, setDraftAssignees] = useState<string[]>(() => [...(assigneeUserIds ?? [])])
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const showTypes = Boolean(activityTypes && onActivityTypesChange)
 
   async function save(): Promise<void> {
     setSaving(true)
     setSaveError('')
     try {
-      await onSave(draftNote.trim(), nextStepsFromText(draftSteps), draftHtml.trim() || undefined)
+      await onSave(draftNote.trim(), nextStepsFromText(draftSteps), draftHtml.trim() || undefined, draftAssignees)
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'The WorkStream entry was not saved.')
     } finally {
@@ -125,38 +129,28 @@ export default function WorkstreamEditor({
           <input aria-label="WorkStream activity title" className={STYLES.input} disabled={saving} placeholder="Short activity title (the note's first line when left empty)" value={title} onChange={(event) => onTitleChange?.(event.target.value)} />
         </label>
       ) : null}
-      {onAssigneeChange ? (
-        <label className={LAYOUT_STYLES.fieldRow} data-kr-element="workstream-editor-assignee-row">
-          <span className={STYLES.label}>Assignee</span>
-          <select aria-label="WorkStream activity assignee" className={STYLES.input} disabled={saving} value={assigneeUserId ?? ''} onChange={(event) => onAssigneeChange(event.target.value || null)}>
-            <option value="">Not assigned</option>
-            {assigneeOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
-      {/* The shared WorkStream editor: the same surface as the Workstream composer. */}
+      {/* The shared WorkStream editor: the same surface, type buttons and task assignee menu as the Workstream composer. */}
       <WorkStreamRTE
-        activityTypes={activityType ? [activityType] : ['Notes']}
+        activityTypes={activityTypes?.length ? activityTypes : ['Notes']}
+        assigneeOptions={assigneeOptions}
         clientState="Client"
         disabled={saving}
         editorAriaLabel="WorkStream rich text note"
         editorDataKrElement="communications-composer-input-workstream-editor"
+        initialAssigneeUserIds={assigneeUserIds ?? []}
         initialBody={note}
         initialHtml={noteHtml ?? undefined}
-        onActivityTypesChange={(types) => onActivityTypeChange?.(types.at(-1) ?? activityType ?? 'Notes')}
+        onActivityTypesChange={(types) => onActivityTypesChange?.(types)}
         onClientStateChange={() => undefined}
         onDraftChange={(draft: WorkStreamRTEDraftState) => {
           setDraftNote(draft.body)
           setDraftHtml(draft.html)
+          setDraftAssignees(draft.assigneeUserIds)
           const trigger = detectCommunicationActivityTypeTrigger(draft.body)
           if (trigger) onActivityTypeDetected?.(trigger.activityType)
         }}
-        showActivityTypes={Boolean(activityType && onActivityTypeChange)}
-        showAssigneeMenu={false}
+        showActivityTypes={showTypes}
+        showAssigneeMenu={showTypes}
         showContextControls={false}
         showMatterMenu={false}
         showSendButton={false}

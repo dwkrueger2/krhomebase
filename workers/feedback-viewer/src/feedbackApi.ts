@@ -10,7 +10,7 @@
  */
 
 import type { ToolApi } from '@krhomebase/tool-sdk/frame'
-import type { ApiReply } from '@krhomebase/tool-sdk/types'
+import type { ApiReply, ToolContext } from '@krhomebase/tool-sdk/types'
 import type { FeedbackKind, FeedbackListData, FeedbackPriority, FeedbackSavedData, FeedbackStatus, FeedbackSummary } from './feedbackTypes.ts'
 
 /** A status and priority change, with an optional note saved with it. */
@@ -43,6 +43,11 @@ export interface FeedbackApi {
   get(number: number): Promise<ApiReply<FeedbackSavedData>>
   change(number: number, change: FeedbackChange): Promise<ApiReply<FeedbackSavedData>>
   addNote(number: number, text: string): Promise<ApiReply<FeedbackSavedData>>
+  /**
+   * Who is using the tool (`GET /v1/tools/context`, any tool may ask): the signed-in person's name, for the line Save
+   * and Mark Complete adds to its note (tool 1.7.0).
+   */
+  whoIsCalling(): Promise<ApiReply<ToolContext>>
 }
 
 /**
@@ -80,6 +85,9 @@ export function feedbackApi(api: ToolApi): FeedbackApi {
     },
     addNote(number, text) {
       return api.post<FeedbackSavedData>(`/v1/homebase-feedback/${number}/notes`, { text: text.trim() })
+    },
+    whoIsCalling() {
+      return api.get<ToolContext>('/v1/tools/context')
     },
   }
 }

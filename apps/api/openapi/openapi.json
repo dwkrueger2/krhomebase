@@ -71230,7 +71230,24 @@
                                   "SentFiles",
                                   "WIP"
                                 ],
-                                "description": "Activity type."
+                                "description": "The main activity type (the first of `subgroups`)."
+                              },
+                              "subgroups": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "PhoneCalls",
+                                    "Emails",
+                                    "Notes",
+                                    "Tasks",
+                                    "ReceivedFiles",
+                                    "SentFiles",
+                                    "WIP"
+                                  ],
+                                  "description": "Activity type."
+                                },
+                                "description": "Every activity type of the entry, the main one first (FB-0016: a Phone Call may also be a Task)."
                               },
                               "clientId": {
                                 "type": [
@@ -71340,14 +71357,21 @@
                                   "string",
                                   "null"
                                 ],
-                                "description": "Linked task (not used yet)."
+                                "description": "The task made for the entry's Task type (Tasks screen, `Task #<id>`), or null."
                               },
                               "assigneeUserId": {
                                 "type": [
                                   "string",
                                   "null"
                                 ],
-                                "description": "Assigned staff user."
+                                "description": "Assigned staff user (the first task assignee when the entry has a task)."
+                              },
+                              "assigneeUserIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "The task's current assignees, the first first, when the entry has a task; else the assigned staff user, or none."
                               },
                               "assigneeContactId": {
                                 "type": [
@@ -71393,6 +71417,7 @@
                               "id",
                               "wsid",
                               "subgroup",
+                              "subgroups",
                               "clientId",
                               "clientNumber",
                               "clientDisplayName",
@@ -71411,6 +71436,7 @@
                               "documentLabel",
                               "taskId",
                               "assigneeUserId",
+                              "assigneeUserIds",
                               "assigneeContactId",
                               "assigneeLabel",
                               "performedByUserId",
@@ -73235,7 +73261,24 @@
                                   "SentFiles",
                                   "WIP"
                                 ],
-                                "description": "Activity type."
+                                "description": "The main activity type (the first of `subgroups`)."
+                              },
+                              "subgroups": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "PhoneCalls",
+                                    "Emails",
+                                    "Notes",
+                                    "Tasks",
+                                    "ReceivedFiles",
+                                    "SentFiles",
+                                    "WIP"
+                                  ],
+                                  "description": "Activity type."
+                                },
+                                "description": "Every activity type of the entry, the main one first (FB-0016: a Phone Call may also be a Task)."
                               },
                               "clientId": {
                                 "type": [
@@ -73345,14 +73388,21 @@
                                   "string",
                                   "null"
                                 ],
-                                "description": "Linked task (not used yet)."
+                                "description": "The task made for the entry's Task type (Tasks screen, `Task #<id>`), or null."
                               },
                               "assigneeUserId": {
                                 "type": [
                                   "string",
                                   "null"
                                 ],
-                                "description": "Assigned staff user."
+                                "description": "Assigned staff user (the first task assignee when the entry has a task)."
+                              },
+                              "assigneeUserIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "The task's current assignees, the first first, when the entry has a task; else the assigned staff user, or none."
                               },
                               "assigneeContactId": {
                                 "type": [
@@ -73398,6 +73448,7 @@
                               "id",
                               "wsid",
                               "subgroup",
+                              "subgroups",
                               "clientId",
                               "clientNumber",
                               "clientDisplayName",
@@ -73416,6 +73467,7 @@
                               "documentLabel",
                               "taskId",
                               "assigneeUserId",
+                              "assigneeUserIds",
                               "assigneeContactId",
                               "assigneeLabel",
                               "performedByUserId",
@@ -73707,8 +73759,8 @@
         }
       },
       "post": {
-        "summary": "Records a WorkStream entry for a client (on the chosen matter, else the client's .0) or for a lead.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: Writes workstream_activity; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_CLIENT_NOT_FOUND, WORKSTREAM_LEAD_NOT_FOUND, WORKSTREAM_MATTER_NOT_FOR_CLIENT, WORKSTREAM_LEAD_HAS_NO_MATTER, WORKSTREAM_GENERAL_MATTER_MISSING, WORKSTREAM_ASSIGNEE_CONFLICT, WORKSTREAM_WSID_EXHAUSTED, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
+        "summary": "Records one WorkStream entry, with every activity type chosen, for a client (on the chosen matter, else the client's .0) or for a lead; the Task type also makes a task on the Tasks screen.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: Writes workstream_activity and workstream_activity_type; Writes task and task_assignee (an entry with the Task type); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_CLIENT_NOT_FOUND, WORKSTREAM_LEAD_NOT_FOUND, WORKSTREAM_MATTER_NOT_FOR_CLIENT, WORKSTREAM_LEAD_HAS_NO_MATTER, WORKSTREAM_GENERAL_MATTER_MISSING, WORKSTREAM_ASSIGNEE_CONFLICT, WORKSTREAM_ASSIGNEE_NOT_FOUND, WORKSTREAM_WSID_EXHAUSTED, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "workstream"
         ],
@@ -73730,7 +73782,37 @@
                       "SentFiles",
                       "WIP"
                     ],
-                    "description": "Activity type."
+                    "description": "The main activity type."
+                  },
+                  "subgroups": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "PhoneCalls",
+                        "Emails",
+                        "Notes",
+                        "Tasks",
+                        "ReceivedFiles",
+                        "SentFiles",
+                        "WIP"
+                      ],
+                      "description": "Activity type."
+                    },
+                    "minItems": 1,
+                    "maxItems": 7,
+                    "description": "Every activity type of the entry (FB-0016); `subgroup` is added first when the list leaves it out. With `Tasks` among them a task is made on the Tasks screen."
+                  },
+                  "assigneeUserIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "description": "A staff user id."
+                    },
+                    "maxItems": 20,
+                    "description": "Who the task is assigned to, when the types include Tasks: active staff users, the first first; the first is also the entry's assignee. Left out: `assigneeUserId`, else the person recording it. Empty: nobody."
                   },
                   "clientId": {
                     "type": "string",
@@ -73861,7 +73943,24 @@
                                 "SentFiles",
                                 "WIP"
                               ],
-                              "description": "Activity type."
+                              "description": "The main activity type (the first of `subgroups`)."
+                            },
+                            "subgroups": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "PhoneCalls",
+                                  "Emails",
+                                  "Notes",
+                                  "Tasks",
+                                  "ReceivedFiles",
+                                  "SentFiles",
+                                  "WIP"
+                                ],
+                                "description": "Activity type."
+                              },
+                              "description": "Every activity type of the entry, the main one first (FB-0016: a Phone Call may also be a Task)."
                             },
                             "clientId": {
                               "type": [
@@ -73971,14 +74070,21 @@
                                 "string",
                                 "null"
                               ],
-                              "description": "Linked task (not used yet)."
+                              "description": "The task made for the entry's Task type (Tasks screen, `Task #<id>`), or null."
                             },
                             "assigneeUserId": {
                               "type": [
                                 "string",
                                 "null"
                               ],
-                              "description": "Assigned staff user."
+                              "description": "Assigned staff user (the first task assignee when the entry has a task)."
+                            },
+                            "assigneeUserIds": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "The task's current assignees, the first first, when the entry has a task; else the assigned staff user, or none."
                             },
                             "assigneeContactId": {
                               "type": [
@@ -74024,6 +74130,7 @@
                             "id",
                             "wsid",
                             "subgroup",
+                            "subgroups",
                             "clientId",
                             "clientNumber",
                             "clientDisplayName",
@@ -74042,6 +74149,7 @@
                             "documentLabel",
                             "taskId",
                             "assigneeUserId",
+                            "assigneeUserIds",
                             "assigneeContactId",
                             "assigneeLabel",
                             "performedByUserId",
@@ -74050,6 +74158,13 @@
                             "updatedAt"
                           ],
                           "description": "The entry after the save."
+                        },
+                        "taskError": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Set only when the entry was saved but its task could not be made or reassigned: the error code (the entry stands; save it again with the Task type to try once more)."
                         }
                       },
                       "required": [
@@ -74425,7 +74540,24 @@
                                 "SentFiles",
                                 "WIP"
                               ],
-                              "description": "Activity type."
+                              "description": "The main activity type (the first of `subgroups`)."
+                            },
+                            "subgroups": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "PhoneCalls",
+                                  "Emails",
+                                  "Notes",
+                                  "Tasks",
+                                  "ReceivedFiles",
+                                  "SentFiles",
+                                  "WIP"
+                                ],
+                                "description": "Activity type."
+                              },
+                              "description": "Every activity type of the entry, the main one first (FB-0016: a Phone Call may also be a Task)."
                             },
                             "clientId": {
                               "type": [
@@ -74535,14 +74667,21 @@
                                 "string",
                                 "null"
                               ],
-                              "description": "Linked task (not used yet)."
+                              "description": "The task made for the entry's Task type (Tasks screen, `Task #<id>`), or null."
                             },
                             "assigneeUserId": {
                               "type": [
                                 "string",
                                 "null"
                               ],
-                              "description": "Assigned staff user."
+                              "description": "Assigned staff user (the first task assignee when the entry has a task)."
+                            },
+                            "assigneeUserIds": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "The task's current assignees, the first first, when the entry has a task; else the assigned staff user, or none."
                             },
                             "assigneeContactId": {
                               "type": [
@@ -74588,6 +74727,7 @@
                             "id",
                             "wsid",
                             "subgroup",
+                            "subgroups",
                             "clientId",
                             "clientNumber",
                             "clientDisplayName",
@@ -74606,6 +74746,7 @@
                             "documentLabel",
                             "taskId",
                             "assigneeUserId",
+                            "assigneeUserIds",
                             "assigneeContactId",
                             "assigneeLabel",
                             "performedByUserId",
@@ -74614,6 +74755,13 @@
                             "updatedAt"
                           ],
                           "description": "The entry after the save."
+                        },
+                        "taskError": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Set only when the entry was saved but its task could not be made or reassigned: the error code (the entry stands; save it again with the Task type to try once more)."
                         }
                       },
                       "required": [
@@ -74888,8 +75036,8 @@
         }
       },
       "patch": {
-        "summary": "Changes the fields sent (type, matter of the same client, subject, note, next steps, time, assignee); the rest stay as they are.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: Writes workstream_activity; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_NOT_FOUND, WORKSTREAM_MATTER_NOT_FOR_CLIENT, WORKSTREAM_LEAD_HAS_NO_MATTER, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
+        "summary": "Changes the fields sent (types, matter of the same client, subject, note, next steps, time, assignee, the task's assignees); the rest stay as they are. Adding the Task type makes the task.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: Writes workstream_activity and workstream_activity_type; Writes task and task_assignee (an entry with the Task type); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_NOT_FOUND, WORKSTREAM_MATTER_NOT_FOR_CLIENT, WORKSTREAM_LEAD_HAS_NO_MATTER, WORKSTREAM_ASSIGNEE_NOT_FOUND, WORKSTREAM_TASK_TYPE_REQUIRED, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "workstream"
         ],
@@ -74924,7 +75072,37 @@
                       "SentFiles",
                       "WIP"
                     ],
-                    "description": "Activity type."
+                    "description": "The main activity type. Sent alone, it replaces the main type and the other types stay."
+                  },
+                  "subgroups": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "PhoneCalls",
+                        "Emails",
+                        "Notes",
+                        "Tasks",
+                        "ReceivedFiles",
+                        "SentFiles",
+                        "WIP"
+                      ],
+                      "description": "Activity type."
+                    },
+                    "minItems": 1,
+                    "maxItems": 7,
+                    "description": "The whole new set of activity types (FB-0016). The main type stays when it is in the set (or `subgroup` when that is), else the first. Adding Tasks makes the task on the Tasks screen; taking it away leaves the task as it is."
+                  },
+                  "assigneeUserIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "description": "A staff user id."
+                    },
+                    "maxItems": 20,
+                    "description": "The whole new set of the task's assignees (the entry must have the Task type), the first first; the first is also the entry's assignee. Empty: nobody."
                   },
                   "matterId": {
                     "type": "string",
@@ -75018,7 +75196,24 @@
                                 "SentFiles",
                                 "WIP"
                               ],
-                              "description": "Activity type."
+                              "description": "The main activity type (the first of `subgroups`)."
+                            },
+                            "subgroups": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "PhoneCalls",
+                                  "Emails",
+                                  "Notes",
+                                  "Tasks",
+                                  "ReceivedFiles",
+                                  "SentFiles",
+                                  "WIP"
+                                ],
+                                "description": "Activity type."
+                              },
+                              "description": "Every activity type of the entry, the main one first (FB-0016: a Phone Call may also be a Task)."
                             },
                             "clientId": {
                               "type": [
@@ -75128,14 +75323,21 @@
                                 "string",
                                 "null"
                               ],
-                              "description": "Linked task (not used yet)."
+                              "description": "The task made for the entry's Task type (Tasks screen, `Task #<id>`), or null."
                             },
                             "assigneeUserId": {
                               "type": [
                                 "string",
                                 "null"
                               ],
-                              "description": "Assigned staff user."
+                              "description": "Assigned staff user (the first task assignee when the entry has a task)."
+                            },
+                            "assigneeUserIds": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "The task's current assignees, the first first, when the entry has a task; else the assigned staff user, or none."
                             },
                             "assigneeContactId": {
                               "type": [
@@ -75181,6 +75383,7 @@
                             "id",
                             "wsid",
                             "subgroup",
+                            "subgroups",
                             "clientId",
                             "clientNumber",
                             "clientDisplayName",
@@ -75199,6 +75402,7 @@
                             "documentLabel",
                             "taskId",
                             "assigneeUserId",
+                            "assigneeUserIds",
                             "assigneeContactId",
                             "assigneeLabel",
                             "performedByUserId",
@@ -75207,6 +75411,13 @@
                             "updatedAt"
                           ],
                           "description": "The entry after the save."
+                        },
+                        "taskError": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Set only when the entry was saved but its task could not be made or reassigned: the error code (the entry stands; save it again with the Task type to try once more)."
                         }
                       },
                       "required": [
@@ -75887,7 +76098,24 @@
                                 "SentFiles",
                                 "WIP"
                               ],
-                              "description": "Activity type."
+                              "description": "The main activity type (the first of `subgroups`)."
+                            },
+                            "subgroups": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "PhoneCalls",
+                                  "Emails",
+                                  "Notes",
+                                  "Tasks",
+                                  "ReceivedFiles",
+                                  "SentFiles",
+                                  "WIP"
+                                ],
+                                "description": "Activity type."
+                              },
+                              "description": "Every activity type of the entry, the main one first (FB-0016: a Phone Call may also be a Task)."
                             },
                             "clientId": {
                               "type": [
@@ -75997,14 +76225,21 @@
                                 "string",
                                 "null"
                               ],
-                              "description": "Linked task (not used yet)."
+                              "description": "The task made for the entry's Task type (Tasks screen, `Task #<id>`), or null."
                             },
                             "assigneeUserId": {
                               "type": [
                                 "string",
                                 "null"
                               ],
-                              "description": "Assigned staff user."
+                              "description": "Assigned staff user (the first task assignee when the entry has a task)."
+                            },
+                            "assigneeUserIds": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "The task's current assignees, the first first, when the entry has a task; else the assigned staff user, or none."
                             },
                             "assigneeContactId": {
                               "type": [
@@ -76050,6 +76285,7 @@
                             "id",
                             "wsid",
                             "subgroup",
+                            "subgroups",
                             "clientId",
                             "clientNumber",
                             "clientDisplayName",
@@ -76068,6 +76304,7 @@
                             "documentLabel",
                             "taskId",
                             "assigneeUserId",
+                            "assigneeUserIds",
                             "assigneeContactId",
                             "assigneeLabel",
                             "performedByUserId",
@@ -76076,6 +76313,13 @@
                             "updatedAt"
                           ],
                           "description": "The entry after the save."
+                        },
+                        "taskError": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Set only when the entry was saved but its task could not be made or reassigned: the error code (the entry stands; save it again with the Task type to try once more)."
                         }
                       },
                       "required": [
