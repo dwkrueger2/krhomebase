@@ -1,6 +1,6 @@
 ## Impeccable Design Skill Reference
-<small>Version 1.0</small><br>
-<small>Updated Nov 9, 2026 10:20pm</small>
+<small>Version 1.1</small><br>
+<small>Updated Nov 18, 2026 12:00pm</small>
 
 Impeccable is a design add-on (a "skill") for AI coding agents. It gives the agent design rules and a set of
 `/impeccable` commands for reviewing and improving screens. It is not a program you use on its own: **you type its
@@ -13,7 +13,7 @@ Source: [pbakaus/impeccable on GitHub](https://github.com/pbakaus/impeccable)
 | Place | Runs Impeccable? | Why |
 |---|---|---|
 | **Claude Code on this computer** (the `claude` terminal program, or the Code tab of the Claude desktop app, opened on `D:\Repos\krhomebase`) | **Yes** | It reads the skill from the repository's `.claude\skills\impeccable` folder. |
-| **Codex on this computer** | Supported by Impeccable, but **not installed here** | This repository was installed for Claude only (`--providers=claude`). Codex needs its own install run. |
+| **Codex on this computer, GPTWork1** | **Yes** | Project install is in `.agents\skills\impeccable` (skill 4.9.1, engine 0.1.24); project hooks are in `.codex\hooks.json`. It is not a user-wide install. |
 | **Cloud chats** (claude.ai, the Claude app's chat, cloud sessions) | **No** | They cannot see the repository's `.claude` folder. Typing `/impeccable` there does nothing. |
 
 ### 2. Two kinds of commands: know which window you are typing in
@@ -21,10 +21,21 @@ Source: [pbakaus/impeccable on GitHub](https://github.com/pbakaus/impeccable)
 This document marks every command with one of two labels:
 
 - **▶ POWERSHELL**: typed in a PowerShell window, in `D:\Repos\krhomebase`. These install, update or start things.
-- **▶ CLAUDE CODE PROMPT**: typed into Claude Code's prompt, where you would write a request to the agent. Every
+- **▶ AGENT PROMPT**: typed into Claude Code or Codex's prompt, where you would write a request to the agent. Every
   command that starts with `/impeccable` goes here, never in PowerShell.
 
 ### 3. Install (once per repository)
+
+Codex project installation for GPTWork1 is complete. The existing Claude installation under `.claude\skills\impeccable` was left in place.
+
+**▶ POWERSHELL**
+```powershell
+$SetLocation = 'D:\Repos\KrhomebaseGPT'
+Set-Location $SetLocation
+& '.\.claude\skills\impeccable\scripts\impeccable.cmd' install --providers=codex --scope=project --yes
+```
+
+This creates `.agents\skills\impeccable\` and `.codex\hooks.json` in the project. Start a new Codex chat or reload the project if the skill shortcut is not visible in a chat that was already open during installation.
 
 **▶ POWERSHELL**
 ```powershell
@@ -59,7 +70,7 @@ not restarted, or you are in a cloud chat.
 
 ### 4. Set up (once per repository)
 
-**▶ CLAUDE CODE PROMPT**
+**▶ AGENT PROMPT**
 ```text
 /impeccable init
 /impeccable document
@@ -76,7 +87,7 @@ not restarted, or you are in a cloud chat.
 
 ### 5. Everyday use
 
-**▶ CLAUDE CODE PROMPT**, in the form `/impeccable <command> <target>`. The target is plain words or a file path:
+**▶ AGENT PROMPT**, in the form `/impeccable <command> <target>`. The target is plain words or a file path:
 ```text
 /impeccable critique the Billing Invoices tab (apps/web/features/billing/components/InvoicesTab.client.tsx)
 ```
