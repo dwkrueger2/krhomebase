@@ -44,7 +44,8 @@
     }
   ],
   // Plain (non-secret) settings for the live site. On this computer, apps/api/.dev.vars overrides them
-  // (KR_APP_BASE_URL becomes http://localhost:3011). The secrets are not here: they are set with
+  // (KR_APP_BASE_URL becomes http://localhost:3011); the GPTWork1 dev:branch2 script overrides it to 3031.
+  // The secrets are not here: they are set with
   // `wrangler secret put` (see apps/api/Readme-auth.md).
   "vars": {
     // Google OAuth client "krhomebase-team". The client ID is public (it appears in the Google sign-in address).

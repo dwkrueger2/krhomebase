@@ -56,6 +56,8 @@
 import type {
   AttendanceEmployeesData,
   AttendanceScope,
+  TeamStatusData,
+  SaveTeamStatusData,
   ClockActionData,
   ClockStateData,
   EditableTimeType,
@@ -470,6 +472,83 @@ export async function listAttendanceEmployees(queries: TimekeepingQueries, viewe
   return { employees: [...(own ? [own] : []), ...others.filter((employee) => employee.id !== own?.id)] }
 }
 
+/** The rows the viewer may include in the Team Status widget, with status tied only to an open official clock-in. */
+export async function loadTeamStatus(
+  queries: TimekeepingQueries,
+  viewer: Viewer,
+  employeeIds: readonly string[],
+  now: Date = new Date(),
+): Promise<TeamStatusData> {
+  const permitted = await listAttendanceEmployees(queries, viewer)
+  const selected = new Set(employeeIds)
+  const candidates = permitted.employees.filter((employee) => selected.has(employee.id))
+  const authorized = await Promise.all(candidates.map(async (employee) => {
+    try {
+      return { employee, access: await resolveCardAccess(queries, viewer, employee.id, now.getTime()) }
+    } catch (error) {
+      if (error instanceof TimekeepingError && error.code === 'ATTENDANCE_SCOPE_NOT_AUTHORIZED') return null
+      throw error
+    }
+  }))
+  const policies = readEmployeePolicies(await queries.policyJson())
+  const tz = policies.firmTimezone
+  const today = localDateForInstant(now, tz)
+  const rows = await Promise.all(
+    authorized.filter((entry): entry is NonNullable<typeof entry> => entry !== null).map(async ({ employee, access }) => {
+      const punches = await queries.recentPunches(employee.id)
+      const { current, stale } = openPunches(punches.reverse(), today, now, tz)
+      const shift = current ?? stale
+      const status = shift ? await queries.shiftStatus(shift.id) : null
+      return {
+        employeeId: employee.id,
+        name: employee.name,
+        isClockedIn: current !== null,
+        needsClockReview: Boolean(stale),
+        clockedInAt: shift?.occurredAt ?? null,
+        statusNote: status?.statusNote ?? null,
+        location: status?.location ?? null,
+        canUpdate: access.canUpdate && Boolean(current),
+      }
+    }),
+  )
+  return { rows }
+}
+
+/** Saves a note and optional location for the employee's current shift, with the attendance scope checked server-side. */
+export async function saveTeamStatus(
+  queries: TimekeepingQueries,
+  viewer: Viewer,
+  actor: Actor,
+  body: { employeeId: string; statusNote: string; location?: string | null },
+  now: Date = new Date(),
+): Promise<SaveTeamStatusData> {
+  const access = await resolveCardAccess(queries, viewer, body.employeeId, now.getTime())
+  if (!access.canUpdate) throw new TimekeepingError('ATTENDANCE_SCOPE_NOT_AUTHORIZED', 403, 'You may not change this employee\'s shift status.')
+  const { tz, today, at } = await writeSetup(queries, now)
+  const punches = (await queries.recentPunches(access.employee.id)).reverse()
+  const { current } = openPunches(punches, today, now, tz)
+  if (!current) throw new TimekeepingError('NO_OPEN_CLOCK_IN', 409, 'This employee does not have an active shift to update.')
+
+  const row = {
+    id: newId('shiftstatus'),
+    employeeId: access.employee.id,
+    clockInPunchId: current.id,
+    statusNote: body.statusNote.trim() || null,
+    location: body.location?.trim() || null,
+    updatedByUserId: actor.userId,
+    updatedAt: at,
+  }
+  const audit = auditEntry(actor, 'shift_status_update', 'employee_shift_status', row.id, {
+    employeeId: access.employee.id,
+    clockInPunchId: current.id,
+    hasStatusNote: Boolean(row.statusNote),
+    hasLocation: Boolean(row.location),
+  })
+  const changes = await queries.run([queries.saveShiftStatus(row, at), queries.auditShiftStatus(audit, at)])
+  if (changes[0] !== 1) throw conflict()
+  return { employeeId: access.employee.id, updatedAt: at }
+}
+
 // ----------------------------------------------------------------------------------------------------------
 // Writes: shared pieces
 
@@ -656,7 +735,11 @@ export async function clockOut(queries: TimekeepingQueries, viewer: Viewer, acto
   }
   // Change 10: the pair this clock-out closes gets its stored hours, only if the clock-out is saved.
   const hours = await pairHourStatements(queries, policies, actor, at, employee.id, [{ payPeriodId: card.payPeriodId, cardId: card.id }], { added: [punch] }, punch.id)
-  const changes = await queries.run([...punchStatements(queries, punch, { kind: 'clock_in_still_open', punchId: current.id }, actor, 'clock_out'), ...hours])
+  const changes = await queries.run([
+    ...punchStatements(queries, punch, { kind: 'clock_in_still_open', punchId: current.id }, actor, 'clock_out'),
+    queries.clearShiftStatus(current.id, punch.id, at),
+    ...hours,
+  ])
   if (changes[0] !== 1) throw conflict()
   return { punchId: punch.id, occurredAt, localDate: today, replayed: false }
 }
@@ -703,7 +786,11 @@ export async function missedClockOut(
     if (Date.parse(occurredAt) <= Date.parse(latest.occurredAt)) throw new TimekeepingError('MISSED_CLOCK_OUT_MUST_USE_OPEN_WORK_DATE', 422, `The clock-out must be on ${latest.localDate}, after the clock-in.`)
     const punch: NewPunch = { ...base, id: newId('punch'), payPeriodId: openCard.payPeriodId, punchType: 'clock_out', occurredAt, localDate: latest.localDate, source, correctionReason: 'Missed clock-out entered from overnight review', idempotencyKey: key ? `${key}:missed` : null }
     const hours = await pairHourStatements(queries, policies, actor, at, employee.id, [{ payPeriodId: openCard.payPeriodId, cardId: openCard.id }], { added: [punch] }, punch.id)
-    const changes = await queries.run([...punchStatements(queries, punch, { kind: 'clock_in_still_open', punchId: latest.id }, actor, 'missed_clock_out'), ...hours])
+    const changes = await queries.run([
+      ...punchStatements(queries, punch, { kind: 'clock_in_still_open', punchId: latest.id }, actor, 'missed_clock_out'),
+      queries.clearShiftStatus(latest.id, punch.id, at),
+      ...hours,
+    ])
     if (changes[0] !== 1) throw conflict()
     return { punchIds: [punch.id] }
   }
@@ -727,6 +814,7 @@ export async function missedClockOut(
     ...ensureCard(queries, employee.id, todayPeriod, at),
     ...punchStatements(queries, resumeIn, { kind: 'no_open_clock_in_on', localDate: today }, actor, 'split_midnight'),
     ...punchStatements(queries, finalOut, { kind: 'clock_in_still_open', punchId: resumeIn.id }, actor, 'split_midnight'),
+    queries.clearShiftStatus(latest.id, closeOut.id, at),
     ...hours,
   ])
   if (changes[0] !== 1) throw conflict()

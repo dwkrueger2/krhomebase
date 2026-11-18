@@ -31785,6 +31785,721 @@
         }
       }
     },
+    "/v1/timekeeping/team-status": {
+      "get": {
+        "summary": "Reads the selected employees' current official clock state and per-shift status, limited by Attendance scope.",
+        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, TEAM_STATUS_MIGRATION_REQUIRED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "timekeeping"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "maxItems": 50,
+              "default": [],
+              "description": "Selected employee ids to include, subject to the viewer's Attendance scope."
+            },
+            "required": false,
+            "description": "Selected employee ids to include, subject to the viewer's Attendance scope.",
+            "name": "employeeIds",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The selected employees the viewer may see.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "rows": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "employeeId": {
+                                "type": "string",
+                                "description": "Employee id."
+                              },
+                              "name": {
+                                "type": "string",
+                                "description": "Employee name, or login email when no name is recorded."
+                              },
+                              "isClockedIn": {
+                                "type": "boolean",
+                                "description": "Whether the official timekeeping system has an open clock-in for this employee."
+                              },
+                              "needsClockReview": {
+                                "type": "boolean",
+                                "description": "Whether an open clock-in is old enough to need an Attendance repair."
+                              },
+                              "clockedInAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The current shift clock-in instant, or null when clocked out."
+                              },
+                              "statusNote": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Short status note for the current shift, cleared at clock-out."
+                              },
+                              "location": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Optional location for the current shift, cleared at clock-out."
+                              },
+                              "canUpdate": {
+                                "type": "boolean",
+                                "description": "Whether this viewer may update the current shift status."
+                              }
+                            },
+                            "required": [
+                              "employeeId",
+                              "name",
+                              "isClockedIn",
+                              "needsClockReview",
+                              "clockedInAt",
+                              "statusNote",
+                              "location",
+                              "canUpdate"
+                            ]
+                          },
+                          "description": "Employees from the requested roster that the viewer is authorized to see."
+                        }
+                      },
+                      "required": [
+                        "rows"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No Attendance access or not allowed to see the selected employee.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Team Status storage is not available or its migration has not been applied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Saves a short note and optional location for one employee's current shift.",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_shift_status; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_FOUND, NO_OPEN_CLOCK_IN, TEAM_STATUS_MIGRATION_REQUIRED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "timekeeping"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "employeeId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "The employee whose current shift status is being updated."
+                  },
+                  "statusNote": {
+                    "type": "string",
+                    "maxLength": 160,
+                    "description": "Short free-text status for this shift; an empty string clears it."
+                  },
+                  "location": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 100,
+                    "description": "Optional location for this shift; null or an empty string clears it."
+                  }
+                },
+                "required": [
+                  "employeeId",
+                  "statusNote"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The shift status was saved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "employeeId": {
+                          "type": "string",
+                          "description": "The employee whose current shift status was updated."
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "description": "When the status change was saved."
+                        }
+                      },
+                      "required": [
+                        "employeeId",
+                        "updatedAt"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No Attendance access or not allowed to change this employee's shift status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such employee.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The employee has no active shift, or the shift closed while saving.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Team Status storage is not available or its migration has not been applied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/timekeeping/clock-in": {
       "post": {
         "summary": "Clock the signed-in person in now (the exact time; only hours are rounded). Refused while a shift is open. A repeated idempotency key returns the first punch.",
@@ -32165,7 +32880,7 @@
     "/v1/timekeeping/clock-out": {
       "post": {
         "summary": "Clock the signed-in person out now. With no open shift: NO_OPEN_CLOCK_IN (details name an older open punch to repair). Last night's shift still open before 3 am: MISSED_CLOCK_OUT_REQUIRES_REVIEW, answered with the missed clock-out route.",
-        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_punch; Writes employee_time_event (each pair's stored hours, time_type 'regular'); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_ACTIVE, TIME_CARD_LOCKED, ATTENDANCE_STATE_CONFLICT, TIME_CARD_NOT_FOUND, NO_OPEN_CLOCK_IN, MISSED_CLOCK_OUT_REQUIRES_REVIEW, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_punch; Clears employee_shift_status; Writes employee_time_event (each pair's stored hours, time_type 'regular'); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_ACTIVE, TIME_CARD_LOCKED, ATTENDANCE_STATE_CONFLICT, TIME_CARD_NOT_FOUND, NO_OPEN_CLOCK_IN, MISSED_CLOCK_OUT_REQUIRES_REVIEW, TEAM_STATUS_MIGRATION_REQUIRED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "timekeeping"
         ],
@@ -32542,7 +33257,7 @@
     "/v1/timekeeping/missed-clock-out": {
       "post": {
         "summary": "Close last night's open shift, before 3 am: `enter_time` saves the given clock-out on that date; `split_midnight` closes it at midnight, starts today at midnight and clocks out now (three punches, one save).",
-        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_punch; Writes pay_period and employee_time_card when missing; Writes employee_time_event (each pair's stored hours, time_type 'regular'); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_ACTIVE, TIME_CARD_LOCKED, ATTENDANCE_STATE_CONFLICT, TIME_CARD_NOT_FOUND, NO_OPEN_CLOCK_IN, MISSED_CLOCK_OUT_REPAIR_REQUIRED, MISSED_CLOCK_OUT_TIME_REQUIRED, MISSED_CLOCK_OUT_MUST_USE_OPEN_WORK_DATE, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_punch; Clears employee_shift_status; Writes pay_period and employee_time_card when missing; Writes employee_time_event (each pair's stored hours, time_type 'regular'); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_ACTIVE, TIME_CARD_LOCKED, ATTENDANCE_STATE_CONFLICT, TIME_CARD_NOT_FOUND, NO_OPEN_CLOCK_IN, MISSED_CLOCK_OUT_REPAIR_REQUIRED, MISSED_CLOCK_OUT_TIME_REQUIRED, MISSED_CLOCK_OUT_MUST_USE_OPEN_WORK_DATE, TEAM_STATUS_MIGRATION_REQUIRED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "timekeeping"
         ],
@@ -34946,6 +35661,16 @@
                               },
                               "description": "Dashboard widget choices by widget id: shown or hidden, and order."
                             },
+                            "teamStatusRoster": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 120
+                              },
+                              "maxItems": 50,
+                              "description": "Employee ids this person chose to show in the Team Status Dashboard widget."
+                            },
                             "personalTheme": {
                               "type": "object",
                               "properties": {
@@ -35014,6 +35739,7 @@
                             "autoLogoutMinutes",
                             "startingSection",
                             "dashboardWidgets",
+                            "teamStatusRoster",
                             "personalTheme",
                             "workstreamTypes",
                             "assignCreatorByDefault"
@@ -35310,6 +36036,16 @@
                     },
                     "description": "Dashboard widget choices by widget id: shown or hidden, and order."
                   },
+                  "teamStatusRoster": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    "maxItems": 50,
+                    "description": "Employee ids this person chose to show in the Team Status Dashboard widget."
+                  },
                   "personalTheme": {
                     "type": "object",
                     "properties": {
@@ -35480,6 +36216,16 @@
                               },
                               "description": "Dashboard widget choices by widget id: shown or hidden, and order."
                             },
+                            "teamStatusRoster": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 120
+                              },
+                              "maxItems": 50,
+                              "description": "Employee ids this person chose to show in the Team Status Dashboard widget."
+                            },
                             "personalTheme": {
                               "type": "object",
                               "properties": {
@@ -35548,6 +36294,7 @@
                             "autoLogoutMinutes",
                             "startingSection",
                             "dashboardWidgets",
+                            "teamStatusRoster",
                             "personalTheme",
                             "workstreamTypes",
                             "assignCreatorByDefault"

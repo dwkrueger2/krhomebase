@@ -20,8 +20,9 @@
  */
 
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import PopOutBrowserWindow, { openPopoutBrowserWindow } from '@/components/shell/PopOutBrowserWindow.client'
 import { COMMUNICATION_ACTIVITY_TYPE_COMMAND_HINTS } from '../communicationActivityTypeTriggers'
 import { INTERNAL_CLIENT_NUMBER, INTERNAL_MATTER_NUMBER, WORKSTREAM_COMMUNICATION_ACTIVITY_OPTIONS } from '../communicationTypes'
 
@@ -55,6 +56,7 @@ const STYLES = {
 const LAYOUT_STYLES = {
   backdrop: 'p-[10px] fixed inset-0 z-50 flex items-center justify-center',
   dialog: 'p-[10px] w-full max-h-[min(760px,calc(100vh-20px))] overflow-y-auto',
+  popoutDialog: 'min-h-dvh w-full',
   quickEntryWidth: 'max-w-[560px]',
   contextWidth: 'max-w-[460px]',
   header: 'gap-[8px] flex items-center justify-between',
@@ -67,17 +69,56 @@ const LAYOUT_STYLES = {
 } as const
 
 /**
- * The shared frame: backdrop (a press on it closes), the dialog box with its title and close button, Escape to close,
- * drawn into the page body with the theme scope.
+ * The shared frame: a backdrop (a press on it closes), a dialog with pop-out and close controls, Escape to close, and
+ * an optional side window. Both render with the Homebase theme scope.
  */
 function HelpDialogFrame({ children, dataKrElement, onClose, title, titleId, widthClass }: HelpDialogProps & { children: ReactNode; dataKrElement: string; title: string; titleId: string; widthClass: string }) {
+  const [popup, setPopup] = useState<Window | null>(null)
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') {
+        if (popup && !popup.closed) popup.close()
+        onClose()
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+  }, [onClose, popup])
+
+  /** Closes the optional browser window and the help dialog. */
+  function close(): void {
+    if (popup && !popup.closed) popup.close()
+    setPopup(null)
+    onClose()
+  }
+
+  /** Opens a side window synchronously from the user's click so the browser permits it. */
+  function openPopOut(): void {
+    const nextPopup = openPopoutBrowserWindow(0, { height: 680, side: 'beside', width: 620 })
+    if (nextPopup) setPopup(nextPopup)
+  }
+
+  /** Renders the help content in either the modal or the pop-out window. */
+  function dialog(isPopOut = false): ReactNode {
+    return (
+      <section className={`${LAYOUT_STYLES.dialog} ${isPopOut ? LAYOUT_STYLES.popoutDialog : widthClass} ${STYLES.dialog}`} role="dialog" aria-modal={!isPopOut} aria-labelledby={titleId} data-kr-element={dataKrElement}>
+        {/* Dialog heading: users can pop out or close the rule reference without losing the draft. */}
+        <div className={LAYOUT_STYLES.header}>
+          <strong className={STYLES.title} id={titleId}>{title}</strong>
+          <div className={LAYOUT_STYLES.header}>
+            {!isPopOut ? <button type="button" className={`${LAYOUT_STYLES.close} ${STYLES.close}`} aria-label={`Pop out ${title}`} title="Pop out beside the page" onClick={openPopOut}><KRHomebaseIcons.ExternalLink className={STYLES.closeIcon} /></button> : null}
+            <button type="button" className={`${LAYOUT_STYLES.close} ${STYLES.close}`} aria-label={`Close ${title}`} onClick={close}><KRHomebaseIcons.Close className={STYLES.closeIcon} /></button>
+          </div>
+        </div>
+        {children}
+      </section>
+    )
+  }
+
+  if (popup) {
+    return <PopOutBrowserWindow popupWindow={popup} title={title} onClose={close}>{dialog(true)}</PopOutBrowserWindow>
+  }
 
   return createPortal(
     <div
@@ -85,17 +126,10 @@ function HelpDialogFrame({ children, dataKrElement, onClose, title, titleId, wid
       data-kr-theme-scope="krhomebase"
       role="presentation"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
+        if (event.target === event.currentTarget) close()
       }}
     >
-      <section className={`${LAYOUT_STYLES.dialog} ${widthClass} ${STYLES.dialog}`} role="dialog" aria-modal="true" aria-labelledby={titleId} data-kr-element={dataKrElement}>
-        {/* Dialog heading: users can close the rule reference without losing the draft. */}
-        <div className={LAYOUT_STYLES.header}>
-          <strong className={STYLES.title} id={titleId}>{title}</strong>
-          <button type="button" className={`${LAYOUT_STYLES.close} ${STYLES.close}`} aria-label={`Close ${title}`} onClick={onClose}><KRHomebaseIcons.Close className={STYLES.closeIcon} /></button>
-        </div>
-        {children}
-      </section>
+      {dialog()}
     </div>,
     document.body,
   )
@@ -111,6 +145,15 @@ export default function WorkStreamQuickEntryHelpDialog({ onClose }: HelpDialogPr
       {/* Activity rules: these are the entry types and command forms the composer understands. */}
       <p className={`${LAYOUT_STYLES.body} ${STYLES.body}`}>
         Select one or more <strong>Log as</strong> buttons. One draft creates one WorkStream entry for each selected type. Typing a configured natural phrase can select an activity automatically; manually unchecking a selected activity prevents that same trigger from immediately reselecting it.
+      </p>
+      <p className={`${LAYOUT_STYLES.example} ${STYLES.body}`}>
+        Type <code className={STYLES.code}>/help</code> in the note field to open this guide.
+      </p>
+      <p className={`${LAYOUT_STYLES.example} ${STYLES.body}`} data-kr-element="communications-parser-indication-help">
+        The <strong>Parser</strong> line under the composer shows activity types it detected and whether they are selected. A detected type is only a suggestion; a selected type will be logged. A context cue says when a client lookup is recognized and when suggestions are ready.
+      </p>
+      <p className={`${LAYOUT_STYLES.example} ${STYLES.body}`} data-kr-element="communications-task-assignment-help">
+        When <strong>Task</strong> is selected under Log as, use <strong>Assignees</strong> in the selector to choose who receives the task. The current user is selected by default.
       </p>
       <div className={LAYOUT_STYLES.activityList} data-kr-element="communications-quick-entry-activity-rules">
         {WORKSTREAM_COMMUNICATION_ACTIVITY_OPTIONS.map(({ value: activityType }) => (

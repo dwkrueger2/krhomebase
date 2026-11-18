@@ -7,7 +7,7 @@ import SignedInShell from '@/features/auth/components/SignedInShell.client'
 /**
  * Render tests for the sign-in card and the signed-in wrapper. They render to text with `react-dom/server`, so
  * they check structure, wording and the button's starting state. Clicks, the Turnstile widget and the redirect to
- * Google need a browser and are checked by hand on http://localhost:3011.
+ * Google need a browser and are checked by hand on http://localhost:3031.
  * Run: `pnpm --filter @krhomebase/web test`.
  */
 const BASE = { firmName: 'Test Firm', turnstileRequired: false, turnstileSiteKey: null as string | null }

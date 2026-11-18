@@ -1,11 +1,11 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.27</small><br>
-<small>Updated Nov 16, 2026 8:33pm</small>
+<small>Version 2.31</small><br>
+<small>Updated Nov 17, 2026 10:15pm</small>
 
 ## Agent Guide Index
 
-- This file is the root guide for AI agents and programmers working in `D:\Repos\krhomebase`. Read it first.
+- This file is the root guide for AI agents and programmers working in `D:\Repos\KrhomebaseGPT`. Read it first.
 - Read and follow `AGENTS_01_version-procedures.md` for version and patch procedures. It applies to nearly every task that changes a file.
 - Read and follow `AGENTS_02_commit-push-procedures.md` for commit and push procedures.
 - Read and follow `AGENTS_03_documentation-standards.md` for Markdown document title, version, and updated-time requirements. It applies to every task that creates or changes a `.md` file.
@@ -25,7 +25,7 @@
 
 ## Hard Rules (these override any request to do otherwise)
 
-1. **Old repository is read-only.** `D:\Repos\krueger-richard-website` is source material. Read only from `apps\kr-homebase` and `apps\shared` (the workers). Never write there. Never read file contents under any folder named `private`, at any depth.
+1. **Source repositories are read-only.** `D:\Repos\krhomebase` is the original checkout used by Claude Code; never write there. `D:\Repos\krueger-richard-website` is older source material; read only from `apps\kr-homebase` and `apps\shared` (the workers), and never write there. Never read file contents under any folder named `private`, at any depth.
 2. **No secrets.** `.env*` files may be read: the requester writes them with paths to key files, not the keys themselves. If a `.env*` value looks like a real secret, stop, do not repeat it, and tell the requester. Never read `.dev.vars*` (except `.dev.vars.example`, which holds names only), key files, or the contents of any folder whose path contains `private`. Folder and file names inside `private` may be listed. Secrets belong in Cloudflare Worker secrets (set by the requester with `wrangler secret put`) or in a git-ignored `private/` folder, never in a tracked file. If a tracked file appears to contain a secret, stop and tell the requester; do not copy or summarize the value.
 3. **No client data.** `snapshots\` holds database dumps with real client data. It is git-ignored. Never read, print, copy or commit a dump.
 4. **Database writes are given to the requester, not run.** Read-only wrangler commands (`SELECT`, `d1 list`, `d1 info`, `d1 export`) are allowed. Any `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `--file` import or migration is written out as a command for the requester to run (see `AGENTS_06`).
@@ -34,14 +34,15 @@
 
 ## Announcement of Location - Every Response
 
-Begin every response with exactly these two lines, filled in with the actual current Git branch and working directory:
+Begin every response with exactly these three lines, filled in with the actual current Git branch, working directory, and subject matter for the active chat:
 
 ```text
-Git branch: main
-Working directory: D:\Repos\krhomebase
+Git branch: GPTWork1
+Working directory: D:\Repos\KrhomebaseGPT
+Current Subject Matter: Workstream and Tasks
 ```
 
-This replaces the old `Location:` and `Branch:` wording. `docs/00_PromptMemoryStart.md` section 1 is the source of truth for the header and for the PowerShell command format (every command block starts with `Set-Location` and uses variables for long paths).
+This replaces the old `Location:` and `Branch:` wording. `docs/00_PromptMemoryStart.md` section 1 is the source of truth for the header and for the PowerShell command format (every command block starts with `Set-Location` and uses `$SetLocation` for the working path).
 
 ## Project Boundaries
 
@@ -151,9 +152,12 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 
 | Port | Used by | Started with | Stopped with |
 |---|---|---|---|
-| 3011 | `apps/web` (Next.js on vinext) | `pnpm dev:web` or `pnpm dev` | `pnpm stop:port:3011` |
-| 8787 | `apps/api` (wrangler dev) | `pnpm dev:api` or `pnpm dev` | `pnpm stop:port:8787` |
-| 9339 | `apps/api` debugger (inspector) | started with the API | `pnpm stop:port:9339` |
+| 3011 | `apps/web` standard dev port (matches the impeccable checkout) | `pnpm dev:web` or `pnpm dev` | `pnpm stop:port:3011` |
+| 3031 | `apps/web` GPTWork1 concurrent dev port | `pnpm dev:branch2` | `pnpm stop:port:3031` |
+| 8788 | `apps/api` standard dev port (matches the impeccable checkout) | `pnpm dev:api` or `pnpm dev` | `pnpm stop:port:8788` |
+| 8789 | `apps/api` GPTWork1 concurrent dev port | `pnpm dev:branch2` | `pnpm stop:port:8789` |
+| 9344 | `apps/api` standard debugger (inspector) | started with the API | `pnpm stop:port:9344` |
+| 9345 | `apps/api` GPTWork1 concurrent debugger (inspector) | started with the API | `pnpm stop:port:9345` |
 | 8791 | `workers/d1-workers/crud-worker` (wrangler dev) | `pnpm dev:crud` | `pnpm stop:port:8791` |
 | 9340 | `crud-worker` debugger | started with it | `pnpm stop:port:9340` |
 | 8792 | `workers/d1-workers/session-worker` (wrangler dev) | `pnpm dev:session` | `pnpm stop:port:8792` |
@@ -166,10 +170,10 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 | 3000, 3002, 3003 | Not assigned in this repository. Kept from the old repository's scripts. | | `pnpm stop:port:3000`, `:3002`, `:3003` |
 
 - **`pnpm dev` works on live data.** The API's D1 binding is `remote: true`, so a save made while testing locally writes the live `krhomebase` database, and the local API uses the live crud, session and GPT Workers and the live Stripe keys saved in Settings. Before reproducing a bug by clicking through a screen, say what it will write; prefer a `SELECT`, the automated tests and a test client, and never post a payment or charge a card without the requester's go-ahead.
-- `pnpm stop:ports:all` first runs `stop:dev:servers`, then stops every port in the table.
-- `pnpm stop:dev:servers` (`scripts/stop-dev-servers.windows.ps1`) stops every `wrangler dev` and `vite dev` started from this repository's folder, listening or not. On Windows a server can outlive the terminal or pnpm run that started it; such an orphan starts a new workerd and takes port 8787 back, so the next `pnpm dev` says "Ready" but the API never answers, or vinext refuses to start ("Another vinext dev server is already running"). Run `pnpm stop:ports:all` before `pnpm dev` when either happens.
+- `pnpm stop:ports:all` first runs `stop:dev:servers`, then stops the GPTWork1 branch2 ports and local worker ports. It deliberately leaves standard ports 3011, 8788 and 9344 alone because the impeccable checkout may be using them.
+- `pnpm stop:dev:servers` (`scripts/stop-dev-servers.windows.ps1`) stops every `wrangler dev` and `vite dev` started from this repository's folder, listening or not. On Windows a server can outlive the terminal or pnpm run that started it; such an orphan starts a new workerd and takes port 8788 back, so the next `pnpm dev` says "Ready" but the API never answers, or vinext refuses to start ("Another vinext dev server is already running"). Run `pnpm stop:ports:all` before `pnpm dev` when either happens.
 - A `stop:port:<number>` script stops the whole dev server tree that owns the listener (the `wrangler dev` or `vite dev` above it), not only the listening process, because wrangler restarts a stopped workerd at once.
-- The stop scripts end whatever process is listening on the port, including a server from the old repository. The old `apps/kr-homebase` uses port 3001 and this repository's web app uses 3011, so both can run at the same time without clashing. `stop:port:3001` ends the old app.
+- The stop scripts end whatever process is listening on the port, including a server from another clone. The standard dev commands use web/API ports 3011 and 8788 (API inspector 9344), matching the impeccable checkout. For simultaneous GPTWork1 development, use `pnpm dev:branch2` on web/API ports 3031 and 8789 (inspector 9345). `stop:ports:all` intentionally leaves the standard ports alone.
 - Record every new development port in this table in the same change that adds it, with its own `stop:port:<number>` script in the root `package.json`.
 - The scripts call `scripts/stop-dev-port.windows.ps1` (Windows PowerShell). They report when nothing is listening and do not fail.
 
@@ -226,7 +230,8 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 
 ```powershell
 pnpm install          # once, installs every package
-pnpm dev              # api (port 8787) and web (port 3011) together
+pnpm dev              # standard api (port 8788) and web (port 3011)
+pnpm dev:branch2      # GPTWork1 api (port 8789) and web (port 3031), inspector 9345
 pnpm dev:crud         # crud-worker on port 8791 (optional local run; see workers/Readme-workers.md)
 pnpm dev:session      # session-worker on port 8792
 pnpm dev:external     # external-api on port 8793 (calls the deployed API)
@@ -249,7 +254,7 @@ pnpm deploy:public-article  # deploy krhomebase-public-article-worker (the publi
 pnpm pack:tool-sdk    # build dist\tool-sdk\krhomebase-tool-sdk-1.0.0.tgz for outside developers
 pnpm feedback:get -Number 12  # read-only: write feedback-cache\FB-0012\FB-0012.md from the live database
 pnpm feedback:get -Open       # read-only: write feedback-cache\index.md, the open requests ("plan open feedback")
-pnpm stop:ports:all   # stop every development server started by this repository
+pnpm stop:ports:all   # stop repository-owned servers and GPTWork1 branch2 ports; leave standard ports alone
 pnpm listScripts      # show the root scripts
 ```
 
@@ -263,12 +268,15 @@ pnpm listScripts      # show the root scripts
 | Root script | Folder | Runs |
 |---|---|---|
 | `dev` | root | `dev:api` and `dev:web`, together |
+| `dev:branch2` | root | `dev:branch2:api` and `dev:branch2:web`, together; Vite branch2 mode targets API port 8789 |
+| `dev:branch2:api` | `apps/api` | `wrangler dev --port 8789 --inspector-port 9345 --var KR_APP_BASE_URL:http://localhost:3031` |
+| `dev:branch2:web` | `apps/web` | `vite dev --port 3031 --strictPort --mode branch2`; Vite embeds API port 8789 in the local Worker |
 | `build` | root | `build:web` |
 | `typecheck` | `packages/contracts`, `packages/tool-sdk`, `packages/documents`, `apps/api`, `apps/external-api`, `workers/feedback-viewer`, `apps/web` | `typecheck` in each, in that order, joined by `&&` |
 | `test` | `packages/contracts`, `packages/tool-sdk`, `packages/documents`, `apps/api`, `apps/external-api`, `workers/feedback-viewer`, `apps/web` | `test` in each, in that order, joined by `&&` |
 | `check` | root | `typecheck`, then `test` |
 | `types:cf` | `apps/api` | `wrangler types --config kr-api-wrangler.jsonc` |
-| `dev:api` | `apps/api` | `wrangler dev --port 8787 --inspector-port 9339` |
+| `dev:api` | `apps/api` | `wrangler dev --port 8788 --inspector-port 9344` |
 | `dev:web` | `apps/web` | `vite dev --port 3011` |
 | `build:web` | `apps/web` | `vite build` |
 | `deploy:api` | `apps/api` | `wrangler deploy` |
@@ -300,8 +308,8 @@ A request's detail in the Feedback pop-out has a "Copy for Claude" button that c
 1. Runs the read-only script (allowed under hard rule 4: it only SELECTs and downloads; `-NoImages` skips the screenshots):
 
    ```powershell
-   $Repo = "D:\Repos\krhomebase"
-   Set-Location $Repo
+   $SetLocation = "D:\Repos\KrhomebaseGPT"
+   Set-Location $SetLocation
    pnpm feedback:get -Number 12
    ```
 

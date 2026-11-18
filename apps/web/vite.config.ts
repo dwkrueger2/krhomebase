@@ -14,14 +14,22 @@ function krDevNotice(): Plugin {
   return {
     name: "kr-dev-notice",
     apply: "serve",
-    configureServer() {
+    configureServer(server) {
+      const apiBase = server.config.mode === "branch2"
+        ? process.env.API_DEV_URL ?? "http://localhost:8789"
+        : "http://localhost:8788";
       console.log("[KR_DEV] The web server is starting. Vite prints its address before the Worker runtime is ready. The first request starts that runtime and compiles the page; it can take 10 to 30 seconds with no output. Please wait. Later pages are fast.");
-      console.log("[KR_DEV] A \"still waiting for the API\" line means the API on port 8787 has not answered yet. Its first call to the deployed Workers can also take several seconds.");
+      console.log(`[KR_DEV] A "still waiting for the API" line means the API at ${apiBase} has not answered yet. Its first call to the deployed Workers can also take several seconds.`);
     },
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  // Cloudflare's local Worker runs in an isolated runtime and does not inherit arbitrary host process variables.
+  // Bake the branch2 API address into that Worker build; the standard mode keeps callApi's 8788 default.
+  define: mode === "branch2"
+    ? { "process.env.API_DEV_URL": JSON.stringify(process.env.API_DEV_URL ?? "http://localhost:8789") }
+    : {},
   plugins: [
     krDevNotice(),
     vinext(),
@@ -35,4 +43,4 @@ export default defineConfig({
       },
     }),
   ],
-});
+}));

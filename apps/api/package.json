@@ -1,13 +1,14 @@
 {
   "name": "@krhomebase/api",
   "version": "1.1.1",
-  "patchNum": "45",
-  "patchDate": "11-16",
+  "patchNum": "48",
+  "patchDate": "11-18",
   "private": true,
   "type": "module",
   "description": "KR Homebase API Worker. All business rules; the only code that talks to D1.",
   "scripts": {
-    "dev": "wrangler dev --config kr-api-wrangler.jsonc --port 8787 --inspector-port 9339",
+    "dev": "wrangler dev --config kr-api-wrangler.jsonc --port 8788 --inspector-port 9344",
+    "dev:branch2": "wrangler dev --config kr-api-wrangler.jsonc --port 8789 --inspector-port 9345 --var KR_APP_BASE_URL:http://localhost:3031",
     "deploy": "wrangler deploy --config kr-api-wrangler.jsonc",
     "typecheck": "wrangler types --config kr-api-wrangler.jsonc && tsc --noEmit",
     "test": "vitest run",

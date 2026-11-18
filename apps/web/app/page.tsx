@@ -83,8 +83,10 @@ import SettingsPanel from '@/features/settings/components/SettingsPanel.client'
 import UserSettingsPanel from '@/features/settings/components/UserSettingsPanel.client'
 import TasksPanel from '@/features/tasks/components/TasksPanel.client'
 import { employeeClockInWidget } from '@/features/timekeeping/clockInWidget'
+import { teamStatusWidget } from '@/features/timekeeping/teamStatusWidget'
 import AttendancePanel from '@/features/timekeeping/components/AttendancePanel.client'
 import EmployeeClockInWidget from '@/features/timekeeping/components/EmployeeClockInWidget.client'
+import TeamStatusWidget from '@/features/timekeeping/components/TeamStatusWidget.client'
 import OutsideToolsAdmin from '@/features/tools/components/OutsideToolsAdmin.client'
 import { fetchToolMenu } from '@/features/tools/tools.server'
 
@@ -92,7 +94,10 @@ import { fetchToolMenu } from '@/features/tools/tools.server'
  * The Dashboard widgets (Settings plan, stage 3): each feature defines its widget (`defineWidget`) and draws its body;
  * this list hands them to the Dashboard and to User Settings → Dashboard, so neither imports another feature.
  */
-const DASHBOARD_WIDGETS = [{ definition: employeeClockInWidget, element: <EmployeeClockInWidget /> }]
+const DASHBOARD_WIDGETS = [
+  { definition: employeeClockInWidget, element: <EmployeeClockInWidget /> },
+  { definition: teamStatusWidget, element: <TeamStatusWidget /> },
+]
 
 /** One panel for each built-in menu section, keyed by the menu id. A missing key fails the typecheck. */
 const PANELS: Record<BuiltInSectionId, ReactNode> = {

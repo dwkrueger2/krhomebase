@@ -136,6 +136,16 @@ export interface PairHoursRow {
   hours: number
 }
 
+/** The optional status attached to one official clock-in punch. */
+export interface ShiftStatusRecord {
+  id: string
+  employeeId: string
+  clockInPunchId: string
+  statusNote: string | null
+  location: string | null
+  updatedAt: string
+}
+
 /** One audit row for an Attendance write (resource `timekeeping`). The person comes from the checked session. */
 export interface TimekeepingAudit {
   requestId: string
@@ -176,6 +186,8 @@ export interface TimekeepingQueries {
   punchByIdempotencyKey(employeeId: string, key: string): Promise<PunchRecord | null>
   /** One card by id, or null. */
   cardById(cardId: string): Promise<TimeCardRecord | null>
+  /** Status saved for one shift, or null when the employee has not set one. */
+  shiftStatus(clockInPunchId: string): Promise<ShiftStatusRecord | null>
 
   // Writes: statements for one batch (see the header)
   ensurePayPeriod(period: { id: string; start: string; end: string }, at: string): D1PreparedStatement
@@ -192,6 +204,10 @@ export interface TimekeepingQueries {
   updatePairHours(rowId: string, row: PairHoursRow, at: string, onlyIfPunchId?: string): D1PreparedStatement
   /** Retires a stored figure whose pair is gone: 0 hours, the row is kept. With `onlyIfPunchId`, only when that punch exists. */
   retirePairHours(rowId: string, at: string, onlyIfPunchId?: string): D1PreparedStatement
+  /** Saves a shift note only while its official clock-in remains open. */
+  saveShiftStatus(row: ShiftStatusRecord & { updatedByUserId: string }, at: string): D1PreparedStatement
+  /** Clears the note and location only after the given official clock-out punch exists. */
+  clearShiftStatus(clockInPunchId: string, clockOutPunchId: string, at: string): D1PreparedStatement
   approveAsEmployee(cardId: string, userId: string, status: 'submitted' | 'approved', at: string): D1PreparedStatement
   approveAsManager(cardId: string, userId: string, at: string): D1PreparedStatement
   reopenCard(cardId: string, userId: string, at: string): D1PreparedStatement
@@ -199,6 +215,8 @@ export interface TimekeepingQueries {
   setEventStatuses(cardId: string, status: 'draft' | 'submitted' | 'approved', userId: string | null, at: string): D1PreparedStatement
   /** An audit row; with `onlyIfPunchId`, inserted only when that punch exists (a guarded insert that saved nothing leaves no audit row). */
   audit(entry: TimekeepingAudit, onlyIfPunchId?: string): D1PreparedStatement
+  /** Adds the audit row only if the preceding shift-status upsert actually changed a row. */
+  auditShiftStatus(entry: TimekeepingAudit, updatedAt: string): D1PreparedStatement
   /** Runs one batch (one transaction); returns each statement's `changes`. */
   run(statements: D1PreparedStatement[]): Promise<number[]>
 }
@@ -434,6 +452,19 @@ export function createTimekeepingQueries(db: D1Database): TimekeepingQueries {
       return row ? toCard(row) : null
     },
 
+    async shiftStatus(clockInPunchId) {
+      try {
+        const row = await db
+          .prepare('SELECT id, employee_id, clock_in_punch_id, status_note, location, updated_at FROM employee_shift_status WHERE clock_in_punch_id = ?1 LIMIT 1')
+          .bind(clockInPunchId)
+          .first<{ id: string; employee_id: string; clock_in_punch_id: string; status_note: string | null; location: string | null; updated_at: string }>()
+        return row ? { id: row.id, employeeId: row.employee_id, clockInPunchId: row.clock_in_punch_id, statusNote: row.status_note, location: row.location, updatedAt: row.updated_at } : null
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('no such table: employee_shift_status')) throw new Error('TEAM_STATUS_MIGRATION_REQUIRED')
+        throw error
+      }
+    },
+
     ensurePayPeriod(period, at) {
       return db
         .prepare(`INSERT OR IGNORE INTO pay_period (id, period_start, period_end, status, created_at, updated_at) VALUES (?1, ?2, ?3, 'open', ?4, ?4)`)
@@ -537,6 +568,37 @@ export function createTimekeepingQueries(db: D1Database): TimekeepingQueries {
         .bind(rowId, at, onlyIfPunchId ?? '')
     },
 
+    saveShiftStatus(row, at) {
+      const stillOpen = `EXISTS (
+        SELECT 1 FROM employee_time_punch p
+         WHERE p.id = ?3 AND p.employee_id = ?2 AND p.punch_type = 'clock_in' AND p.voided_at IS NULL
+           AND NOT EXISTS (
+             SELECT 1 FROM employee_time_punch o
+              WHERE o.employee_id = p.employee_id AND o.punch_type = 'clock_out' AND o.voided_at IS NULL
+                AND o.occurred_at > p.occurred_at
+           )
+      )`
+      return db
+        .prepare(
+          `INSERT INTO employee_shift_status (id, employee_id, clock_in_punch_id, status_note, location, updated_by_user_id, created_at, updated_at)
+           SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7 WHERE ${stillOpen}
+           ON CONFLICT (clock_in_punch_id) DO UPDATE SET status_note = excluded.status_note, location = excluded.location,
+             updated_by_user_id = excluded.updated_by_user_id, updated_at = excluded.updated_at
+           WHERE ${stillOpen}`,
+        )
+        .bind(row.id, row.employeeId, row.clockInPunchId, row.statusNote, row.location, row.updatedByUserId, at)
+    },
+
+    clearShiftStatus(clockInPunchId, clockOutPunchId, at) {
+      return db
+        .prepare(
+          `UPDATE employee_shift_status SET status_note = NULL, location = NULL, updated_at = ?3
+            WHERE clock_in_punch_id = ?1
+              AND EXISTS (SELECT 1 FROM employee_time_punch WHERE id = ?2 AND employee_id = employee_shift_status.employee_id AND punch_type = 'clock_out' AND voided_at IS NULL)`,
+        )
+        .bind(clockInPunchId, clockOutPunchId, at)
+    },
+
     approveAsEmployee(cardId, userId, status, at) {
       return db
         .prepare('UPDATE employee_time_card SET status = ?2, employee_approved_by_user_id = ?3, employee_approved_at = ?4, updated_at = ?4 WHERE id = ?1')
@@ -600,6 +662,17 @@ export function createTimekeepingQueries(db: D1Database): TimekeepingQueries {
           new Date().toISOString(),
           onlyIfPunchId ?? '',
         )
+    },
+
+    auditShiftStatus(entry, updatedAt) {
+      return db
+        .prepare(
+          `INSERT INTO audit_log (id, request_id, actor_user_id, actor_email, actor_role, source, resource, action, target_table, target_id,
+                  matter_id, client_id, previous_json, new_json, idempotency_key, success, error_message, created_at)
+           SELECT ?1, ?2, ?3, ?4, ?5, 'krhomebase-api', 'timekeeping', ?6, ?7, ?8, NULL, NULL, NULL, ?9, ?10, 1, NULL, ?11
+            WHERE changes() > 0`,
+        )
+        .bind(crypto.randomUUID(), entry.requestId, entry.actorUserId, entry.actorEmail, entry.actorRole, entry.action, entry.targetTable, entry.targetId, JSON.stringify(entry.newJson ?? null), entry.idempotencyKey ?? null, updatedAt)
     },
 
     async run(statements) {

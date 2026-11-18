@@ -24,21 +24,23 @@ export interface WorkstreamActivityCardsProps {
   selected?: boolean
   /** Selects the row without changing its presentation. */
   onSelect: (row: LedgerActivityRow) => void
+  /** Selects this row and opens the entry's full view on a double click. */
+  onOpenFullView?: (row: LedgerActivityRow) => void
   /** Switches only this row between the two presentations. */
   onTogglePresentation: (row: LedgerActivityRow) => void
 }
 
 /** Color, type, border, and general-esthetic utilities for a row. */
 const STYLES = {
-  shell: 'border-b border-(--kr-theme-line) bg-(--kr-theme-card-surface) hover:bg-(--kr-theme-table-row-hover)',
-  shellSelected: 'bg-(--kr-theme-table-row-selected)',
-  main: 'border-0 bg-transparent text-left font-[inherit] text-(color:--kr-theme-text) cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-(--kr-theme-accent)',
-  kind: 'text-[10px] font-[800] uppercase tracking-[0.03em] text-(color:--kr-theme-teal)',
-  matter: 'text-[10.5px] font-[700] tabular-nums text-(color:--kr-theme-accent2)',
-  title: 'text-[12px] font-[800] text-(color:--kr-theme-accent-dark)',
-  summary: 'text-[11px] leading-[1.3] text-(color:--kr-theme-text-muted)',
-  meta: 'text-[10.5px] text-(color:--kr-theme-text-muted)',
-  toggle: 'border-0 border-l border-(--kr-theme-line) bg-transparent text-(color:--kr-theme-brand-primary) cursor-pointer hover:bg-(--kr-theme-muted-surface)',
+  shell: 'border-b border-(--kr-theme-communication-line) bg-(--kr-theme-communication-surface) hover:bg-(--kr-theme-communication-surface-raised)',
+  shellSelected: 'bg-(--kr-theme-communication-reaction-surface)',
+  main: 'border-0 bg-transparent text-left font-[inherit] text-(color:--kr-theme-communication-text) cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-(--kr-theme-communication-accent-strong)',
+  kind: 'text-[10px] font-[800] uppercase tracking-[0.03em] text-(color:--kr-theme-communication-accent)',
+  matter: 'text-[10.5px] font-[700] tabular-nums text-(color:--kr-theme-communication-text-muted)',
+  title: 'text-[12px] font-[800] text-(color:--kr-theme-communication-accent)',
+  summary: 'text-[11px] leading-[1.3] text-(color:--kr-theme-communication-text-muted)',
+  meta: 'text-[10.5px] text-(color:--kr-theme-communication-text-subtle)',
+  toggle: 'border-0 border-l border-(--kr-theme-communication-line) bg-transparent text-(color:--kr-theme-communication-text-muted) cursor-pointer hover:bg-(--kr-theme-communication-reaction-surface)',
 } as const
 
 /** Padding, spacing, display, and layout utilities for a row. */
@@ -57,7 +59,7 @@ const LAYOUT_STYLES = {
 } as const
 
 /** Renders one ledger row, single line or expanded. */
-export default function WorkstreamActivityCards({ onSelect, onTogglePresentation, presentation, row, selected = false }: WorkstreamActivityCardsProps) {
+export default function WorkstreamActivityCards({ onOpenFullView, onSelect, onTogglePresentation, presentation, row, selected = false }: WorkstreamActivityCardsProps) {
   const expanded = presentation === 'Expanded'
   return (
     <article
@@ -74,6 +76,10 @@ export default function WorkstreamActivityCards({ onSelect, onTogglePresentation
         title={expanded ? undefined : row.summary}
         type="button"
         onClick={() => onSelect(row)}
+        onDoubleClick={() => {
+          onSelect(row)
+          onOpenFullView?.(row)
+        }}
       >
         <span className={`${LAYOUT_STYLES.line} ${expanded ? LAYOUT_STYLES.lineExpanded : ''}`}>
           <span className={`${LAYOUT_STYLES.truncate} ${STYLES.kind}`}>{row.kindLabel}</span>

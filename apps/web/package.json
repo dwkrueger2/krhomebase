@@ -1,13 +1,14 @@
 {
   "name": "@krhomebase/web",
   "version": "1.1.5",
-  "patchNum": "563",
-  "patchDate": "11-16",
+  "patchNum": "566",
+  "patchDate": "11-18",
   "private": true,
   "type": "module",
   "description": "KR Homebase screens. Next.js on vinext. No database code and no business rules.",
   "scripts": {
     "dev": "vite dev --port 3011",
+    "dev:branch2": "vite dev --port 3031 --strictPort --mode branch2",
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "vinext-cloudflare deploy",

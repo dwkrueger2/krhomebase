@@ -1,7 +1,7 @@
 # AGENTS 01: Version and Patch Procedures
 
-<small>Version 1.3</small><br>
-<small>Updated Nov 9, 2026 9:20am</small>
+<small>Version 1.4</small><br>
+<small>Updated Nov 17, 2026 8:31am</small>
 
 ## Purpose
 
@@ -54,10 +54,10 @@ The web numbers continue the old KR Homebase track (1.1.5, patch 497, dated 10-2
 Read the current values with:
 
 ```powershell
-$Repo = "D:\Repos\krhomebase"
-Set-Location $Repo
+$SetLocation = "D:\Repos\KrhomebaseGPT"
+Set-Location $SetLocation
 foreach ($p in "package.json", "apps\api\package.json", "apps\web\package.json") {
-  $j = Get-Content (Join-Path $Repo $p) -Raw | ConvertFrom-Json
+  $j = Get-Content (Join-Path $SetLocation $p) -Raw | ConvertFrom-Json
   "{0,-24} version {1}  patch {2}  date {3}" -f $j.name, $j.version, $j.patchNum, $j.patchDate
 }
 ```
@@ -345,10 +345,10 @@ Before declaring a patch complete, validate the metadata programmatically or by 
 Recommended commands (PowerShell, from the repository root):
 
 ```powershell
-$Repo = "D:\Repos\krhomebase"
-Set-Location $Repo
+$SetLocation = "D:\Repos\KrhomebaseGPT"
+Set-Location $SetLocation
 foreach ($p in "package.json", "apps\api\package.json", "apps\web\package.json") {
-  Get-Content (Join-Path $Repo $p) -Raw | ConvertFrom-Json | Out-Null
+  Get-Content (Join-Path $SetLocation $p) -Raw | ConvertFrom-Json | Out-Null
   "$p parses"
 }
 git diff --check

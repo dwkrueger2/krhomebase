@@ -1,7 +1,7 @@
 # API sign-in: settings, routes and cookies
 
-<small>Version 1.8</small><br>
-<small>Updated Nov 14, 2026 12:15am</small>
+<small>Version 1.9</small><br>
+<small>Updated Nov 17, 2026 10:15pm</small>
 
 How `krhomebase-api` signs people in. Code: `src/features/auth/` and `src/platform/`. Plan and history: `docs/03_Workers_And_Login_Plan.md`.
 
@@ -14,7 +14,7 @@ Plain settings are `vars` in `kr-api-wrangler.jsonc`. Secrets are set with `wran
 | Name | Kind | Meaning |
 |---|---|---|
 | `KR_GOOGLE_CLIENT_ID` | var | Google OAuth client `krhomebase-team`. Public. |
-| `KR_APP_BASE_URL` | var (local `.dev.vars` overrides) | `https://krhomebase.com` live, `http://localhost:3011` local. Google returns to `<this>/api/v1/auth/google/callback`. The cookie is `Secure` when this is https. |
+| `KR_APP_BASE_URL` | var (local `.dev.vars`; branch2 CLI override) | `https://krhomebase.com` live, `http://localhost:3011` standard local, `http://localhost:3031` in the GPTWork1 `dev:branch2` script. Google returns to `<this>/api/v1/auth/google/callback`. The cookie is `Secure` when this is https. |
 | `KR_FIRM_NAME` | var | Name on the login card. |
 | `KR_SESSION_COOKIE_NAME` | var (local `.dev.vars` overrides) | Session cookie name: `kr_session` live, `krh_dev_session` local (Nov 14, 2026). Browsers share `localhost` cookies across ports, and the old app on `localhost:3001` writes `kr_session`; with the same name it replaced this app's cookie and every call answered 401 `session_not_found`. `scripts/Write-DevVars.ps1` writes the local name. |
 | `KR_WORKER_JWT_KEY_ID` | var | Name of the app's public key in the KV store `krhomebase-public-keys`. |
@@ -48,7 +48,7 @@ If a required setting is missing or malformed, the login page names it in the al
 | `GET /v1/auth/session` | signed-in | Returns the signed-in person. |
 | `DELETE /v1/auth/session` | public | Clears the cookie and closes the session (best effort). |
 
-The browser sees these under `/api/v1/auth/...`. Register `https://krhomebase.com/api/v1/auth/google/callback` (and `http://localhost:3011/api/v1/auth/google/callback`) as redirect URIs in the Google client.
+The browser sees these under `/api/v1/auth/...`. Register `https://krhomebase.com/api/v1/auth/google/callback`, `http://localhost:3011/api/v1/auth/google/callback`, and `http://localhost:3031/api/v1/auth/google/callback` as redirect URIs in the Google client.
 
 ## Cookies
 

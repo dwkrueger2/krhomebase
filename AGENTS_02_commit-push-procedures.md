@@ -1,7 +1,7 @@
 # AGENTS 02: Commit and Push Procedures
 
-<small>Version 1.1</small><br>
-<small>Updated Nov 3, 2026 10:58pm</small>
+<small>Version 1.2</small><br>
+<small>Updated Nov 17, 2026 8:31am</small>
 
 ## Purpose
 
@@ -56,8 +56,8 @@ When work is finished and not committed, report:
 - The commit commands for the requester, in the repository's PowerShell format. Stage named files rather than everything:
 
 ```powershell
-$Repo = "D:\Repos\krhomebase"
-Set-Location $Repo
+$SetLocation = "D:\Repos\KrhomebaseGPT"
+Set-Location $SetLocation
 git status --short
 git add AGENTS.md AGENTS_01_version-procedures.md package.json
 git commit -m "docs: port AGENTS guides and add version procedures"

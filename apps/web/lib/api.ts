@@ -4,12 +4,12 @@ import { L } from '@/lib/KRUtilities'
 /**
  * The one place the web app talks to the API Worker.
  *  - Deployed (production build): uses the service binding `API`. The API has no public address.
- *  - Local development: calls the API dev server directly (default http://localhost:8787, started
+ *  - Local development: calls the API dev server directly (default http://localhost:8788, started
  *    by `pnpm dev:api`), because the two local dev servers do not share a service binding.
  * Screens call this (or the generated api-client built on it), never fetch() directly.
  *
  * Redirects are never followed here (`redirect: 'manual'`). The sign-in routes answer with a 302 to Google or
- * to /login, and that answer, with its Set-Cookie headers, must reach the browser untouched.
+ * to /login, and the redirect status, Location and Set-Cookie headers must reach the browser unchanged.
  *
  * Local development also reports a slow call: when the API has not answered after 2 seconds, one
  * "still waiting" line is printed (always, not only when `KR_LOG_ENABLED` is on), because the first call can
@@ -25,7 +25,7 @@ export async function callApi(pathAndQuery: string, init?: RequestInit): Promise
     throw new Error(`API paths start with /v1/: ${pathAndQuery}`)
   }
   if (process.env.NODE_ENV !== 'production') {
-    const base = process.env.API_DEV_URL ?? 'http://localhost:8787'
+    const base = process.env.API_DEV_URL ?? 'http://localhost:8788'
     const started = Date.now()
     L(`[API_CALL:28] start ${init?.method ?? 'GET'} ${pathAndQuery.split('?')[0]}`)
     const slowTimer = setTimeout(() => {

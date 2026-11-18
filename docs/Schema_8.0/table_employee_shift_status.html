@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EMPLOYEE_SHIFT_STATUS Table Reference - KR Database Schema 8.0</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header"><span class="logo">KR<span>_</span>DatabaseSchema</span><div class="header-sep"></div><span class="header-title">Database Schema</span><div class="header-right"><span class="version-badge">v8.0 - 2026-10-24</span><span class="updated-badge">Added by Migration 062</span></div></header>
+<div class="layout">
+  <nav class="sidebar" id="sidebar"><noscript><a class="sidebar-link" href="index.html">Schema 8.0 index</a></noscript></nav>
+  <main class="main">
+    <div class="breadcrumb"><a href="index.html">KR_DatabaseSchema</a><span class="sep">/</span><a href="index.html#g-hr">Employees, Timekeeping, Payroll, and Teams</a><span class="sep">/</span><span class="current">employee_shift_status</span></div>
+    <div class="page-hero"><span class="table-tag">Table definition &middot; Employees, Timekeeping, Payroll, and Teams</span><h1 class="page-title">employee_shift_status</h1><p class="page-description">Optional short status note and location associated with one official clock-in shift. The API clears both values when that shift is clocked out.</p></div>
+    <div class="meta-grid"><div class="meta-card"><strong>Columns:</strong> 8 &middot; <strong>Indexes:</strong> 1<br><strong>Outgoing FKs:</strong> 3</div><div class="meta-card"><strong>Added by:</strong> Migration 062<br><strong>Storage:</strong> Cloudflare D1 / SQLite</div></div>
+    <p class="group-desc"><strong>Storage boundary.</strong> This table is not the attendance record. Clock state comes from <a href="table_employee_time_punch.html">employee_time_punch</a>; this table holds only the optional current-shift note and location.</p>
+    <div class="section-title">Fields</div>
+    <table class="field-table fields-table compact-table"><thead><tr><th>Field</th><th>Type</th><th>Constraints</th><th>Human purpose / technical specification</th></tr></thead><tbody>
+      <tr><td><span class="field-name">id</span></td><td>TEXT</td><td>PK, required</td><td>Application-generated identifier.</td></tr>
+      <tr><td><span class="field-name">employee_id</span></td><td>TEXT</td><td>FK, required</td><td>Employee whose shift status is stored; references <code>employee.id</code>.</td></tr>
+      <tr><td><span class="field-name">clock_in_punch_id</span></td><td>TEXT</td><td>FK, unique, required</td><td>Official clock-in punch that identifies this shift; references <code>employee_time_punch.id</code>.</td></tr>
+      <tr><td><span class="field-name">status_note</span></td><td>TEXT</td><td>Optional, max 160 characters</td><td>Short free-text status for this shift. Set to null on clock-out.</td></tr>
+      <tr><td><span class="field-name">location</span></td><td>TEXT</td><td>Optional, max 100 characters</td><td>Optional location for this shift. Set to null on clock-out.</td></tr>
+      <tr><td><span class="field-name">updated_by_user_id</span></td><td>TEXT</td><td>FK, required</td><td>User who last changed this row; references <code>user.id</code>.</td></tr>
+      <tr><td><span class="field-name">created_at</span></td><td>TEXT</td><td>Required</td><td>When the status row was first created.</td></tr>
+      <tr><td><span class="field-name">updated_at</span></td><td>TEXT</td><td>Required</td><td>When the status row was last changed or cleared.</td></tr>
+    </tbody></table>
+    <div class="section-title">Constraints and indexes</div>
+    <ul class="technical-list"><li><strong>Primary key:</strong> <code>id</code>.</li><li><strong>Unique:</strong> one status row per clock-in punch.</li><li><strong>Foreign keys:</strong> <code>employee_id</code> &rarr; <code>employee(id)</code>; <code>clock_in_punch_id</code> &rarr; <code>employee_time_punch(id)</code>; <code>updated_by_user_id</code> &rarr; <code>user(id)</code>.</li><li><strong>Checks:</strong> <code>status_note</code> is at most 160 characters; <code>location</code> is at most 100 characters.</li><li><strong>Index:</strong> <code>idx_employee_shift_status_employee</code> on <code>employee_id, updated_at</code>.</li></ul>
+    <div class="section-title">Raw SQL</div><div class="raw-sql"><pre><code>CREATE TABLE employee_shift_status (
+  id TEXT PRIMARY KEY,
+  employee_id TEXT NOT NULL,
+  clock_in_punch_id TEXT NOT NULL UNIQUE,
+  status_note TEXT CHECK (status_note IS NULL OR length(status_note) &lt;= 160),
+  location TEXT CHECK (location IS NULL OR length(location) &lt;= 100),
+  updated_by_user_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (employee_id) REFERENCES employee(id),
+  FOREIGN KEY (clock_in_punch_id) REFERENCES employee_time_punch(id),
+  FOREIGN KEY (updated_by_user_id) REFERENCES user(id)
+);
+CREATE INDEX idx_employee_shift_status_employee ON employee_shift_status(employee_id, updated_at);</code></pre></div>
+    <div class="pager"><span>&larr; <a href="table_employee_time_punch.html">employee_time_punch</a></span><span><a href="schema_full.html">Full schema</a></span><span><a href="table_pay_period.html">pay_period</a> &rarr;</span></div>
+  </main>
+</div>
+<script src="sidebar.js"></script>
+<script src="docs.js"></script>
+</body>
+</html>

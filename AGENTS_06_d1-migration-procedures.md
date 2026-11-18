@@ -1,7 +1,7 @@
 # AGENTS 06: Cloudflare D1 Migration Procedures
 
-<small>Version 1.4</small><br>
-<small>Updated Nov 15, 2026 11:30pm</small>
+<small>Version 1.5</small><br>
+<small>Updated Nov 17, 2026 8:31am</small>
 
 This guide defines the SQL compatibility rules for Cloudflare D1 migrations, data imports and read-only schema verification in this repository.
 
@@ -32,9 +32,10 @@ Only `apps/api` binds `krhomebase`. **Migration files live in `docs/Schema_8.0/m
 Agents may run read-only D1 inspection, but the requester (the database owner for the session) applies migrations. Every command shown to the requester must establish the repository location first and use variables for long values:
 
 ```powershell
-$Repo = "D:\Repos\krhomebase"
+$Repo = "D:\Repos\KrhomebaseGPT"
 $Db   = "krhomebase"
-Set-Location $Repo
+$SetLocation = $Repo
+Set-Location $SetLocation
 pnpm.cmd exec wrangler d1 execute $Db --remote --command "PRAGMA table_info(workstream_activity);"
 ```
 
@@ -57,10 +58,11 @@ The requester's rule (Nov 15, 2026): a successful migration records itself in th
 - **Before writing a migration,** check the log read-only, and name what it depends on:
 
   ```powershell
-  $Repo = "D:\Repos\krhomebase"
+  $Repo = "D:\Repos\KrhomebaseGPT"
   $Api  = Join-Path $Repo "apps\api"
   $Db   = "krhomebase"
-  Set-Location $Api
+  $SetLocation = $Api
+  Set-Location $SetLocation
   pnpm.cmd exec wrangler d1 execute $Db --remote --config kr-api-wrangler.jsonc --command "SELECT id, file_name, applied_at FROM kr_schema_migration ORDER BY id;"
   ```
 

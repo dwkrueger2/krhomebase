@@ -195,11 +195,12 @@ export default function ClientWorkstreamTab({ clientId, clientNumber, displayNam
         loadingMore={loadingMore}
         presentation={presentation}
         presentationOverrides={overrides}
-        renderDetail={(row) => (
+        renderDetail={(row, openFullViewRequestId) => (
           <WorkstreamSummaryCard
             assigneeOptions={assigneeOptions}
             canDelete={viewer?.role === 'super_admin'}
             contacts={contacts}
+            openFullViewRequestId={openFullViewRequestId}
             row={row}
             onDelete={remove}
             onReassigned={(moved) => keep(moved, false)}

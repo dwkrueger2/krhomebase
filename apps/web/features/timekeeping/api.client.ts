@@ -30,6 +30,9 @@ import {
   type SavePunchBody,
   SavePunchData,
   SaveTimeEventData,
+  SaveTeamStatusData,
+  TeamStatusData,
+  type SaveTeamStatusBody,
   successEnvelope,
   TimeCardData,
   VoidPunchData,
@@ -106,6 +109,11 @@ const segment = (value: string) => encodeURIComponent(value)
 /** A key made once per click, so a retried request never saves a second punch. */
 export const newActionKey = (action: string) => `${action}-${crypto.randomUUID()}`
 
+/** Lets sibling Dashboard widgets refresh after an official punch or current-shift status change. */
+function announceTimekeepingChange() {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('kr-homebase:timekeeping-updated'))
+}
+
 // ----------------------------------------------------------------------------------------------------------
 // Reads
 
@@ -132,22 +140,42 @@ export function getAttendanceEmployees(): Promise<AttendanceEmployeesData> {
   return call('GET', 'employees', AttendanceEmployeesData)
 }
 
+/** Loads the selected roster, with visibility checked again by the API. */
+export function getTeamStatus(employeeIds: readonly string[] = []): Promise<TeamStatusData> {
+  const params = new URLSearchParams()
+  for (const employeeId of employeeIds) params.append('employeeIds', employeeId)
+  return call('GET', `team-status${employeeIds.length ? `?${params.toString()}` : ''}`, TeamStatusData)
+}
+
+/** Saves one employee's current shift note and optional location. */
+export async function saveTeamStatus(body: SaveTeamStatusBody): Promise<SaveTeamStatusData> {
+  const saved = await call('PUT', 'team-status', SaveTeamStatusData, body)
+  announceTimekeepingChange()
+  return saved
+}
+
 // ----------------------------------------------------------------------------------------------------------
 // Clock (stage 3)
 
 /** Clocks the signed-in person in now. */
-export function clockIn(idempotencyKey = newActionKey('clock-in')): Promise<ClockActionData> {
-  return call('POST', 'clock-in', ClockActionData, { idempotencyKey })
+export async function clockIn(idempotencyKey = newActionKey('clock-in')): Promise<ClockActionData> {
+  const saved = await call('POST', 'clock-in', ClockActionData, { idempotencyKey })
+  announceTimekeepingChange()
+  return saved
 }
 
 /** Clocks the signed-in person out now. Last night's open shift answers `MISSED_CLOCK_OUT_REQUIRES_REVIEW`. */
-export function clockOut(idempotencyKey = newActionKey('clock-out')): Promise<ClockActionData> {
-  return call('POST', 'clock-out', ClockActionData, { idempotencyKey })
+export async function clockOut(idempotencyKey = newActionKey('clock-out')): Promise<ClockActionData> {
+  const saved = await call('POST', 'clock-out', ClockActionData, { idempotencyKey })
+  announceTimekeepingChange()
+  return saved
 }
 
 /** Closes last night's open shift: a typed clock-out time, or a split at midnight with a clock-out now. */
-export function missedClockOut(body: Omit<MissedClockOutBody, 'idempotencyKey'>, idempotencyKey = newActionKey('missed-clock-out')): Promise<MissedClockOutData> {
-  return call('POST', 'missed-clock-out', MissedClockOutData, { ...body, idempotencyKey })
+export async function missedClockOut(body: Omit<MissedClockOutBody, 'idempotencyKey'>, idempotencyKey = newActionKey('missed-clock-out')): Promise<MissedClockOutData> {
+  const saved = await call('POST', 'missed-clock-out', MissedClockOutData, { ...body, idempotencyKey })
+  announceTimekeepingChange()
+  return saved
 }
 
 // ----------------------------------------------------------------------------------------------------------
@@ -155,7 +183,10 @@ export function missedClockOut(body: Omit<MissedClockOutBody, 'idempotencyKey'>,
 
 /** Adds a punch, or replaces one (the original is voided in the same save). */
 export function savePunch(body: SavePunchBody): Promise<SavePunchData> {
-  return call('POST', 'punches', SavePunchData, body)
+  return call('POST', 'punches', SavePunchData, body).then((saved) => {
+    if (body.punchType === 'clock_out') announceTimekeepingChange()
+    return saved
+  })
 }
 
 /** Voids a punch (it stays on record and stops counting). */

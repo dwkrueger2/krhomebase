@@ -1,7 +1,7 @@
 # KR Homebase Web Agent Guide
 
-<small>Version 3.41</small><br>
-<small>Updated Nov 16, 2026 9:20pm</small>
+<small>Version 3.43</small><br>
+<small>Updated Nov 17, 2026 9:57pm</small>
 
 ## Purpose
 
@@ -19,7 +19,7 @@
 ## How the API is reached
 
 - **Deployed:** the service binding `API` declared in `cloudflare.config.ts`. The API has no public address.
-- **Local development:** `callApi` calls `http://localhost:8787` (override with `API_DEV_URL`). Start the API with `pnpm dev:api`, or both with `pnpm dev`.
+- **Local development:** `pnpm dev` uses the standard web port 3011 and API port 8788. To run GPTWork1 beside the impeccable checkout, use `pnpm dev:branch2`: web port 3031 and API port 8789. Vite's `branch2` mode embeds `API_DEV_URL` in its local Worker build because that Worker does not inherit arbitrary host process variables; it defaults to port 8789. The branch2 API script overrides `KR_APP_BASE_URL` to `http://localhost:3031` so Google returns to this web app. The API proxy preserves redirect status, Location and cookies while dropping redirect bodies to prevent local Worker termination.
 - **Redirects pass through.** `callApi` uses `redirect: 'manual'`, so a 302 with `Set-Cookie` from the sign-in routes reaches the browser unchanged. The Google sign-in and the session cookie depend on it.
 
 ## Folder layout

@@ -15,6 +15,7 @@
  *   session      {"autoLogoutMinutes": 15 | 30 | 60 | 120 | 480}
  *   navigation   {"startingSection": "<menu id>"}
  *   dashboard    {"dashboardWidgets": {"<widget id>": {"enabled": true, "order": 5}, ...}}   (stage 3)
+ *   team-status-roster   {"teamStatusRoster": ["<employee id>", ...]}   (Team Status widget roster)
  *   workstream   {"workstreamTypes": ["PhoneCalls", "Notes"]}   (plan 10, Nov 13, 2026; empty means All)
  *   tasks        {"assignCreatorByDefault": true}   (plan 10, stage 5, decision D20 of Nov 13, 2026)
  *   theme        {"personalTheme": {"themeId": "firm-default", "density": "compact", "light": {...}, "dark": {...}}}   (stage 2b, themes.ts)
@@ -73,6 +74,14 @@ export const DashboardWidgetChoices = z
   .describe('Dashboard widget choices by widget id: shown or hidden, and order.')
 export type DashboardWidgetChoices = z.infer<typeof DashboardWidgetChoices>
 
+/** The employee roster shown in this person's Team Status Dashboard widget. */
+export const TeamStatusRoster = z
+  .array(z.string().trim().min(1).max(120))
+  .max(50)
+  .refine((employeeIds) => new Set(employeeIds).size === employeeIds.length, { message: 'Choose each employee once.' })
+  .describe('Employee ids this person chose to show in the Team Status Dashboard widget.')
+export type TeamStatusRoster = z.infer<typeof TeamStatusRoster>
+
 /** The activity types WorkStream lists show when they open (the requester, Nov 13, 2026). Empty means All. */
 export const WorkstreamTypesPreference = z
   .array(WorkstreamSubgroup)
@@ -95,6 +104,7 @@ export const UserPreferences = z.object({
   autoLogoutMinutes: AutoLogoutMinutes,
   startingSection: StartingSection,
   dashboardWidgets: DashboardWidgetChoices,
+  teamStatusRoster: TeamStatusRoster,
   personalTheme: PersonalTheme.describe('The theme the person uses, their text size and their own color changes (stage 2b).'),
   workstreamTypes: WorkstreamTypesPreference,
   assignCreatorByDefault: AssignCreatorByDefaultPreference,
@@ -107,6 +117,7 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   autoLogoutMinutes: 60,
   startingSection: 'dashboard',
   dashboardWidgets: {},
+  teamStatusRoster: [],
   personalTheme: DEFAULT_PERSONAL_THEME,
   workstreamTypes: [],
   assignCreatorByDefault: true,

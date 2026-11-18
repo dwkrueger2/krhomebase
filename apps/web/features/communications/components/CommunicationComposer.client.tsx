@@ -131,7 +131,7 @@ function CommunicationParserDiagnostics({ activityTypes, body, contextCue, conte
 
   return (
     <div className={`${LAYOUT_STYLES.parserDiagnosticRow} ${STYLES.parserDiagnosticRow}`} data-kr-element="communications-parser-diagnostics" role="status" aria-live="polite">
-      <span>Parser:</span>
+      <span title="The parser marks activity types it detected and shows whether each is selected. Context cues show when client or lead lookup suggestions are ready.">Parser:</span>
       <div className={LAYOUT_STYLES.parserDiagnosticPills}>
         {detectedActivities.map((rule) => {
           const selected = selectedActivityValues.has(rule.activityType)
@@ -220,7 +220,8 @@ export default function CommunicationComposer({
         onDraftChange={(next) => setDraft({ body: next.body, contextCue: next.contextCue, contextMatchCount: next.contextMatchCount })}
         onMatterChange={onMatterChange}
         onSubmit={(next) => onSubmit(next.body, activityTypes, next.html, next.assigneeUserIds)}
-        placeholder="Type the note; /pc, /email, /n, /t, /sub: and Client: work here..."
+        onHelpRequest={() => setShowCodeHelp(true)}
+        placeholder="Type a note: /pc, /email, /n, /t, /sub: and Client: work here. Type /help for help."
         selectedMatterNumber={selectedMatterNumber}
       />
       {/* Composer footer: persistence status and parser diagnostics remain separate rows for quick scanning. */}

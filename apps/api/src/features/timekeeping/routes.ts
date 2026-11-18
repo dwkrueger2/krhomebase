@@ -40,6 +40,10 @@ import {
   TimeCardData,
   TimeCardParams,
   TimeCardQuery,
+  TeamStatusData,
+  TeamStatusQuery,
+  SaveTeamStatusBody,
+  SaveTeamStatusData,
   VoidPunchData,
 } from '@krhomebase/contracts'
 import type { OpenAPIHono } from '@hono/zod-openapi'
@@ -62,6 +66,8 @@ import {
   loadTimeCard,
   missedClockOut,
   reopenTimeCard,
+  loadTeamStatus,
+  saveTeamStatus,
   savePunch,
   saveTimeEvent,
   TimekeepingError,
@@ -73,6 +79,40 @@ const json = <T,>(schema: T) => ({ 'application/json': { schema } })
 const errorBody = (description: string) => ({ description, content: json(ErrorEnvelope) })
 const UNAVAILABLE = 'TIMEKEEPING_UNAVAILABLE'
 const ACCESS_ERRORS = ['ATTENDANCE_PERMISSION_REQUIRED', 'EMPLOYEE_ENROLLMENT_REQUIRED', 'ATTENDANCE_SCOPE_NOT_AUTHORIZED'] as const
+
+export const teamStatusRoute = defineRoute({
+  method: 'get',
+  path: '/v1/timekeeping/team-status',
+  feature: 'timekeeping',
+  summary: 'Reads the selected employees\' current official clock state and per-shift status, limited by Attendance scope.',
+  access: 'signed-in',
+  errors: [...ACCESS_ERRORS, 'TEAM_STATUS_MIGRATION_REQUIRED', UNAVAILABLE],
+  sideEffects: ['None'],
+  request: { query: TeamStatusQuery },
+  responses: {
+    200: { description: 'The selected employees the viewer may see.', content: json(successEnvelope(TeamStatusData)) },
+    403: errorBody('No Attendance access or not allowed to see the selected employee.'),
+    503: errorBody('Team Status storage is not available or its migration has not been applied.'),
+  },
+})
+
+export const saveTeamStatusRoute = defineRoute({
+  method: 'put',
+  path: '/v1/timekeeping/team-status',
+  feature: 'timekeeping',
+  summary: 'Saves a short note and optional location for one employee\'s current shift.',
+  access: 'signed-in',
+  errors: [...ACCESS_ERRORS, 'EMPLOYEE_NOT_FOUND', 'NO_OPEN_CLOCK_IN', 'TEAM_STATUS_MIGRATION_REQUIRED', UNAVAILABLE],
+  sideEffects: ['Writes employee_shift_status', 'Writes audit_log'],
+  request: { body: { required: true, content: json(SaveTeamStatusBody) } },
+  responses: {
+    200: { description: 'The shift status was saved.', content: json(successEnvelope(SaveTeamStatusData)) },
+    403: errorBody('No Attendance access or not allowed to change this employee\'s shift status.'),
+    404: errorBody('No such employee.'),
+    409: errorBody('The employee has no active shift, or the shift closed while saving.'),
+    503: errorBody('Team Status storage is not available or its migration has not been applied.'),
+  },
+})
 
 export const timeCardRoute = defineRoute({
   method: 'get',
@@ -176,8 +216,8 @@ export const clockOutRoute = writeRoute({
   path: '/v1/timekeeping/clock-out',
   summary:
     "Clock the signed-in person out now. With no open shift: NO_OPEN_CLOCK_IN (details name an older open punch to repair). Last night's shift still open before 3 am: MISSED_CLOCK_OUT_REQUIRES_REVIEW, answered with the missed clock-out route.",
-  errors: [...CLOCK_ERRORS, 'NO_OPEN_CLOCK_IN', 'MISSED_CLOCK_OUT_REQUIRES_REVIEW'],
-  sideEffects: ['Writes employee_time_punch', PAIR_HOURS],
+  errors: [...CLOCK_ERRORS, 'NO_OPEN_CLOCK_IN', 'MISSED_CLOCK_OUT_REQUIRES_REVIEW', 'TEAM_STATUS_MIGRATION_REQUIRED'],
+  sideEffects: ['Writes employee_time_punch', 'Clears employee_shift_status', PAIR_HOURS],
   body: ClockBody,
   data: ClockActionData,
 })
@@ -187,8 +227,8 @@ export const missedClockOutRoute = writeRoute({
   path: '/v1/timekeeping/missed-clock-out',
   summary:
     "Close last night's open shift, before 3 am: `enter_time` saves the given clock-out on that date; `split_midnight` closes it at midnight, starts today at midnight and clocks out now (three punches, one save).",
-  errors: [...CLOCK_ERRORS, 'NO_OPEN_CLOCK_IN', 'MISSED_CLOCK_OUT_REPAIR_REQUIRED', 'MISSED_CLOCK_OUT_TIME_REQUIRED', 'MISSED_CLOCK_OUT_MUST_USE_OPEN_WORK_DATE'],
-  sideEffects: ['Writes employee_time_punch', CARD_ROWS, PAIR_HOURS],
+  errors: [...CLOCK_ERRORS, 'NO_OPEN_CLOCK_IN', 'MISSED_CLOCK_OUT_REPAIR_REQUIRED', 'MISSED_CLOCK_OUT_TIME_REQUIRED', 'MISSED_CLOCK_OUT_MUST_USE_OPEN_WORK_DATE', 'TEAM_STATUS_MIGRATION_REQUIRED'],
+  sideEffects: ['Writes employee_time_punch', 'Clears employee_shift_status', CARD_ROWS, PAIR_HOURS],
   body: MissedClockOutBody,
   data: MissedClockOutData,
 })
@@ -264,6 +304,9 @@ async function setup(c: Context<AppEnv>): Promise<{ queries: TimekeepingQueries;
 
 /** Answers a refusal with its code, status and details; anything else is rethrown (a 500 with the standard envelope). */
 function refused(c: Context<AppEnv>, error: unknown) {
+  if (error instanceof Error && (error.message === 'TEAM_STATUS_MIGRATION_REQUIRED' || error.message.includes('no such table: employee_shift_status'))) {
+    return failure(c, 503, 'TEAM_STATUS_MIGRATION_REQUIRED', 'Team Status is not available until its database migration is applied.')
+  }
   if (error instanceof TimekeepingError) {
     logLine('TIMEKEEPING:refused', c.get('requestId'), { code: error.code })
     // Typed as 403 for hono; the real status (403, 404, 409 or 422) is sent.
@@ -321,6 +364,8 @@ export function registerTimekeeping(app: OpenAPIHono<AppEnv>) {
   })
 
   handle(app, employeesRoute, 'employees', ({ queries, viewer }) => listAttendanceEmployees(queries, viewer))
+  handle(app, teamStatusRoute, 'team_status', ({ queries, viewer }, c) => loadTeamStatus(queries, viewer, valid<{ employeeIds: string[] }>(c, 'query').employeeIds))
+  handle(app, saveTeamStatusRoute, 'team_status_update', ({ queries, viewer, actor }, c) => saveTeamStatus(queries, viewer, actor, valid(c, 'json')))
   handle(app, clockInRoute, 'clock_in', ({ queries, viewer, actor }, c) => clockIn(queries, viewer, actor, valid(c, 'json')))
   handle(app, clockOutRoute, 'clock_out', ({ queries, viewer, actor }, c) => clockOut(queries, viewer, actor, valid(c, 'json')))
   handle(app, missedClockOutRoute, 'missed_clock_out', ({ queries, viewer, actor }, c) => missedClockOut(queries, viewer, actor, valid(c, 'json')))

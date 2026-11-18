@@ -69,6 +69,8 @@ export interface WorkStreamRTEProps {
   onContextContactSelected?: (contact: KRContactRecord) => void
   onDraftChange?: (draft: WorkStreamRTEDraftState) => void
   onSubmit?: (draft: WorkStreamRTEDraftState) => void | Promise<void>
+  /** Opens the quick-entry help when the person types the `/help` command. */
+  onHelpRequest?: () => void
   showActivityTypes?: boolean
   showContextControls?: boolean
   showAssigneeMenu?: boolean
@@ -154,6 +156,7 @@ export default function WorkStreamRTE({
   onClientStateChange,
   onContextContactSelected,
   onDraftChange,
+  onHelpRequest,
   onMatterChange,
   onSubmit,
   placeholder,
@@ -350,6 +353,12 @@ export default function WorkStreamRTE({
    */
   function handleInput(element: HTMLDivElement): void {
     const nextBody = element.innerText || element.textContent || ''
+    if (nextBody.trim().toLowerCase() === '/help') {
+      element.innerHTML = ''
+      setEditorBody('', '')
+      onHelpRequest?.()
+      return
+    }
     const trigger = detectCommunicationActivityTypeTrigger(nextBody)
     if (!trigger) suppressedAutoTriggerRef.current = null
     else if (suppressedAutoTriggerRef.current !== trigger.id && !activityTypes.includes(trigger.activityType)) {

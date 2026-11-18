@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/krhomebase.iml" filepath="$PROJECT_DIR$/.idea/krhomebase.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/KrhomebaseGPT.iml" filepath="$PROJECT_DIR$/.idea/KrhomebaseGPT.iml" />
     </modules>
   </component>
 </project>

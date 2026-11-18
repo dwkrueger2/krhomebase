@@ -15,13 +15,31 @@ async function forward(request: Request): Promise<Response> {
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD'
   const headers = new Headers(request.headers)
   headers.delete(TOOL_GATEWAY_HEADER)
-  return callApi(target, {
+  const response = await callApi(target, {
     method: request.method,
     headers,
     body: hasBody ? request.body : undefined,
     // @ts-expect-error duplex is required by the runtime when streaming a request body
     duplex: hasBody ? 'half' : undefined,
   })
+
+  // Forward redirects without their bodies. The browser follows Location immediately, and an upstream response
+  // body can outlive the local navigation and make Miniflare abort the API socket.
+  if (response.status >= 300 && response.status < 400) {
+    const redirectHeaders = new Headers(response.headers)
+    redirectHeaders.delete('content-length')
+    redirectHeaders.delete('content-encoding')
+    redirectHeaders.delete('content-type')
+    redirectHeaders.delete('transfer-encoding')
+    void response.body?.cancel().catch(() => undefined)
+    return new Response(null, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: redirectHeaders,
+    })
+  }
+
+  return response
 }
 
 export const GET = forward

@@ -21,7 +21,7 @@
  *    (`localStorage`, read after mount; the card shows when storage cannot be read).
  */
 
-import { useEffect, useId, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import { LEDGER_FILTERS, type LedgerActivityFilter, type LedgerActivityRow, type LedgerRowPresentation } from '../workstreamLedgerRows'
@@ -54,37 +54,37 @@ export interface WorkstreamActivityLedgerProps {
   /** Present: the Email button (client accounts only). */
   onEmail?: () => void
   /** The selected entry's card. */
-  renderDetail: (row: LedgerActivityRow) => ReactNode
+  renderDetail: (row: LedgerActivityRow, openFullViewRequestId: number | null) => ReactNode
 }
 
 /** Color, type, border, and general-esthetic utilities. */
 const STYLES = {
-  shell: 'rounded-[4px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) text-(color:--kr-theme-text)',
-  rule: 'border-(--kr-theme-line)',
-  title: 'm-0 text-[14px] font-[800] leading-[1.2] text-(color:--kr-theme-brand-primary)',
-  subtitle: 'm-0 text-[11px] leading-[1.3] text-(color:--kr-theme-text-muted)',
-  context: 'm-0 text-[11px] font-[700] text-(color:--kr-theme-accent2)',
-  count: 'rounded-[3px] bg-(--kr-theme-muted-surface) text-(color:--kr-theme-brand-primary)',
+  shell: 'rounded-[4px] border border-(--kr-theme-communication-line) bg-(--kr-theme-communication-surface-elevated) text-(color:--kr-theme-communication-text)',
+  rule: 'border-(--kr-theme-communication-line)',
+  title: 'm-0 text-[14px] font-[800] leading-[1.2] text-(color:--kr-theme-communication-text)',
+  subtitle: 'm-0 text-[11px] leading-[1.3] text-(color:--kr-theme-communication-text-muted)',
+  context: 'm-0 text-[11px] font-[700] text-(color:--kr-theme-communication-accent)',
+  count: 'rounded-[3px] bg-(--kr-theme-communication-reaction-surface) text-(color:--kr-theme-communication-text)',
   countNumber: 'text-[16px] font-[900] leading-none tabular-nums',
   countLabel: 'text-[10px] font-[800] uppercase tracking-[0.05em]',
-  filterBar: 'bg-(--kr-theme-shell-surface)',
-  eyebrow: 'text-[10px] font-[900] uppercase tracking-[0.07em] text-(color:--kr-theme-text-muted)',
-  filter: 'min-h-[22px] cursor-pointer rounded-[3px] border border-(--kr-theme-line) text-[11px] font-[700] text-(color:--kr-theme-brand-primary) hover:border-(--kr-theme-brand-primary-active)',
-  filterActive: 'border-(--kr-theme-brand-primary) bg-(--kr-theme-brand-primary) text-(color:--kr-theme-text-inverse)',
-  filterIdle: 'bg-(--kr-theme-card-surface)',
+  filterBar: 'bg-(--kr-theme-communication-surface)',
+  eyebrow: 'text-[10px] font-[900] uppercase tracking-[0.07em] text-(color:--kr-theme-communication-text-muted)',
+  filter: 'min-h-[22px] cursor-pointer rounded-[3px] border border-(--kr-theme-communication-line) text-[11px] font-[700] text-(color:--kr-theme-communication-text-muted) hover:border-(--kr-theme-communication-accent-strong)',
+  filterActive: 'border-(--kr-theme-communication-accent-strong) bg-(--kr-theme-communication-accent-strong) text-(color:--kr-theme-communication-surface-elevated)',
+  filterIdle: 'bg-(--kr-theme-communication-surface)',
   addButton:
-    'min-h-[24px] cursor-pointer rounded-[3px] border border-(--kr-theme-button-primary-background) bg-(--kr-theme-button-primary-background) text-[11px] font-[900] text-(color:--kr-theme-text-inverse) hover:bg-(--kr-theme-button-primary-hover-background)',
-  viewButton: 'min-h-[22px] cursor-pointer border-0 bg-transparent text-[11px] font-[900] text-(color:--kr-theme-text-muted) hover:text-(color:--kr-theme-brand-primary)',
-  viewButtonActive: 'text-(color:--kr-theme-brand-primary)',
+    'min-h-[24px] cursor-pointer rounded-[3px] border border-(--kr-theme-communication-accent-strong) bg-(--kr-theme-communication-accent-strong) text-[11px] font-[900] text-(color:--kr-theme-communication-surface-elevated) hover:bg-(--kr-theme-communication-accent)',
+  viewButton: 'min-h-[22px] cursor-pointer border-0 bg-transparent text-[11px] font-[900] text-(color:--kr-theme-communication-text-muted) hover:text-(color:--kr-theme-communication-text)',
+  viewButtonActive: 'text-(color:--kr-theme-communication-accent)',
   detailToggle:
-    'cursor-pointer rounded-[3px] border border-(--kr-theme-line) bg-(--kr-theme-shell-surface) text-(color:--kr-theme-text-muted) hover:border-(--kr-theme-brand-primary-active) hover:text-(color:--kr-theme-brand-primary)',
+    'cursor-pointer rounded-[3px] border border-(--kr-theme-communication-line) bg-(--kr-theme-communication-surface) text-(color:--kr-theme-communication-text-muted) hover:border-(--kr-theme-communication-accent-strong) hover:text-(color:--kr-theme-communication-text)',
   detailToggleLabel: 'text-[10px] font-[900] uppercase tracking-[0.07em] [writing-mode:vertical-rl]',
   detailMotion: 'transition-[width,opacity,translate] duration-200 ease-out motion-reduce:transition-none',
-  list: 'rounded-[3px] border border-(--kr-theme-line)',
-  empty: 'm-0 text-[12px] text-(color:--kr-theme-text-muted)',
+  list: 'rounded-[3px] border border-(--kr-theme-communication-line)',
+  empty: 'm-0 text-[12px] text-(color:--kr-theme-communication-text-muted)',
   error: 'm-0 text-[12px] font-[600] text-(color:--kr-theme-danger)',
-  more: 'border-t border-(--kr-theme-line) bg-(--kr-theme-shell-surface) text-[11px] text-(color:--kr-theme-text-muted)',
-  moreButton: 'min-h-[22px] cursor-pointer rounded-[3px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) text-[11px] font-[700] text-(color:--kr-theme-brand-primary) hover:border-(--kr-theme-brand-primary-active) disabled:cursor-not-allowed disabled:opacity-60',
+  more: 'border-t border-(--kr-theme-communication-line) bg-(--kr-theme-communication-surface) text-[11px] text-(color:--kr-theme-communication-text-muted)',
+  moreButton: 'min-h-[22px] cursor-pointer rounded-[3px] border border-(--kr-theme-communication-line) bg-(--kr-theme-communication-surface-elevated) text-[11px] font-[700] text-(color:--kr-theme-communication-text) hover:border-(--kr-theme-communication-accent-strong) disabled:cursor-not-allowed disabled:opacity-60',
 } as const
 
 /** Padding, spacing, display, and layout utilities. */
@@ -124,6 +124,8 @@ export default function WorkstreamActivityLedger(props: WorkstreamActivityLedger
   const selected = rows.find((row) => row.id === selectedId) ?? rows[0] ?? null
   const detailId = useId()
   const [detailHidden, setDetailHidden] = useState(false)
+  const [fullViewRequest, setFullViewRequest] = useState<{ rowId: string; id: number } | null>(null)
+  const fullViewRequestId = useRef(0)
 
   // The remembered choice is read after mount, so the server and the first browser draw agree (card shown).
   useEffect(() => {
@@ -143,6 +145,13 @@ export default function WorkstreamActivityLedger(props: WorkstreamActivityLedger
     } catch {
       // Not remembered; the choice holds until the page reloads.
     }
+  }
+
+  /** Selects a row and requests its full view; the increasing id also handles repeated double-clicks. */
+  function openFullView(row: LedgerActivityRow): void {
+    onSelect(row.id)
+    fullViewRequestId.current += 1
+    setFullViewRequest({ rowId: row.id, id: fullViewRequestId.current })
   }
 
   return (
@@ -211,7 +220,7 @@ export default function WorkstreamActivityLedger(props: WorkstreamActivityLedger
             </div>
           ) : rows.length ? (
             rows.map((row) => (
-              <WorkstreamActivityCards key={row.id} presentation={presentationOverrides[row.id] ?? presentation} row={row} selected={selected?.id === row.id} onSelect={(chosen) => onSelect(chosen.id)} onTogglePresentation={onToggleRow} />
+              <WorkstreamActivityCards key={row.id} presentation={presentationOverrides[row.id] ?? presentation} row={row} selected={selected?.id === row.id} onSelect={(chosen) => onSelect(chosen.id)} onOpenFullView={openFullView} onTogglePresentation={onToggleRow} />
             ))
           ) : (
             <p className={`${LAYOUT_STYLES.status} ${STYLES.empty}`}>No Workstream activity matches this filter.</p>
@@ -242,7 +251,7 @@ export default function WorkstreamActivityLedger(props: WorkstreamActivityLedger
             <span className={STYLES.detailToggleLabel}>{detailHidden ? 'Details' : 'Hide'}</span>
           </button>
           <div className={`${LAYOUT_STYLES.detailContent} ${STYLES.detailMotion} ${detailHidden ? LAYOUT_STYLES.detailContentHidden : ''}`} id={detailId} inert={detailHidden}>
-            {selected ? renderDetail(selected) : <p className={STYLES.empty}>Select an activity to see its detail.</p>}
+            {selected ? renderDetail(selected, fullViewRequest?.rowId === selected.id ? fullViewRequest.id : null) : <p className={STYLES.empty}>Select an activity to see its detail.</p>}
           </div>
         </aside>
       </div>
