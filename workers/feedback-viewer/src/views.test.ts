@@ -130,6 +130,16 @@ describe('detailView', () => {
     expect(draftChangeWords(detail, { status: 'new', priority: 'normal', note: 'Only a note' })).toBe('Add the note')
   })
 
+  it('offers Save and Mark Complete while the request is open, and not once it is Completed or Will not do (FB-0013)', () => {
+    const html = detailView(detail, { canTriage: true, listFilter: {} })
+    expect(html).toContain('data-kr-element="feedback-viewer-save-complete"')
+    expect(html).toContain('name="intent" value="complete"')
+    expect(html).toContain('Save and Mark Complete')
+    expect(detailView({ ...detail, status: 'done' }, { canTriage: true, listFilter: {} })).not.toContain('Save and Mark Complete')
+    expect(detailView({ ...detail, status: 'will_not_do' }, { canTriage: true, listFilter: {} })).not.toContain('Save and Mark Complete')
+    expect(detailView(detail, { canTriage: false, listFilter: {} })).not.toContain('Save and Mark Complete')
+  })
+
   it('is clean again when the values are set back', () => {
     expect(isDraftDirty(detail, { status: 'new', priority: 'normal', note: '  ' })).toBe(false)
   })

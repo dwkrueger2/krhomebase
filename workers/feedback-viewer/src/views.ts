@@ -22,6 +22,7 @@ import {
   imageAddress,
   KIND_LABELS,
   labelOf,
+  OPEN_FEEDBACK_STATUSES,
   PRIORITY_LABELS,
   SHAPE_LABELS,
   STATUS_LABELS,
@@ -341,13 +342,18 @@ export function detailView(item: FeedbackDetail, options: { canTriage: boolean; 
   // One form saves the status, the priority and a note together (the API keeps a note sent with no other change as a
   // plain note). Save Changes keeps its place but shows only while the form differs from what is saved; `main.ts`
   // sets `dirty` on the form and writes what will change beside the button (root AGENTS.md, Unsaved Changes Standard).
+  // Save and Mark Complete (FB-0013, tool 1.6.0) shows while the request is still open: one click saves the form with
+  // the status Completed. It is drawn in the Completed color, so Save Changes stays the brightest button.
+  const completeButton = (OPEN_FEEDBACK_STATUSES as readonly string[]).includes(item.status)
+    ? `<button type="submit" class="save-complete" name="intent" value="complete" ${toneAttr(toneOf(STATUS_TONES, 'done'))} data-kr-element="feedback-viewer-save-complete">Save and Mark Complete</button>`
+    : ''
   const changeForm = !options.canTriage
     ? '<p class="meta">You may read this request but not change it (you need developer_tools update).</p>'
     : `<form data-action="change" data-kr-element="feedback-viewer-change">
 <div class="form-row"><label>Status <select name="status" ${toneAttr(toneOf(STATUS_TONES, item.status))}>${optionsHtml(FEEDBACK_STATUSES, STATUS_LABELS, item.status, undefined, STATUS_TONES)}</select></label>
 <label>Priority <select name="priority" ${toneAttr(toneOf(PRIORITY_TONES, item.priority))}>${optionsHtml(FEEDBACK_PRIORITIES, PRIORITY_LABELS, item.priority, undefined, PRIORITY_TONES)}</select></label></div>
 <label class="block">Note (optional)<textarea name="note" maxlength="10000"></textarea></label>
-<div class="save-row"><button type="submit" class="save" data-kr-element="feedback-viewer-save">Save Changes</button><span class="change-words meta" aria-live="polite"></span></div>
+<div class="save-row"><button type="submit" class="save" data-kr-element="feedback-viewer-save">Save Changes</button>${completeButton}<span class="change-words meta" aria-live="polite"></span></div>
 </form>`
 
   return `${detailNavHtml(options.listFilter, options.neighbors ?? {})}

@@ -1,7 +1,7 @@
 # KR Homebase API Agent Guide
 
-<small>Version 1.48</small><br>
-<small>Updated Nov 17, 2026 8:40am</small>
+<small>Version 1.49</small><br>
+<small>Updated Nov 17, 2026 10:15pm</small>
 
 ## Purpose
 
@@ -100,7 +100,7 @@ Business areas read and write D1 directly through the `krhomebase` binding, not 
 
 `src/features/contacts/` serves `GET /v1/contacts` (whole list, or `mode=delta&since=`) and `GET /v1/contacts/{contactId}` (one contact with the full SSN and date of birth). `rules.ts` holds the old serializer, unchanged except for one added field, `clientDisplayName` (the client account's own name, for the browser's billing client list); `queries.ts` the thirteen-table loads.
 
-`src/features/contact-edits/` (plan stage 1d-3) serves `GET /v1/contact-capabilities`, `POST /v1/contacts` (create, optionally with the client account and its General Matter), `PATCH /v1/contacts/{contactId}` (the edit card), `GET /v1/clients`, `GET /v1/clients/next-number` and `PATCH /v1/clients/status`. Its `queries.ts` returns prepared statements; `rules.ts` gathers every statement of one save with its `audit` rows and runs them as one batch. New ICID/ECID codes are made in `rules.ts` (`generatePublicCode`, the crud Worker's rule) and the save is retried on the rare clash.
+`src/features/contact-edits/` (plan stage 1d-3) serves `GET /v1/contact-capabilities`, `POST /v1/contacts` (create, optionally with the client account and its General Matter), `PATCH /v1/contacts/{contactId}` (the edit card), `GET /v1/clients`, `GET /v1/clients/next-number` and `PATCH /v1/clients/status`. Its `queries.ts` returns prepared statements; `rules.ts` gathers every statement of one save with its `audit` rows and runs them as one batch. **Phone slots (FB-0012, API 1.2.0 patch 0):** the read (`contacts/rules.ts`) and the edit choose the Office and Cell rows with the one rule `contactMethodSlots`: the primary slot is the oldest row marked primary, else the oldest open row not labeled `Additional phone`; the Cell slot is the oldest other open row not marked primary. A Cell phone is saved as `Additional phone` with `is_primary = 0`. Migration 000 repaired the rows saved as primary before. New ICID/ECID codes are made in `rules.ts` (`generatePublicCode`, the crud Worker's rule) and the save is retried on the rare clash.
 
 `src/features/contact-maintenance/` (plan stage 1d-4, super admin only) serves six `POST /v1/contact-maintenance/...` routes: `resolution-preflight`, `merge`, `copy-and-inactivate`, `removal-preflight`, `delete`, `inactivate`. The removal SQL is the crud Worker's `contact-maintenance.ts`, copied with its guards: the audit row is inserted only while the contact is still eligible, and every later statement runs only if that row exists. Table names come only from the fixed catalogs in `queries.ts`.
 

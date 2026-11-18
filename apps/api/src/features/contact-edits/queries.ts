@@ -20,7 +20,7 @@ const METHOD_TABLE = { individual: 'individual_contact_method', entity: 'entity_
 const ADDRESS_LINK_TABLE = { individual: 'individual_address', entity: 'entity_address' } as const
 
 /** A contact-method row, as the edit rules need it. */
-export type MethodRow = { id: string; contact_type: string; value: string; is_primary: number; valid_to: string | null }
+export type MethodRow = { id: string; contact_type: string; value: string; label: string | null; is_primary: number; valid_to: string | null; created_at: string }
 /** An address link with its address id. */
 export type AddressLinkRow = { id: string; address_id: string; is_primary: number; valid_to: string | null }
 /** An individual-to-individual relationship. */
@@ -214,8 +214,8 @@ export function createContactEditQueries(db: D1Database): ContactEditQueries {
     methodsOf(kind, id) {
       const sql =
         kind === 'individual'
-          ? 'SELECT id, contact_type, value, is_primary, valid_to FROM individual_contact_method WHERE individual_id = ?1 ORDER BY created_at, id'
-          : 'SELECT id, contact_type, value, is_primary, valid_to FROM entity_contact_method WHERE entity_id = ?1 ORDER BY created_at, id'
+          ? 'SELECT id, contact_type, value, label, is_primary, valid_to, created_at FROM individual_contact_method WHERE individual_id = ?1 ORDER BY created_at, id'
+          : 'SELECT id, contact_type, value, label, is_primary, valid_to, created_at FROM entity_contact_method WHERE entity_id = ?1 ORDER BY created_at, id'
       return all<MethodRow>(db.prepare(sql).bind(id))
     },
     addressLinksOf(kind, id) {

@@ -214,8 +214,13 @@ async function copyField(button: HTMLButtonElement): Promise<void> {
   }, 2000)
 }
 
-/** Saves the change form in one step, then shows the request as KR Homebase saved it, or the refusal. */
-async function saveDraft(draft: DraftChange): Promise<void> {
+/**
+ * Saves the change form in one step, then shows the request as KR Homebase saved it, or the refusal.
+ *
+ * @param draft - The form's values (with the status Completed for Save and Mark Complete).
+ * @param savedText - The message shown when the save succeeds.
+ */
+async function saveDraft(draft: DraftChange, savedText = 'Changes saved.'): Promise<void> {
   if (!api || !current || busy) return
   busy = true
   for (const control of Array.from(app.querySelectorAll('button, textarea, select'))) (control as HTMLButtonElement).disabled = true
@@ -225,7 +230,7 @@ async function saveDraft(draft: DraftChange): Promise<void> {
   busy = false
   if (reply.ok) {
     current = reply.data.feedback
-    showDetail({ kind: 'good', text: 'Changes saved.' })
+    showDetail({ kind: 'good', text: savedText })
   } else {
     showDetail({ kind: 'bad', text: problemText(reply.error, reply.requestId) })
     // Keep what the person chose, so a refused save does not lose it.
@@ -256,7 +261,10 @@ app.addEventListener('submit', (event) => {
   }
   if (action === 'change' && current) {
     const draft = readDraft()
-    if (draft && isDraftDirty(current, draft)) void saveDraft(draft)
+    // Save and Mark Complete (FB-0013): the form's values with the status Completed, saved even when nothing else changed.
+    const submitter = (event as SubmitEvent).submitter as HTMLButtonElement | null
+    if (draft && submitter?.value === 'complete') void saveDraft({ ...draft, status: 'done' }, 'Saved and marked Completed.')
+    else if (draft && isDraftDirty(current, draft)) void saveDraft(draft)
   }
 })
 

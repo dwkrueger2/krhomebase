@@ -232,6 +232,19 @@ select[data-fb-tone] option[data-fb-tone] {
 }
 form.dirty .save { visibility: visible; }
 .save:hover { filter: brightness(1.08); }
+/*
+ * Save and Mark Complete (FB-0013, tool 1.6.0): always shown while the request is open, in the Completed color (its
+ * `data-fb-tone`), quieter than Save Changes.
+ */
+.save-complete {
+  padding: 1px 10px;
+  border-color: var(--fb-line);
+  border-radius: 999px;
+  font-weight: 700;
+  color: var(--fb-text);
+  background: var(--fb-fill);
+}
+.save-complete:hover { filter: brightness(1.05); }
 
 /* The "Leave without saving?" dialog (the tool's own; the frame may not use the browser's). */
 .dialog-backdrop { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; background: rgba(16, 42, 58, 0.4); }

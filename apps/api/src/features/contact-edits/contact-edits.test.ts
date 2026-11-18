@@ -151,6 +151,40 @@ describe('PATCH /v1/contacts/{contactId}', () => {
     expect(rows("SELECT id FROM individual_relationship WHERE (individual_a_id = 'ind-ann' OR individual_b_id = 'ind-ann') AND valid_to IS NULL").length).toBe(0)
   })
 
+  // FB-0012 (API 1.2.0 patch 0): the Cell phone (phoneSecondary) is saved as not primary and read back as the Cell phone.
+  it('saves the Cell phone as an additional phone, reads it back, and does not add a copy on the next save', async () => {
+    const first = await send('PATCH', '/v1/contacts/ind-ann', 'user-editor', 'staff', { ...annEdit, phoneSecondary: '5550100002' })
+    expect(first.status).toBe(200)
+    const saved = ContactUpdateData.parse(((await first.json()) as { data: unknown }).data)
+    expect(saved.contact).toMatchObject({ phone: '(555) 010-0001', phoneSecondary: '(555) 010-0002' })
+    const phones = () => rows<{ label: string; is_primary: number }>("SELECT label, is_primary FROM individual_contact_method WHERE individual_id = 'ind-ann' AND contact_type = 'phone' AND valid_to IS NULL ORDER BY created_at, label")
+    expect(phones()).toEqual([
+      { label: 'Additional phone', is_primary: 0 },
+      { label: 'Primary phone', is_primary: 1 },
+    ])
+    // The same save again changes nothing; a new Cell number changes the same row.
+    await send('PATCH', '/v1/contacts/ind-ann', 'user-editor', 'staff', { ...annEdit, phoneSecondary: '5550100002' })
+    const third = await send('PATCH', '/v1/contacts/ind-ann', 'user-editor', 'staff', { ...annEdit, phoneSecondary: '5550100003' })
+    expect(ContactUpdateData.parse(((await third.json()) as { data: unknown }).data).contact).toMatchObject({ phoneSecondary: '(555) 010-0003' })
+    expect(phones()).toHaveLength(2)
+  })
+
+  it('shows a lone phone without a primary mark only as the Office phone, and a Cell number saved beside it as the Cell phone', async () => {
+    env.sqlite
+      .prepare(`INSERT INTO individual_contact_method (id, individual_id, contact_type, value, label, is_primary, created_at, updated_at) VALUES ('m-old', 'ind-ann', 'phone', '5550100009', 'Phone', 0, ?1, ?1)`)
+      .run(OLD)
+    const res = await send('PATCH', '/v1/contacts/ind-ann', 'user-editor', 'staff', { ...annEdit, phone: '5550100009', phoneSecondary: '5550100004' })
+    const data = ContactUpdateData.parse(((await res.json()) as { data: unknown }).data)
+    expect(data.contact).toMatchObject({ phone: '(555) 010-0009', phoneSecondary: '(555) 010-0004' })
+    expect(row<{ is_primary: number }>("SELECT is_primary FROM individual_contact_method WHERE id = 'm-old'").is_primary).toBe(1)
+  })
+
+  it('shows a contact with only a Cell number with no Office phone', async () => {
+    const res = await send('PATCH', '/v1/contacts/ind-ann', 'user-editor', 'staff', { ...annEdit, phone: '', phoneSecondary: '5550100005' })
+    const data = ContactUpdateData.parse(((await res.json()) as { data: unknown }).data)
+    expect(data.contact).toMatchObject({ phone: null, phoneSecondary: '(555) 010-0005' })
+  })
+
   it('refuses a stale save with CONTACT_CONFLICT', async () => {
     const res = await send('PATCH', '/v1/contacts/ind-ann', 'user-editor', 'staff', { ...annEdit, expectedUpdatedAt: '2025-01-01T00:00:00.000Z' })
     expect(res.status).toBe(409)
