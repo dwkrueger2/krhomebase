@@ -144,6 +144,11 @@ export interface ApplicationShellProps {
    * banner). It draws nothing most of the time; the row then has no height. When absent, no row content.
    */
   topNotice?: ReactNode
+  /**
+   * Things drawn once over the whole frame, inside its navigation (web patch 571: the code-link host, which opens a
+   * followed WSID, task, client, matter, lead or contact; `components/ui/codeLinks.ts`). When absent, none.
+   */
+  overlays?: ReactNode
   /** One screen per parent row that lists open items (Clients & Contacts: the contact detail). */
   openItemPanels?: Partial<Record<OpenItemParentId, ReactNode>>
   /** The signed-in person's user id. Open and recent items are saved under it; empty: they are not saved. */
@@ -211,6 +216,7 @@ export default function ApplicationShell({
   topBarStatus,
   topBarFeedback,
   topNotice,
+  overlays,
   openItemPanels,
   storageScope = '',
 }: ApplicationShellProps) {
@@ -612,6 +618,9 @@ export default function ApplicationShell({
       <div className={LAYOUT_STYLES.topNotice} data-kr-element="shell-top-notice">
         {topNotice}
       </div>
+
+      {/* Overlays: drawn once, inside the frame's navigation (the code-link host draws its dialogs into the body). */}
+      {overlays}
 
       {/* Header bar: brand block on the left, title bar on the right */}
       <HeaderBar

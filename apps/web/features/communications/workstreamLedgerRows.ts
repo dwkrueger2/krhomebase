@@ -12,6 +12,9 @@
  *  - The old "kind" names (`phone_call`, `work`) are gone: the filter uses the API's activity types (`subgroup`).
  *  - Nov 18, 2026 (FB-0016, web patch 570): an entry with several types is one row, labeled with every type
  *    ("Note · Task"), and a type filter finds it under each of them (the API matches any of its types).
+ *  - Nov 18, 2026 (web patch 571): types are shown in a fixed priority order (`ACTIVITY_TYPE_PRIORITY`); a row's first
+ *    column names the first in full (`LEDGER_SHORT_LABELS`) and the others by letter (`ACTIVITY_TYPE_LETTERS`); the
+ *    ledger filters the loaded list itself (`rowMatchesFilter`) instead of asking the API again.
  */
 
 import type { WorkstreamActivity, WorkstreamSubgroup } from '@krhomebase/contracts'
@@ -60,9 +63,9 @@ export interface LedgerActivityRow {
   /** The public seven-character id (`wsid`): the row's key and the id every change uses. */
   id: string
   subgroup: WorkstreamSubgroup
-  /** Every type of the entry, the main one first. */
+  /** Every type of the entry, in priority order (`ACTIVITY_TYPE_PRIORITY`). */
   subgroups: WorkstreamSubgroup[]
-  /** The types' labels, joined: "Note · Task". */
+  /** The types' full labels, joined in priority order: "Note · Task" (the hover and the context line). */
   kindLabel: string
   matterNumber: string
   occurredLabel: string
@@ -80,14 +83,47 @@ export function generalMatterNumber(clientNumber: string | null | undefined): st
   return trimmed ? `${trimmed}.0` : null
 }
 
+/**
+ * The order types are shown in (the requester, Nov 18, 2026, web patch 571): the first one present is the one named in
+ * full in a row's first column, the others follow as letters.
+ */
+export const ACTIVITY_TYPE_PRIORITY: readonly WorkstreamSubgroup[] = ['PhoneCalls', 'Emails', 'Notes', 'Tasks', 'ReceivedFiles', 'SentFiles', 'WIP']
+
+/** The first column's short names (only there; everywhere else the full labels above). "Phone Call" stays whole. */
+export const LEDGER_SHORT_LABELS: Record<WorkstreamSubgroup, string> = {
+  PhoneCalls: 'Phone Call',
+  Emails: 'Email',
+  Notes: 'Note',
+  Tasks: 'Task',
+  ReceivedFiles: 'Received',
+  SentFiles: 'Sent',
+  WIP: 'WIP',
+}
+
+/** The letter each further type shows as in the first column ("Note · ET": also an Email and a Task). */
+export const ACTIVITY_TYPE_LETTERS: Record<WorkstreamSubgroup, string> = {
+  PhoneCalls: 'P',
+  Emails: 'E',
+  Notes: 'N',
+  Tasks: 'T',
+  ReceivedFiles: 'R',
+  SentFiles: 'S',
+  WIP: 'W',
+}
+
 /** The entry's types (an entry from an older API carries only `subgroup`). */
 export function activityTypesOf(activity: Pick<WorkstreamActivity, 'subgroup' | 'subgroups'>): WorkstreamSubgroup[] {
   return activity.subgroups?.length ? activity.subgroups : [activity.subgroup]
 }
 
-/** "Note · Task": every type's ledger label, the main one first. */
+/** The types in priority order (`ACTIVITY_TYPE_PRIORITY`). */
+export function typesByPriority(types: readonly WorkstreamSubgroup[]): WorkstreamSubgroup[] {
+  return ACTIVITY_TYPE_PRIORITY.filter((type) => types.includes(type))
+}
+
+/** "Phone call · Note · Task": every type's ledger label, in priority order. */
 export function activityTypesLabel(types: readonly WorkstreamSubgroup[]): string {
-  return types.map((type) => LEDGER_ACTIVITY_LABELS[type]).join(' · ')
+  return typesByPriority(types).map((type) => LEDGER_ACTIVITY_LABELS[type]).join(' · ')
 }
 
 /**
@@ -98,7 +134,7 @@ export function activityTypesLabel(types: readonly WorkstreamSubgroup[]): string
  */
 export function ledgerRowFromActivity(activity: WorkstreamActivity, clientNumber: string | null | undefined): LedgerActivityRow {
   const note = activity.note.trim()
-  const subgroups = activityTypesOf(activity)
+  const subgroups = typesByPriority(activityTypesOf(activity))
   return {
     id: activity.wsid,
     subgroup: activity.subgroup,
@@ -112,6 +148,11 @@ export function ledgerRowFromActivity(activity: WorkstreamActivity, clientNumber
     assigneeUserId: activity.assigneeUserId,
     activity,
   }
+}
+
+/** Whether a row shows under a SHOW filter: All, or any of its types (web patch 571: filtered in the browser). */
+export function rowMatchesFilter(row: Pick<LedgerActivityRow, 'subgroups'>, filter: LedgerActivityFilter): boolean {
+  return filter === 'all' || row.subgroups.includes(filter)
 }
 
 /** "Client 306 · Matter 306.0 · Note · WSID AB12CD3", the detail card's context line (old wording). */

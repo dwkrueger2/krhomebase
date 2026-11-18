@@ -1,7 +1,7 @@
 # KR Homebase API Agent Guide
 
-<small>Version 1.50</small><br>
-<small>Updated Nov 18, 2026 3:28pm</small>
+<small>Version 1.51</small><br>
+<small>Updated Nov 18, 2026 5:21pm</small>
 
 ## Purpose
 
@@ -148,7 +148,9 @@ The contract test gives write routes a full-schema test database (the maintenanc
 - **Default assignee (D20, Nov 13, 2026):** with `assigneeUserIds` left out, the creator is assigned when their Task Settings preference `assignCreatorByDefault` (key `tasks`, default true) is on, nobody when it is off; an empty list always means nobody. `routes.ts` reads it through the preferences area (`preferenceQueriesFor`, `loadPreferences`); when the preferences cannot be read the default is used and logged (`TASKS:preferences-unavailable`).
 - **Completion:** `completed_at` is set when the status becomes Completed, kept while it stays Completed, and cleared when it is reopened.
 - **Assignees:** only `assignment_role = 'assignee'` rows, one row per user. The replace ends a removed user's row (`is_current = 0`, `ended_at`), brings a returning user's row back (`is_current = 1`, `ended_at` null) and inserts `tas_<uuid>` rows for new users, so the UNIQUE `(task_id, user_id, assignment_role, is_current)` always holds. An older ended row left beside a current one (only possible in rows from before this API) is removed when that current row is ended. `task.assigned_to_user_id` is the first assignee, or null.
-- **Writes** are one batch with the `audit_log` row (resource `tasks`, actions `CREATE`, `UPDATE`, `ASSIGN`), with the client and no `matter_id`, so a task's audit rows never block a matter delete.
+- **Writes** are one batch with the `audit_log` row (resource `tasks`, actions `CREATE`, `UPDATE`, `ASSIGN`, `NOTE`), with the client and no `matter_id`, so a task's audit rows never block a matter delete.
+- **Staff codes (API 1.2.0 patch 2):** each assignee carries `staffCode` (`employee.staff_code`, or null); the Tasks screen shows it in the assignee cell.
+- **Follow-up notes (API 1.2.0 patch 2, migration 003, the requester, Nov 18, 2026):** `GET` and `POST /v1/tasks/{taskId}/notes` (staff roles): table `task_note` (`tno_<uuid>`, the task, the text, the writer from the session, the time), added and never changed, newest first with the writer's name; the audit row (`NOTE`) carries the note's id, never its text. Until migration 003 is applied the note routes answer 503 `TASKS_UNAVAILABLE`; the rest of Tasks works.
 
 ## Billing
 

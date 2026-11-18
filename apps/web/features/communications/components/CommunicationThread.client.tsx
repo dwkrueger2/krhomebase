@@ -17,8 +17,12 @@
  *   them and both buttons did nothing. Reply stays (it selects the entry, as before) with an SVG icon.
  * - Density Contract: 24px avatars, 3px row padding, 4px corners on the bubble (it had 3px and 14px), 12px text.
  * - Nov 18, 2026 (FB-0016, web patch 570): the type badge names every type of the entry ("Note + Task").
+ * - Nov 18, 2026 (web patch 571, "Following a code"): the source label ("Matter 090.0 · Name") opens the client's
+ *   detail (or the lead), its hover naming the client ("Open Client 090 Best In Class"); the WSID opens the entry's
+ *   dialog (`KRCodeLink`).
  */
 
+import KRCodeLink from '@/components/ui/KRCodeLink.client'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
 import { useState } from 'react'
@@ -181,7 +185,7 @@ export default function CommunicationThread({ collapsedView, contextLabel = 'Fir
               <span className={`${STYLES.avatar} ${AVATAR_TONE_STYLES[message.author.avatarTone]}`} aria-hidden="true">{message.author.initials}</span>
               {expanded ? <div className={LAYOUT_STYLES.messageColumn}>
                 {/* Message identity stays above the bubble to match the reference communication layout. */}
-                <div className={`${LAYOUT_STYLES.byline} ${STYLES.byline}`}><strong className={STYLES.bylineStrong}>{message.author.name}</strong><span>{message.createdLabel}</span><span className={STYLES.accentBadge}>{message.direction}</span><span className={STYLES.activityBadge}>{activityLabel}</span><span className={STYLES.sourceBadge}>{message.sourceLabel}</span>{message.assigneeLabel ? <span>· Assigned to {message.assigneeLabel}</span> : null}{message.edited ? <span>· Edited</span> : null}<code className={`${LAYOUT_STYLES.bylineCode} ${STYLES.bylineCode}`}>{message.wsid}</code></div>
+                <div className={`${LAYOUT_STYLES.byline} ${STYLES.byline}`}><strong className={STYLES.bylineStrong}>{message.author.name}</strong><span>{message.createdLabel}</span><span className={STYLES.accentBadge}>{message.direction}</span><span className={STYLES.activityBadge}>{activityLabel}</span><span className={STYLES.sourceBadge}>{message.sourceTarget ? <KRCodeLink code={message.sourceTarget.code} kind={message.sourceTarget.kind} title={message.sourceTarget.title} tone="dark">{message.sourceLabel}</KRCodeLink> : message.sourceLabel}</span>{message.assigneeLabel ? <span>· Assigned to {message.assigneeLabel}</span> : null}{message.edited ? <span>· Edited</span> : null}<code className={`${LAYOUT_STYLES.bylineCode} ${STYLES.bylineCode}`}><KRCodeLink code={message.wsid} kind="workstream" tone="dark" /></code></div>
                 <div className={STYLES.bubble}>{subjectIsDistinct(message) ? <><span className={STYLES.subject}>{message.subject}</span>{'\n'}</> : null}{renderBody(message.body, message.bodyHtml)}</div>
                 {message.attachments.length ? <div className={LAYOUT_STYLES.attachments}>{message.attachments.map((attachment) => <a className={`${LAYOUT_STYLES.attachment} ${STYLES.attachment}`} href={attachment.url} key={attachment.url} rel="noopener noreferrer" target="_blank" onClick={(event) => event.stopPropagation()}><KRHomebaseIcons.ExternalLink className={STYLES.icon} /> {attachment.label}</a>)}</div> : null}
                 <div className={LAYOUT_STYLES.messageTools} onClick={(event) => event.stopPropagation()}>

@@ -79646,11 +79646,19 @@
                                     "label": {
                                       "type": "string",
                                       "description": "That user's name (preferred name, else first and last name, else email)."
+                                    },
+                                    "staffCode": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "description": "That user's staff code (`employee.staff_code`), or null when they have none (API 1.2.0 patch 2)."
                                     }
                                   },
                                   "required": [
                                     "userId",
-                                    "label"
+                                    "label",
+                                    "staffCode"
                                   ]
                                 },
                                 "description": "The current assignees, the first assignee first. A task saved before assignee rows existed shows its single `assigned_to_user_id` (the old route's fallback)."
@@ -80246,11 +80254,19 @@
                                   "label": {
                                     "type": "string",
                                     "description": "That user's name (preferred name, else first and last name, else email)."
+                                  },
+                                  "staffCode": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "That user's staff code (`employee.staff_code`), or null when they have none (API 1.2.0 patch 2)."
                                   }
                                 },
                                 "required": [
                                   "userId",
-                                  "label"
+                                  "label",
+                                  "staffCode"
                                 ]
                               },
                               "description": "The current assignees, the first assignee first. A task saved before assignee rows existed shows its single `assigned_to_user_id` (the old route's fallback)."
@@ -80815,11 +80831,19 @@
                                   "label": {
                                     "type": "string",
                                     "description": "That user's name (preferred name, else first and last name, else email)."
+                                  },
+                                  "staffCode": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "That user's staff code (`employee.staff_code`), or null when they have none (API 1.2.0 patch 2)."
                                   }
                                 },
                                 "required": [
                                   "userId",
-                                  "label"
+                                  "label",
+                                  "staffCode"
                                 ]
                               },
                               "description": "The current assignees, the first assignee first. A task saved before assignee rows existed shows its single `assigned_to_user_id` (the old route's fallback)."
@@ -81457,11 +81481,19 @@
                                   "label": {
                                     "type": "string",
                                     "description": "That user's name (preferred name, else first and last name, else email)."
+                                  },
+                                  "staffCode": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "That user's staff code (`employee.staff_code`), or null when they have none (API 1.2.0 patch 2)."
                                   }
                                 },
                                 "required": [
                                   "userId",
-                                  "label"
+                                  "label",
+                                  "staffCode"
                                 ]
                               },
                               "description": "The current assignees, the first assignee first. A task saved before assignee rows existed shows its single `assigned_to_user_id` (the old route's fallback)."
@@ -82010,11 +82042,19 @@
                                   "label": {
                                     "type": "string",
                                     "description": "That user's name (preferred name, else first and last name, else email)."
+                                  },
+                                  "staffCode": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "That user's staff code (`employee.staff_code`), or null when they have none (API 1.2.0 patch 2)."
                                   }
                                 },
                                 "required": [
                                   "userId",
-                                  "label"
+                                  "label",
+                                  "staffCode"
                                 ]
                               },
                               "description": "The current assignees, the first assignee first. A task saved before assignee rows existed shows its single `assigned_to_user_id` (the old route's fallback)."
@@ -82273,6 +82313,727 @@
           },
           "422": {
             "description": "An assignee is not an active staff user (TASK_ASSIGNEE_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Tasks cannot be read or saved right now (TASKS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/{taskId}/notes": {
+      "get": {
+        "summary": "A task's follow-up notes, newest first, with who wrote each (migration 003).",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TASK_NOT_FOUND, TASKS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "tasks"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z0-9]{7}$",
+              "description": "The task's public id."
+            },
+            "required": true,
+            "description": "The task's public id.",
+            "name": "taskId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The task's follow-up notes, newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "taskId": {
+                          "type": "string",
+                          "description": "The task's public id."
+                        },
+                        "notes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "Row id (`tno_<uuid>`)."
+                              },
+                              "text": {
+                                "type": "string",
+                                "description": "The note."
+                              },
+                              "authorUserId": {
+                                "type": "string",
+                                "description": "Who wrote it."
+                              },
+                              "authorLabel": {
+                                "type": "string",
+                                "description": "Their name."
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "description": "When it was written (ISO time)."
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "text",
+                              "authorUserId",
+                              "authorLabel",
+                              "createdAt"
+                            ]
+                          },
+                          "description": "Newest first."
+                        }
+                      },
+                      "required": [
+                        "taskId",
+                        "notes"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No task has that id (TASK_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Tasks cannot be read or saved right now (TASKS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Adds a follow-up note to a task, written by the caller; answers every note, newest first.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: Writes task_note; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TASK_NOT_FOUND, TASKS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "tasks"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z0-9]{7}$",
+              "description": "The task's public id."
+            },
+            "required": true,
+            "description": "The task's public id.",
+            "name": "taskId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000,
+                    "description": "The note (1 to 10,000 characters)."
+                  }
+                },
+                "required": [
+                  "text"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The task's follow-up notes, newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "taskId": {
+                          "type": "string",
+                          "description": "The task's public id."
+                        },
+                        "notes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "Row id (`tno_<uuid>`)."
+                              },
+                              "text": {
+                                "type": "string",
+                                "description": "The note."
+                              },
+                              "authorUserId": {
+                                "type": "string",
+                                "description": "Who wrote it."
+                              },
+                              "authorLabel": {
+                                "type": "string",
+                                "description": "Their name."
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "description": "When it was written (ISO time)."
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "text",
+                              "authorUserId",
+                              "authorLabel",
+                              "createdAt"
+                            ]
+                          },
+                          "description": "Newest first."
+                        }
+                      },
+                      "required": [
+                        "taskId",
+                        "notes"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No task has that id (TASK_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
             "content": {
               "application/json": {
                 "schema": {

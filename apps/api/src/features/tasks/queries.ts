@@ -12,7 +12,10 @@
  *   most one current and one ended row per user and role. This area writes only `assignment_role = 'assignee'` and
  *   keeps one row per user: a removed user's row is ended, a returning user's row is made current again.
  * - `client`, `matter`, `matter_party` (`is_primary_client = 1`): the client and matter checks and names.
- * - `user`, `individual`: the names of assignees, supervisor and creator.
+ * - `user`, `individual`: the names of assignees, supervisor and creator; `employee.staff_code`: each assignee's staff
+ *   code (API 1.2.0 patch 2).
+ * - `task_note` (migration 003, the requester, Nov 18, 2026): follow-up notes, added and never changed; removed with
+ *   the task (ON DELETE CASCADE). Read newest first with the author's name.
  *
  * Lists are ordered by due date (no due date last), then newest recorded, then id; paged with a cursor of
  * `(COALESCE(due_date, '9999-12-31'), created_at, id)`. The current assignees of a whole page are read in one query
@@ -79,6 +82,19 @@ export interface AssigneeRow {
   preferred_name: string | null
   first_name: string | null
   last_name: string | null
+  staff_code: string | null
+}
+
+/** One `task_note` row with its author's name parts. */
+export interface TaskNoteRow {
+  id: string
+  body: string
+  author_user_id: string
+  author_email: string | null
+  author_preferred_name: string | null
+  author_first_name: string | null
+  author_last_name: string | null
+  created_at: string
 }
 
 /** The page position: the last row's due-date key, recorded time and id. */
@@ -139,6 +155,10 @@ export interface TaskQueries {
   update(row: TaskWrite, audit: AuditEntry): Promise<void>
   /** Replaces the current assignees (`assignees` the whole new set, the first one first). */
   replaceAssignees(taskId: string, assignees: Array<{ id: string; userId: string }>, byUserId: string, now: string, audit: AuditEntry): Promise<void>
+  /** A task's follow-up notes, newest first. */
+  notes(taskId: string): Promise<TaskNoteRow[]>
+  /** Saves one follow-up note with its audit row. */
+  insertNote(row: { id: string; taskId: string; body: string; authorUserId: string; now: string }, audit: AuditEntry): Promise<void>
 }
 
 const TASK_SELECT = `SELECT t.id, t.title, t.description, t.type_label, t.status, t.priority, t.client_id, t.matter_id,
@@ -270,7 +290,8 @@ export function createTaskQueries(db: D1Database): TaskQueries {
     currentAssignees: (taskIds) =>
       run(async () => {
         if (!taskIds.length) return []
-        const sql = `SELECT ta.task_id, ta.user_id, u.email, i.preferred_name, i.first_name, i.last_name
+        const sql = `SELECT ta.task_id, ta.user_id, u.email, i.preferred_name, i.first_name, i.last_name,
+                            (SELECT e.staff_code FROM employee e WHERE e.user_id = ta.user_id LIMIT 1) AS staff_code
                        FROM task_assignee ta
                        LEFT JOIN user u ON u.id = ta.user_id
                        LEFT JOIN individual i ON i.id = u.individual_id
@@ -349,6 +370,28 @@ export function createTaskQueries(db: D1Database): TaskQueries {
 
     async replaceAssignees(taskId, assignees, byUserId, now, audit) {
       await run(() => db.batch([...assigneeStatements(taskId, assignees, byUserId, now), auditStatement(db, audit)]))
+    },
+
+    notes: (taskId) =>
+      run(async () => {
+        const sql = `SELECT n.id, n.body, n.author_user_id, u.email AS author_email, i.preferred_name AS author_preferred_name,
+                            i.first_name AS author_first_name, i.last_name AS author_last_name, n.created_at
+                       FROM task_note n
+                       LEFT JOIN user u ON u.id = n.author_user_id
+                       LEFT JOIN individual i ON i.id = u.individual_id
+                      WHERE n.task_id = ?1
+                      ORDER BY n.created_at DESC, n.id DESC
+                      LIMIT 500`
+        return (await db.prepare(sql).bind(taskId).all<TaskNoteRow>()).results ?? []
+      }),
+
+    async insertNote(row, audit) {
+      await run(() =>
+        db.batch([
+          db.prepare('INSERT INTO task_note (id, task_id, body, author_user_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5)').bind(row.id, row.taskId, row.body, row.authorUserId, row.now),
+          auditStatement(db, audit),
+        ]),
+      )
     },
   }
 }

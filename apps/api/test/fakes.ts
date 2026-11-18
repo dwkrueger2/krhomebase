@@ -34,6 +34,8 @@ export const HOMEBASE_FEEDBACK_MIGRATION = join(here, '..', '..', '..', 'docs', 
 export const DEPLOY_WINDOW_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch034_11_14_deploy_window.sql')
 /** Migration 002 (repository 1.2.0 patch 2): `workstream_activity_type`, an entry's other activity types (FB-0016). Built with fullSchema; its repairs name live rows only, so they change nothing here. */
 export const WORKSTREAM_TYPES_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch002_11_18_workstream_types.sql')
+/** Migration 003 (repository 1.2.0 patch 3): `task_note`, a task's follow-up notes. Built with fullSchema. */
+export const TASK_NOTES_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch003_11_18_task_notes.sql')
 /** Migration 058: the outside tools' `local_only` and `developers_only` columns (repository patch 58). Always added. */
 export const TOOL_VISIBILITY_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch058_11_17_tool_visibility.sql')
 
@@ -117,7 +119,7 @@ class TestStatement {
  * Makes an in-memory D1 database with the outside-tool tables, from the real migration file. With
  * `{ fullSchema: true }` it first builds every table of `docs/Schema_8.0/schema_d1_v8_0.sql`, then the
  * `user_preference` table, the `content_asset` license columns and the Homebase Feedback tables from their migration
- * files, the deploy window columns (migration 034) and `workstream_activity_type` (migration 002). Pass `withoutLicenseMigration: true` to leave the license columns out (a database before migration 031),
+ * files, the deploy window columns (migration 034), `workstream_activity_type` (migration 002) and `task_note` (migration 003). Pass `withoutLicenseMigration: true` to leave the license columns out (a database before migration 031),
  * `withoutFeedbackMigration: true` to leave the feedback tables out (a database before migration 033), and
  * `withoutToolVisibilityMigration: true` to leave the tools' visibility columns out (a database before migration 058).
  *
@@ -133,6 +135,7 @@ export function createTestD1(options: { fullSchema?: boolean; withoutLicenseMigr
   if (options.fullSchema && !options.withoutFeedbackMigration) sqlite.exec(readFileSync(HOMEBASE_FEEDBACK_MIGRATION, 'utf8'))
   if (options.fullSchema) sqlite.exec(readFileSync(DEPLOY_WINDOW_MIGRATION, 'utf8'))
   if (options.fullSchema) sqlite.exec(withoutLogRow(readFileSync(WORKSTREAM_TYPES_MIGRATION, 'utf8')))
+  if (options.fullSchema) sqlite.exec(withoutLogRow(readFileSync(TASK_NOTES_MIGRATION, 'utf8')))
   sqlite.exec(readFileSync(WORKSPACE_TOOLS_MIGRATION, 'utf8'))
   if (!options.withoutToolVisibilityMigration) sqlite.exec(withoutLogRow(readFileSync(TOOL_VISIBILITY_MIGRATION, 'utf8')))
   const db = {

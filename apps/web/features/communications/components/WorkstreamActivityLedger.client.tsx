@@ -20,12 +20,16 @@
  *    its left edge hides it, so the rows take the width, and brings it back. The choice is remembered in this browser
  *    (`localStorage`, read after mount; the card shows when storage cannot be read).
  *  - Nov 18, 2026 (FB-0016, web patch 570): a row's double-click opens that entry's full view (`onOpen`).
+ *  - Nov 18, 2026 (web patch 571): the SHOW buttons wear the WorkStream type colors; the parent filters its loaded list
+ *    (no request, so no spinner, when a SHOW button is pressed).
  */
 
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
+import type { WorkstreamSubgroup } from '@krhomebase/contracts'
 import { LEDGER_FILTERS, type LedgerActivityFilter, type LedgerActivityRow, type LedgerRowPresentation } from '../workstreamLedgerRows'
+import { ACTIVITY_TYPE_STYLES } from './CommunicationActivityIcon.client'
 import WorkstreamActivityCards from './WorkstreamActivityCards.client'
 
 export interface WorkstreamActivityLedgerProps {
@@ -75,6 +79,9 @@ const STYLES = {
   filter: 'min-h-[22px] cursor-pointer rounded-[3px] border border-(--kr-theme-line) text-[11px] font-[700] text-(color:--kr-theme-brand-primary) hover:border-(--kr-theme-brand-primary-active)',
   filterActive: 'border-(--kr-theme-brand-primary) bg-(--kr-theme-brand-primary) text-(color:--kr-theme-text-inverse)',
   filterIdle: 'bg-(--kr-theme-card-surface)',
+  // A type's button: the shape only, so its WorkStream colors never compete with another border or text color.
+  filterTypeShape: 'min-h-[22px] cursor-pointer rounded-[3px] border text-[11px] font-[700]',
+  filterTypeIdle: 'bg-(--kr-theme-card-surface) text-(color:--kr-theme-brand-primary)',
   addButton:
     'min-h-[24px] cursor-pointer rounded-[3px] border border-(--kr-theme-button-primary-background) bg-(--kr-theme-button-primary-background) text-[11px] font-[900] text-(color:--kr-theme-text-inverse) hover:bg-(--kr-theme-button-primary-hover-background)',
   viewButton: 'min-h-[22px] cursor-pointer border-0 bg-transparent text-[11px] font-[900] text-(color:--kr-theme-text-muted) hover:text-(color:--kr-theme-brand-primary)',
@@ -89,6 +96,21 @@ const STYLES = {
   more: 'border-t border-(--kr-theme-line) bg-(--kr-theme-shell-surface) text-[11px] text-(color:--kr-theme-text-muted)',
   moreButton: 'min-h-[22px] cursor-pointer rounded-[3px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) text-[11px] font-[700] text-(color:--kr-theme-brand-primary) hover:border-(--kr-theme-brand-primary-active) disabled:cursor-not-allowed disabled:opacity-60',
 } as const
+
+/**
+ * The SHOW buttons in the WorkStream type colors (web patch 571): a type's border while idle (its light text is too
+ * faint on this light bar), its fill and text when pressed, as in the Workstream section. The colors are custom
+ * properties from `Communications.module.css` (`panelColors` on the tab).
+ */
+const FILTER_TYPE_IDLE: Record<WorkstreamSubgroup, string> = {
+  PhoneCalls: 'border-(--CommunicationPhoneCallsLine)',
+  Emails: 'border-(--CommunicationEmailsLine)',
+  Notes: 'border-(--CommunicationNotesLine)',
+  Tasks: 'border-(--CommunicationTasksLine)',
+  ReceivedFiles: 'border-(--CommunicationReceivedFilesLine)',
+  SentFiles: 'border-(--CommunicationSentFilesLine)',
+  WIP: 'border-(--CommunicationWipLine)',
+}
 
 /** Padding, spacing, display, and layout utilities. */
 const LAYOUT_STYLES = {
@@ -167,11 +189,19 @@ export default function WorkstreamActivityLedger(props: WorkstreamActivityLedger
       <div aria-label="Workstream activity filters" className={`${LAYOUT_STYLES.filterBar} ${STYLES.filterBar} ${STYLES.rule}`} data-kr-id="Workstream-Activity-Filters">
         <div className={LAYOUT_STYLES.filterChoices}>
           <span className={`${LAYOUT_STYLES.filterLabel} ${STYLES.eyebrow}`}>Show</span>
-          {LEDGER_FILTERS.map(({ label, value }) => (
-            <button aria-pressed={filter === value} className={`${LAYOUT_STYLES.filter} ${STYLES.filter} ${filter === value ? STYLES.filterActive : STYLES.filterIdle}`} key={value} type="button" onClick={() => onFilterChange(value)}>
-              {label}
-            </button>
-          ))}
+          {LEDGER_FILTERS.map(({ label, value }) => {
+            const pressed = filter === value
+            // All keeps the brand look; a type shows its WorkStream color.
+            const look =
+              value === 'all'
+                ? `${STYLES.filter} ${pressed ? STYLES.filterActive : STYLES.filterIdle}`
+                : `${STYLES.filterTypeShape} ${pressed ? ACTIVITY_TYPE_STYLES[value].active : `${STYLES.filterTypeIdle} ${FILTER_TYPE_IDLE[value]}`}`
+            return (
+              <button aria-pressed={pressed} className={`${LAYOUT_STYLES.filter} ${look}`} data-kr-workstream-activity-type={value} key={value} type="button" onClick={() => onFilterChange(value)}>
+                {label}
+              </button>
+            )
+          })}
         </div>
         <div className={`${LAYOUT_STYLES.actionGroup} ${STYLES.rule}`} data-kr-element="workstream-activity-actions">
           {onAdd ? (

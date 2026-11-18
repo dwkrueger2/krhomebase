@@ -54,6 +54,8 @@ export interface WorkstreamEditorProps {
   /** Saves; a rejection keeps the draft and shows its message. `assigneeUserIds` is the assignee menu's choice. */
   onSave: (note: string, nextSteps: string[], noteHtml?: string, assigneeUserIds?: string[]) => void | Promise<void>
   saveLabel?: string
+  /** The prompt shown while the note is empty (web patch 571: the composer's, also when adding). */
+  placeholder?: string
   /** The editor's `data-kr-element`, so the add and edit editors can be told apart. */
   dataKrElement?: string
 }
@@ -98,6 +100,7 @@ export default function WorkstreamEditor({
   onCancel,
   onSave,
   onTitleChange,
+  placeholder,
   saveLabel = 'Save note',
   title,
 }: WorkstreamEditorProps) {
@@ -142,6 +145,7 @@ export default function WorkstreamEditor({
         initialHtml={noteHtml ?? undefined}
         onActivityTypesChange={(types) => onActivityTypesChange?.(types)}
         onClientStateChange={() => undefined}
+        placeholder={placeholder}
         onDraftChange={(draft: WorkStreamRTEDraftState) => {
           setDraftNote(draft.body)
           setDraftHtml(draft.html)

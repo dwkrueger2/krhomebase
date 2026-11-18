@@ -14,7 +14,7 @@
  * and are audited (resource `tasks`). Outside tools: closed.
  */
 
-import { DEFAULT_USER_PREFERENCES, ErrorEnvelope, successEnvelope, TaskAssigneesBody, TaskCreateBody, TaskParams, TasksData, TaskSavedData, TasksQuery, TaskUpdateBody } from '@krhomebase/contracts'
+import { DEFAULT_USER_PREFERENCES, ErrorEnvelope, successEnvelope, TaskAssigneesBody, TaskCreateBody, TaskNoteBody, TaskNotesData, TaskParams, TasksData, TaskSavedData, TasksQuery, TaskUpdateBody } from '@krhomebase/contracts'
 import type { OpenAPIHono } from '@hono/zod-openapi'
 import type { Context } from 'hono'
 import { defineRoute } from '../../platform/defineRoute.ts'
@@ -24,7 +24,7 @@ import type { AppEnv } from '../../platform/types.ts'
 import { PreferencesUnavailableError, preferenceQueriesFor } from '../preferences/queries.ts'
 import { loadPreferences } from '../preferences/rules.ts'
 import { TasksUnavailableError, taskQueriesFor, type TaskQueries } from './queries.ts'
-import { createTask, getTask, listTasks, replaceTaskAssignees, TASK_ROLES, TaskError, updateTask, type TaskActor } from './rules.ts'
+import { addTaskNote, createTask, getTask, listTaskNotes, listTasks, replaceTaskAssignees, TASK_ROLES, TaskError, updateTask, type TaskActor } from './rules.ts'
 
 const json = <T,>(schema: T) => ({ 'application/json': { schema } })
 const error = (description: string) => ({ description, content: json(ErrorEnvelope) })
@@ -115,6 +115,32 @@ export const taskAssigneesRoute = defineRoute({
   },
 })
 
+const notesReply = { description: "The task's follow-up notes, newest first.", content: json(successEnvelope(TaskNotesData)) }
+
+export const taskNotesRoute = defineRoute({
+  method: 'get',
+  path: '/v1/tasks/{taskId}/notes',
+  feature: 'tasks',
+  summary: "A task's follow-up notes, newest first, with who wrote each (migration 003).",
+  access: STAFF,
+  errors: ['TASK_NOT_FOUND', 'TASKS_UNAVAILABLE'],
+  sideEffects: ['None'],
+  request: { params: TaskParams },
+  responses: { 200: notesReply, 404: error('No task has that id (TASK_NOT_FOUND).'), 503: unavailable503 },
+})
+
+export const addTaskNoteRoute = defineRoute({
+  method: 'post',
+  path: '/v1/tasks/{taskId}/notes',
+  feature: 'tasks',
+  summary: 'Adds a follow-up note to a task, written by the caller; answers every note, newest first.',
+  access: STAFF,
+  errors: ['TASK_NOT_FOUND', 'TASKS_UNAVAILABLE'],
+  sideEffects: ['Writes task_note', 'Writes audit_log'],
+  request: { params: TaskParams, body: { content: json(TaskNoteBody), required: true } },
+  responses: { 200: notesReply, 404: error('No task has that id (TASK_NOT_FOUND).'), 503: unavailable503 },
+})
+
 /** Maps a refusal or a database failure to its reply; anything else is thrown on. */
 function taskFailure(c: Context<AppEnv>, caught: unknown) {
   if (caught instanceof TaskError) return failure(c, caught.status, caught.code, caught.message)
@@ -168,4 +194,6 @@ export function registerTasks(app: OpenAPIHono<AppEnv>) {
   handle(app, taskRoute, 'get', (q, _actor, c) => getTask(q, valid<TaskParams>(c, 'param').taskId))
   handle(app, updateTaskRoute, 'update', (q, actor, c) => updateTask(q, actor, valid<TaskParams>(c, 'param').taskId, valid<TaskUpdateBody>(c, 'json'), now()))
   handle(app, taskAssigneesRoute, 'assignees', (q, actor, c) => replaceTaskAssignees(q, actor, valid<TaskParams>(c, 'param').taskId, valid<TaskAssigneesBody>(c, 'json'), now()))
+  handle(app, taskNotesRoute, 'notes', (q, _actor, c) => listTaskNotes(q, valid<TaskParams>(c, 'param').taskId))
+  handle(app, addTaskNoteRoute, 'add-note', (q, actor, c) => addTaskNote(q, actor, valid<TaskParams>(c, 'param').taskId, valid<TaskNoteBody>(c, 'json'), now()))
 }

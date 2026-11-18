@@ -15,6 +15,9 @@
  *  - Danger Zone (super admin only): contact maintenance, `ContactMaintenanceCard` (stage 1d-4).
  *
  * Choosing a matter in the Detail tab opens Projects & Matters with that matter selected, as before.
+ *
+ * Nov 18, 2026 (web patch 571, "Following a code"): a followed matter number from another screen does the same
+ * (`useContactViewRequest`, `contactViewRequests.ts`).
  */
 
 import { useMemo, useState } from 'react'
@@ -23,6 +26,7 @@ import ClientWorkstreamTab from '@/features/communications/components/ClientWork
 import type { CommunicationsViewer } from '@/features/communications/communicationTypes'
 import ClientMattersCard from '@/features/matters/components/ClientMattersCard.client'
 import { useClientMatters } from '@/features/matters/useClientMatters.client'
+import { useContactViewRequest } from '../contactViewRequests'
 import type { KRContactRecord } from '../types'
 import ContactDetailCard from './ContactDetailCard.client'
 import ContactDetailPlaceholder from './ContactDetailPlaceholder.client'
@@ -53,6 +57,11 @@ const LAYOUT_STYLES = {
 export default function ContactDetailWorkspace({ contact, onEdit, onClose, onOpenContact, onOpenBilling, canMaintain = false, onResolved, viewer = null }: ContactDetailWorkspaceProps) {
   const [activeMenuItemId, setActiveMenuItemId] = useState('detail')
   const [requestedMatterId, setRequestedMatterId] = useState<string | null>(null)
+  // A followed matter number (another screen's code link): Projects & Matters with that matter selected.
+  useContactViewRequest(contact.id, (request) => {
+    setRequestedMatterId(request.matterId)
+    setActiveMenuItemId(request.tab)
+  })
   const clientMatters = useClientMatters(contact.isClient ? contact.clientId : null)
   // The Detail tab reads the loaded matters as the contact's related matters (the contacts list carries none).
   const contactWithMatters = useMemo<KRContactRecord>(

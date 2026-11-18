@@ -24,33 +24,20 @@
  *    type buttons have their colors (it is drawn outside the WorkStream panel, so it carries the panel's color class
  *    from `Communications.module.css`); Edit note keeps every type chosen and, while Task is one, the task's people
  *    (several), as the composer does. A task named on the entry shows as "Task #<id>".
+ *  - Nov 18, 2026 (web patch 571): the full view is `WorkstreamEntryDialog` (also used to add an entry and to open a
+ *    followed WSID); the context line is `WorkstreamContextLine` (the client and the task are links, the types colored).
  */
 
-import type { WorkstreamActivity, WorkstreamSubgroup } from '@krhomebase/contracts'
+import type { WorkstreamActivity } from '@krhomebase/contracts'
 import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
 import KRCopyButton from '@/components/ui/KRCopyButton.client'
 import type { KRContactRecord } from '@/features/contacts/types'
-import { communicationDateLabel, sanitizeWorkstreamNoteHtml } from '../communicationTypes'
-import { activityTypesLabel, activityTypesOf, ledgerContextLine, type LedgerActivityRow } from '../workstreamLedgerRows'
-// Read, not only imported: a CSS module imported for its side effect is left out of the production build (web patch 554).
-import communicationColors from './Communications.module.css'
-import WorkstreamEditor, { type WorkstreamEditorAssigneeOption } from './WorkstreamEditor.client'
-import WorkstreamReassignDialog from './WorkstreamReassignDialog.client'
+import type { LedgerActivityRow } from '../workstreamLedgerRows'
+import WorkstreamContextLine from './WorkstreamContextLine.client'
+import type { WorkstreamEditorAssigneeOption } from './WorkstreamEditor.client'
+import WorkstreamEntryDialog, { matterLabel, NoteBody, updatedLine, type WorkstreamSummaryUpdate } from './WorkstreamEntryDialog.client'
 
-/** The fields the full-view edit saves. */
-export interface WorkstreamSummaryUpdate {
-  /** Every type chosen, the main one first (FB-0016). */
-  subgroups: WorkstreamSubgroup[]
-  title: string
-  note: string
-  /** HTML from the editor; null turns the note back to plain text. */
-  noteHtml: string | null
-  nextSteps: string[]
-  /** The task's people, sent only while Task is one of the types (FB-0017). */
-  assigneeUserIds?: string[]
-}
+export type { WorkstreamSummaryUpdate } from './WorkstreamEntryDialog.client'
 
 export interface WorkstreamSummaryCardProps {
   row: LedgerActivityRow
@@ -87,21 +74,6 @@ const STYLES = {
     'min-h-[24px] px-[8px] py-[2px] cursor-pointer rounded-[3px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) text-[11px] font-[800] text-(color:--kr-theme-brand-primary) hover:border-(--kr-theme-brand-primary-active)',
   primaryAction:
     'min-h-[24px] px-[8px] py-[2px] cursor-pointer rounded-[3px] border border-(--kr-theme-button-primary-background) bg-(--kr-theme-button-primary-background) text-[11px] font-[800] text-(color:--kr-theme-text-inverse) hover:bg-(--kr-theme-button-primary-hover-background)',
-  // The full view: dark Communication Colors (old look).
-  backdrop: 'bg-[rgba(15,30,48,0.48)]',
-  dialog: 'rounded-[4px] border border-(--kr-theme-communication-line) bg-(--kr-theme-communication-surface-elevated) text-(color:--kr-theme-communication-text) shadow-[0_12px_36px_rgba(0,0,0,0.45)]',
-  dialogRule: 'border-(--kr-theme-communication-line)',
-  dialogEyebrow: 'm-0 text-[10px] font-[900] uppercase tracking-[0.07em] text-(color:--kr-theme-communication-text-muted)',
-  dialogTitle: 'm-0 text-[14px] font-[800] leading-[1.2] text-(color:--kr-theme-communication-text)',
-  dialogHelper: 'm-0 text-[11px] text-(color:--kr-theme-communication-text-muted)',
-  dialogNote: 'm-0 border-l-[3px] border-l-(--kr-theme-teal) text-[12px] leading-[1.4] whitespace-pre-line [overflow-wrap:anywhere] [&_a]:text-(color:--kr-theme-communication-accent) [&_a]:underline',
-  dialogLink: 'text-[11px] font-[700] text-(color:--kr-theme-communication-accent) underline-offset-2 hover:underline',
-  dialogAction:
-    'min-h-[24px] px-[8px] py-[2px] cursor-pointer rounded-[3px] border border-(--kr-theme-communication-line) bg-transparent text-[11px] font-[800] text-(color:--kr-theme-communication-text-muted) hover:border-(--kr-theme-communication-accent-strong) hover:text-(color:--kr-theme-communication-text)',
-  dialogPrimary:
-    'min-h-[24px] px-[8px] py-[2px] cursor-pointer rounded-[3px] border border-(--kr-theme-communication-accent-strong) bg-(--kr-theme-communication-accent-strong) text-[11px] font-[800] text-(color:--kr-theme-communication-surface-elevated) hover:bg-(--kr-theme-communication-accent)',
-  danger:
-    'min-h-[24px] px-[8px] py-[2px] cursor-pointer rounded-[3px] border border-(--kr-theme-danger) bg-transparent text-[11px] font-[800] text-(color:--kr-theme-danger) hover:bg-(--kr-theme-danger) hover:text-(color:--kr-theme-text-inverse)',
 } as const
 
 /** Padding, spacing, display, and layout utilities. */
@@ -114,99 +86,23 @@ const LAYOUT_STYLES = {
   list: 'm-0 pl-[16px]',
   links: 'gap-x-[10px] gap-y-[4px] flex flex-wrap',
   actions: 'mt-[2px] gap-[6px] flex flex-wrap',
-  backdrop: 'p-[10px] fixed inset-0 z-[1000] grid place-items-center overflow-auto',
-  dialog: 'max-h-[min(760px,calc(100vh-32px))] w-[min(720px,100%)] overflow-y-auto p-[10px]',
-  dialogHeader: 'pb-[6px] gap-[8px] flex items-start justify-between border-b',
-  dialogBody: 'pt-[6px] gap-[5px] grid',
-  dialogContextRow: 'gap-[8px] flex items-center justify-between',
-  dialogActions: 'mt-[8px] pt-[6px] gap-[6px] flex flex-wrap justify-end border-t',
 } as const
 
-/** A saved HTML note is drawn as cleaned HTML; a plain note as text. */
-function NoteBody({ activity, className }: { activity: WorkstreamActivity; className: string }) {
-  const html = activity.noteHtml?.trim()
-  if (html) return <div className={className} dangerouslySetInnerHTML={{ __html: sanitizeWorkstreamNoteHtml(html) }} />
-  return <p className={className}>{activity.note.trim() || 'No note entered.'}</p>
-}
-
-/** "Recorded 11/13/2026 2:05 PM by Dan Krueger · changed ..." */
-function updatedLine(activity: WorkstreamActivity): string {
-  const recorded = `Recorded ${communicationDateLabel(activity.createdAt)}${activity.performedByLabel ? ` by ${activity.performedByLabel}` : ''}`
-  return activity.updatedAt && activity.updatedAt !== activity.createdAt ? `${recorded} · changed ${communicationDateLabel(activity.updatedAt)}` : recorded
-}
-
-/** "306.1 · Estate plan", or the row's matter number alone. */
-function matterLabel(row: LedgerActivityRow): string {
-  return row.activity.matterTitle ? `${row.matterNumber} · ${row.activity.matterTitle}` : row.matterNumber
-}
-
-/** Renders the selected entry's card and its full view. */
+/** Renders the selected entry's card and, when asked, its dialog. */
 export default function WorkstreamSummaryCard({ assigneeOptions, canDelete, contacts, onDelete, onReassigned, onUpdate, openRequest = 0, row }: WorkstreamSummaryCardProps) {
   const { activity } = row
-  const savedTypes = activityTypesOf(activity)
-  const savedTypesKey = savedTypes.join(',')
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editing, setEditing] = useState(false)
-  const [editTitle, setEditTitle] = useState(activity.title)
-  const [editTypes, setEditTypes] = useState<WorkstreamSubgroup[]>(savedTypes)
-  const [deleteOpen, setDeleteOpen] = useState(false)
-  const [deleteBusy, setDeleteBusy] = useState(false)
-  const [deleteError, setDeleteError] = useState('')
-  const [reassignOpen, setReassignOpen] = useState(false)
-  const titleId = `workstream-summary-${row.id}-title`
+  // Which dialog is open: none, the full view, or the full view in Edit.
+  const [dialog, setDialog] = useState<'closed' | 'view' | 'edit'>('closed')
 
-  // One card is reused as the selection changes: start each entry closed, with its own saved values.
+  // One card is reused as the selection changes: start each entry closed.
   useEffect(() => {
-    setDialogOpen(false)
-    setEditing(false)
-    setEditTitle(activity.title)
-    setEditTypes(savedTypesKey.split(',') as WorkstreamSubgroup[])
-  }, [activity.title, activity.updatedAt, row.id, savedTypesKey])
+    setDialog('closed')
+  }, [row.id])
 
   // A double-click on this entry's row opens the full view (after the reset above, which runs first).
   useEffect(() => {
-    if (openRequest > 0) setDialogOpen(true)
+    if (openRequest > 0) setDialog('view')
   }, [openRequest])
-
-  useEffect(() => {
-    if (!dialogOpen) return undefined
-    function closeOnEscape(event: KeyboardEvent): void {
-      if (event.key === 'Escape' && !reassignOpen && !deleteOpen) {
-        setDialogOpen(false)
-        setEditing(false)
-      }
-    }
-    document.addEventListener('keydown', closeOnEscape)
-    return () => document.removeEventListener('keydown', closeOnEscape)
-  }, [deleteOpen, dialogOpen, reassignOpen])
-
-  function openEditor(): void {
-    setEditTitle(activity.title)
-    setEditTypes(savedTypes)
-    setDialogOpen(true)
-    setEditing(true)
-  }
-
-  async function saveEdit(note: string, nextSteps: string[], noteHtml?: string, assigneeUserIds?: string[]): Promise<void> {
-    const update: WorkstreamSummaryUpdate = { subgroups: editTypes, title: editTitle.trim() || activity.title, note, noteHtml: noteHtml ?? null, nextSteps }
-    if (editTypes.includes('Tasks')) update.assigneeUserIds = assigneeUserIds ?? activity.assigneeUserIds
-    await onUpdate(row.id, update)
-    setEditing(false)
-  }
-
-  async function confirmDelete(): Promise<void> {
-    setDeleteBusy(true)
-    setDeleteError('')
-    try {
-      await onDelete(row.id)
-      setDeleteOpen(false)
-      setDialogOpen(false)
-    } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : 'The WorkStream entry was not deleted.')
-    } finally {
-      setDeleteBusy(false)
-    }
-  }
 
   const nextSteps = activity.nextSteps.length ? (
     <ul className={`${LAYOUT_STYLES.list} ${STYLES.list}`}>
@@ -215,102 +111,6 @@ export default function WorkstreamSummaryCard({ assigneeOptions, canDelete, cont
       ))}
     </ul>
   ) : null
-
-  const fullView =
-    dialogOpen && typeof document !== 'undefined'
-      ? createPortal(
-          <div
-            className={`${LAYOUT_STYLES.backdrop} ${STYLES.backdrop}`}
-            data-kr-theme-scope="krhomebase"
-            onMouseDown={(event) => {
-              if (event.target === event.currentTarget && !editing) setDialogOpen(false)
-            }}
-          >
-            <section
-              aria-labelledby={titleId}
-              aria-modal="true"
-              className={`${LAYOUT_STYLES.dialog} ${STYLES.dialog} ${communicationColors.panelColors}`}
-              data-kr-id="workstream-summary-edit-dialog"
-              role="dialog"
-            >
-              <header className={`${LAYOUT_STYLES.dialogHeader} ${STYLES.dialogRule}`}>
-                <div>
-                  <p className={STYLES.dialogEyebrow}>
-                    {activityTypesLabel(editing ? editTypes : savedTypes)} · {editing ? 'edit' : 'full view'}
-                  </p>
-                  <h2 className={STYLES.dialogTitle} id={titleId}>
-                    {activity.title}
-                  </h2>
-                </div>
-                <button
-                  aria-label="Close full WorkStream view"
-                  className={STYLES.dialogAction}
-                  type="button"
-                  onClick={() => {
-                    setDialogOpen(false)
-                    setEditing(false)
-                  }}
-                >
-                  Close
-                </button>
-              </header>
-              <div className={LAYOUT_STYLES.dialogBody}>
-                {editing ? (
-                  <WorkstreamEditor
-                    key={`${row.id}-${activity.updatedAt ?? ''}`}
-                    activityTypes={editTypes}
-                    assigneeOptions={assigneeOptions}
-                    assigneeUserIds={activity.assigneeUserIds ?? []}
-                    dataKrElement="workstream-edit-editor"
-                    nextSteps={activity.nextSteps}
-                    note={activity.note}
-                    noteHtml={activity.noteHtml}
-                    title={editTitle}
-                    onActivityTypesChange={setEditTypes}
-                    onCancel={() => setEditing(false)}
-                    onSave={saveEdit}
-                    onTitleChange={setEditTitle}
-                  />
-                ) : (
-                  <>
-                    <div className={LAYOUT_STYLES.dialogContextRow}>
-                      <p className={STYLES.dialogHelper}>{ledgerContextLine(row)}</p>
-                      <button className={STYLES.dialogAction} data-kr-element="workstream-reassign" type="button" onClick={() => setReassignOpen(true)}>
-                        Reassign
-                      </button>
-                    </div>
-                    <span className={`${LAYOUT_STYLES.pill} ${STYLES.pill}`}>{matterLabel(row)}</span>
-                    <NoteBody activity={activity} className={`${LAYOUT_STYLES.note} ${STYLES.dialogNote}`} />
-                    <p className={STYLES.dialogEyebrow}>Next things to do</p>
-                    {nextSteps ?? <p className={STYLES.dialogHelper}>None recorded.</p>}
-                    {activity.documentUrl ? (
-                      <a className={STYLES.dialogLink} href={activity.documentUrl} rel="noopener noreferrer" target="_blank">
-                        {activity.documentLabel || activity.documentUrl}
-                      </a>
-                    ) : null}
-                    {/* The task made for the Task type (Tasks screen). */}
-                    {activity.taskId ? <p className={STYLES.dialogHelper}>Task #{activity.taskId}</p> : null}
-                    <p className={STYLES.dialogHelper}>{updatedLine(activity)}</p>
-                  </>
-                )}
-              </div>
-              {!editing ? (
-                <div className={`${LAYOUT_STYLES.dialogActions} ${STYLES.dialogRule}`}>
-                  {canDelete ? (
-                    <button className={STYLES.danger} data-kr-element="workstream-delete" type="button" onClick={() => setDeleteOpen(true)}>
-                      Delete entry
-                    </button>
-                  ) : null}
-                  <button className={STYLES.dialogPrimary} data-kr-element="workstream-edit" type="button" onClick={openEditor}>
-                    Edit note
-                  </button>
-                </div>
-              ) : null}
-            </section>
-          </div>,
-          document.body,
-        )
-      : null
 
   return (
     <>
@@ -326,8 +126,8 @@ export default function WorkstreamSummaryCard({ assigneeOptions, canDelete, cont
           </div>
         </div>
         <h2 className={STYLES.title}>{activity.title}</h2>
-        <p className={STYLES.context}>{ledgerContextLine(row)}</p>
-        <span className={`${LAYOUT_STYLES.pill} ${STYLES.pill}`}>{matterLabel(row)}</span>
+        <WorkstreamContextLine className={STYLES.context} row={row} />
+        <span className={`${LAYOUT_STYLES.pill} ${STYLES.pill}`}>{matterLabel(activity, row.matterNumber)}</span>
 
         {/* The narrative and what comes next. */}
         <NoteBody activity={activity} className={`${LAYOUT_STYLES.note} ${STYLES.note}`} />
@@ -340,55 +140,31 @@ export default function WorkstreamSummaryCard({ assigneeOptions, canDelete, cont
             </a>
           </div>
         ) : null}
-        {activity.taskId ? (
-          <span className={STYLES.updated} data-kr-element="workstream-summary-task">
-            Task #{activity.taskId}
-          </span>
-        ) : null}
         <span className={STYLES.updated}>{updatedLine(activity)}</span>
         <div className={LAYOUT_STYLES.actions}>
-          <button className={STYLES.action} data-kr-element="workstream-open-full-view" type="button" onClick={() => setDialogOpen(true)}>
+          <button className={STYLES.action} data-kr-element="workstream-open-full-view" type="button" onClick={() => setDialog('view')}>
             Open full view
           </button>
-          <button className={STYLES.primaryAction} data-kr-element="workstream-edit-note" type="button" onClick={openEditor}>
+          <button className={STYLES.primaryAction} data-kr-element="workstream-edit-note" type="button" onClick={() => setDialog('edit')}>
             Edit note
           </button>
         </div>
       </article>
-      {fullView}
-      {reassignOpen ? (
-        <WorkstreamReassignDialog
+      {dialog !== 'closed' ? (
+        <WorkstreamEntryDialog
+          key={`${row.id}-${dialog}`}
+          activity={activity}
+          assigneeOptions={assigneeOptions}
+          canDelete={canDelete}
+          clientNumber={activity.clientNumber}
           contacts={contacts}
-          currentLabel={`${activity.title} · ${matterLabel(row)}`}
-          wsid={row.id}
-          onCancel={() => setReassignOpen(false)}
-          onReassigned={(moved) => {
-            setReassignOpen(false)
-            setDialogOpen(false)
-            onReassigned(moved)
-          }}
+          startEditing={dialog === 'edit'}
+          onClose={() => setDialog('closed')}
+          onDelete={onDelete}
+          onReassigned={onReassigned}
+          onUpdate={onUpdate}
         />
       ) : null}
-      {/* The delete question is drawn into the body after the full view, so it sits above it. */}
-      {deleteOpen && typeof document !== 'undefined'
-        ? createPortal(
-            <div data-kr-theme-scope="krhomebase">
-              <U6ConfirmationDialog
-                busy={deleteBusy}
-                confirmLabel="Delete entry"
-                description="This permanently deletes the selected WorkStream entry and removes it from the client history."
-                error={deleteError}
-                open
-                title="Delete WorkStream entry?"
-                onCancel={() => {
-                  if (!deleteBusy) setDeleteOpen(false)
-                }}
-                onConfirm={() => void confirmDelete()}
-              />
-            </div>,
-            document.body,
-          )
-        : null}
     </>
   )
 }

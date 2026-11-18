@@ -18,6 +18,8 @@
  *   mixes every client).
  * - Nov 18, 2026 (FB-0016, web patch 570): an entry carries every type it has (`activityTypes`, the main one first);
  *   the task's assignee shows when Task is any of them.
+ * - Nov 18, 2026 (web patch 571): an entry carries what its source label follows (`sourceTarget`: the client's detail,
+ *   else the lead, with a hover naming the client: "Open Client 090 Best In Class"), so the thread draws a code link.
  */
 
 import type { WorkstreamActivity, WorkstreamSubgroup } from '@krhomebase/contracts'
@@ -120,6 +122,11 @@ export interface CommunicationEntry {
   /** Who a task is assigned to, as the API shows it (new). */
   assigneeLabel?: string
   sourceLabel: string
+  /**
+   * What the source label follows (web patch 571, "Following a code"): the client's detail (the requester: the client, not
+   * Projects & Matters), else the lead; `title` is the hover ("Open Client 090 Best In Class").
+   */
+  sourceTarget?: { kind: 'client' | 'lead'; code: string; title: string } | null
 }
 
 /** The signed-in person as `app/page.tsx` hands it over from the session. */
@@ -195,6 +202,11 @@ export function communicationOwnerLabel(activity: Pick<WorkstreamActivity, 'clie
   return 'WorkStream activity'
 }
 
+/** "Open Client 090 Best In Class": a client link's hover (the client's number and name, not the matter's). */
+export function clientLinkTitle(activity: Pick<WorkstreamActivity, 'clientNumber' | 'clientDisplayName'>): string {
+  return ['Open Client', activity.clientNumber, activity.clientDisplayName].filter(Boolean).join(' ')
+}
+
 /**
  * Turns one API entry into the thread's entry. The viewer's own entries carry the viewer's name and tone; other
  * people's entries are named from `performedByLabel` (the old code showed "WorkStream user" for everyone else).
@@ -222,6 +234,11 @@ export function communicationEntryFromActivity(activity: WorkstreamActivity, cur
     attachments: activity.documentUrl ? [{ label: activity.documentLabel || 'Linked document', url: activity.documentUrl }] : [],
     assigneeLabel: activityTypes.includes('Tasks') && activity.assigneeLabel ? activity.assigneeLabel : undefined,
     sourceLabel: communicationOwnerLabel(activity),
+    sourceTarget: activity.clientId
+      ? { kind: 'client', code: activity.clientId, title: clientLinkTitle(activity) }
+      : activity.lcid || activity.leadId
+        ? { kind: 'lead', code: (activity.lcid ?? activity.leadId)!, title: `Open Lead ${activity.lcid ?? activity.leadId}` }
+        : null,
   }
 }
 

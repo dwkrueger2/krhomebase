@@ -240,6 +240,9 @@ describe('entries and paging', () => {
     // FB-0016: every type of one entry; the task's assignee shows when Task is any of them.
     const both = communicationEntryFromActivity(activity({ subgroups: ['PhoneCalls', 'Tasks'], assigneeLabel: 'Pat Staff' }), me)
     expect(both).toMatchObject({ activityType: 'PhoneCalls', activityTypes: ['PhoneCalls', 'Tasks'], assigneeLabel: 'Pat Staff' })
+    // Web patch 571: the source label opens the client's detail, its hover naming the client (not the matter).
+    expect(mine.sourceTarget).toEqual({ kind: 'client', code: 'cl-306', title: 'Open Client 306 Ann Example' })
+    expect(communicationEntryFromActivity(activity({ clientId: null, clientNumber: null, clientDisplayName: null, matterId: null, matterNumber: null, leadId: 'ld-1', lcid: 'L421' }), me).sourceTarget).toEqual({ kind: 'lead', code: 'L421', title: 'Open Lead L421' })
   })
 
   it('says when older entries exist (D10)', () => {

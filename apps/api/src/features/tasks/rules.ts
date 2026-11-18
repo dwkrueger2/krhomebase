@@ -31,11 +31,11 @@
  * - The reply is the camelCase `Task` with names (client, matter, assignees, supervisor, creator), not raw rows.
  */
 
-import { TASK_OPEN_STATUSES, TASK_STATUSES, type Task, type TaskAssigneesBody, type TaskCreateBody, type TasksData, type TaskSavedData, type TasksQuery, type TaskUpdateBody } from '@krhomebase/contracts'
+import { TASK_OPEN_STATUSES, TASK_STATUSES, type Task, type TaskAssigneesBody, type TaskCreateBody, type TaskNoteBody, type TaskNotesData, type TasksData, type TaskSavedData, type TasksQuery, type TaskUpdateBody } from '@krhomebase/contracts'
 import type { AuditEntry } from '../../platform/queries.ts'
 import { generatePublicCode } from '../contact-edits/rules.ts'
 import { WORKSTREAM_ROLES } from '../workstream/rules.ts'
-import type { AssigneeRow, TaskCursor, TaskQueries, TaskRow, TaskWrite } from './queries.ts'
+import type { AssigneeRow, TaskCursor, TaskNoteRow, TaskQueries, TaskRow, TaskWrite } from './queries.ts'
 
 /** Staff roles that may read and write tasks (D9: every staff user, the same as WorkStream; no client or outside accountant accounts). */
 export const TASK_ROLES = WORKSTREAM_ROLES
@@ -75,11 +75,12 @@ export function serializeTask(row: TaskRow, assigneeRows: AssigneeRow[]): Task {
   const assignees = assigneeRows.map((assignee) => ({
     userId: assignee.user_id,
     label: personName(assignee.preferred_name, assignee.first_name, assignee.last_name, assignee.email ?? assignee.user_id),
+    staffCode: assignee.staff_code?.trim() || null,
   }))
   const first = assignees.findIndex((assignee) => assignee.userId === row.assigned_to_user_id)
   if (first > 0) assignees.unshift(...assignees.splice(first, 1))
   if (!assignees.length && row.assigned_to_user_id) {
-    assignees.push({ userId: row.assigned_to_user_id, label: personName(row.assigned_to_preferred_name, row.assigned_to_first_name, row.assigned_to_last_name, row.assigned_to_email ?? row.assigned_to_user_id) })
+    assignees.push({ userId: row.assigned_to_user_id, label: personName(row.assigned_to_preferred_name, row.assigned_to_first_name, row.assigned_to_last_name, row.assigned_to_email ?? row.assigned_to_user_id), staffCode: null })
   }
   return {
     id: row.id,
@@ -322,4 +323,32 @@ export async function replaceTaskAssignees(q: TaskQueries, actor: TaskActor, tas
   const assignees = await assigneeEntries(q, body.userIds)
   await q.replaceAssignees(current.id, assignees, actor.userId, now, auditFor(actor, 'ASSIGN', current.id, current.client_id, { assigneeUserIds: assignees.map((entry) => entry.userId) }))
   return savedTask(q, current.id)
+}
+
+/** One note row as the wire shape. */
+function serializeNote(row: TaskNoteRow): TaskNotesData['notes'][number] {
+  return {
+    id: row.id,
+    text: row.body,
+    authorUserId: row.author_user_id,
+    authorLabel: personName(row.author_preferred_name, row.author_first_name, row.author_last_name, row.author_email ?? row.author_user_id),
+    createdAt: row.created_at,
+  }
+}
+
+/** A task's follow-up notes, newest first (404 `TASK_NOT_FOUND`). Writes nothing. */
+export async function listTaskNotes(q: TaskQueries, taskId: string): Promise<TaskNotesData> {
+  const task = await requireTask(q, taskId)
+  return { taskId: task.id, notes: (await q.notes(task.id)).map(serializeNote) }
+}
+
+/**
+ * Adds a follow-up note (the requester, Nov 18, 2026): the writer is the caller, the time now; audited (resource
+ * `tasks`, action `NOTE`) without the note's text. Answers every note, newest first.
+ */
+export async function addTaskNote(q: TaskQueries, actor: TaskActor, taskId: string, body: TaskNoteBody, now: string): Promise<TaskNotesData> {
+  const task = await requireTask(q, taskId)
+  const id = `tno_${crypto.randomUUID()}`
+  await q.insertNote({ id, taskId: task.id, body: body.text.trim(), authorUserId: actor.userId, now }, auditFor(actor, 'NOTE', task.id, task.client_id, { noteId: id }))
+  return listTaskNotes(q, task.id)
 }

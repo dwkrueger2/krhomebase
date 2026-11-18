@@ -21,6 +21,9 @@
  *
  * Drawn into `document.body` with `data-kr-theme-scope="krhomebase"`; `inline` draws it in place for tests. New code;
  * the old screen created tasks through the WorkStream Add activity dialog with a title, a note and one assignee.
+ *
+ * Nov 18, 2026 (web patch 571): Edit ends with the task's follow-up notes and their box (`TaskNotes`), saved on their
+ * own with their own Save Changes.
  */
 
 import { TASK_BILLING_STATUSES, TASK_PRIORITIES, TASK_STATUSES, type Task, type WorkstreamAssignee } from '@krhomebase/contracts'
@@ -48,6 +51,7 @@ import {
   type TaskDraft,
 } from '../taskRows'
 import TaskClientPicker from './TaskClientPicker.client'
+import TaskNotes from './TaskNotes.client'
 
 /** Color, type, border, and general-esthetic utilities. */
 const STYLES = {
@@ -370,6 +374,14 @@ export default function TaskEditDialog({ initialStaff, inline = false, onClose, 
               <span className={STYLES.label}>Billing note</span>
               <input className={STYLES.input} disabled={saving} maxLength={4000} placeholder="Billing description" value={draft.billingDescription} onChange={(event) => change({ billingDescription: event.target.value })} />
             </label>
+
+            {/* Follow-up notes row (Edit only, web patch 571): saved on their own, apart from the task's Save. */}
+            {task ? (
+              <div className={LAYOUT_STYLES.fullRowTop} data-kr-element="task-edit-notes-row">
+                <span className={STYLES.label}>Notes</span>
+                <TaskNotes canWrite showLabel={false} taskId={task.id} />
+              </div>
+            ) : null}
           </div>
 
           {/* Dialog actions: the API's sentence on a refusal, the busy spinner, Cancel and Save. */}

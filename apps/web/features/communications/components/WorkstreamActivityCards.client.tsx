@@ -13,10 +13,13 @@
  *  - The type column is wider (84px) so "Work in progress" fits; long values end in an ellipsis.
  *  - Nov 18, 2026 (FB-0016, web patch 570): a double-click opens the entry's full view, as "Open full view" does
  *    (`onOpen`); an entry with several types lists them all ("Note · Task"), in full on hover.
+ *  - Nov 18, 2026 (web patch 571): the type column (120px) names the first type by priority in full and the others as
+ *    colored letter chips (`WorkstreamKindCell`, "Phone Call · ENT"), every type in full on hover.
  */
 
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import type { LedgerActivityRow, LedgerRowPresentation } from '../workstreamLedgerRows'
+import { WorkstreamKindCell } from './WorkstreamTypeTags.client'
 
 export interface WorkstreamActivityCardsProps {
   row: LedgerActivityRow
@@ -49,8 +52,9 @@ const STYLES = {
 const LAYOUT_STYLES = {
   shell: 'grid grid-cols-[minmax(0,1fr)_20px] items-stretch',
   main: 'block min-w-0 w-full px-[6px] py-[1px]',
-  // Columns in visual order: type, matter, title (and summary when expanded), date, person.
-  line: 'gap-x-[5px] grid min-h-[18px] min-w-0 w-full grid-cols-[84px_46px_minmax(100px,1fr)_96px_96px] items-center max-[767px]:grid-cols-[70px_42px_minmax(0,1fr)]',
+  // Columns in visual order: type, matter, title (and summary when expanded), date, person. The type column is 120px:
+  // the widest it can be is "PHONE CALL" and six letter chips (web patch 571).
+  line: 'gap-x-[5px] grid min-h-[18px] min-w-0 w-full grid-cols-[120px_46px_minmax(100px,1fr)_96px_96px] items-center max-[767px]:grid-cols-[104px_42px_minmax(0,1fr)]',
   lineExpanded: 'items-start py-[2px]',
   content: 'min-w-0 text-left',
   truncate: 'min-w-0 truncate text-left',
@@ -81,9 +85,7 @@ export default function WorkstreamActivityCards({ onOpen, onSelect, onTogglePres
         onDoubleClick={() => onOpen?.(row)}
       >
         <span className={`${LAYOUT_STYLES.line} ${expanded ? LAYOUT_STYLES.lineExpanded : ''}`}>
-          <span className={`${LAYOUT_STYLES.truncate} ${STYLES.kind}`} title={row.subgroups.length > 1 ? row.kindLabel : undefined}>
-            {row.kindLabel}
-          </span>
+          <WorkstreamKindCell className={STYLES.kind} types={row.subgroups} />
           <span className={`${LAYOUT_STYLES.truncate} ${STYLES.matter}`}>{row.matterNumber}</span>
           {expanded ? (
             <span className={LAYOUT_STYLES.content}>

@@ -1,7 +1,7 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.30</small><br>
-<small>Updated Nov 17, 2026 11:20am</small>
+<small>Version 2.31</small><br>
+<small>Updated Nov 18, 2026 5:21pm</small>
 
 ## Agent Guide Index
 
@@ -218,6 +218,7 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 - Wire format is camelCase only. Database columns stay snake_case; the mapping happens in each feature's `queries.ts`.
 - **The `lookup` table:** it holds choice lists and firm-wide settings rows (JSON in `description`); its use is documented in `docs/Schema_8.0/table_lookup.html`, section "How KR Homebase uses this table". Code that reads or writes `lookup`, or names a `lookup` row id, carries the comment `// See the lookup table as described in Schema 8.0: docs/Schema_8.0/table_lookup.html (section "How KR Homebase uses this table").` A new settings row or category is added to that section's tables in the same change.
 - Every reply uses the envelope from `packages/contracts` and includes `requestId`.
+- **Following a code** (the requester, Nov 18, 2026): every short code a screen shows (WSID, task id, client, matter, LCID, ICID, ECID) is a link that opens its target, drawn only with `KRCodeLink`; the rule and the table of targets are in `apps/web/AGENTS.md`, "Following a code".
 - Error codes are stable, safe to expose, and free of secrets and personal information.
 - Folder and file names are plain nouns for a business area (`clients`, `billing`). No `kr-` or `hb-` prefixes. No folder repeats its parent's name.
 - Server-only helpers live in `apps/api/src/platform/`. Do not turn helper files into route handlers.
