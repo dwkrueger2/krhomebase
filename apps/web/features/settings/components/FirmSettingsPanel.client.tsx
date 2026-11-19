@@ -5,7 +5,8 @@
  * Pages, in tab order (`FIRM_SETTINGS_PAGES`): Firm Profile, Employee Policies and Employee Documents (moved here
  * from Application Settings) for everyone, then the three IT pages for a super admin only: Data Import, GPT Model
  * Gateway and Stripe Payment Configuration. The address parameter is `?firmSettingsSection=`, with the old app's
- * values; the old `stripe-dev-tests` still opens the Stripe page.
+ * values; the old `stripe-dev-tests` still opens the Stripe page. A fourth IT page, IT Overview (`it-overview`, the it
+ * feature; the requester, Nov 18, 2026), follows them, also for a super admin only.
  *
  * Stage 1 built the frame; a page shows its placeholder until its stage builds it. `app/page.tsx` passes the built
  * pages: Firm Profile and Employee Policies (stage 5, the firm feature), Employee Documents (stage 5, the
@@ -75,6 +76,8 @@ export interface FirmSettingsPanelProps {
   gptModelGateway?: ReactNode
   /** The Stripe Payment Configuration page (stage 6; super admin). */
   stripePaymentConfiguration?: ReactNode
+  /** The IT Overview page (the it feature; super admin). */
+  itOverview?: ReactNode
 }
 
 export default function FirmSettingsPanel({
@@ -88,6 +91,7 @@ export default function FirmSettingsPanel({
   dataManagement,
   gptModelGateway,
   stripePaymentConfiguration,
+  itOverview,
 }: FirmSettingsPanelProps) {
   const [editTarget, setEditTarget] = useState<EditUserTarget | null>(null)
   const [focusPage, setFocusPage] = useState<{ id: FirmSettingsPageId; nonce: number } | null>(null)
@@ -140,6 +144,7 @@ export default function FirmSettingsPanel({
   if (dataManagement) builtPages['data-management'] = dataManagement
   if (gptModelGateway) builtPages['gpt-model-gateway'] = gptModelGateway
   if (stripePaymentConfiguration) builtPages['stripe-payment-configuration'] = stripePaymentConfiguration
+  if (itOverview) builtPages['it-overview'] = itOverview
   return (
     <EditTargetContext.Provider value={controls}>
       <SettingsAreaFrame aliases={FIRM_SETTINGS_ALIASES} ariaLabel="Firm Settings pages" builtPages={builtPages} focusPage={focusPage} krId="FirmSettingsPanel" pages={pages} />

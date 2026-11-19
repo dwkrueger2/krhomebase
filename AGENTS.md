@@ -1,11 +1,12 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.27</small><br>
-<small>Updated Nov 16, 2026 8:33pm</small>
+<small>Version 2.33</small><br>
+<small>Updated Nov 18, 2026 9:02pm</small>
 
 ## Agent Guide Index
 
-- This file is the root guide for AI agents and programmers working in `D:\Repos\krhomebase` (or `D:\Repos\KrhomebaseGPT`). Read it first.
+- This file is the root guide for AI agents and programmers working in this repository. Read it first.
+- **Two checkouts share this guide.** `D:\Repos\krhomebase` (branch `impeccable-11-09`) is the checkout Claude Code works in. `D:\Repos\KrhomebaseGPT` (branch `GPTWork1`) is the checkout the GPT (Codex) agent works in. "Your checkout" below means the one your session was started in. Where a guide's command sample names one checkout's path, use the path of your checkout.
 - Read and follow `AGENTS_01_version-procedures.md` for version and patch procedures. It applies to nearly every task that changes a file.
 - Read and follow `AGENTS_02_commit-push-procedures.md` for commit and push procedures.
 - Read and follow `AGENTS_03_documentation-standards.md` for Markdown document title, version, and updated-time requirements. It applies to every task that creates or changes a `.md` file.
@@ -25,7 +26,7 @@
 
 ## Hard Rules (these override any request to do otherwise)
 
-1. **Source repositories are read-only.** `D:\Repos\krhomebase` is the original checkout used by Claude Code; never write there. `D:\Repos\krueger-richard-website` is older source material; read only from `apps\kr-homebase` and `apps\shared` (the workers), and never write there. Never read file contents under any folder named `private`, at any depth.
+1. **Write only in your checkout; everything else is read-only.** Change files only in the checkout your session was started in (Agent Guide Index, "Two checkouts share this guide"). The other checkout may be read when needed; never write, edit, move, delete, commit, push or change branches there. So a session in `D:\Repos\krhomebase` writes there and never in `D:\Repos\KrhomebaseGPT`, and a session in `D:\Repos\KrhomebaseGPT` writes there and never in `D:\Repos\krhomebase`. `D:\Repos\krueger-richard-website` is older source material; read only from `apps\kr-homebase` and `apps\shared` (the workers), and never write there. Never read file contents under any folder named `private`, at any depth.
 2. **No secrets.** `.env*` files may be read: the requester writes them with paths to key files, not the keys themselves. If a `.env*` value looks like a real secret, stop, do not repeat it, and tell the requester. Never read `.dev.vars*` (except `.dev.vars.example`, which holds names only), key files, or the contents of any folder whose path contains `private`. Folder and file names inside `private` may be listed. Secrets belong in Cloudflare Worker secrets (set by the requester with `wrangler secret put`) or in a git-ignored `private/` folder, never in a tracked file. If a tracked file appears to contain a secret, stop and tell the requester; do not copy or summarize the value.
 3. **No client data.** `snapshots\` holds database dumps with real client data. It is git-ignored. Never read, print, copy or commit a dump.
 4. **Database writes are given to the requester, not run.** Read-only wrangler commands (`SELECT`, `d1 list`, `d1 info`, `d1 export`) are allowed. Any `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `--file` import or migration is written out as a command for the requester to run (see `AGENTS_06`).
@@ -37,10 +38,12 @@
 Begin every response with exactly these three lines, filled in with the actual current Git branch, working directory, and subject matter for the active chat:
 
 ```text
-Git branch: GPTWork1
-Working directory: D:\Repos\KrhomebaseGPT
-Current Subject Matter: Workstream and Tasks
+Git branch: <current branch>
+Working directory: <current working directory>
+Current Subject Matter: <what the active chat is about>
 ```
+
+For example, a Claude Code session shows `Git branch: impeccable-11-09` and `Working directory: D:\Repos\krhomebase`; a GPT session shows `Git branch: GPTWork1` and `Working directory: D:\Repos\KrhomebaseGPT`.
 
 This replaces the old `Location:` and `Branch:` wording. `docs/00_PromptMemoryStart.md` section 1 is the source of truth for the header and for the PowerShell command format (every command block starts with `Set-Location` and uses `$SetLocation` for the working path).
 
@@ -94,8 +97,9 @@ The requester's design principle (Nov 16, 2026): a person always knows when a fo
 1. **Dirty means different from what was saved.** A form is dirty while any field differs from the saved value, not merely after it was touched. Changing a field back makes the form clean again.
 2. **The save button shows the state.** Its place is always kept (`invisible` until dirty, so nothing moves when it appears). While the form is dirty it shows, labeled **Save Changes**, as the brightest button on the form: Signal Orange (`--kr-theme-orange`) with white text (`apps/web/DESIGN.md`, Components, Buttons). A form that saves through a review step names the change beside the button instead of adding a second step.
 3. **Leaving asks first.** Leaving a dirty form (another screen, another record, Back, closing its pop-out) opens the custom dialog **"Leave without saving?"** with **Leave** and **Stay**. In `apps/web`: `U6ConfirmationDialog`, with `useReportUnsavedChanges` (`components/ui/unsavedChanges.client.ts`) and the shell leave guard (`addShellLeaveGuard`). In an outside tool: its own `role="dialog"`, and `host.setDirty(true)` so KR Homebase guards leaving the tool.
-4. **Never the browser's own boxes** (the User-Response Dialog Standard above). The one exception no page can avoid: closing or reloading the browser tab or window shows only the browser's own `beforeunload` warning.
+4. **Never the browser's own boxes** (the User-Response Dialog Standard above). The one exception no page can avoid: closing or reloading the browser tab or window shows only the browser's own `beforeunload` warning. In `apps/web` that warning is asked for only through `useUnloadWarning` (`components/shell/useUnloadWarning.client.ts`); never add a bare `beforeunload` listener.
 5. **Applies going forward.** New forms follow it; an existing form is brought in line when its workflow is changed (`AGENTS_04`, no rewrites of untouched code).
+6. **Log out asks; a forced sign-out does not** (the requester, Nov 17, 2026, repository patch 60). The Log out button asks "Leave without saving?" (Leave, Stay) while any screen holds unsaved work (`useConfirmedLogout`; screens report through `useReportUnsavedChanges` or `useUnloadWarning`). When KR Homebase ends the session itself (the `pnpm deploy:warn` countdown, the idle limit, a save that ended every session), the page leaves without asking (`components/shell/forcedLeave.ts`): no warning, dialog or leave guard may stop it, because the session is already closed.
 
 ## Impeccable (the design skill)
 
@@ -184,6 +188,7 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 - The text `NOT_SET_REVIEW_BEFORE_USE` in a database id or bucket name means the Worker has no real target yet. Do not guess one. The requester chooses it before any deploy.
 - `crud-worker` and `session-worker` go live first, with no public address (see `workers/Readme-workers.md`). Their key store is `krhomebase-public-keys` (id `f70c0ff65aa148a59bd1d598236ce1de`), owned by this repository. They are live, and `krhomebase-api` calls them through the service bindings `CRUD_WORKER` and `SESSION_WORKER` (`remote: true`, so `pnpm dev:api` uses the deployed copies). Running them locally (ports 8791 and 8792) is optional; their `.dev.vars` files are written by `scripts/Write-DevVars.ps1`. Read and write nothing in those files.
 - Do not run `wrangler deploy` or `wrangler secret put`. Give the command to the requester (hard rule 4).
+- **Every new Worker has a health-check route that reports its version** (the requester, Nov 18, 2026): `GET /health-check` answers its repository version (read from the track's `package.json` when it is bundled, never typed) and its deployment (a `version_metadata` binding), and the Worker is added to the IT Overview's catalog (`packages/contracts/src/it.ts`). The IT Overview (Settings → Firm IT; super admin) shows the repository's version, never Cloudflare's id, so a Worker without the route shows "Not reported". The rule and the list of Workers still without one: `docs/04_Deployed_Architecture.md`, section 8.
 - `workers/` is not type checked by `pnpm check` yet, except `workers/feedback-viewer`. Say so when reporting a check result that touched another Worker there.
 - `workers/feedback-viewer` (`krhomebase-feedback-viewer`, plan 12 stage F5) is written for this repository, not copied. It is a registered outside tool (path A, the frame; `docs/05_Outside_Tools.md`), built **as a separate developer would build one**: it may import only the tool kit's public entry points (`@krhomebase/tool-sdk/frame`, `/manifest`, `/types`), never `@krhomebase/contracts` or `apps/`, and it knows the API only from `openapi.json` (`src/tool.test.ts` checks the imports). Gaps found in the kit go in its `README.md`, "What this test found about the kit", not into workarounds. Static files on its `workers.dev` address; the API's tool checks plus the person's `developer_tools` permission decide what it may do. One stated exception (stage F3): `worker/imageWorker.ts` serves the screenshots for `/images/*` from the bucket `kr-homebase-feedback` (binding `FEEDBACK_STORAGE`, shared with the API), with a ticket from the API and the secret `KR_FEEDBACK_IMAGE_TICKET_SECRET` (its `README.md`, "The screenshots: a stated exception"). It is a workspace package (`pnpm-workspace.yaml`) so that `pnpm check` type checks and tests it. Go-live steps: its `README.md`.
 
@@ -254,7 +259,7 @@ pnpm deploy:feedback-viewer  # build and deploy krhomebase-feedback-viewer (an o
 pnpm deploy:public-article  # deploy krhomebase-public-article-worker (the public site's article reader, bound to krhomebase); the requester runs it (workers/r2-workers/public-article-worker)
 pnpm pack:tool-sdk    # build dist\tool-sdk\krhomebase-tool-sdk-1.0.0.tgz for outside developers
 pnpm feedback:get -Number 12  # read-only: write feedback-cache\FB-0012\FB-0012.md from the live database
-pnpm feedback:get -Open       # read-only: write feedback-cache\index.md, the open requests ("plan open feedback")
+pnpm feedback:get -Open       # read-only: write feedback-cache\index.md, the open requests, developers first ("plan open feedback")
 pnpm stop:ports:all   # stop repository-owned servers and GPTWork1 branch2 ports; leave standard ports alone
 pnpm listScripts      # show the root scripts
 ```
@@ -269,12 +274,15 @@ pnpm listScripts      # show the root scripts
 | Root script | Folder | Runs |
 |---|---|---|
 | `dev` | root | `dev:api` and `dev:web`, together |
+| `dev:branch2` | root | `dev:branch2:api` and `dev:branch2:web`, together; Vite branch2 mode targets API port 8789 |
+| `dev:branch2:api` | `apps/api` | `wrangler dev --port 8789 --inspector-port 9345 --var KR_APP_BASE_URL:http://localhost:3031` |
+| `dev:branch2:web` | `apps/web` | `vite dev --port 3031 --strictPort --mode branch2`; Vite embeds API port 8789 in the local Worker |
 | `build` | root | `build:web` |
 | `typecheck` | `packages/contracts`, `packages/tool-sdk`, `packages/documents`, `apps/api`, `apps/external-api`, `workers/feedback-viewer`, `apps/web` | `typecheck` in each, in that order, joined by `&&` |
 | `test` | `packages/contracts`, `packages/tool-sdk`, `packages/documents`, `apps/api`, `apps/external-api`, `workers/feedback-viewer`, `apps/web` | `test` in each, in that order, joined by `&&` |
 | `check` | root | `typecheck`, then `test` |
 | `types:cf` | `apps/api` | `wrangler types --config kr-api-wrangler.jsonc` |
-| `dev:api` | `apps/api` | `wrangler dev --port 8787 --inspector-port 9339` |
+| `dev:api` | `apps/api` | `wrangler dev --port 8788 --inspector-port 9344` |
 | `dev:web` | `apps/web` | `vite dev --port 3011` |
 | `build:web` | `apps/web` | `vite build` |
 | `deploy:api` | `apps/api` | `wrangler deploy` |
@@ -315,7 +323,7 @@ A request's detail in the Feedback pop-out has a "Copy for Claude" button that c
 3. Finds each marker in the code (`rg -F 'data-kr-element="related-contacts-list"' apps/web`), compares the web version with `git log` and `docs/04_Deployed_Architecture.md`, and answers with a plan that follows the guides for the files it would change.
 4. Does not change the request's status or add notes (a database write); the requester does that (in the viewer, stage F5).
 
-To plan every request still open, the requester writes `plan open feedback`. Claude runs `pnpm feedback:get -Open` (read-only; it writes `feedback-cache\index.md`, every request not Done or Will not do, most urgent first), then steps 1 to 3 for each request in it, and answers with one short plan per request, most urgent first. Reading every open request this way is the requester's naming of them (Project Boundaries, `feedback-cache/`).
+To plan every request still open, the requester writes `plan open feedback`, or in their own words, for example "Read open feedback requests and advise on a plan to resolve each request. Wait for my approval." Claude runs `pnpm feedback:get -Open` (read-only; it writes `feedback-cache\index.md`, every request not Completed or Will not do), then steps 1 to 3 for each request in it, and answers with one short plan per request, in the index's order. **Developers' requests come first** (the requester, Nov 17, 2026): a request whose sender holds the Internal Developer or Super Admin role set is marked **D** in the index (and with an orange D in the Feedback Viewer) and listed before the others, then the most urgent; when a developer's words and another person's differ about the same screen, the developer's govern. Claude changes nothing until the requester approves a plan. Reading every open request this way is the requester's naming of them (Project Boundaries, `feedback-cache/`).
 
 ## Collaboration Notes
 

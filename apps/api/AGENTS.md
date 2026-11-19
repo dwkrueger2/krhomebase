@@ -1,7 +1,7 @@
 # KR Homebase API Agent Guide
 
-<small>Version 1.53</small><br>
-<small>Updated Nov 18, 2026 7:19pm</small>
+<small>Version 1.54</small><br>
+<small>Updated Nov 18, 2026 8:58pm</small>
 
 ## Purpose
 
@@ -300,6 +300,19 @@ Articles and answers (plan 10, stage 6; old `api/front-end-publishing` and its `
 - **Outside tools (stage F5, the requester's choice of Nov 14, 2026):** the list and one request have `toolAccess: 'homebase-feedback:read'`, the `PATCH` and the note route `'homebase-feedback:write'` (`ToolScopes` in contracts). On a frame call the person's own checks still run (session, role, `developer_tools`), so a tool sees no more than its user. The first tool is the Homebase Feedback viewer (`workers/feedback-viewer`), built with only the tool kit. `POST` and `/mine` stay closed to tools.
 - **Screenshots (stage F3, repository patch 40, API patch 34):** multipart `file` (PNG), `shapes` and `markerMap` (JSON text, contracts `HomebaseFeedbackShapeList` and `HomebaseFeedbackMarkerMap`). `rules.ts` checks the PNG signature and reads the size from it (`pngSize`), allows five images of 8 MB, and stores each shape with `nearMarkers` (`nearMarkersFor`). R2 goes only through `src/platform/feedbackImages.ts`, binding `FEEDBACK_STORAGE`, bucket `kr-homebase-feedback` (`"remote": true`, one bucket for `pnpm dev` and deployed, because `pnpm dev` writes the live database): the PNG first, then the row and the audit row (`IMAGE`) in one batch; a failed batch removes the PNG. Every reply that carries a request gives each image a ticket for the Feedback viewer's own Worker (`feedbackImageTicketSigner`, secret `KR_FEEDBACK_IMAGE_TICKET_SECRET`; none without it). The viewer Worker writes the ticket rule out itself; `homebaseFeedbackImages.test.ts` and `workers/feedback-viewer/worker/imageWorker.test.ts` check the same fixed example. Errors: `HOMEBASE_FEEDBACK_IMAGE_REQUIRED`, `_NOT_PNG`, `_TOO_LARGE`, `_DATA_INVALID`, `_LIMIT` (409), `HOMEBASE_FEEDBACK_STORAGE_UNAVAILABLE` (503). The route is not open to tools.
 - **Claude's read path** is the read-only `scripts/Get-Feedback.ps1` (root script `feedback:get`; root `AGENTS.md`, "Homebase Feedback: asking Claude").
+
+## IT Overview
+
+`src/features/it/` (the requester, Nov 18, 2026; API patch 50; Settings → Firm IT → IT Overview) serves one route, `GET /v1/it/overview`, to a **super admin only** (the route's `access`; anyone else gets the standard 403 `FORBIDDEN`; closed to outside tools). It writes nothing. Two goals: which version each Worker runs live, and how large the data set is. Shapes and the catalog are in `packages/contracts/src/it.ts`; the rules are in the header of `rules.ts`.
+
+- **The catalog** (`IT_WORKERS`, `IT_DATABASES`, `IT_BUCKETS`, `IT_KEY_STORES` in contracts) is a hand-kept copy of `docs/04_Deployed_Architecture.md` and the Worker configuration files. A Worker, binding, database or bucket that changes is changed there in the same change; `it.test.ts` reads each configuration file and fails when the catalog names something the file does not.
+- **The version shown is the repository's own** (the requester's rule): a version track as the Worker itself reports it, never Cloudflare's id. The API reports its own tracks from `src/platform/buildVersion.ts` (the root and API `package.json` files, fixed when the Worker is bundled); the web app adds its own on the screen; `kr-pay-worker-live` and `krhomebase-feedback-viewer` are read from their public health routes (`src/platform/workerHealth.ts`); the other six report none, and the row says so. Cloudflare supplies only when the live deployment was made, its own deployment id and the deploy message.
+- **Cloudflare's API** (`src/platform/cloudflareApi.ts`, read-only): `GET .../workers/scripts/{name}/deployments` and `GET .../d1/database/{id}`, with the plain setting `KR_CF_ACCOUNT_ID` and the secret `KR_CF_READ_TOKEN` (permissions Workers Scripts: Read and D1: Read). Without the secret those parts say "not available" with the reason, and the API's own row falls back to its version binding (`CF_VERSION_METADATA`, `version_metadata` in `kr-api-wrangler.jsonc`). The token is never logged or returned.
+- **Data size** (`queries.ts`, the only file that touches D1): the database's bytes are `meta.size_after` of a query; rows are `COUNT(*)` for every table of `sqlite_schema`, as scalar subqueries, 40 tables to a statement, in one batch. Checked read-only on the live database (Nov 18, 2026): D1 refuses `PRAGMA page_count`, has no `dbstat` table and limits `UNION ALL` to a few terms, so a table's size in bytes cannot be read. Table names come only from `sqlite_schema`, must be plain letters, digits and underscores, and are quoted; `_cf_KV` and `sqlite_*` are left out.
+- **Buckets** are measured through the API's four bindings (`src/platform/bucketUsage.ts`): objects and bytes, listed 1,000 at a time, stopping at 20,000 objects (the row then says "at least"). Under `pnpm dev` the `ARTICLES` binding reaches `kr-homebase-articles-dev`, and the row says so.
+- **A source that fails never fails the reply:** its part carries nulls and a plain sentence. The route has no error code of its own.
+- **`pnpm dev`:** the answering API is the local one, so its own row says "development computer"; the database, the buckets and Cloudflare's answers are the live ones. Nothing is written.
+- **Tests:** `it.test.ts` (the 403, the reply with and without the token, the mapping rules, the queries, the helpers, the catalog against the configuration files).
 
 ## Outside tools
 

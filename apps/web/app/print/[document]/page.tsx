@@ -1,6 +1,6 @@
 // file: apps/web/app/print/[document]/page.tsx
 /**
- * KR Homebase print-view route: `/print/invoice`, `/print/statement` and `/print/receipt`.
+ * KR Homebase print-view route: `/print/invoice`, `/print/statement`, `/print/receipt` and `/print/it-report`.
  *
  * This server component checks the session exactly like the home route (`app/page.tsx`: `fetchSession`, and a
  * redirect to `/login` with the reason when nobody is signed in), reads the firm profile for the letterhead, then
@@ -13,13 +13,19 @@
  * Changed: the address is `/print/...` (the old app lived under `/krhomebase`); the letterhead office is a firm
  * location id (`office`) instead of `state=TX|KS`, and the firm profile is read here so the print view can build the
  * letterhead (decision B5).
+ *
+ * Web patch 574 (the requester, Nov 18, 2026): `/print/it-report` prints the IT Report (`features/it`) through the
+ * same print tool. It is for a super admin only: anyone else gets the not-found page here, and the API refuses the
+ * report's data (`GET /v1/it/overview`) either way. It has no letterhead, so the firm profile is not read for it.
  */
 
 import { notFound, redirect } from 'next/navigation'
-import { PRINT_VIEW_DOCUMENT_KINDS, type PrintViewDocumentKind } from '@/components/printing/printViewDocuments'
+import { PRINT_VIEW_DOCUMENT_KINDS, PRINT_VIEW_REPORT_KINDS, type PrintViewDocumentKind, type PrintViewReportKind } from '@/components/printing/printViewDocuments'
 import { fetchSession } from '@/features/auth/session.server'
 import BillingPrintView from '@/features/billing/components/BillingPrintView.client'
 import { fetchFirmProfileForPrint } from '@/features/firm/firmProfile.server'
+import ItReportPrintView from '@/features/it/components/ItReportPrintView.client'
+import { readWebBuild } from '@/features/it/webBuild.server'
 import { L } from '@/lib/KRUtilities'
 
 export const dynamic = 'force-dynamic'
@@ -36,13 +42,15 @@ function single(value: string | string[] | undefined): string | undefined {
 }
 
 /**
- * Renders the protected print view for one billing document kind.
+ * Renders the protected print view for one billing document kind, or for the IT Report.
  *
- * @returns The client print view after the session check; 404 for unknown documents.
+ * @returns The client print view after the session check; 404 for unknown documents, and for the IT Report when the
+ *   signed-in person is not a super admin.
  */
 export default async function PrintViewPage({ params, searchParams }: PrintViewPageProps) {
   const { document } = await params
-  if (!PRINT_VIEW_DOCUMENT_KINDS.includes(document as PrintViewDocumentKind)) notFound()
+  const isReport = PRINT_VIEW_REPORT_KINDS.includes(document as PrintViewReportKind)
+  if (!isReport && !PRINT_VIEW_DOCUMENT_KINDS.includes(document as PrintViewDocumentKind)) notFound()
 
   const state = await fetchSession()
   if (!state.signedIn) {
@@ -51,6 +59,17 @@ export default async function PrintViewPage({ params, searchParams }: PrintViewP
   }
 
   const query = (await searchParams) ?? {}
+
+  // The IT Report: super admin only; it carries no letterhead.
+  if (isReport) {
+    if (state.session.role !== 'super_admin') {
+      L(`[KR_PRINT_VIEW:63] IT Report refused userId=${state.session.userId} role=${state.session.role}`)
+      notFound()
+    }
+    L(`[KR_PRINT_VIEW:66] Rendering print view document=${document} src=${single(query.src) ?? 'read'} userId=${state.session.userId}`)
+    return <ItReportPrintView handoffKey={single(query.src) === 'handoff' ? single(query.key) : undefined} printedBy={state.session.displayName} web={readWebBuild()} />
+  }
+
   const firm = await fetchFirmProfileForPrint()
   L(`[KR_PRINT_VIEW:54] Rendering print view document=${document} src=${single(query.src) ?? 'sample'} userId=${state.session.userId} firmProfile=${firm.loaded ? 'read' : 'built-in'}`)
 

@@ -1,9 +1,11 @@
 # 00_PromptMemoryStart
 
-<small>Version 2.0</small><br>
-<small>Updated Nov 17, 2026 4:19pm</small>
+<small>Version 2.1</small><br>
+<small>Updated Nov 18, 2026 7:57pm</small>
 
-**Purpose:** Read and follow this file at the start of every new prompt in the `D:\Repos\KrhomebaseGPT` repository.
+**Purpose:** Read and follow this file at the start of every new prompt in this repository.
+
+**Two checkouts share this file** (`AGENTS.md`, Agent Guide Index): `D:\Repos\krhomebase` (branch `impeccable-11-09`, where Claude Code works) and `D:\Repos\KrhomebaseGPT` (branch `GPTWork1`, where the GPT agent works). "Your checkout" is the one your session was started in. The command samples below name `D:\Repos\KrhomebaseGPT`; a session in the other checkout uses `D:\Repos\krhomebase` in its place.
 
 **Throughout this file, "the requester"** is the coder or prompt writer giving the instructions in the current session (as in `AGENTS.md`). Every decision, approval and hand-off reserved for a person belongs to the requester.
 
@@ -16,7 +18,7 @@ Begin every response with these three lines:
 ```text
 Git branch: <current branch>
 Working directory: <current working directory>
-Current Subject Matter: Workstream and Tasks
+Current Subject Matter: <what the active chat is about>
 ```
 
 - If either value is unknown, say so and give the command to find it:
@@ -57,8 +59,8 @@ Set-Location $SetLocation
 2. Migration scope is `apps\kr-homebase` (and the workers in `apps\shared`). Do not use `apps\kr-website-public`.
 3. Never read file contents under any folder named `private` (recursive, any depth), for example `...\private\*` and `...\private\temp\*`.
 
-### 3.1a Original Homebase checkout: read-only
-`D:\Repos\krhomebase` is Claude Code's original checkout on `impeccable-11-09`. This GPTWork1 clone may read it when needed, but must not write, edit, move, delete, commit, push or change branches there. Never read file contents under any folder named `private`.
+### 3.1a The other checkout: read-only
+Write only in your checkout. The other checkout may be read when needed, but never write, edit, move, delete, commit, push or change branches there: a session in `D:\Repos\KrhomebaseGPT` never writes in `D:\Repos\krhomebase`, and a session in `D:\Repos\krhomebase` never writes in `D:\Repos\KrhomebaseGPT`. Never read file contents under any folder named `private`.
 
 ### 3.2 Folders containing "private": names only
 In any directory whose path contains the text `private`, file names may be listed. File contents must never be read. Keys and secrets are never required by Claude. Never read `.dev.vars*` files (except `.dev.vars.example`) or key files.
@@ -75,13 +77,13 @@ In any directory whose path contains the text `private`, file names may be liste
 | `krhomebase_dev` | The old development database, the source of the port (read-only for Claude). | not recorded here |
 
 1. Do not use `krhomebase_05_2026_v5` (the old live database) unless the requester names it in the prompt.
-2. `D:\Repos\KrhomebaseGPT\snapshots\` holds database dumps with real client data. It is git-ignored. Never read dump contents.
-3. Wrangler runs from `D:\Repos\KrhomebaseGPT` (wrangler is a dev dependency there).
+2. `snapshots\` in each checkout holds database dumps with real client data. It is git-ignored. Never read dump contents.
+3. Wrangler runs from your checkout (wrangler is a dev dependency there).
 4. **`pnpm dev` works on live data.** The API's database binding is `remote: true`, so a save made while testing locally writes the live `krhomebase` database, and the local API uses the live Workers (crud, session, GPT) and the live Stripe keys saved in Settings. Before reproducing a bug by clicking through a screen, say what it will write. Prefer reading (`SELECT`), the automated tests and a test client, and never post a payment or charge a card without the requester's go-ahead.
 5. Claude Code runs commands on the requester's machine: it runs `pnpm check` itself after a change and reports the result honestly, failures included. Development servers start from the Terminal panel or the preview tools; `pnpm stop:ports:all` clears orphaned servers (`AGENTS.md`, "Development servers and ports").
 
 ### 3.5 Git and file changes
-1. The agent may change files in `D:\Repos\KrhomebaseGPT` directly, including code and `.gitignore`.
+1. The agent may change files in its own checkout directly, including code and `.gitignore`.
 2. Allowed git: `git status`, `git log`, `git diff`, `git show`, `git branch`, and other read-only commands.
 3. Not allowed: `git commit`, `git push`, `git merge`, `git rebase`, `git reset`, `git checkout` of files, `git stash`, or any command that changes history.
 4. The requester makes all commits and pushes. Claude gives the commit message text only, not git commands (the requester commits in WebStorm). This narrows `AGENTS_02_commit-push-procedures.md`, which still shows the `git add` and `git commit` commands; its message rules apply.

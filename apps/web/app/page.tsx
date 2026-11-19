@@ -55,6 +55,8 @@ import ContactsPanel from '@/features/contacts/components/ContactsPanel.client'
 import DataSyncIndicator from '@/features/contacts/components/DataSyncIndicator.client'
 import { DataStoreProvider } from '@/features/contacts/DataStoreProvider.client'
 import DashboardPanel from '@/features/dashboard/components/DashboardPanel.client'
+import ItOverviewPage from '@/features/it/components/ItOverviewPage.client'
+import { readWebBuild } from '@/features/it/webBuild.server'
 import LeadsPanel from '@/features/leads/components/LeadsPanel.client'
 import MaintenanceBanner from '@/features/maintenance/components/MaintenanceBanner.client'
 import CodeLinkHost from '@/features/code-links/CodeLinkHost.client'
@@ -180,6 +182,7 @@ export default async function HomePage() {
         stripePaymentConfiguration={isSuperAdmin ? <StripePaymentConfigurationPage /> : undefined}
         gptModelGateway={isSuperAdmin ? <GptModelGatewayPage /> : undefined}
         dataManagement={isSuperAdmin ? <DataImportPage /> : undefined}
+        itOverview={isSuperAdmin ? <ItOverviewPage web={readWebBuild()} /> : undefined}
       />
     ),
     'user-settings': (

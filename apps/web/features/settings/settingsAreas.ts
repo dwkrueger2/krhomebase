@@ -6,8 +6,8 @@
  * The split is by who may change what:
  * - **User Settings:** everyone; their own choices.
  * - **Application Settings:** super admin; who may sign in (users, not employees).
- * - **Firm Settings:** the firm itself; the three IT pages (Data Import, GPT Model Gateway, Stripe Payment
- *   Configuration) are super admin only.
+ * - **Firm Settings:** the firm itself; the IT pages (Data Import, GPT Model Gateway, Stripe Payment
+ *   Configuration and, since Nov 18, 2026, IT Overview) are super admin only.
  *
  * Page ids are the values of each area's second address parameter. They keep the old app's values where the old
  * app had the page (`?firmSettingsSection=profile`, `?applicationSettingsTab=user-management`), so old links still
@@ -41,6 +41,7 @@ export type FirmSettingsPageId =
   | 'data-management'
   | 'gpt-model-gateway'
   | 'stripe-payment-configuration'
+  | 'it-overview'
 
 /** One page of an area: its tab, and what its placeholder says until it is built. */
 export interface SettingsPageDefinition<T extends string = string> {
@@ -76,7 +77,7 @@ export const APPLICATION_SETTINGS_PAGES: readonly SettingsPageDefinition<Applica
   { id: 'site-feedback', label: 'Web Site Feedback', description: 'Review feedback sent from the public site and from KR Homebase.', stage: null },
 ]
 
-/** Firm Settings pages, in tab order: the ordinary pages first, then the three IT pages (super admin). */
+/** Firm Settings pages, in tab order: the ordinary pages first, then Users and the IT pages (super admin). */
 export const FIRM_SETTINGS_PAGES: readonly SettingsPageDefinition<FirmSettingsPageId>[] = [
   { id: 'profile', label: 'Firm Profile', description: 'Firm identity, contact details, offices and matter numbering.', stage: null },
   { id: 'employee-policies', label: 'Employee Policies', description: 'Clock edit windows, PTO accrual, holiday pay and the holiday calendar.', stage: null },
@@ -87,6 +88,8 @@ export const FIRM_SETTINGS_PAGES: readonly SettingsPageDefinition<FirmSettingsPa
   { id: 'data-management', label: 'Data Import', description: 'Controlled data preparation and bulk contact staging.', stage: null, superAdminOnly: true },
   { id: 'gpt-model-gateway', label: 'GPT Model Gateway', description: 'Provider connections, readiness checks and token-usage reporting.', stage: null, superAdminOnly: true },
   { id: 'stripe-payment-configuration', label: 'Stripe Payment Configuration', description: 'Live and Sandbox Stripe keys (stored encrypted, write-only) and sandbox card/ACH tests.', stage: null, superAdminOnly: true },
+  // The requester, Nov 18, 2026: read-only; the API refuses anyone but a super admin (the it feature).
+  { id: 'it-overview', label: 'IT Overview', description: 'Live Worker versions, databases, buckets, migrations applied, data size, the architecture and the printable IT Report.', stage: null, superAdminOnly: true },
 ]
 
 /**
@@ -166,9 +169,10 @@ export const SETTINGS_AREA_CARDS: readonly SettingsChoiceDefinition[] = [
 ]
 
 /**
- * The three IT cards (super admin), in the old Firm Settings menu order, with the old ids and card styles:
- * Data Import has the orange outline and badge; GPT Model Gateway and Stripe Payment Configuration are solid orange.
- * Old texts kept, except the GPT card, which no longer says "implemented" (it is not ported yet).
+ * The IT cards (super admin). The first three are the old Firm Settings menu's, in its order, with the old ids and
+ * card styles: Data Import has the orange outline and badge; GPT Model Gateway and Stripe Payment Configuration are
+ * solid orange. Old texts kept, except the GPT card, which no longer says "implemented" (it is not ported yet).
+ * IT Overview (the requester, Nov 18, 2026) is new: it only reads, so it takes the outline style, as Data Import does.
  */
 export const SETTINGS_IT_CARDS: readonly SettingsChoiceDefinition[] = [
   {
@@ -200,6 +204,17 @@ export const SETTINGS_IT_CARDS: readonly SettingsChoiceDefinition[] = [
     sectionId: 'firm-settings',
     subPage: 'stripe-payment-configuration',
     action: 'open-stripe-payment-configuration-workspace',
+    superAdminOnly: true,
+  },
+  {
+    krId: 'firm-settings-it-overview-card',
+    icon: 'I',
+    title: 'IT Overview',
+    description: 'Live Worker versions, databases, buckets, migrations applied, data size, the architecture and the printable IT Report.',
+    variant: 'it-outline',
+    sectionId: 'firm-settings',
+    subPage: 'it-overview',
+    action: 'open-it-overview',
     superAdminOnly: true,
   },
 ]

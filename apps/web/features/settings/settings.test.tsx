@@ -70,18 +70,19 @@ describe('Settings areas', () => {
     expect(FIRM_SETTINGS_ALIASES['stripe-dev-tests']).toBe('stripe-payment-configuration')
   })
 
-  it('shows Users and the three IT pages of Firm Settings to a super admin only', () => {
-    const superAdminPages = ['users', 'data-management', 'gpt-model-gateway', 'stripe-payment-configuration']
+  it('shows Users and the IT pages of Firm Settings (IT Overview last) to a super admin only', () => {
+    const superAdminPages = ['users', 'data-management', 'gpt-model-gateway', 'stripe-payment-configuration', 'it-overview']
     // Billing Rates (FB-0008) is read by everyone and saved by a super admin.
     expect(visibleSettingsPages(FIRM_SETTINGS_PAGES, false).map((page) => page.id)).toEqual(['profile', 'employee-policies', 'billing-rates', 'employee-documents'])
     expect(visibleSettingsPages(FIRM_SETTINGS_PAGES, true).map((page) => page.id).slice(4)).toEqual(superAdminPages)
   })
 
-  it('keeps the old ids of the three IT cards', () => {
+  it('keeps the old ids of the three IT cards, with the IT Overview card after them', () => {
     expect(SETTINGS_IT_CARDS.map((card) => card.krId)).toEqual([
       'FirmSettingsMenu-option-data-management',
       'firm-settings-gpt-model-gateway-card',
       'firm-settings-stripe-payment-configuration-card',
+      'firm-settings-it-overview-card',
     ])
   })
 })
@@ -105,13 +106,17 @@ describe('Settings landing page', () => {
     expect(html).toContain('data-kr-id="settings-choice-firm-settings"')
     expect(html).not.toContain('settings-choice-application-settings')
     expect(html).not.toContain('FirmSettingsMenu-option-data-management')
+    expect(html).not.toContain('firm-settings-it-overview-card')
+    expect(html).not.toContain('settings-it-card-grid')
   })
 
-  it('shows a super admin the Application Settings card and the three IT cards', () => {
+  it('shows a super admin the Application Settings card and the IT cards, IT Overview among them', () => {
     const html = renderToStaticMarkup(<SettingsPanel isSuperAdmin />)
     expect(html).toContain('data-kr-id="settings-choice-application-settings"')
     for (const card of SETTINGS_IT_CARDS) expect(html).toContain(`data-kr-id="${card.krId}"`)
     expect(html).toContain('data-kr-action="open-stripe-payment-configuration-workspace"')
+    expect(html).toContain('data-kr-element="settings-it-card-grid"')
+    expect(html).toContain('data-kr-action="open-it-overview"')
   })
 })
 

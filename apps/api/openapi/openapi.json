@@ -89233,6 +89233,831 @@
           }
         }
       }
+    },
+    "/v1/it/overview": {
+      "get": {
+        "summary": "The IT Overview: the version tracks built into the API, every deployed Worker with the repository version it reports and when its live deployment was made, the R2 buckets with their sizes, the D1 databases, the migrations applied and the size of the firm database. A part that cannot be read says why instead of failing the reply.",
+        "description": "Roles: super_admin.\n\nSide effects: None written; Reads Cloudflare's API (deployments and D1 databases) when KR_CF_READ_TOKEN is set; Reads the health routes of kr-pay-worker-live and krhomebase-feedback-viewer; Lists the four R2 buckets through their bindings.\n\nOutside tools: not allowed.\n\nError codes: UNAUTHENTICATED, FORBIDDEN, INTERNAL_ERROR.",
+        "tags": [
+          "it"
+        ],
+        "responses": {
+          "200": {
+            "description": "The overview.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "generatedAt": {
+                          "type": "string",
+                          "description": "When the API put this reply together (ISO time)."
+                        },
+                        "environment": {
+                          "type": "string",
+                          "enum": [
+                            "deployed",
+                            "development"
+                          ],
+                          "description": "deployed: the live API. development: an API on a development computer (pnpm dev), which still reads the live database."
+                        },
+                        "tracks": {
+                          "type": "object",
+                          "properties": {
+                            "repository": {
+                              "type": "object",
+                              "properties": {
+                                "version": {
+                                  "type": "string",
+                                  "description": "The semantic version kept in the repository, for example \"1.2.0\"."
+                                },
+                                "patchNum": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The operational patch number of the track, for example \"49\"; null when the Worker keeps none."
+                                },
+                                "patchDate": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The patch date as MM-DD, for example \"11-18\"; null when the Worker keeps none."
+                                }
+                              },
+                              "required": [
+                                "version",
+                                "patchNum",
+                                "patchDate"
+                              ],
+                              "description": "The repository track built into the answering API (root package.json)."
+                            },
+                            "api": {
+                              "type": "object",
+                              "properties": {
+                                "version": {
+                                  "type": "string",
+                                  "description": "The semantic version kept in the repository, for example \"1.2.0\"."
+                                },
+                                "patchNum": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The operational patch number of the track, for example \"49\"; null when the Worker keeps none."
+                                },
+                                "patchDate": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The patch date as MM-DD, for example \"11-18\"; null when the Worker keeps none."
+                                }
+                              },
+                              "required": [
+                                "version",
+                                "patchNum",
+                                "patchDate"
+                              ],
+                              "description": "The API track built into the answering API (apps/api/package.json)."
+                            }
+                          },
+                          "required": [
+                            "repository",
+                            "api"
+                          ],
+                          "description": "The version tracks as built into the API that answered. The web app adds its own track."
+                        },
+                        "cloudflare": {
+                          "type": "object",
+                          "properties": {
+                            "available": {
+                              "type": "boolean",
+                              "description": "True when Cloudflare's API could be asked (the read token is set)."
+                            },
+                            "reason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Why Cloudflare could not be asked; null when available."
+                            }
+                          },
+                          "required": [
+                            "available",
+                            "reason"
+                          ],
+                          "description": "Whether Cloudflare's API was available for the deployment times and the database facts."
+                        },
+                        "workers": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "description": "The Worker's Cloudflare name."
+                              },
+                              "role": {
+                                "type": "string",
+                                "description": "What the Worker does, in a few words."
+                              },
+                              "folder": {
+                                "type": "string",
+                                "description": "Its folder in the repository."
+                              },
+                              "configFile": {
+                                "type": "string",
+                                "description": "Its configuration file, from the repository root."
+                              },
+                              "publicAddress": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Its public address; null when only another Worker can reach it."
+                              },
+                              "bindings": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "binding": {
+                                      "type": "string",
+                                      "description": "The binding's name in the Worker's code."
+                                    },
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "worker",
+                                        "d1",
+                                        "r2",
+                                        "kv",
+                                        "assets",
+                                        "version",
+                                        "rate-limit"
+                                      ],
+                                      "description": "What the binding points to: another Worker, a D1 database, an R2 bucket, a KV key store, static files, the version binding or a rate limit."
+                                    },
+                                    "target": {
+                                      "type": "string",
+                                      "description": "The Cloudflare name of what it points to, or a few words."
+                                    }
+                                  },
+                                  "required": [
+                                    "binding",
+                                    "kind",
+                                    "target"
+                                  ]
+                                },
+                                "description": "The Worker's bindings, from its configuration file."
+                              },
+                              "versionSource": {
+                                "type": "string",
+                                "enum": [
+                                  "api",
+                                  "web",
+                                  "health-route",
+                                  "none"
+                                ],
+                                "description": "How its repository version is learned: api (this Worker), web (the web app adds its own), health-route, or none."
+                              },
+                              "version": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "version": {
+                                    "type": "string",
+                                    "description": "The semantic version kept in the repository, for example \"1.2.0\"."
+                                  },
+                                  "patchNum": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The operational patch number of the track, for example \"49\"; null when the Worker keeps none."
+                                  },
+                                  "patchDate": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The patch date as MM-DD, for example \"11-18\"; null when the Worker keeps none."
+                                  },
+                                  "track": {
+                                    "type": "string",
+                                    "enum": [
+                                      "repository",
+                                      "api",
+                                      "web",
+                                      "own"
+                                    ],
+                                    "description": "The version track the number belongs to: repository, api or web (AGENTS_01), or own for a version the Worker keeps for itself."
+                                  }
+                                },
+                                "required": [
+                                  "version",
+                                  "patchNum",
+                                  "patchDate",
+                                  "track"
+                                ],
+                                "description": "The repository version the live Worker reports; null when it reports none or could not be read (see versionNote)."
+                              },
+                              "versionNote": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "A remark about the version in a plain sentence: why there is none, or that a development computer answered; null when there is nothing to say."
+                              },
+                              "deployment": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "deployedAt": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "When the live deployment was made (ISO time); null when not reported."
+                                  },
+                                  "versionId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "Cloudflare's own id of the deployed Worker version (not the repository version); null when not reported."
+                                  },
+                                  "percentage": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ],
+                                    "description": "The share of traffic this version serves, 0 to 100; null when not reported."
+                                  },
+                                  "message": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "The deploy message kept by Cloudflare (the deploy script writes the commit); null when there is none."
+                                  },
+                                  "source": {
+                                    "type": "string",
+                                    "enum": [
+                                      "cloudflare-api",
+                                      "version-binding",
+                                      "health-route"
+                                    ],
+                                    "description": "cloudflare-api: read from Cloudflare's API. version-binding: the Worker's own version binding. health-route: the Worker's health route."
+                                  }
+                                },
+                                "required": [
+                                  "deployedAt",
+                                  "versionId",
+                                  "percentage",
+                                  "message",
+                                  "source"
+                                ],
+                                "description": "When the live deployment was made and its Cloudflare id; null when not available (see deploymentNote)."
+                              },
+                              "deploymentNote": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "A remark about the deployment facts in a plain sentence: why they are missing, or that they come from the Worker itself because Cloudflare's API was not available; null when Cloudflare's record is shown."
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "role",
+                              "folder",
+                              "configFile",
+                              "publicAddress",
+                              "bindings",
+                              "versionSource",
+                              "version",
+                              "versionNote",
+                              "deployment",
+                              "deploymentNote"
+                            ]
+                          },
+                          "description": "Every deployed Worker, in the order of docs/04_Deployed_Architecture.md."
+                        },
+                        "buckets": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "description": "The bucket's Cloudflare name."
+                              },
+                              "purpose": {
+                                "type": "string",
+                                "description": "What the bucket holds."
+                              },
+                              "boundBy": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "worker": {
+                                      "type": "string",
+                                      "description": "The Worker that holds the binding."
+                                    },
+                                    "binding": {
+                                      "type": "string",
+                                      "description": "The binding's name in that Worker."
+                                    }
+                                  },
+                                  "required": [
+                                    "worker",
+                                    "binding"
+                                  ]
+                                },
+                                "description": "The Workers bound to the bucket."
+                              },
+                              "measuredName": {
+                                "type": "string",
+                                "description": "The bucket that was measured: the same name, or the development bucket under pnpm dev."
+                              },
+                              "objects": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ],
+                                "description": "How many objects the bucket holds; null when it could not be measured."
+                              },
+                              "bytes": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ],
+                                "description": "The total size of its objects in bytes; null when it could not be measured."
+                              },
+                              "complete": {
+                                "type": "boolean",
+                                "description": "False when counting stopped at the limit: the bucket holds at least the numbers given."
+                              },
+                              "note": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Why the bucket could not be measured, or that the count stopped at the limit; null otherwise."
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "purpose",
+                              "boundBy",
+                              "measuredName",
+                              "objects",
+                              "bytes",
+                              "complete",
+                              "note"
+                            ]
+                          },
+                          "description": "Every R2 bucket, with its size when it could be measured."
+                        },
+                        "databases": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "description": "The database's Cloudflare name."
+                              },
+                              "id": {
+                                "type": "string",
+                                "description": "Its Cloudflare id."
+                              },
+                              "role": {
+                                "type": "string",
+                                "description": "What the database holds."
+                              },
+                              "schemaDoc": {
+                                "type": "string",
+                                "description": "Its schema documentation, from the repository root."
+                              },
+                              "boundBy": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "worker": {
+                                      "type": "string",
+                                      "description": "The Worker that holds the binding."
+                                    },
+                                    "binding": {
+                                      "type": "string",
+                                      "description": "The binding's name in that Worker."
+                                    }
+                                  },
+                                  "required": [
+                                    "worker",
+                                    "binding"
+                                  ]
+                                },
+                                "description": "The Workers bound to the database."
+                              },
+                              "sizeBytes": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ],
+                                "description": "The size of the database in bytes; null when not available."
+                              },
+                              "tableCount": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ],
+                                "description": "How many tables it holds; null when not available."
+                              },
+                              "createdAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "When the database was created (ISO time); null when not available."
+                              },
+                              "region": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The Cloudflare region it runs in; null when not available."
+                              },
+                              "storageVersion": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Cloudflare's storage version of the database (for example \"production\"); null when not available."
+                              },
+                              "latestMigration": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "The newest migration recorded in the migration log (id and file name); null when the database keeps no log here."
+                              },
+                              "note": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "What could not be read and why; null when everything was read."
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "id",
+                              "role",
+                              "schemaDoc",
+                              "boundBy",
+                              "sizeBytes",
+                              "tableCount",
+                              "createdAt",
+                              "region",
+                              "storageVersion",
+                              "latestMigration",
+                              "note"
+                            ]
+                          },
+                          "description": "Every D1 database the system uses."
+                        },
+                        "migrations": {
+                          "type": "object",
+                          "properties": {
+                            "available": {
+                              "type": "boolean",
+                              "description": "False when the migration log could not be read (see reason)."
+                            },
+                            "reason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Why the log could not be read; null when available."
+                            },
+                            "rows": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "The three-digit repository patch number of the migration."
+                                  },
+                                  "fileName": {
+                                    "type": "string",
+                                    "description": "The migration file, in docs/Schema_8.0/migrations."
+                                  },
+                                  "appliedAt": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "When it was applied (ISO time); null for a migration applied before the log existed."
+                                  },
+                                  "recordedAt": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "When the log row was written (ISO time)."
+                                  },
+                                  "appliedBy": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "How it was applied."
+                                  },
+                                  "summary": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "What it changed, in one line."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "fileName",
+                                  "appliedAt",
+                                  "recordedAt",
+                                  "appliedBy",
+                                  "summary"
+                                ]
+                              },
+                              "description": "The migrations recorded in kr_schema_migration, by id."
+                            }
+                          },
+                          "required": [
+                            "available",
+                            "reason",
+                            "rows"
+                          ],
+                          "description": "The migrations applied to krhomebase, from its migration log."
+                        },
+                        "dataSize": {
+                          "type": "object",
+                          "properties": {
+                            "available": {
+                              "type": "boolean",
+                              "description": "False when the firm database could not be read at all (see reason)."
+                            },
+                            "reason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Why nothing could be read; null when available."
+                            },
+                            "databaseName": {
+                              "type": "string",
+                              "description": "The database measured (krhomebase)."
+                            },
+                            "databaseBytes": {
+                              "type": [
+                                "number",
+                                "null"
+                              ],
+                              "description": "The size of the whole database in bytes, as D1 reports it after a query; null when not reported."
+                            },
+                            "tableCount": {
+                              "type": "integer",
+                              "description": "How many tables were counted."
+                            },
+                            "indexCount": {
+                              "type": "integer",
+                              "description": "How many indexes the database has."
+                            },
+                            "viewCount": {
+                              "type": "integer",
+                              "description": "How many views the database has."
+                            },
+                            "totalRows": {
+                              "type": "integer",
+                              "description": "The rows of every counted table added up."
+                            },
+                            "tables": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string",
+                                    "description": "The table name."
+                                  },
+                                  "rows": {
+                                    "type": "integer",
+                                    "description": "How many rows the table holds."
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "rows"
+                                ]
+                              },
+                              "description": "Every table with its row count, largest first."
+                            },
+                            "notes": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "What could not be obtained and why, in plain sentences."
+                            }
+                          },
+                          "required": [
+                            "available",
+                            "reason",
+                            "databaseName",
+                            "databaseBytes",
+                            "tableCount",
+                            "indexCount",
+                            "viewCount",
+                            "totalRows",
+                            "tables",
+                            "notes"
+                          ],
+                          "description": "The size of the firm database: its bytes and the rows of every table."
+                        }
+                      },
+                      "required": [
+                        "generatedAt",
+                        "environment",
+                        "tracks",
+                        "cloudflare",
+                        "workers",
+                        "buckets",
+                        "databases",
+                        "migrations",
+                        "dataSize"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "webhooks": {}

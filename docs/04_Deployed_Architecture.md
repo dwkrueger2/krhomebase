@@ -1,11 +1,11 @@
 # Deployed Architecture
 
-<small>Version 2.7</small><br>
-<small>Updated Nov 16, 2026 4:39pm</small>
+<small>Version 2.8</small><br>
+<small>Updated Nov 18, 2026 9:02pm</small>
 
 **Status:** live since Nov 6, 2026. Read this file before any work that touches a Worker, a binding, a web address, a secret or a deploy command. Update it in the same change as any of those.
 
-**Last deploy (Nov 16, 2026 4:18pm, the requester, `pnpm deploy:warn`; checked read-only with `wrangler deployments status`):** `krhomebase-api` version `29fe9c00-6477-4b7e-8d4d-6fa68174c40d` and `krhomebase-web` version `b6358e46-122d-49ad-85a1-2ae9e2d199b2`, each serving 100%, from commit `98765b0` (repository patch 55, API patch 44, web patch 562). Every committed change is live. `deploy-state\last.json` holds this deploy and the previous version ids (the rollback target).
+**Last deploy (Nov 18, 2026 7:45pm; checked read-only with `wrangler deployments status` on Nov 18, 2026):** `krhomebase-api` version `1bddc627-a436-4f74-a1a0-c298f51c12ce` and `krhomebase-web` version `2fc55bc5-c283-4769-a07a-9b54c22d3a1f`, each serving 100%, with the deploy message of commit `91759e9` (repository patch 63, API patch 49, web patch 572). Not live yet: the IT Overview (API patch 50, web patch 574; section 7). `deploy-state\last.json` holds the last deploy the script made and the previous version ids (the rollback target). **The same facts are on screen** for a super admin: Settings → Firm IT → IT Overview (section 8).
 
 **Headline:** ten Workers run this application. Four answer on the internet: `krhomebase-web` (`krhomebase.com`), `kr-pay-worker-live` (`pay.krhomebase.com`), and two on `workers.dev` addresses, `krhomebase-feedback-viewer` (an outside tool, framed by `krhomebase.com`) and `krhomebase-public-article-worker` (the public site's article reader). The other six have no address of their own: another Worker reaches them through a service binding (`krhomebase-external-api` waits for a Custom Domain, section 7).
 
@@ -74,6 +74,7 @@ Sign-in sequence: Turnstile check, then Google, then the API creates the user an
 | `krhomebase-api` | `FEEDBACK_STORAGE` | R2 bucket `kr-homebase-feedback`: Homebase Feedback screenshots (writes) | Same |
 | `krhomebase-api` | `DOCUMENTS` | R2 bucket `krhomebase-media-dev` (the old app's documents bucket, the requester's choice): stored billing email copies and PDFs (Billing part 7c) | Same |
 | `krhomebase-api` | `GPT_WORKER` | Worker `krhomebase-gpt-models-worker` (live, with the secret `KR_GPT_WORKER_SECRET`) | Same |
+| `krhomebase-api` | `CF_VERSION_METADATA` | Cloudflare's id, tag and time of the deployed version of the API (the IT Overview reports it; in the configuration file since API patch 50, Nov 18, 2026; live with the next API deploy) | Same |
 | `krhomebase-gpt-models-worker` | `GPT_USAGE_DB` | D1 `krhomebase_gpt_usage_dev` (shared with the old app's GPT Worker) | `gpt-models-worker.jsonc` |
 | `krhomebase-crud-worker` | `CRUD_WORKER_ASSIGNED_D1` | D1 `krhomebase` | `crud-worker.jsonc` |
 | `krhomebase-crud-worker` | `PUBLIC_KEYS` | KV `krhomebase-public-keys` | Same |
@@ -95,6 +96,7 @@ Only `krhomebase-api`, the crud Worker and the session Worker can reach the data
 | API settings (client id, base URL, Turnstile site key, cookie name) | `vars` in `apps/api/kr-api-wrangler.jsonc` | `apps/api/Readme-auth.md` |
 | API pay link settings (Billing part 7d): `KR_PAY_SANDBOX_BASE_URL` and `KR_PAY_LIVE_BASE_URL` (both `https://pay.krhomebase.com`); optional `KR_STRIPE_BILLING_ENVIRONMENT` (`sandbox` or `live`; not set: live when deployed, sandbox when `KR_APP_BASE_URL` is a localhost address, so `pnpm dev`). Since Billing part 7e the same rule picks the environment of a card payment taken in Billing; a super admin may switch only on a localhost server | `vars` in `apps/api/kr-api-wrangler.jsonc` (the environment setting only in `.dev.vars` if ever wanted) | `apps/api/AGENTS.md` (Pay links), `docs/09_ENV_KeyMappings.md` |
 | API secrets: `KR_GOOGLE_CLIENT_SECRET`, `KR_TURNSTILE_SECRET_KEY`, `KR_WORKER_JWT_PRIVATE_KEY`, `KR_CRUD_WORKER_PUBLIC_KEY`, `KR_SESSION_WORKER_SECRET`, `KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY` (invitation and Workstream email), `KR_PAYMENT_PROVIDER_KEK` (the same value as the pay Worker's), `KR_GPT_WORKER_SECRET` (the GPT models Worker), `KR_FEEDBACK_IMAGE_TICKET_SECRET` (the same value as the feedback viewer's), `KR_CF_BROWSER_RENDERING_TOKEN` (the billing PDFs; the plain setting `KR_CF_ACCOUNT_ID` is in `vars`). Names checked with `wrangler secret list` on Nov 16, 2026. | Worker secrets on `krhomebase-api`, set with `wrangler secret put` | `apps/api/Readme-auth.md`, `docs/09_ENV_KeyMappings.md` |
+| API secret `KR_CF_READ_TOKEN` (IT Overview, API patch 50): a read-only Cloudflare token, Account → Workers Scripts: Read and D1: Read. **Not set yet** (Nov 18, 2026): until it is, the IT Overview says "not available" for the deployment times of the Workers and the facts of the databases the API does not bind. The requester makes the token and sets it with `wrangler secret put`. | Worker secret on `krhomebase-api` | `apps/api/AGENTS.md` (IT Overview), `docs/09_ENV_KeyMappings.md` |
 | crud and session secrets | Worker secrets on those Workers | `workers/Readme-workers.md` |
 | Pay Worker secret `KR_PAYMENT_PROVIDER_KEK` (master key that decrypts the Stripe keys saved in Settings, table `payment_provider`). Set Nov 9, 2026 from `private\dev-private-keys\payment-provider-kek.key`. Stripe keys themselves are never Worker secrets. | Worker secret on `kr-pay-worker-live` | `workers/d1-workers/kr-pay-worker/README.md` |
 | Local equivalents | Git-ignored `.dev.vars` files, written by `scripts\Write-DevVars.ps1`. Local runs use the Turnstile test pair. | `workers/Readme-workers.md` |
@@ -127,5 +129,19 @@ When an item goes live, move its line into sections 1 to 4.
 
 | Item | State | To go live |
 |---|---|---|
+| IT Overview (Settings → Firm IT; API patch 50, web patch 574, Nov 18, 2026) | Built and tested; not committed or deployed. The API's configuration gains the `CF_VERSION_METADATA` binding; the route is `GET /v1/it/overview` (super admin). | The requester commits, deploys the API and the web app (`pnpm deploy:hot` or `pnpm deploy:warn`), and, for the deployment times and the other databases' facts, makes the read-only Cloudflare token and sets `KR_CF_READ_TOKEN` on `krhomebase-api` (no redeploy is needed for a secret). Then move this line into sections 4 and 5. |
 | Custom Domain for `krhomebase-external-api` | The Worker is deployed (Nov 9, 2026); no domain is recorded here. The `workspace_tool*` tables exist (checked Nov 13, 2026) and the tool routes are in the deployed API. | The requester chooses a domain, adds it in the dashboard, and records it in section 2. |
 | The public site reading `krhomebase-public-article-worker` | The Worker is deployed (section 1). Not checked here: whether the public site's `KR_R2_PUBLIC_ARTICLE_WORKER_URL` points at it. Until it does, the public site reads the old `kr-r2-public-article-worker` (the old database), so nothing published from this app appears there. | The requester checks or changes the setting on the public site (`Readme-public-article-worker.md` in the Worker's folder), then records it in section 2. |
+
+## 8. The IT Overview, and a health-check route on every new Worker
+
+**The IT Overview** (Settings → Firm IT → IT Overview; super admin; `GET /v1/it/overview`) shows what this document records, read from the live system: every Worker with the repository version it reports and when its live deployment was made, the buckets with their sizes, the databases, the migrations applied and the size of the firm database, with a diagram of section 3 and a printable IT Report. It reads a hand-kept catalog, `packages/contracts/src/it.ts` (`IT_WORKERS`, `IT_DATABASES`, `IT_BUCKETS`, `IT_KEY_STORES`). **A change to sections 1 to 4 of this document is made in that catalog in the same change** (and a new Worker gets a place in the diagram, `apps/web/features/it/components/ItArchitectureDiagram.tsx`); tests in `apps/api` and `apps/web` fail when the catalog and the configuration files or the diagram disagree.
+
+**Standing rule for new Workers (the requester, Nov 18, 2026): every new Worker has a health-check route that reports its version.** The IT Overview shows the version kept in the repository, never Cloudflare's own id, and it can only show what a Worker says about itself. So a Worker written or first deployed from now on:
+
+1. Answers `GET /health-check` (no sign-in; no secret, key or client data in the answer) with JSON that carries at least `{ "status": "ok", "version": "<version>" }`, the tool kit's shape (`packages/tool-sdk`), and for a Worker of a version track also `meta`: `{ worker, track, version, patchNum, patchDate, deploymentId, deployedAt }`, the pay Worker's shape (`workers/d1-workers/kr-pay-worker/payWorkerVersion.ts`).
+2. Reads its version from the repository when it is bundled (the track's `package.json`), never typed by hand, and its deployment from a `version_metadata` binding (`CF_VERSION_METADATA`).
+3. Is reachable by the API: a public address, or a service binding from `krhomebase-api`.
+4. Is added to the catalog with `versionSource: 'health-route'` and its `healthUrl`.
+
+Today four Workers report a version (`krhomebase-api`, `krhomebase-web`, `kr-pay-worker-live`, `krhomebase-feedback-viewer`). Six do not, and the IT Overview says so for each: `krhomebase-crud-worker`, `krhomebase-session-worker`, `krhomebase-crud-worker-pub-inquiry`, `krhomebase-gpt-models-worker`, `krhomebase-external-api` and `krhomebase-public-article-worker`. Giving them the route is open work (each needs the requester's go-ahead: the copied Workers are not edited without it, root `AGENTS.md`, "Workers").

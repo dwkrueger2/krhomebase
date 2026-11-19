@@ -1,7 +1,7 @@
 # Environment Key Mappings
 
-<small>Version 1.7</small><br>
-<small>Updated Nov 16, 2026 9:55pm</small>
+<small>Version 1.8</small><br>
+<small>Updated Nov 18, 2026 8:58pm</small>
 
 ## What this is
 
@@ -36,6 +36,7 @@ This page maps each environment key (secret or setting) to the key file that hol
 | `KR_PAYMENT_PROVIDER_KEK` | `payment-provider-kek.key` | Yes | API secret, and the same value on `kr-pay-worker-live`. Encrypts the Stripe keys in `payment_provider`. It is not the Stripe webhook secret (`whsec_...`), which is entered on the Stripe Payment Configuration page. |
 | `KR_GPT_WORKER_SECRET` | `gpt-worker-shared-secret.txt` (made Nov 14, 2026; `workers/gpt-workers/README.md`) | — | API secret, and the same value as `GPT_WORKER_SHARED_SECRET` on the GPT models Worker. Set on the deployed API by the requester on Nov 14, 2026 (piped from the file; `workers/gpt-workers/README.md` step 6). |
 | `KR_CF_BROWSER_RENDERING_TOKEN` | `cloudflare-custom-token\cloudflare-browser-rendering.token` | No (old folder only) | API secret (Billing part 7c, Nov 16, 2026): Cloudflare Browser Rendering for the PDFs of emailed invoices, statements and receipts (the old app's token, the requester's choice). `.dev.vars` by `Write-DevVars.ps1` once the file is copied here. The account id `KR_CF_ACCOUNT_ID` is a plain setting in the wrangler file. |
+| `KR_CF_READ_TOKEN` | `cloudflare-custom-token\cloudflare-read.token` (the requester makes the token and the file; not made yet on Nov 18, 2026) | No | API secret (IT Overview, API patch 50, Nov 18, 2026): a read-only Cloudflare token (Account → Workers Scripts: Read and D1: Read) for when each Worker's live deployment was made and the facts of the D1 databases. Optional: without it the IT Overview says "not available" for those parts. `.dev.vars` by `Write-DevVars.ps1` once the file exists. The account id is the plain setting `KR_CF_ACCOUNT_ID`. |
 | `KR_FEEDBACK_IMAGE_TICKET_SECRET` | deployed: none (made once in memory and set with `wrangler secret put`, `workers/feedback-viewer/README.md` step 2a); locally: `feedback-image-ticket-secret.txt` | Made by `Write-DevVars.ps1` when missing | API secret, and the same value on `krhomebase-feedback-viewer`: the API signs the screenshot tickets, the viewer's image Worker checks them. Locally (Nov 16, 2026) `Write-DevVars.ps1` writes one local value into both `.dev.vars` files, so `pnpm dev:feedback-viewer:worker` shows the screenshots; it is never the deployed value. |
 | `KR_APP_BASE_URL` | none (a setting) | — | `http://localhost:3011` in `.dev.vars`; the deployed address in the wrangler file. Since Billing part 7d it also decides the Stripe environment of a new pay link (and, since part 7e, of a card payment taken in Billing) when `KR_STRIPE_BILLING_ENVIRONMENT` is not set: a localhost address uses the sandbox. A localhost address is also the only place a super admin may choose sandbox or live for a card payment (part 7e). |
 | `KR_PAY_SANDBOX_BASE_URL`, `KR_PAY_LIVE_BASE_URL` | none (settings) | — | Billing part 7d (Nov 16, 2026): the pay Worker's address for each Stripe environment (`https://pay.krhomebase.com` for both, the old app's `.env` values), plain `vars` in the wrangler file. A pay link is `<address>/p/<token>`. |

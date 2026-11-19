@@ -30,6 +30,9 @@
         KR_CF_BROWSER_RENDERING_TOKEN from cloudflare-custom-token\cloudflare-browser-rendering.token, only when that file
                                       exists (Billing part 7c, added Nov 16, 2026: the PDFs of emailed invoices,
                                       statements and receipts)
+        KR_CF_READ_TOKEN              from cloudflare-custom-token\cloudflare-read.token, only when that file exists
+                                      (IT Overview, added Nov 18, 2026: a read-only Cloudflare token for the Workers'
+                                      deployment times and the database facts)
         KR_GOOGLE_WORKSPACE_MAILER_PRIVATE_KEY
                                       from krhomebase-google-workspace-mailer-key.json, only when that file exists
                                       (added Nov 16, 2026: invitation, WorkStream and billing email from `pnpm dev`).
@@ -165,6 +168,12 @@ if (Test-Path -LiteralPath (Join-Path $KeysFolder 'gpt-worker-shared-secret.txt'
 # copied into this repository's keys folder (docs/09_ENV_KeyMappings.md). Without it documents are emailed without a PDF.
 if (Test-Path -LiteralPath (Join-Path $KeysFolder 'cloudflare-custom-token\cloudflare-browser-rendering.token')) {
   $apiSettings['KR_CF_BROWSER_RENDERING_TOKEN'] = (Read-KeyValue -FileName 'cloudflare-custom-token\cloudflare-browser-rendering.token' -Kind Secret)
+}
+# IT Overview (Nov 18, 2026): the read-only Cloudflare token (Workers Scripts: Read, D1: Read), when its file has been
+# made in this repository's keys folder (docs/09_ENV_KeyMappings.md). Without it the IT Overview says "not available"
+# for the Workers' deployment times and the facts of the databases the API does not bind.
+if (Test-Path -LiteralPath (Join-Path $KeysFolder 'cloudflare-custom-token\cloudflare-read.token')) {
+  $apiSettings['KR_CF_READ_TOKEN'] = (Read-KeyValue -FileName 'cloudflare-custom-token\cloudflare-read.token' -Kind Secret)
 }
 # Email from this computer (Nov 16, 2026): the Gmail service account key, when its file has been copied into this
 # repository's keys folder (docs/09_ENV_KeyMappings.md). Without it every send answers *_EMAIL_NOT_CONFIGURED.

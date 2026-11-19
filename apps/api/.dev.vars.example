@@ -24,5 +24,9 @@ KR_FEEDBACK_IMAGE_TICKET_SECRET=
 # Billing part 7c: Cloudflare Browser Rendering token for the emailed PDFs (key file cloudflare-custom-token\cloudflare-browser-rendering.token, docs/09_ENV_KeyMappings.md).
 # Optional locally: without it documents are emailed without the PDF and the reply says why.
 KR_CF_BROWSER_RENDERING_TOKEN=
+# IT Overview (Settings, Firm IT): a read-only Cloudflare token (Workers Scripts: Read, D1: Read) for the Workers' deployment
+# times and the database facts (key file cloudflare-custom-token\cloudflare-read.token, docs/09_ENV_KeyMappings.md).
+# Optional: without it the IT Overview says "not available" for those parts.
+KR_CF_READ_TOKEN=
 # Optional: only while the database has no users.
 KR_SUPER_ADMIN_EMAILS=

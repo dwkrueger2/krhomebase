@@ -17,20 +17,23 @@
  *  - The letterhead is chosen by office (`office`, a firm location id from the firm profile) instead of the fixed
  *    `state` pair `TX` / `KS` (decision B5).
  *  - The send contexts are kept for the Send button the print page gains in part 7c.
+ *  - Web patch 574: a request may name a report (`it-report`, the IT Report of `features/it`) as well as a billing
+ *    document; its payload is the IT Overview the screen showed.
  */
 
 import { L } from '@/lib/KRUtilities'
 
-import type { PrintViewDocumentKind } from './printViewDocuments'
+import type { PrintViewDocumentKind, PrintViewReportKind } from './printViewDocuments'
 
-export { PRINT_VIEW_DOCUMENT_KINDS, type PrintViewDocumentKind } from './printViewDocuments'
+export { PRINT_VIEW_DOCUMENT_KINDS, PRINT_VIEW_REPORT_KINDS, type PrintViewDocumentKind, type PrintViewReportKind } from './printViewDocuments'
 
 /** localStorage key prefix for handoff payloads. */
 export const PRINT_HANDOFF_PREFIX = 'kr-print:'
 
 /** What a caller asks the print view to show. */
 export interface PrintViewRequest {
-  document: PrintViewDocumentKind
+  /** A billing document, or a report (the IT Report, web patch 574; it uses only `source` and `key`). */
+  document: PrintViewDocumentKind | PrintViewReportKind
   /** `sample` renders fixture data; `handoff` reads the payload stored under `key`. */
   source: 'sample' | 'handoff'
   /** Letterhead office: a firm location id; left out, the primary office. */
