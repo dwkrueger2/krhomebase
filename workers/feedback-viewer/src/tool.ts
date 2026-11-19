@@ -23,11 +23,13 @@ export const tool = defineTool({
   description: 'Lists the numbered Homebase Feedback requests (FB-0012) for Internal Developers: read, triage, add notes, copy for Claude.',
   // The tool's own icon is the file public/tool-icon.svg, served at /tool-icon.svg (the kit's rules); KR Homebase
   // reads it when the tool is saved. No built-in fallback is named, so KR Homebase's default (the orange diamond) is it.
-  version: '1.3.0',
+  version: '1.7.0',
   entryUrl: 'https://krhomebase-feedback-viewer.dankrueger.workers.dev/',
   hostOrigins: ['https://krhomebase.com', 'http://localhost:3011'],
   scopes: ['homebase-feedback:read', 'homebase-feedback:write'],
-  // A person holding any one of these roles sees the tool; the Internal Developer role set is the real limit.
+  // A person holding any one of these roles sees the tool; the Internal Developer role set is the real limit. Since
+  // repository patch 58 the super admin also ticks "Developers only" on the registration, so only developers see it
+  // in the menu (the kit's manifest has no field for that option yet: README.md, "What this test found about the kit").
   roles: ['super_admin', 'attorney', 'paralegal', 'staff'],
   serverAccess: false,
 })

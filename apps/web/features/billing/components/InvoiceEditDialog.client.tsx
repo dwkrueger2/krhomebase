@@ -35,6 +35,7 @@ import { printInvoiceFromBilling } from '../printDocuments.client'
 import U6CurrencyInput from '@/components/ui/U6CurrencyInput.client'
 import type { InvoiceRecordAction } from '../api.client'
 import type { BillingInvoice, BillingPayment, BillingTimeEntry } from '../types'
+import type { BillingRatesForEntry } from './EditTimeAndFeeDialog.client'
 
 const STYLES = {
   backdrop: 'bg-slate-950/40',
@@ -121,7 +122,9 @@ export interface InvoiceEditDialogProps {
   matterNumbers: readonly string[]
   /** Each matter's title by its number, for the entry dialog's matter lists. */
   matterTitles?: Readonly<Record<string, string>>
-  staffOptions: readonly { id: string; label: string; staffCode?: string | null }[]
+  staffOptions: readonly { id: string; label: string; staffCode?: string | null; defaultRateClassId?: string | null }[]
+  /** FB-0008: the rate classes and the signed-in person, for a new time entry's rate. */
+  billingRates?: BillingRatesForEntry
   onCancel: () => void
   /** Closes the editor and opens the selected receipt on the Payments tab. */
   onOpenPayment: (paymentId: string) => void
@@ -173,6 +176,7 @@ export default function InvoiceEditDialog({
   invoice,
   matterNumbers,
   matterTitles,
+  billingRates,
   staffOptions,
   onCancel,
   onOpenPayment,
@@ -758,6 +762,7 @@ export default function InvoiceEditDialog({
             entry={editingEntry}
             matterNumbers={matterNumbers}
             matterTitles={matterTitles}
+            billingRates={billingRates}
             staffOptions={staffOptions}
             onCancel={() => setEditingEntry(null)}
             onSave={async (next) => {

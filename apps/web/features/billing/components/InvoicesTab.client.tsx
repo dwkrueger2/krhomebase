@@ -26,6 +26,7 @@ import type { InvoiceRecordAction } from '../api.client'
 import BillingTabHeader from './BillingTabHeader.client'
 import { formatAccountingAmount } from '../formatAccountingAmount'
 import type { BillingInvoice, BillingPayment, BillingTimeEntry } from '../types'
+import type { BillingRatesForEntry } from './EditTimeAndFeeDialog.client'
 
 const STYLES = {
   shell: 'text-[10pt] leading-tight text-[var(--kr-theme-text,#243142)]',
@@ -119,7 +120,9 @@ export interface InvoicesTabProps {
   matterNumbers: readonly string[]
   /** Each matter's title by its number, for the time entry dialog's matter lists. */
   matterTitles?: Readonly<Record<string, string>>
-  staffOptions: readonly { id: string; label: string; staffCode?: string | null }[]
+  staffOptions: readonly { id: string; label: string; staffCode?: string | null; defaultRateClassId?: string | null }[]
+  /** FB-0008: the rate classes and the signed-in person, for a new time entry's rate. */
+  billingRates?: BillingRatesForEntry
   onSave: (invoice: BillingInvoice) => Promise<void>
   onSaveEntry: (entry: BillingTimeEntry) => Promise<void>
   /** True for super admins: the lock icon can unlock a sent invoice. Locking never needs a role. */
@@ -151,6 +154,7 @@ export default function InvoicesTab({
   entries,
   matterNumbers,
   matterTitles,
+  billingRates,
   staffOptions,
   onSave,
   onSaveEntry,
@@ -440,6 +444,7 @@ export default function InvoicesTab({
           invoice={editing}
           matterNumbers={matterNumbers}
           matterTitles={matterTitles}
+          billingRates={billingRates}
           staffOptions={staffOptions}
           canUnlock={canUnlock}
           onToggleLock={onToggleLock}

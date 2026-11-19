@@ -8,6 +8,11 @@
  * - D9: every staff user may read and write WorkStream for now (Favorites Lists to filter come later).
  * - D10: lists are newest first and paged; a list that has more says so (`nextCursor`).
  * - D13: email goes through the firm's Gmail mailer.
+ * - FB-0016 and FB-0017 (the requester, Nov 18, 2026): one entry may have several activity types (`subgroups`: a
+ *   Phone Call that is also a Task is one entry with one WSID, not one entry per type); the first is `subgroup`, the
+ *   others are rows of `workstream_activity_type` (migration 002). An entry with the Task type gets a real task on the
+ *   Tasks screen, kept in `taskId`, with its assignees (`assigneeUserIds`); the task's description names the entry
+ *   (`WS #<wsid>`).
  *
  *   GET    /v1/workstream                    entries of a client (and matter) or a lead, newest first, paged
  *   GET    /v1/workstream/feed               every entry, newest first, paged (the Communications section)
@@ -52,7 +57,8 @@ const id = (what: string) => z.string().trim().min(1).max(200).describe(what)
 export const WorkstreamActivity = z.object({
   id: z.string().describe('Row id (`wsa_<uuid>`).'),
   wsid: z.string().describe('Public seven-character id.'),
-  subgroup: WorkstreamSubgroup,
+  subgroup: WorkstreamSubgroup.describe('The main activity type (the first of `subgroups`).'),
+  subgroups: z.array(WorkstreamSubgroup).describe('Every activity type of the entry, the main one first (FB-0016: a Phone Call may also be a Task).'),
   clientId: z.string().nullable().describe('Owning client account, or null for a lead entry.'),
   clientNumber: z.string().nullable().describe('That client\'s number.'),
   clientDisplayName: z.string().nullable().describe('That client\'s name.'),
@@ -69,8 +75,9 @@ export const WorkstreamActivity = z.object({
   documentRecordId: z.string().nullable().describe('A stored document this entry is about.'),
   documentUrl: z.string().nullable().describe('Link to that document.'),
   documentLabel: z.string().nullable().describe('Its label.'),
-  taskId: z.string().nullable().describe('Linked task (not used yet).'),
-  assigneeUserId: z.string().nullable().describe('Assigned staff user.'),
+  taskId: z.string().nullable().describe('The task made for the entry\'s Task type (Tasks screen, `Task #<id>`), or null.'),
+  assigneeUserId: z.string().nullable().describe('Assigned staff user (the first task assignee when the entry has a task).'),
+  assigneeUserIds: z.array(z.string()).describe('The task\'s current assignees, the first first, when the entry has a task; else the assigned staff user, or none.'),
   assigneeContactId: z.string().nullable().describe('Assigned contact (instead of a user).'),
   assigneeLabel: z.string().nullable().describe('Assignee as shown.'),
   performedByUserId: z.string().nullable().describe('Who recorded it.'),
@@ -122,10 +129,16 @@ const note = z.string().max(50000).optional().describe('The note as plain text.'
 const noteHtml = z.string().max(100000).optional().describe('The note as HTML from the editor; cleaned before it is stored.')
 const nextSteps = z.array(z.string().trim().max(500)).max(50).optional().describe('Next steps (blank ones are dropped).')
 const activityAt = z.string().datetime({ offset: true }).optional().describe('When it happened (ISO time); now when left out.')
+const subgroupSet = z.array(WorkstreamSubgroup).min(1).max(7)
+const taskAssignees = z.array(id('A staff user id.')).max(20)
 
 export const WorkstreamCreateBody = z
   .object({
-    subgroup: WorkstreamSubgroup,
+    subgroup: WorkstreamSubgroup.describe('The main activity type.'),
+    subgroups: subgroupSet.optional().describe('Every activity type of the entry (FB-0016); `subgroup` is added first when the list leaves it out. With `Tasks` among them a task is made on the Tasks screen.'),
+    assigneeUserIds: taskAssignees
+      .optional()
+      .describe('Who the task is assigned to, when the types include Tasks: active staff users, the first first; the first is also the entry\'s assignee. Left out: `assigneeUserId`, else the person recording it. Empty: nobody.'),
     clientId: id('Owning client account (or give leadId).').optional(),
     leadId: id('Owning lead (or give clientId).').optional(),
     matterId: id('The client\'s matter; the client\'s `.0` matter when left out (D12). Not allowed on a lead entry.').optional(),
@@ -145,7 +158,13 @@ export const WorkstreamCreateBody = z
 export type WorkstreamCreateBody = z.infer<typeof WorkstreamCreateBody>
 
 export const WorkstreamUpdateBody = z.object({
-  subgroup: WorkstreamSubgroup.optional(),
+  subgroup: WorkstreamSubgroup.optional().describe('The main activity type. Sent alone, it replaces the main type and the other types stay.'),
+  subgroups: subgroupSet
+    .optional()
+    .describe('The whole new set of activity types (FB-0016). The main type stays when it is in the set (or `subgroup` when that is), else the first. Adding Tasks makes the task on the Tasks screen; taking it away leaves the task as it is.'),
+  assigneeUserIds: taskAssignees
+    .optional()
+    .describe('The whole new set of the task\'s assignees (the entry must have the Task type), the first first; the first is also the entry\'s assignee. Empty: nobody.'),
   matterId: id('Another matter of the same client.').optional(),
   title: title.optional(),
   note,
@@ -162,7 +181,14 @@ export const WorkstreamMoveBody = z.object({
 })
 export type WorkstreamMoveBody = z.infer<typeof WorkstreamMoveBody>
 
-export const WorkstreamSavedData = z.object({ activity: WorkstreamActivity.describe('The entry after the save.') })
+export const WorkstreamSavedData = z.object({
+  activity: WorkstreamActivity.describe('The entry after the save.'),
+  taskError: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Set only when the entry was saved but its task could not be made or reassigned: the error code (the entry stands; save it again with the Task type to try once more).'),
+})
 export type WorkstreamSavedData = z.infer<typeof WorkstreamSavedData>
 
 export const WorkstreamDeletedData = z.object({

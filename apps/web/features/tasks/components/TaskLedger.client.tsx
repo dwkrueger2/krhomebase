@@ -14,9 +14,15 @@
  * or cancelled) is in `--kr-theme-danger`. A click selects a row; a double-click asks the panel to edit it.
  *
  * The panel (`TasksPanel`) owns the tasks, the selection and the paging; this component draws them only.
+ *
+ * Nov 18, 2026 (web patch 571, the requester): rows are single line or expanded, as the WorkStream rows are: the
+ * panel's Expand View / Single Line sets every row, and each row's chevron switches only that row. An expanded row
+ * shows the description under the title and every assignee by name. The assignee cell shows staff codes
+ * (`assigneesShortLabel`).
  */
 
 import type { Task } from '@krhomebase/contracts'
+import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
 import { assigneesFullLabel, assigneesShortLabel, localToday, moreTasksLine, taskClientMatterNumber, taskDisplayId, taskDueInfo, taskPriorityLabel, taskShortId, taskStatusLabel } from '../taskRows'
 
@@ -39,6 +45,9 @@ const STYLES = {
   error: 'm-0 text-[12px] font-[600] text-(color:--kr-theme-danger)',
   more: 'border-t border-(--kr-theme-line) bg-(--kr-theme-shell-surface) text-[10.5px] text-(color:--kr-theme-text-muted)',
   moreButton: 'min-h-[22px] cursor-pointer rounded-[3px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) text-[11px] font-[700] text-(color:--kr-theme-brand-primary) hover:border-(--kr-theme-brand-primary-active) disabled:cursor-not-allowed disabled:opacity-60',
+  rowShell: 'border-b border-(--kr-theme-line)',
+  toggle: 'cursor-pointer border-0 border-l border-(--kr-theme-line) bg-transparent text-(color:--kr-theme-brand-primary) hover:bg-(--kr-theme-muted-surface)',
+  expandedText: 'text-[11px] leading-[1.3] whitespace-pre-line [overflow-wrap:anywhere] text-(color:--kr-theme-text-muted)',
   // b1: ' border-red-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
   // b2: ' border-blue-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
   // b3: ' border-green-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
@@ -57,6 +66,12 @@ const LAYOUT_STYLES = {
   table: 'min-w-[640px]',
   // One column template for the heading and every row: Due, #, Title, Client / matter, Priority, Status, Assignees.
   columns: 'px-[4px] gap-x-[6px] grid grid-cols-[74px_64px_minmax(140px,1fr)_minmax(90px,170px)_54px_76px_minmax(44px,90px)] items-center',
+  // A row and its chevron (the heading keeps the same 20px column empty).
+  rowShell: 'grid grid-cols-[minmax(0,1fr)_20px] items-stretch',
+  rowExpanded: 'items-start py-[2px]',
+  titleExpanded: 'gap-[2px] grid min-w-0',
+  toggle: 'p-0 grid place-items-center',
+  chevron: 'size-[12px]',
   clientCell: 'gap-[3px] flex min-w-0 items-baseline',
   status: 'p-[8px] gap-[6px] flex items-center',
   more: 'px-[6px] py-[3px] gap-[6px] flex flex-wrap items-center justify-between',
@@ -82,6 +97,12 @@ export interface TaskLedgerProps {
   onLoadMore: () => void
   /** `YYYY-MM-DD` for the overdue rule; today by default (tests pass a fixed day). */
   today?: string
+  /** Every row's presentation (the panel's Expand View / Single Line); Single line by default. */
+  presentation?: 'Expanded' | 'SingleLine'
+  /** Rows switched apart from it by their own chevron. */
+  presentationOverrides?: Readonly<Record<string, 'Expanded' | 'SingleLine'>>
+  /** A row's chevron: switches only that row. Without it, no chevrons. */
+  onToggleRow?: (task: Task) => void
 }
 
 /**
@@ -90,21 +111,24 @@ export interface TaskLedgerProps {
  * @param props - The loaded tasks in the API's order, the selection and its handlers, the list state, and paging.
  * @returns The `tasks-ledger` section.
  */
-export default function TaskLedger({ emptyMessage, error, hasMore, loading, loadingMore, onLoadMore, onOpen, onRetry, onSelect, selectedId, tasks, today = localToday() }: TaskLedgerProps) {
+export default function TaskLedger({ emptyMessage, error, hasMore, loading, loadingMore, onLoadMore, onOpen, onRetry, onSelect, onToggleRow, presentation = 'SingleLine', presentationOverrides = {}, selectedId, tasks, today = localToday() }: TaskLedgerProps) {
   const moreLine = moreTasksLine(tasks.length, hasMore)
 
   return (
     <section aria-label="Tasks" className={`${LAYOUT_STYLES.viewport} ${STYLES.table}`} data-kr-id="tasks-ledger">
       <div className={LAYOUT_STYLES.table} role="table">
         {/* Heading row: the same column template as every task row. */}
-        <div className={`${LAYOUT_STYLES.columns} ${STYLES.headRow}`} data-kr-element="tasks-ledger-head" role="row">
-          <span className={STYLES.headCell} role="columnheader">Due</span>
-          <span className={STYLES.headCell} role="columnheader">#</span>
-          <span className={STYLES.headCell} role="columnheader">Title</span>
-          <span className={STYLES.headCell} role="columnheader">Client / matter</span>
-          <span className={STYLES.headCell} role="columnheader">Priority</span>
-          <span className={STYLES.headCell} role="columnheader">Status</span>
-          <span className={STYLES.headCell} role="columnheader">Assignees</span>
+        <div className={`${onToggleRow ? LAYOUT_STYLES.rowShell : ''} ${STYLES.headRow}`} data-kr-element="tasks-ledger-head" role="row">
+          <div className={LAYOUT_STYLES.columns}>
+            <span className={STYLES.headCell} role="columnheader">Due</span>
+            <span className={STYLES.headCell} role="columnheader">#</span>
+            <span className={STYLES.headCell} role="columnheader">Title</span>
+            <span className={STYLES.headCell} role="columnheader">Client / matter</span>
+            <span className={STYLES.headCell} role="columnheader">Priority</span>
+            <span className={STYLES.headCell} role="columnheader">Status</span>
+            <span className={STYLES.headCell} role="columnheader">Assignees</span>
+          </div>
+          {onToggleRow ? <span aria-hidden="true" /> : null}
         </div>
 
         {/* Rows: loading, failure, the tasks, or the empty sentence. */}
@@ -124,13 +148,13 @@ export default function TaskLedger({ emptyMessage, error, hasMore, loading, load
             tasks.map((task) => {
               const due = taskDueInfo(task, today)
               const selected = task.id === selectedId
+              const expanded = (presentationOverrides[task.id] ?? presentation) === 'Expanded'
               return (
+                <div className={`${LAYOUT_STYLES.rowShell} ${STYLES.rowShell}`} data-kr-element="tasks-ledger-row-shell" data-kr-presentation={expanded ? 'Expanded' : 'SingleLine'} key={task.id} role="row">
                 <button
                   aria-pressed={selected}
-                  className={`${LAYOUT_STYLES.columns} ${STYLES.row} ${selected ? STYLES.rowSelected : ''}`}
+                  className={`${LAYOUT_STYLES.columns} ${expanded ? LAYOUT_STYLES.rowExpanded : ''} ${STYLES.row} ${selected ? STYLES.rowSelected : ''}`}
                   data-kr-element="tasks-ledger-row"
-                  key={task.id}
-                  role="row"
                   title={onOpen ? `${taskDisplayId(task)}: double-click to edit` : taskDisplayId(task)}
                   type="button"
                   onClick={() => onSelect(task)}
@@ -140,7 +164,15 @@ export default function TaskLedger({ emptyMessage, error, hasMore, loading, load
                     {task.dueDate ? due.label : '—'}
                   </span>
                   <span className={`${STYLES.cell} ${STYLES.idCell}`} role="cell">{taskShortId(task)}</span>
-                  <span className={STYLES.cell} role="cell" title={task.title}>{task.title}</span>
+                  {expanded ? (
+                    <span className={LAYOUT_STYLES.titleExpanded} role="cell">
+                      <span className={STYLES.cell}>{task.title}</span>
+                      {task.description ? <span className={STYLES.expandedText}>{task.description}</span> : null}
+                      <span className={STYLES.expandedText}>{assigneesFullLabel(task)}</span>
+                    </span>
+                  ) : (
+                    <span className={STYLES.cell} role="cell" title={task.title}>{task.title}</span>
+                  )}
                   <span className={`${STYLES.cell} ${LAYOUT_STYLES.clientCell} ${STYLES.small}`} role="cell" title={[task.matterNumber ?? task.clientNumber, task.clientDisplayName, task.matterTitle].filter(Boolean).join(' · ') || 'Firm task'}>
                     <span>{taskClientMatterNumber(task)}</span>
                     {task.clientDisplayName ? <span className={`${STYLES.cell} ${STYLES.clientName}`}>{task.clientDisplayName}</span> : null}
@@ -149,6 +181,20 @@ export default function TaskLedger({ emptyMessage, error, hasMore, loading, load
                   <span className={STYLES.cell} role="cell">{taskStatusLabel(task.status)}</span>
                   <span className={`${STYLES.cell} ${STYLES.small}`} role="cell" title={assigneesFullLabel(task)}>{assigneesShortLabel(task)}</span>
                 </button>
+                {/* Expands or folds only this row. */}
+                {onToggleRow ? (
+                  <button
+                    aria-label={expanded ? `Collapse ${taskDisplayId(task)}` : `Expand ${taskDisplayId(task)}`}
+                    className={`${LAYOUT_STYLES.toggle} ${STYLES.toggle}`}
+                    data-kr-element="tasks-ledger-row-toggle"
+                    title={expanded ? 'Collapse task row' : 'Expand task row'}
+                    type="button"
+                    onClick={() => onToggleRow(task)}
+                  >
+                    <KRHomebaseIcons.Chevron className={`${LAYOUT_STYLES.chevron} ${expanded ? 'rotate-180' : ''}`} />
+                  </button>
+                ) : null}
+                </div>
               )
             })
           ) : (

@@ -36,6 +36,7 @@ import {
   taskDraftProblem,
   taskDueInfo,
   taskPriorityLabel,
+  taskDescriptionParts,
   taskShortId,
   taskStatusLabel,
   taskUpdateBody,
@@ -85,8 +86,8 @@ const TASKS = [
     matterNumber: '306.1',
     matterTitle: 'Estate plan',
     assignees: [
-      { userId: 'u1', label: 'Dan Example' },
-      { userId: 'u2', label: 'Ann Kim' },
+      { userId: 'u1', label: 'Dan Example', staffCode: 'DE1' },
+      { userId: 'u2', label: 'Ann Kim', staffCode: null },
     ],
     supervisorUserId: 'u3',
     supervisorLabel: 'Sam Lead',
@@ -124,11 +125,17 @@ describe('labels and the display id', () => {
     expect(taskClientMatterNumber(TASKS[3]!)).toBe('Firm task')
   })
 
+  it('shows the entry a description names as one small link: "From WorkStream (#SHZ7GWE.)" (web patch 571)', () => {
+    expect(taskDescriptionParts('From WorkStream entry WS #SHZ7GWE.')).toEqual([{ text: 'From WorkStream ' }, { wsid: 'SHZ7GWE', label: '(#SHZ7GWE.)' }])
+    expect(taskDescriptionParts('Call first. See WS #AB12CD3 too')).toEqual([{ text: 'Call first. See ' }, { wsid: 'AB12CD3', label: 'WS #AB12CD3' }, { text: ' too' }])
+    expect(taskDescriptionParts('No entry here.')).toEqual([{ text: 'No entry here.' }])
+  })
+
   it('makes initials from names and staff labels', () => {
     expect(assigneeInitials('Dan Example')).toBe('DE')
     expect(assigneeInitials('DK - Dan Example')).toBe('DE')
     expect(assigneeInitials('ann@example.com')).toBe('A')
-    expect(assigneesShortLabel(TASKS[0]!)).toBe('DE AK')
+    expect(assigneesShortLabel(TASKS[0]!)).toBe('DE1 AK')
     expect(assigneesShortLabel(TASKS[3]!)).toBe('—')
   })
 })
@@ -232,7 +239,7 @@ describe('first draws', () => {
     expect(html).toContain('306.1')
     expect(html).toContain('Urgent')
     expect(html).toContain('In progress')
-    expect(html).toContain('DE AK')
+    expect(html).toContain('DE1 AK')
     expect(html.match(/data-kr-element="task-overdue"/g)).toHaveLength(1)
     expect(html).toContain('Overdue: due 11/10/2026')
     expect(html).not.toContain('Load more tasks')

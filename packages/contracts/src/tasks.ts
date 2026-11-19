@@ -8,6 +8,8 @@
  *   POST  /v1/tasks                       create (the API makes the public id; client, matter and assignees checked)
  *   PATCH /v1/tasks/{taskId}              change the fields sent
  *   PUT   /v1/tasks/{taskId}/assignees    replace the current assignees
+ *   GET   /v1/tasks/{taskId}/notes        the task's follow-up notes, newest first (web patch 571, migration 003)
+ *   POST  /v1/tasks/{taskId}/notes        add a follow-up note
  *
  * Who (D9, Nov 13, 2026): every staff role may read and write, as WorkStream. No delete route.
  * Old route: `GET`, `POST`, `PATCH /krhomebase/api/tasks`.
@@ -79,6 +81,7 @@ const assigneeIds = z.array(id('A staff user id.')).max(TASK_MAX_ASSIGNEES)
 export const TaskAssignee = z.object({
   userId: z.string().describe('The assigned staff user.'),
   label: z.string().describe("That user's name (preferred name, else first and last name, else email)."),
+  staffCode: z.string().nullable().describe("That user's staff code (`employee.staff_code`), or null when they have none (API 1.2.0 patch 2)."),
 })
 export type TaskAssignee = z.infer<typeof TaskAssignee>
 
@@ -178,3 +181,24 @@ export type TaskAssigneesBody = z.infer<typeof TaskAssigneesBody>
 
 export const TaskSavedData = z.object({ task: Task.describe('The task after the save.') })
 export type TaskSavedData = z.infer<typeof TaskSavedData>
+
+/** One follow-up note on a task (`task_note`, migration 003; the requester, Nov 18, 2026). Notes are added, never changed. */
+export const TaskNote = z.object({
+  id: z.string().describe('Row id (`tno_<uuid>`).'),
+  text: z.string().describe('The note.'),
+  authorUserId: z.string().describe('Who wrote it.'),
+  authorLabel: z.string().describe('Their name.'),
+  createdAt: z.string().describe('When it was written (ISO time).'),
+})
+export type TaskNote = z.infer<typeof TaskNote>
+
+export const TaskNotesData = z.object({
+  taskId: z.string().describe("The task's public id."),
+  notes: z.array(TaskNote).describe('Newest first.'),
+})
+export type TaskNotesData = z.infer<typeof TaskNotesData>
+
+export const TaskNoteBody = z.object({
+  text: text(10000).min(1, 'Type the note first.').describe('The note (1 to 10,000 characters).'),
+})
+export type TaskNoteBody = z.infer<typeof TaskNoteBody>

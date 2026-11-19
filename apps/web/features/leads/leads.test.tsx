@@ -209,9 +209,9 @@ describe('first draws', () => {
   })
 
   const note: WorkstreamActivity = {
-    id: 'wsa_1', wsid: 'ABC1234', subgroup: 'Notes', clientId: null, clientNumber: null, clientDisplayName: null, leadId: 'lead_1', lcid: 'L007', matterId: null, matterNumber: null, matterTitle: null,
+    id: 'wsa_1', wsid: 'ABC1234', subgroup: 'Notes', subgroups: ['Notes'], clientId: null, clientNumber: null, clientDisplayName: null, leadId: 'lead_1', lcid: 'L007', matterId: null, matterNumber: null, matterTitle: null,
     activityAt: '2026-11-12T16:00:00.000Z', title: 'Called back', note: 'Called back\nLeft a message', noteHtml: null, nextSteps: [], documentRecordId: null, documentUrl: null, documentLabel: null, taskId: null,
-    assigneeUserId: null, assigneeContactId: null, assigneeLabel: null, performedByUserId: 'u1', performedByLabel: 'Dan Example', createdAt: '2026-11-12T16:00:00.000Z', updatedAt: null,
+    assigneeUserId: null, assigneeUserIds: [], assigneeContactId: null, assigneeLabel: null, performedByUserId: 'u1', performedByLabel: 'Dan Example', createdAt: '2026-11-12T16:00:00.000Z', updatedAt: null,
   }
 
   it('draws the Detail tab with the facts, Convert to client and the Workstream notes', () => {

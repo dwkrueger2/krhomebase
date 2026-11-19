@@ -15,11 +15,15 @@
  * Stage 4d-2: the same PUT also saves the professional title, the attorney flag and the bar admissions
  * (`employee_certification`), and the list carries the person's names, phone and Google sign-in identities.
  *
+ * FB-0008 (repository patch 59): the same PUT sets the person's default billing rate class (`defaultRateClassId`,
+ * kept in the billing rates settings row, `billingRates.ts`), and the list carries each person's default and the classes.
+ *
  * Old routes: `GET`/`POST`/`PATCH /krhomebase/api/kr-api-v1/users`, `GET`/`PATCH`/`DELETE /krhomebase/api/kr-api-v1/user-invites`
  * and `PUT /krhomebase/api/admin/users/{userId}/role-sets`.
  */
 
 import { z } from 'zod'
+import { BillingRateClass, BillingRateClassId } from './billingRates.ts'
 import { RoleSet } from './roleSets.ts'
 
 export const ACCOUNT_STATUSES = ['active', 'pending', 'deactivated'] as const
@@ -98,6 +102,7 @@ export const UserAccount = z.object({
   primaryRoleSetId: z.string().nullable().describe('The primary role set (also `user.role_set_id`).'),
   employee: UserEmployee.nullable().describe('The employee record, when the person is enrolled.'),
   inviteId: z.string().nullable().describe('The newest invitation for this email that was not accepted, if any.'),
+  defaultRateClassId: z.string().nullable().optional().describe('The billing rate class that fills a new time entry for this person (FB-0008); empty when none is set.'),
 })
 export type UserAccount = z.infer<typeof UserAccount>
 
@@ -106,6 +111,7 @@ export const UsersData = z.object({
   invites: z.array(UserInvite).describe('Every invitation not accepted, newest first.'),
   roleSets: z.array(RoleSet).describe('The active role sets, for the role choices and the effective permissions.'),
   viewerUserId: z.string().describe('The signed-in super admin (their own status and Super Admin role set cannot be changed here).'),
+  rateClasses: z.array(BillingRateClass).optional().describe('The billing rate classes, for the Default rate choice (FB-0008).'),
 })
 export type UsersData = z.infer<typeof UsersData>
 
@@ -145,6 +151,7 @@ export const UpdateUserBody = z.object({
   jobTitle: z.string().trim().max(120).nullable().optional().describe('Professional title on the employee record; left out keeps it.'),
   isAttorney: z.boolean().optional().describe('Attorney flag on the person record; turning it off clears the bar admissions. Left out keeps it.'),
   barAdmissions: z.array(BarAdmission).max(20).optional().describe('Every bar admission the person should have; the rest are cleared. Left out keeps them.'),
+  defaultRateClassId: BillingRateClassId.nullable().optional().describe('The billing rate class that fills this person\'s new time entries (FB-0008); null clears it, left out keeps it.'),
 })
 export type UpdateUserBody = z.infer<typeof UpdateUserBody>
 

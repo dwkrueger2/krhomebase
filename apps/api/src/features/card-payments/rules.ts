@@ -46,6 +46,7 @@ import {
   type CardPaymentIntentData,
 } from '@krhomebase/contracts'
 import { logLine } from '../../platform/log.ts'
+import { isDevelopmentServer } from '../../platform/runtime.ts'
 import { callStripeApi, type StripeCredentials, type StripeFetch } from '../../platform/stripeApi.ts'
 import type { PaymentStripe, StripeRefundDetails, VerifiedCardIntent } from '../billing/rules.ts'
 import { KR_STRIPE_BILLING_SOURCE, payLinkEnvironment } from '../pay-links/rules.ts'
@@ -75,11 +76,11 @@ const INTENT_PATTERN = /^pi_[A-Za-z0-9]{8,64}$/
 const REFUND_PATTERN = /^re_[A-Za-z0-9]{8,64}$/
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-/** True on a development server: `KR_APP_BASE_URL` is a localhost address (`pnpm dev`). */
-export function isDevelopmentServer(env: CardPaymentEnv): boolean {
-  const base = typeof env.KR_APP_BASE_URL === 'string' ? env.KR_APP_BASE_URL.trim().toLowerCase() : ''
-  return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/.test(base)
-}
+/**
+ * True on a development server: `KR_APP_BASE_URL` is a localhost address (`pnpm dev`). The rule moved to
+ * `platform/runtime.ts` in repository patch 58 (the outside tools use it too); it is re-exported here unchanged.
+ */
+export { isDevelopmentServer }
 
 /**
  * Whether a person may choose between sandbox and live for billing card payments: only a super admin on a development

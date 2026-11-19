@@ -19,12 +19,17 @@
  *  - The selected entry's card slides out to the right (the requester, Nov 16, 2026, web patch 554): the narrow tab on
  *    its left edge hides it, so the rows take the width, and brings it back. The choice is remembered in this browser
  *    (`localStorage`, read after mount; the card shows when storage cannot be read).
+ *  - Nov 18, 2026 (FB-0016, web patch 570): a row's double-click opens that entry's full view (`onOpen`).
+ *  - Nov 18, 2026 (web patch 571): the SHOW buttons wear the WorkStream type colors; the parent filters its loaded list
+ *    (no request, so no spinner, when a SHOW button is pressed).
  */
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
+import type { WorkstreamSubgroup } from '@krhomebase/contracts'
 import { LEDGER_FILTERS, type LedgerActivityFilter, type LedgerActivityRow, type LedgerRowPresentation } from '../workstreamLedgerRows'
+import { ACTIVITY_TYPE_STYLES } from './CommunicationActivityIcon.client'
 import WorkstreamActivityCards from './WorkstreamActivityCards.client'
 
 export interface WorkstreamActivityLedgerProps {
@@ -41,6 +46,8 @@ export interface WorkstreamActivityLedgerProps {
   /** Rows switched apart from the ledger-wide presentation. */
   presentationOverrides: Readonly<Record<string, LedgerRowPresentation>>
   onToggleRow: (row: LedgerActivityRow) => void
+  /** A row's double-click: open that entry's full view (FB-0016). */
+  onOpen?: (id: string) => void
   loading: boolean
   /** The reason the list could not be read, or null. */
   error: string | null
@@ -54,7 +61,7 @@ export interface WorkstreamActivityLedgerProps {
   /** Present: the Email button (client accounts only). */
   onEmail?: () => void
   /** The selected entry's card. */
-  renderDetail: (row: LedgerActivityRow, openFullViewRequestId: number | null) => ReactNode
+  renderDetail: (row: LedgerActivityRow) => ReactNode
 }
 
 /** Color, type, border, and general-esthetic utilities. */
@@ -72,6 +79,9 @@ const STYLES = {
   filter: 'min-h-[22px] cursor-pointer rounded-[3px] border border-(--kr-theme-communication-line) text-[11px] font-[700] text-(color:--kr-theme-communication-text-muted) hover:border-(--kr-theme-communication-accent-strong)',
   filterActive: 'border-(--kr-theme-communication-accent-strong) bg-(--kr-theme-communication-accent-strong) text-(color:--kr-theme-communication-surface-elevated)',
   filterIdle: 'bg-(--kr-theme-communication-surface)',
+  // A type's button: the shape only, so its WorkStream colors never compete with another border or text color.
+  filterTypeShape: 'min-h-[22px] cursor-pointer rounded-[3px] border text-[11px] font-[700]',
+  filterTypeIdle: 'bg-(--kr-theme-communication-surface) text-(color:--kr-theme-communication-text)',
   addButton:
     'min-h-[24px] cursor-pointer rounded-[3px] border border-(--kr-theme-communication-accent-strong) bg-(--kr-theme-communication-accent-strong) text-[11px] font-[900] text-(color:--kr-theme-communication-surface-elevated) hover:bg-(--kr-theme-communication-accent)',
   viewButton: 'min-h-[22px] cursor-pointer border-0 bg-transparent text-[11px] font-[900] text-(color:--kr-theme-communication-text-muted) hover:text-(color:--kr-theme-communication-text)',
@@ -86,6 +96,21 @@ const STYLES = {
   more: 'border-t border-(--kr-theme-communication-line) bg-(--kr-theme-communication-surface) text-[11px] text-(color:--kr-theme-communication-text-muted)',
   moreButton: 'min-h-[22px] cursor-pointer rounded-[3px] border border-(--kr-theme-communication-line) bg-(--kr-theme-communication-surface-elevated) text-[11px] font-[700] text-(color:--kr-theme-communication-text) hover:border-(--kr-theme-communication-accent-strong) disabled:cursor-not-allowed disabled:opacity-60',
 } as const
+
+/**
+ * The SHOW buttons in the WorkStream type colors (web patch 571): a type's border while idle (its light text is too
+ * faint on this light bar), its fill and text when pressed, as in the Workstream section. The colors are custom
+ * properties from `Communications.module.css` (`panelColors` on the tab).
+ */
+const FILTER_TYPE_IDLE: Record<WorkstreamSubgroup, string> = {
+  PhoneCalls: 'border-(--CommunicationPhoneCallsLine)',
+  Emails: 'border-(--CommunicationEmailsLine)',
+  Notes: 'border-(--CommunicationNotesLine)',
+  Tasks: 'border-(--CommunicationTasksLine)',
+  ReceivedFiles: 'border-(--CommunicationReceivedFilesLine)',
+  SentFiles: 'border-(--CommunicationSentFilesLine)',
+  WIP: 'border-(--CommunicationWipLine)',
+}
 
 /** Padding, spacing, display, and layout utilities. */
 const LAYOUT_STYLES = {
@@ -120,12 +145,10 @@ const DETAIL_HIDDEN_KEY = 'kr.workstream.summaryCardHidden'
 
 /** Renders the client WorkStream ledger. */
 export default function WorkstreamActivityLedger(props: WorkstreamActivityLedgerProps) {
-  const { contextLabel, error, filter, hasMore, loading, loadingMore, onAdd, onEmail, onFilterChange, onLoadMore, onPresentationChange, onRetry, onSelect, onToggleRow, presentation, presentationOverrides, renderDetail, rows, selectedId, subtitle, title } = props
+  const { contextLabel, error, filter, hasMore, loading, loadingMore, onAdd, onEmail, onFilterChange, onLoadMore, onOpen, onPresentationChange, onRetry, onSelect, onToggleRow, presentation, presentationOverrides, renderDetail, rows, selectedId, subtitle, title } = props
   const selected = rows.find((row) => row.id === selectedId) ?? rows[0] ?? null
   const detailId = useId()
   const [detailHidden, setDetailHidden] = useState(false)
-  const [fullViewRequest, setFullViewRequest] = useState<{ rowId: string; id: number } | null>(null)
-  const fullViewRequestId = useRef(0)
 
   // The remembered choice is read after mount, so the server and the first browser draw agree (card shown).
   useEffect(() => {
@@ -147,13 +170,6 @@ export default function WorkstreamActivityLedger(props: WorkstreamActivityLedger
     }
   }
 
-  /** Selects a row and requests its full view; the increasing id also handles repeated double-clicks. */
-  function openFullView(row: LedgerActivityRow): void {
-    onSelect(row.id)
-    fullViewRequestId.current += 1
-    setFullViewRequest({ rowId: row.id, id: fullViewRequestId.current })
-  }
-
   return (
     <section className={STYLES.shell} data-kr-id="kr-workstream-activity-ledger">
       {/* Header: the client and its matters, the purpose, and how many rows show. */}
@@ -173,11 +189,19 @@ export default function WorkstreamActivityLedger(props: WorkstreamActivityLedger
       <div aria-label="Workstream activity filters" className={`${LAYOUT_STYLES.filterBar} ${STYLES.filterBar} ${STYLES.rule}`} data-kr-id="Workstream-Activity-Filters">
         <div className={LAYOUT_STYLES.filterChoices}>
           <span className={`${LAYOUT_STYLES.filterLabel} ${STYLES.eyebrow}`}>Show</span>
-          {LEDGER_FILTERS.map(({ label, value }) => (
-            <button aria-pressed={filter === value} className={`${LAYOUT_STYLES.filter} ${STYLES.filter} ${filter === value ? STYLES.filterActive : STYLES.filterIdle}`} key={value} type="button" onClick={() => onFilterChange(value)}>
-              {label}
-            </button>
-          ))}
+          {LEDGER_FILTERS.map(({ label, value }) => {
+            const pressed = filter === value
+            // All keeps the brand look; a type shows its WorkStream color.
+            const look =
+              value === 'all'
+                ? `${STYLES.filter} ${pressed ? STYLES.filterActive : STYLES.filterIdle}`
+                : `${STYLES.filterTypeShape} ${pressed ? ACTIVITY_TYPE_STYLES[value].active : `${STYLES.filterTypeIdle} ${FILTER_TYPE_IDLE[value]}`}`
+            return (
+              <button aria-pressed={pressed} className={`${LAYOUT_STYLES.filter} ${look}`} data-kr-workstream-activity-type={value} key={value} type="button" onClick={() => onFilterChange(value)}>
+                {label}
+              </button>
+            )
+          })}
         </div>
         <div className={`${LAYOUT_STYLES.actionGroup} ${STYLES.rule}`} data-kr-element="workstream-activity-actions">
           {onAdd ? (
@@ -220,7 +244,15 @@ export default function WorkstreamActivityLedger(props: WorkstreamActivityLedger
             </div>
           ) : rows.length ? (
             rows.map((row) => (
-              <WorkstreamActivityCards key={row.id} presentation={presentationOverrides[row.id] ?? presentation} row={row} selected={selected?.id === row.id} onSelect={(chosen) => onSelect(chosen.id)} onOpenFullView={openFullView} onTogglePresentation={onToggleRow} />
+              <WorkstreamActivityCards
+                key={row.id}
+                presentation={presentationOverrides[row.id] ?? presentation}
+                row={row}
+                selected={selected?.id === row.id}
+                onOpen={onOpen ? (chosen) => onOpen(chosen.id) : undefined}
+                onSelect={(chosen) => onSelect(chosen.id)}
+                onTogglePresentation={onToggleRow}
+              />
             ))
           ) : (
             <p className={`${LAYOUT_STYLES.status} ${STYLES.empty}`}>No Workstream activity matches this filter.</p>
@@ -251,7 +283,7 @@ export default function WorkstreamActivityLedger(props: WorkstreamActivityLedger
             <span className={STYLES.detailToggleLabel}>{detailHidden ? 'Details' : 'Hide'}</span>
           </button>
           <div className={`${LAYOUT_STYLES.detailContent} ${STYLES.detailMotion} ${detailHidden ? LAYOUT_STYLES.detailContentHidden : ''}`} id={detailId} inert={detailHidden}>
-            {selected ? renderDetail(selected, fullViewRequest?.rowId === selected.id ? fullViewRequest.id : null) : <p className={STYLES.empty}>Select an activity to see its detail.</p>}
+            {selected ? renderDetail(selected) : <p className={STYLES.empty}>Select an activity to see its detail.</p>}
           </div>
         </aside>
       </div>

@@ -38,6 +38,7 @@
 
 import type { ClientStatusBody, ClientStatusData, ContactCreateBody, ContactCreateData, ContactUpdateBody } from '@krhomebase/contracts'
 import type { AddressFields, ClientRow, ContactEditQueries, ContactKind, EntityContactRow, MethodRow, NewMethod } from './queries.ts'
+import { ADDITIONAL_PHONE_LABEL, contactMethodSlots } from '../contacts/rules.ts'
 
 // ----------------------------------------------------------------------------------------------------------
 // Errors
@@ -333,9 +334,10 @@ function methodStatements(
   isPrimary: boolean,
   now: string,
 ): D1PreparedStatement[] {
-  const ofType = rows.filter((row) => row.contact_type === contactType)
-  // The current row for this slot (unchanged): an open row with the same primary flag; for a primary slot, any open row.
-  const current = ofType.find((row) => !row.valid_to && row.is_primary === (isPrimary ? 1 : 0)) ?? (isPrimary ? ofType.find((row) => !row.valid_to) : undefined)
+  // The current row for this slot, by the same rule the contacts read uses, so a saved value is read back in its slot
+  // (FB-0012, API 1.2.0 patch 0). Before, the additional slot could pick the primary slot's row.
+  const slots = contactMethodSlots(rows, contactType)
+  const current = isPrimary ? slots.primary : slots.secondary
   const value = contactType === 'email' ? normalizeEmail(rawValue) : normalizePhone(rawValue)
 
   if (current) {
@@ -347,7 +349,7 @@ function methodStatements(
   }
   if (!value) return []
   const id = newId(kind === 'individual' ? 'icm' : 'ecm')
-  const label = contactType === 'email' ? 'Primary email' : contactType === 'fax' ? 'Primary fax' : isPrimary ? 'Primary phone' : 'Additional phone'
+  const label = contactType === 'email' ? 'Primary email' : contactType === 'fax' ? 'Primary fax' : isPrimary ? 'Primary phone' : ADDITIONAL_PHONE_LABEL
   const row: NewMethod = {
     id,
     contactId,
@@ -355,7 +357,9 @@ function methodStatements(
     value,
     label,
     useContext: kind === 'individual' ? 'client_contact' : 'general',
-    isPrimary: 1,
+    // FB-0012 (API 1.2.0 patch 0): an Additional phone is saved as not primary. It was always saved as primary, so
+    // the read (which shows only an unmarked row as the Cell phone) never showed it, and each save added another copy.
+    isPrimary: isPrimary ? 1 : 0,
     canText: contactType === 'phone' ? 1 : 0,
     now,
   }

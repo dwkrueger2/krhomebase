@@ -8,6 +8,8 @@ export interface U6ConfirmationDialogProps {
   title: string
   description: string
   confirmLabel: string
+  /** The cancel button's words (default "Cancel"); "Stay" for "Leave without saving?" (root AGENTS.md, Unsaved Changes Standard). */
+  cancelLabel?: string
   busy?: boolean
   busyLabel?: string
   /** Optional dialog content rendered between the description and actions. */
@@ -76,6 +78,7 @@ export function U6ConfirmationDialog({
   busyLabel = 'Working...',
   children,
   confirmLabel,
+  cancelLabel = 'Cancel',
   description,
   error = '',
   onCancel,
@@ -100,7 +103,7 @@ export function U6ConfirmationDialog({
         {busy ? <div className={LAYOUT_STYLES.busy}><RainbowBusySpinner busy hideWhenIdle={false} label={busyLabel} size={18} /></div> : null}
         {/* Action buttons: Cancel, optional neutral secondary choice, and Confirm */}
         <div className={LAYOUT_STYLES.actions}>
-          <button className={`${STYLES.button} ${STYLES.cancel}`} disabled={busy} onClick={onCancel} type="button">Cancel</button>
+          <button className={`${STYLES.button} ${STYLES.cancel}`} disabled={busy} onClick={onCancel} type="button">{cancelLabel}</button>
           {secondaryLabel && onSecondary ? (
             <button className={`${STYLES.button} ${STYLES.secondary}`} data-kr-action="u6-confirmation-secondary" disabled={busy} onClick={onSecondary} type="button">{secondaryLabel}</button>
           ) : null}

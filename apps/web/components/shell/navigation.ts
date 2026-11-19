@@ -130,6 +130,8 @@ export const SECTION_SUB_PAGE_PARAMS: Readonly<Partial<Record<BuiltInSectionId, 
   'firm-settings': 'firmSettingsSection',
   // Billing part 7b: the open report (the old Reports panel's `?report=`).
   reports: 'report',
+  // Web patch 571 ("Following a code"): the lead to open, by LCID or id (`?lead=L007`).
+  leads: 'lead',
 }
 
 /** One step of the breadcrumb trail. A step with a `sectionId` can be chosen to open that section. */

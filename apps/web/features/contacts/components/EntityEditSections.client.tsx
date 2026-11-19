@@ -3,12 +3,16 @@
 /**
  * Entity-only editor sections used by ContactEditCard: type selector, identity and compliance fields, point of
  * contact and registered agent pickers. Ported Nov 9, 2026 (plan stage 1d-3) from the old `hb-components/modules/contacts/components/EntityEditSections.client.tsx`. Unchanged.
+ *
+ * Changed Nov 17, 2026 (FB-0015): the state of formation is marked in red when a save is refused for it
+ * (`useContactFieldMarks`); four businesses were seeded with "Texas" there.
  */
 
 import { useState } from 'react'
 import type { KRContactDraft, KRContactRecord } from '../types'
 import { formatTaxId } from '../taxIdFormat'
 import IndividualSearch from './IndividualSearch.client'
+import { useContactFieldMarks } from './contactFieldMarks.client'
 
 const LAYOUT_STYLES = {
   section: 'gap-1.5 mb-1.5 grid min-w-0 grid-cols-1',
@@ -179,6 +183,7 @@ export function EntityComplianceFields({
   onDraftChange,
   savingContact = false,
 }: EntityEditSectionProps) {
+  const stateOfFormation = useContactFieldMarks()('stateOfFormation')
   const update = (field: keyof KRContactDraft, value: string) =>
     onDraftChange({ ...draft, [field]: value })
   return (
@@ -206,10 +211,11 @@ export function EntityComplianceFields({
             onChange={(event) => update('ein', event.target.value)}
           />
         </label>
-        <label className={`${LAYOUT_STYLES.field} ${STYLES.label}`}>
+        <label className={`${LAYOUT_STYLES.field} ${STYLES.label} ${stateOfFormation.label}`}>
           <span>State of registration / formation</span>
           <input
-            className={STYLES.input}
+            {...stateOfFormation.props}
+            className={`${STYLES.input} ${stateOfFormation.input}`}
             disabled={savingContact}
             value={draft.stateOfFormation ?? ''}
             onChange={(event) =>

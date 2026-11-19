@@ -17,6 +17,7 @@
  */
 
 import { auditStatement, type AuditEntry } from '../../platform/queries.ts'
+import { billingRateDefaultStatement, readBillingRatesRow } from '../firm/queries.ts'
 
 export class UsersUnavailableError extends Error {
   constructor(cause: unknown) {
@@ -121,6 +122,8 @@ export type UserWrite =
   | { kind: 'updateInvite'; id: string; status: string; notes: string | null; now: string }
   | { kind: 'inviteSent'; id: string; sentAt: string | null; provider: string; messageId: string | null; notes: string | null; now: string }
   | { kind: 'deleteInvite'; id: string }
+  // FB-0008: one person's default billing rate class, in the billing rates settings row (firm/queries.ts).
+  | { kind: 'setDefaultRateClass'; userId: string; classId: string | null; now: string }
 
 export interface UserQueries {
   users(): Promise<UserRow[]>
@@ -133,6 +136,8 @@ export interface UserQueries {
   invites(): Promise<InviteRow[]>
   /** True when a Google sign-in already uses this email. */
   ssoEmailInUse(email: string): Promise<boolean>
+  /** The billing rates settings row's JSON (FB-0008), or null when there is none. */
+  billingRates(): Promise<string | null>
   write(operations: UserWrite[], audits: AuditEntry[]): Promise<void>
 }
 
@@ -239,6 +244,9 @@ export function createUserQueries(db: D1Database): UserQueries {
           .bind(op.id, op.sentAt, op.provider, op.messageId, op.notes, op.now)
       case 'deleteInvite':
         return db.prepare('DELETE FROM user_invite WHERE id = ?1').bind(op.id)
+      case 'setDefaultRateClass':
+        // See the lookup table as described in Schema 8.0: docs/Schema_8.0/table_lookup.html (section "How KR Homebase uses this table").
+        return billingRateDefaultStatement(db, op.userId, op.classId, op.now)
     }
   }
 
@@ -266,6 +274,13 @@ export function createUserQueries(db: D1Database): UserQueries {
         `SELECT id, email, role, worker_classification, invited_user_id, status, expires_at, sent_at, created_at, notes
            FROM user_invite ORDER BY created_at DESC LIMIT 2000`,
       ),
+    async billingRates() {
+      try {
+        return (await readBillingRatesRow(db))?.description ?? null
+      } catch (error) {
+        throw new UsersUnavailableError(error)
+      }
+    },
     async ssoEmailInUse(email) {
       const rows = await all<{ id: string }>('SELECT id FROM user_sso_identity WHERE lower(email) = ?1 LIMIT 1', email.toLowerCase())
       return rows.length > 0

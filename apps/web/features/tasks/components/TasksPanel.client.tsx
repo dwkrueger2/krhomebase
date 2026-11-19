@@ -67,6 +67,8 @@ const STYLES = {
   addButton:
     'min-h-[24px] cursor-pointer rounded-[3px] border border-(--kr-theme-button-primary-background) bg-(--kr-theme-button-primary-background) text-[11px] font-[900] text-(color:--kr-theme-text-inverse) hover:bg-(--kr-theme-button-primary-hover-background)',
   status: 'm-0 text-[11px] leading-[1.3] text-(color:--kr-theme-success)',
+  viewButton: 'min-h-[22px] cursor-pointer border-0 bg-transparent text-[11px] font-[900] text-(color:--kr-theme-text-muted) hover:text-(color:--kr-theme-brand-primary)',
+  viewButtonActive: 'text-(color:--kr-theme-brand-primary)',
   empty: 'm-0 text-[12px] text-(color:--kr-theme-text-muted)',
   // b1: ' border-red-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
   // b2: ' border-blue-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
@@ -125,6 +127,9 @@ export default function TasksPanel({ initialData, viewer = null }: TasksPanelPro
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [dialog, setDialog] = useState<TaskDialogState>(null)
   const [status, setStatus] = useState('')
+  // Expand View / Single Line for every row, and the rows switched apart by their own chevron (web patch 571).
+  const [presentation, setPresentation] = useState<'Expanded' | 'SingleLine'>('SingleLine')
+  const [overrides, setOverrides] = useState<Record<string, 'Expanded' | 'SingleLine'>>({})
   const requestRef = useRef(0)
   const skipFirstLoad = useRef(Boolean(initialData))
 
@@ -237,13 +242,27 @@ export default function TasksPanel({ initialData, viewer = null }: TasksPanelPro
               ))}
             </div>
           </div>
-          {rights.canWrite ? (
-            <div className={LAYOUT_STYLES.actionGroup} data-kr-element="tasks-actions">
+          <div className={LAYOUT_STYLES.actionGroup} data-kr-element="tasks-actions">
+            {rights.canWrite ? (
               <button className={`${LAYOUT_STYLES.addButton} ${STYLES.addButton}`} data-kr-action="new-task" type="button" onClick={() => setDialog({ mode: 'new' })}>
                 + New task
               </button>
-            </div>
-          ) : null}
+            ) : null}
+            {/* Every row single line or expanded (as the WorkStream list); a row's chevron switches only that row. */}
+            <button
+              aria-pressed={presentation === 'Expanded'}
+              className={`${STYLES.viewButton} ${presentation === 'Expanded' ? STYLES.viewButtonActive : ''}`}
+              data-kr-element="tasks-view-toggle"
+              title={presentation === 'Expanded' ? 'Switch to single-line task rows' : 'Switch to expanded task rows'}
+              type="button"
+              onClick={() => {
+                setPresentation(presentation === 'Expanded' ? 'SingleLine' : 'Expanded')
+                setOverrides({})
+              }}
+            >
+              {presentation === 'Expanded' ? 'Single Line' : 'Expand View'}
+            </button>
+          </div>
         </div>
 
         {/* Body: the task rows on the left, the selected task's card on the right. */}
@@ -261,6 +280,14 @@ export default function TasksPanel({ initialData, viewer = null }: TasksPanelPro
               onOpen={rights.canWrite ? (task) => setDialog({ mode: 'edit', task }) : undefined}
               onRetry={() => setReloadKey((key) => key + 1)}
               onSelect={(task) => setSelectedId(task.id)}
+              onToggleRow={(task) =>
+                setOverrides((current) => {
+                  const effective = current[task.id] ?? presentation
+                  return { ...current, [task.id]: effective === 'Expanded' ? 'SingleLine' : 'Expanded' }
+                })
+              }
+              presentation={presentation}
+              presentationOverrides={overrides}
             />
           </div>
           <aside aria-label="Selected task" className={LAYOUT_STYLES.detail}>

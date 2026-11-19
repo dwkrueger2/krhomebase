@@ -104,6 +104,8 @@ export interface UserDraft {
   jobTitle: string
   isAttorney: boolean
   barAdmissions: BarAdmissionDraft[]
+  /** FB-0008: the billing rate class that fills this person's new time entries ('' for none). */
+  defaultRateClassId: string
 }
 
 export function draftFromUser(user: UserAccount): UserDraft {
@@ -115,6 +117,7 @@ export function draftFromUser(user: UserAccount): UserDraft {
     jobTitle: user.employee?.jobTitle ?? '',
     isAttorney: user.isAttorney,
     barAdmissions: (user.employee?.barAdmissions ?? []).map((row, index) => ({ ...row, key: row.id ?? `stored-${index}` })),
+    defaultRateClassId: user.defaultRateClassId ?? '',
   }
 }
 
@@ -139,7 +142,8 @@ export function sameUserDraft(a: UserDraft, b: UserDraft): boolean {
     a.primaryRoleSetId === b.primaryRoleSetId &&
     a.jobTitle.trim() === b.jobTitle.trim() &&
     a.isAttorney === b.isAttorney &&
-    admissionText(a.barAdmissions) === admissionText(b.barAdmissions)
+    admissionText(a.barAdmissions) === admissionText(b.barAdmissions) &&
+    a.defaultRateClassId === b.defaultRateClassId
   )
 }
 
@@ -169,6 +173,8 @@ export function updateBodyFromDraft(user: UserAccount, draft: UserDraft): Update
   }
   if (user.employee) body.jobTitle = draft.jobTitle.trim() || null
   if (user.individualId) body.isAttorney = draft.isAttorney
+  // FB-0008: sent only when it changed, so a save never touches another default by accident.
+  if (draft.defaultRateClassId !== (user.defaultRateClassId ?? '')) body.defaultRateClassId = draft.defaultRateClassId || null
   if (user.employee && draft.isAttorney) {
     body.barAdmissions = draft.barAdmissions.map(({ id, jurisdiction, registrationNumber, admittedOn, expiresOn, status }) => ({
       id,

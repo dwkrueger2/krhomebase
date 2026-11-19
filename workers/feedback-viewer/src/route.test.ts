@@ -4,11 +4,14 @@ import { describe, expect, it } from 'vitest'
 import { detailHash, listHash, parseRoute } from './route.ts'
 
 describe('parseRoute', () => {
-  it('reads the list, with only known filter values', () => {
+  it('reads the list, with only known values (an old status or cursor is ignored)', () => {
     expect(parseRoute('')).toEqual({ view: 'list', filter: {} })
     expect(parseRoute('#/')).toEqual({ view: 'list', filter: {} })
-    expect(parseRoute('#/?status=new&kind=issue&cursor=abc')).toEqual({ view: 'list', filter: { status: 'new', kind: 'issue', cursor: 'abc' } })
-    expect(parseRoute('#/?status=nonsense&kind=<b>')).toEqual({ view: 'list', filter: {} })
+    expect(parseRoute('#/?status=new&kind=issue&cursor=abc')).toEqual({ view: 'list', filter: { kind: 'issue' } })
+    expect(parseRoute('#/?kind=<b>&open=nonsense&completed=number-desc-7-1')).toEqual({ view: 'list', filter: {} })
+    expect(parseRoute('#/?open=status-desc-25-2')).toEqual({ view: 'list', filter: { open: { sort: 'status', direction: 'desc', size: 25, page: 2 } } })
+    // A table at its default is left out.
+    expect(parseRoute('#/?open=developer-asc-10-1')).toEqual({ view: 'list', filter: {} })
   })
 
   it('reads one request as FB-0012, fb12 or 12', () => {
@@ -24,8 +27,10 @@ describe('parseRoute', () => {
   })
 
   it('writes addresses that read back the same', () => {
-    expect(parseRoute(listHash({ status: 'done', kind: 'feature' }))).toEqual({ view: 'list', filter: { status: 'done', kind: 'feature' } })
+    const completed = { sort: 'priority', direction: 'asc', size: 50, page: 3 } as const
+    expect(parseRoute(listHash({ kind: 'feature', completed }))).toEqual({ view: 'list', filter: { kind: 'feature', completed } })
     expect(listHash({})).toBe('#/')
+    expect(listHash({ open: { sort: 'developer', direction: 'asc', size: 10, page: 1 } })).toBe('#/')
     expect(parseRoute(detailHash('FB-0007'))).toEqual({ view: 'detail', number: 7 })
   })
 })

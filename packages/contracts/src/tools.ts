@@ -160,6 +160,17 @@ export const ToolEntryUrl = z
   .url()
   .describe('Full address of the tool screen, for example https://intake-tool.example.com/app. Its origin is the only place the frame may load from.')
 
+/**
+ * Two visibility options (repository patch 58, the requester, Nov 17, 2026; migration 058). They narrow who sees a
+ * tool beyond its role list; the API applies them to the menu, the tool's health check and every call it makes.
+ */
+export const ToolLocalOnly = z
+  .boolean()
+  .describe('True: shown and usable only while KR Homebase runs on a development computer (pnpm dev, a localhost address). The deployed app treats the tool as not there.')
+export const ToolDevelopersOnly = z
+  .boolean()
+  .describe('True: shown and usable only by people who hold developer_tools read (the Internal Developer role set; Super Admin holds every permission), whatever their role.')
+
 /** A tool registration as a super admin sees it. Never includes the client secret or its hash. */
 export const ToolRegistration = z.object({
   id: z.string().describe('Id of the registration row.'),
@@ -172,6 +183,8 @@ export const ToolRegistration = z.object({
   origin: z.string().describe('Origin of the tool screen (scheme, host and port), taken from entryUrl.'),
   entryUrl: z.string().describe('Full address of the tool screen.'),
   allowedRoles: z.array(z.string()).describe('Roles that see the tool in the menu and may use it.'),
+  localOnly: ToolLocalOnly,
+  developersOnly: ToolDevelopersOnly,
   scopes: z.array(ToolScope).describe('Permissions granted to the tool.'),
   status: ToolStatus,
   serverAccessEnabled: z.boolean().describe('True when the tool server may get access tokens (path B).'),
@@ -197,6 +210,8 @@ export const ToolCreateBody = z.object({
   menuOrder: z.number().int().min(0).max(9999).default(100).describe('Position among the outside tools; lower comes first.'),
   entryUrl: ToolEntryUrl,
   allowedRoles: z.array(RoleName).min(1).max(20).describe('Roles that see and may use the tool (any one of them). The API always adds super_admin.'),
+  localOnly: ToolLocalOnly.default(false),
+  developersOnly: ToolDevelopersOnly.default(false),
   scopes: z.array(ToolScope).max(ToolScopes.length).default([]).describe('Permissions to grant. Empty means the tool can learn only who is using it.'),
   serverAccessEnabled: z.boolean().default(false).describe('True to let the tool server get access tokens (path B). A client secret is made and shown once.'),
   serverIpAllowlist: z.array(IpAddress).max(20).default([]).describe('Optional: the only addresses the tool server may call from.'),
@@ -211,6 +226,8 @@ export const ToolUpdateBody = z.object({
   menuOrder: z.number().int().min(0).max(9999).optional().describe('New menu position.'),
   entryUrl: ToolEntryUrl.optional(),
   allowedRoles: z.array(RoleName).min(1).max(20).optional().describe('New list of roles (any one of them sees the tool). The API always adds super_admin.'),
+  localOnly: ToolLocalOnly.optional(),
+  developersOnly: ToolDevelopersOnly.optional(),
   scopes: z.array(ToolScope).max(ToolScopes.length).optional().describe('New list of permissions. Replaces the old list.'),
   status: ToolStatus.optional(),
   serverAccessEnabled: z.boolean().optional().describe('Turn the server path on or off. Turning it off ends every access token at once.'),
@@ -270,7 +287,10 @@ export const ToolAuditData = z.object({
 })
 export type ToolAuditData = z.infer<typeof ToolAuditData>
 
-/** A tool as the left menu needs it. Only active tools whose roles include the signed-in person are listed. */
+/**
+ * A tool as the left menu needs it. Only active tools the signed-in person may use are listed: their role is on the
+ * tool's list, and the tool's local-only and developers-only options allow them (`toolRefusal` in the API).
+ */
 export const ToolMenuItem = z.object({
   clientId: ToolClientId,
   label: z.string().describe('Words shown in the left menu.'),

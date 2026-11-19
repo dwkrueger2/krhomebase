@@ -10,8 +10,9 @@
  * from `feedbackColors.ts`: an element names its tone with `data-fb-tone` (`toneAttr`) and `main.ts` paints it.
  */
 
-import type { ListFilter } from './feedbackApi.ts'
+import type { FeedbackAll } from './feedbackApi.ts'
 import { KIND_TONES, PRIORITY_TONES, STATUS_TONES, toneOf, type FeedbackToneName } from './feedbackColors.ts'
+import { PAGE_SIZES, RESERVED_ROWS, sortedBy, tableOf, tablePage, type SortKey, type TableName, type TableState } from './listTables.ts'
 import { LENS_SIZES } from './magnifier.ts'
 import {
   copyForClaudeText,
@@ -21,18 +22,18 @@ import {
   imageAddress,
   KIND_LABELS,
   labelOf,
+  OPEN_FEEDBACK_STATUSES,
   PRIORITY_LABELS,
   SHAPE_LABELS,
   STATUS_LABELS,
   type FeedbackDetail,
   type FeedbackImage,
-  type FeedbackListData,
   type FeedbackNote,
   type FeedbackPriority,
   type FeedbackStatus,
   type FeedbackSummary,
 } from './feedbackTypes.ts'
-import { detailHash, listHash } from './route.ts'
+import { detailHash, listHash, tablesOf, type ListFilter } from './route.ts'
 
 /** A line shown above the screen: a refusal (`bad`) or a saved change (`good`). */
 export interface Notice {
@@ -101,47 +102,107 @@ function optionsHtml(values: readonly string[], labels: Record<string, string>, 
   )
 }
 
-/** The list: status and kind filters, newest first, one page at a time. */
-export function listView(data: FeedbackListData, filter: ListFilter, notice?: Notice): string {
-  const rows = data.items
-    .map(
-      // Each row is tinted by its status (the requester, Nov 16, 2026), with a left bar in the status color.
-      (item) => `<tr ${toneAttr(toneOf(STATUS_TONES, item.status))}>
+/** One request as a list row, tinted by its status with a left bar in the status color (the requester, Nov 16, 2026). */
+function rowHtml(item: FeedbackSummary): string {
+  return `<tr ${toneAttr(toneOf(STATUS_TONES, item.status))}>
 <td><a href="${escapeHtml(detailHash(item.code))}">${escapeHtml(item.code)}</a></td>
 <td>${pillHtml(toneOf(KIND_TONES, item.kind), labelOf(KIND_LABELS, item.kind))}</td>
 <td><a href="${escapeHtml(detailHash(item.code))}">${escapeHtml(item.title)}</a></td>
 <td>${pillHtml(toneOf(STATUS_TONES, item.status), labelOf(STATUS_LABELS, item.status))}</td>
 <td>${pillHtml(toneOf(PRIORITY_TONES, item.priority), labelOf(PRIORITY_LABELS, item.priority))}</td>
+<td class="dev">${item.submittedByDeveloper ? '<span class="dev-badge" title="Sent by a developer">D</span>' : ''}</td>
 <td>${escapeHtml(item.submittedByLabel)}</td>
 <td>${escapeHtml(item.sectionId ?? '')}</td>
 <td class="num">${item.markerCount}</td>
 <td class="num">${item.noteCount}</td>
 <td>${when(item.createdAt)}</td>
-</tr>`,
-    )
-    .join('\n')
-  const table = data.items.length
-    ? `<table data-kr-element="feedback-viewer-list">
-<thead><tr><th>Number</th><th>Kind</th><th>Title</th><th>Status</th><th>Priority</th><th>From</th><th>Section</th><th>Markers</th><th>Notes</th><th>Sent (UTC)</th></tr></thead>
+</tr>`
+}
+
+/** The ten columns of both tables; Number, Status and Priority sort (`listTables.ts`). */
+const COLUMNS: ReadonlyArray<{ label: string; sort?: SortKey; className?: string; title?: string }> = [
+  { label: 'Number', sort: 'number' },
+  { label: 'Kind' },
+  { label: 'Title' },
+  { label: 'Status', sort: 'status' },
+  { label: 'Priority', sort: 'priority' },
+  // D: sent by a developer (the requester, Nov 17, 2026); just wide enough for its orange badge.
+  { label: 'D', sort: 'developer', className: 'dev', title: 'Sent by a developer' },
+  { label: 'From' },
+  { label: 'Section' },
+  { label: 'Markers' },
+  { label: 'Notes' },
+  { label: 'Sent (UTC)' },
+]
+
+/** What a sorted column's arrow means, in words for its tooltip. */
+const SORT_WORDS: Record<SortKey, { asc: string; desc: string }> = {
+  number: { asc: 'oldest first', desc: 'newest first' },
+  status: { asc: 'New first, in workflow order', desc: 'last in the workflow first' },
+  priority: { asc: 'P1 Urgent first', desc: 'P4 Low first' },
+  developer: { asc: 'developers first', desc: 'developers last' },
+}
+
+/** A column heading: a link that sorts the table by it (a second click reverses), with an arrow while it sorts. */
+function headingHtml(column: (typeof COLUMNS)[number], name: TableName, filter: ListFilter, state: TableState): string {
+  const extra = column.className ? ` ${column.className}` : ''
+  if (!column.sort) return `<th${extra ? ` class="${extra.trim()}"` : ''}>${escapeHtml(column.label)}</th>`
+  const on = state.sort === column.sort
+  const next = sortedBy(state, column.sort)
+  const ariaSort = on ? ` aria-sort="${state.direction === 'asc' ? 'ascending' : 'descending'}"` : ''
+  const arrow = on ? (state.direction === 'asc' ? ' ▲' : ' ▼') : ''
+  const title = `${column.title ? `${column.title}. ` : ''}${on ? `Sorted ${SORT_WORDS[column.sort][state.direction]}. ` : ''}Sort ${SORT_WORDS[column.sort][next.direction]}`
+  return `<th class="sortable${on ? ' sorted' : ''}${extra}"${ariaSort}><a class="sort" href="${escapeHtml(listHash({ ...filter, [name]: next }))}" title="${escapeHtml(title)}" data-kr-element="feedback-viewer-sort-${name}-${column.sort}">${escapeHtml(column.label)}${arrow}</a></th>`
+}
+
+/**
+ * One of the two tables: its heading with the count and the rows-a-page choice, its page of rows (the table keeps
+ * the height of `RESERVED_ROWS` rows), and Previous and Next.
+ */
+function tableHtml(name: TableName, title: string, emptyWords: string, items: readonly FeedbackSummary[], filter: ListFilter): string {
+  const state = tablesOf(filter)[name]
+  const page = tablePage(items, state)
+  const sizes = PAGE_SIZES.map((size) => `<option value="${size}"${size === state.size ? ' selected' : ''}>${size}</option>`).join('')
+  const rows = page.rows.length ? page.rows.map(rowHtml) : [`<tr class="empty"><td colspan="${COLUMNS.length}">${escapeHtml(emptyWords)}</td></tr>`]
+  // Empty rows below a short page keep the table's height, so the table under it does not jump.
+  const fillers = Array.from({ length: Math.max(0, RESERVED_ROWS - rows.length) }, () => `<tr class="filler" aria-hidden="true"><td colspan="${COLUMNS.length}"></td></tr>`)
+  const pageLink = (to: number, label: string, rel: 'prev' | 'next') =>
+    to >= 1 && to <= page.pages && to !== page.page
+      ? `<a href="${escapeHtml(listHash({ ...filter, [name]: { ...state, page: to } }))}" rel="${rel}" data-kr-element="feedback-viewer-${name}-${rel}">${label}</a>`
+      : `<span class="off" aria-disabled="true">${label}</span>`
+  const marker = name === 'open' ? 'feedback-viewer-list' : 'feedback-viewer-completed-list'
+  return `<section class="list-table" data-kr-element="feedback-viewer-${name}-table">
+<div class="table-head">
+<h3>${escapeHtml(title)} <span class="count">${page.total}</span></h3>
+<label class="rows">Rows <select data-action="page-size" data-table="${name}" aria-label="${escapeHtml(`${title}: rows a page`)}">${sizes}</select></label>
+</div>
+<table data-kr-element="${marker}">
+<thead><tr>${COLUMNS.map((column) => headingHtml(column, name, filter, state)).join('')}</tr></thead>
 <tbody>
-${rows}
+${[...rows, ...fillers].join('\n')}
 </tbody>
-</table>`
-    : '<p class="meta">No requests match.</p>'
-  const first = filter.cursor ? `<a href="${escapeHtml(listHash({ ...filter, cursor: undefined }))}">First page</a>` : ''
-  const next = data.nextCursor ? `<a href="${escapeHtml(listHash({ ...filter, cursor: data.nextCursor }))}">Next page</a>` : ''
-  const paging = first || next ? `<p class="paging">${[first, next].filter(Boolean).join(' · ')}</p>` : ''
+</table>
+<p class="paging" data-kr-element="feedback-viewer-${name}-paging">${pageLink(page.page - 1, '‹ Previous', 'prev')} <span class="range">${page.total ? `${page.from}–${page.to} of ${page.total}` : 'None'}</span> ${pageLink(page.page + 1, 'Next ›', 'next')}</p>
+</section>`
+}
+
+/**
+ * The list (tool version 1.4.0, the requester, Nov 17, 2026): the Kind filter, then **Open Items** and, below it,
+ * **Completed Items** (Completed and Will not do), each sorted and paged on its own (`listTables.ts`).
+ */
+export function listView(data: FeedbackAll, filter: ListFilter, notice?: Notice): string {
+  const open = data.items.filter((item) => tableOf(item) === 'open')
+  const completed = data.items.filter((item) => tableOf(item) === 'completed')
   const readOnly = data.viewer.canTriage ? '' : '<p class="meta">You may read requests but not change them (you need developer_tools update).</p>'
   return `${noticeHtml(notice)}
 <h2>Requests</h2>
 <form class="inline" data-action="filter" data-kr-element="feedback-viewer-filter">
-<label>Status <select name="status">${optionsHtml(FEEDBACK_STATUSES, STATUS_LABELS, filter.status, 'All')}</select></label>
 <label>Kind <select name="kind">${optionsHtml(FEEDBACK_KINDS, KIND_LABELS, filter.kind, 'All')}</select></label>
 <button type="submit">Show</button>
 </form>
 ${readOnly}
-${table}
-${paging}`
+${tableHtml('open', 'Open Items', 'No open requests.', open, filter)}
+${tableHtml('completed', 'Completed Items', 'No completed requests.', completed, filter)}`
 }
 
 /** One shape in words: what it is, and the markers it points at. */
@@ -185,6 +246,23 @@ function changeWords(note: FeedbackNote): string {
   if (note.noteType === 'status_change') return `Status ${labelOf(STATUS_LABELS, note.fromValue)} to ${labelOf(STATUS_LABELS, note.toValue)}. `
   if (note.noteType === 'priority_change') return `Priority ${labelOf(PRIORITY_LABELS, note.fromValue)} to ${labelOf(PRIORITY_LABELS, note.toValue)}. `
   return ''
+}
+
+/**
+ * The note Save and Mark Complete sends (the requester, Nov 18, 2026, tool 1.7.0): the person's own note, if any,
+ * then the line "FB Marked complete by <name>" on a line of its own. The name is the signed-in person's, from
+ * `/v1/tools/context`; when it could not be read the line has no name (the status change note still names its
+ * author). Kept within the note's 10,000 characters by shortening the person's note, never the line.
+ *
+ * @param note - The note the person typed (may be empty).
+ * @param displayName - The signed-in person's name, or '' when unknown.
+ * @returns The note to send.
+ */
+export function completionNote(note: string, displayName: string): string {
+  const name = displayName.trim()
+  const line = name ? `FB Marked complete by ${name}` : 'FB Marked complete'
+  const text = note.trim().slice(0, 10_000 - line.length - 2).trimEnd()
+  return text ? `${text}\n\n${line}` : line
 }
 
 /**
@@ -274,20 +352,26 @@ export function detailView(item: FeedbackDetail, options: { canTriage: boolean; 
   const images = item.images.length ? item.images.map((image, index) => imageHtml(item, image, index)).join('\n') : '<p class="meta">No screenshots.</p>'
   const notes = item.notes.length
     ? item.notes
-        .map((note) => `<div class="note"><div class="meta">${escapeHtml(note.authorLabel)}, ${when(note.createdAt)}</div><div>${escapeHtml(changeWords(note))}${escapeHtml(note.text ?? '')}</div></div>`)
+        .map((note) => `<div class="note"><div class="meta">${escapeHtml(note.authorLabel)}, ${when(note.createdAt)}</div><div class="note-text">${escapeHtml(changeWords(note))}${escapeHtml(note.text ?? '')}</div></div>`)
         .join('')
     : '<p class="meta">No notes yet.</p>'
 
   // One form saves the status, the priority and a note together (the API keeps a note sent with no other change as a
   // plain note). Save Changes keeps its place but shows only while the form differs from what is saved; `main.ts`
   // sets `dirty` on the form and writes what will change beside the button (root AGENTS.md, Unsaved Changes Standard).
+  // Save and Mark Complete (FB-0013, tool 1.6.0) shows while the request is still open: one click saves the form with
+  // the status Completed. It is drawn in the Completed color, so Save Changes stays the brightest button. Since tool
+  // 1.7.0 its note ends with "FB Marked complete by <name>" (`completionNote`), and the tool goes back to the list.
+  const completeButton = (OPEN_FEEDBACK_STATUSES as readonly string[]).includes(item.status)
+    ? `<button type="submit" class="save-complete" name="intent" value="complete" ${toneAttr(toneOf(STATUS_TONES, 'done'))} data-kr-element="feedback-viewer-save-complete">Save and Mark Complete</button>`
+    : ''
   const changeForm = !options.canTriage
     ? '<p class="meta">You may read this request but not change it (you need developer_tools update).</p>'
     : `<form data-action="change" data-kr-element="feedback-viewer-change">
 <div class="form-row"><label>Status <select name="status" ${toneAttr(toneOf(STATUS_TONES, item.status))}>${optionsHtml(FEEDBACK_STATUSES, STATUS_LABELS, item.status, undefined, STATUS_TONES)}</select></label>
 <label>Priority <select name="priority" ${toneAttr(toneOf(PRIORITY_TONES, item.priority))}>${optionsHtml(FEEDBACK_PRIORITIES, PRIORITY_LABELS, item.priority, undefined, PRIORITY_TONES)}</select></label></div>
 <label class="block">Note (optional)<textarea name="note" maxlength="10000"></textarea></label>
-<div class="save-row"><button type="submit" class="save" data-kr-element="feedback-viewer-save">Save Changes</button><span class="change-words meta" aria-live="polite"></span></div>
+<div class="save-row"><button type="submit" class="save" data-kr-element="feedback-viewer-save">Save Changes</button>${completeButton}<span class="change-words meta" aria-live="polite"></span></div>
 </form>`
 
   return `${detailNavHtml(options.listFilter, options.neighbors ?? {})}

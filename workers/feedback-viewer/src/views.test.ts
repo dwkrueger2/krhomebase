@@ -1,8 +1,23 @@
 // file: workers/feedback-viewer/src/views.test.ts
 // The screens: values are escaped, Save Changes names what it will change, read-only people see no forms, pills and arrows.
 import { describe, expect, it } from 'vitest'
-import { copyForClaudeText, type FeedbackDetail, type FeedbackListData } from './feedbackTypes.ts'
-import { detailView, draftChangeWords, escapeHtml, isDraftDirty, leaveDialogHtml, listView } from './views.ts'
+import type { FeedbackAll } from './feedbackApi.ts'
+import { copyForClaudeText, type FeedbackDetail } from './feedbackTypes.ts'
+import { completionNote, detailView, draftChangeWords, escapeHtml, isDraftDirty, leaveDialogHtml, listView } from './views.ts'
+
+describe('completionNote', () => {
+  it('ends the note with who marked the request complete, on a line of its own', () => {
+    expect(completionNote('  Fixed in web 569.  ', 'Dan Krueger')).toBe('Fixed in web 569.\n\nFB Marked complete by Dan Krueger')
+    expect(completionNote('   ', ' Dan Krueger ')).toBe('FB Marked complete by Dan Krueger')
+    expect(completionNote('', '')).toBe('FB Marked complete')
+  })
+
+  it('stays within the note limit by shortening the typed note, never the line', () => {
+    const note = completionNote('x'.repeat(10_000), 'Dan Krueger')
+    expect(note.length).toBeLessThanOrEqual(10_000)
+    expect(note.endsWith('\n\nFB Marked complete by Dan Krueger')).toBe(true)
+  })
+})
 
 const detail: FeedbackDetail = {
   number: 12,
@@ -37,7 +52,16 @@ const detail: FeedbackDetail = {
   notes: [{ id: 'n1', noteType: 'status_change', text: null, fromValue: 'new', toValue: 'triaged', authorUserId: 'u2', authorLabel: 'Dev', createdAt: '2026-11-14T10:00:00Z' }],
 }
 
-const list: FeedbackListData = { items: [detail], nextCursor: 'next1', viewer: { userId: 'u2', isDeveloper: true, canTriage: true } }
+const list: FeedbackAll = { items: [detail], viewer: { userId: 'u2', isDeveloper: true, canTriage: true } }
+/** A request of the given number, status and priority, for the two tables. */
+const row = (number: number, status: FeedbackDetail['status'], priority: FeedbackDetail['priority'] = 'normal') => ({
+  ...detail,
+  number,
+  code: `FB-${String(number).padStart(4, '0')}`,
+  title: `Request ${number}`,
+  status,
+  priority,
+})
 
 describe('escapeHtml', () => {
   it('escapes markup and quotes', () => {
@@ -46,14 +70,49 @@ describe('escapeHtml', () => {
 })
 
 describe('listView', () => {
-  it('shows the rows escaped, links to each request and the next page', () => {
-    const html = listView(list, { status: 'new' })
+  it('shows the rows escaped and links to each request', () => {
+    const html = listView(list, {})
     expect(html).toContain('href="#/FB-0012"')
     expect(html).toContain('Save &lt;button&gt; does nothing')
     expect(html).toContain('Pat &quot;P&quot; Doe')
-    expect(html).toContain('href="#/?status=new&amp;cursor=next1"')
     expect(html).not.toContain('<button> does')
     expect(html).toContain('<tr data-fb-tone="navy">')
+  })
+
+  it('puts open requests on top and Completed and Will not do below, each keeping ten rows of space', () => {
+    const html = listView({ ...list, items: [row(1, 'done'), row(2, 'new'), row(3, 'will_not_do'), row(4, 'planned', 'urgent')] }, {})
+    const open = html.slice(html.indexOf('feedback-viewer-open-table'), html.indexOf('feedback-viewer-completed-table'))
+    const completed = html.slice(html.indexOf('feedback-viewer-completed-table'))
+    // Open Items: P1 first, then the rest; Completed Items: newest number first.
+    expect(open.indexOf('FB-0004')).toBeLessThan(open.indexOf('FB-0002'))
+    expect(open).not.toContain('FB-0001')
+    expect(completed.indexOf('FB-0003')).toBeLessThan(completed.indexOf('FB-0001'))
+    expect(completed).toContain('>Completed</span>')
+    expect(open.match(/class="filler"/g)?.length).toBe(8)
+    expect(html).toContain('<table data-kr-element="feedback-viewer-list">')
+    expect(html).toContain('<table data-kr-element="feedback-viewer-completed-list">')
+    expect(html).not.toContain('name="status"')
+  })
+
+  it('marks a developer\'s request with the orange D, left of From', () => {
+    const html = listView({ ...list, items: [{ ...detail, submittedByDeveloper: true }] }, {})
+    expect(html).toContain('<td class="dev"><span class="dev-badge" title="Sent by a developer">D</span></td>\n<td>Pat &quot;P&quot; Doe</td>')
+    expect(html).toMatch(/<th class="sortable sorted dev" aria-sort="ascending"><a class="sort" href="#\/\?open=developer-desc-10-1" title="Sent by a developer\. Sorted developers first\. Sort developers last"/)
+  })
+
+  it('sorts from the Number, Status and Priority headings and pages with the rows choice', () => {
+    const items = Array.from({ length: 12 }, (_, i) => row(i + 1, 'new'))
+    const html = listView({ ...list, items }, {})
+    // D sorts the open table now (developers first): its link reverses it; Priority starts P1 first.
+    expect(html).toContain('aria-sort="ascending"><a class="sort" href="#/?open=developer-desc-10-1"')
+    expect(html).toContain('href="#/?open=priority-asc-10-1"')
+    expect(html).toContain('href="#/?open=status-asc-10-1"')
+    expect(html).toContain('href="#/?completed=number-asc-10-1"')
+    expect(html).toContain('1–10 of 12')
+    expect(html).toContain('href="#/?open=developer-asc-10-2" rel="next"')
+    const second = listView({ ...list, items }, { open: { sort: 'developer', direction: 'asc', size: 10, page: 2 } })
+    expect(second).toContain('11–12 of 12')
+    expect(second).toContain('<option value="25">25</option>')
   })
 
   it('says when the person may only read', () => {
@@ -85,6 +144,16 @@ describe('detailView', () => {
     expect(draftChangeWords(detail, { status: 'new', priority: 'normal', note: 'Only a note' })).toBe('Add the note')
   })
 
+  it('offers Save and Mark Complete while the request is open, and not once it is Completed or Will not do (FB-0013)', () => {
+    const html = detailView(detail, { canTriage: true, listFilter: {} })
+    expect(html).toContain('data-kr-element="feedback-viewer-save-complete"')
+    expect(html).toContain('name="intent" value="complete"')
+    expect(html).toContain('Save and Mark Complete')
+    expect(detailView({ ...detail, status: 'done' }, { canTriage: true, listFilter: {} })).not.toContain('Save and Mark Complete')
+    expect(detailView({ ...detail, status: 'will_not_do' }, { canTriage: true, listFilter: {} })).not.toContain('Save and Mark Complete')
+    expect(detailView(detail, { canTriage: false, listFilter: {} })).not.toContain('Save and Mark Complete')
+  })
+
   it('is clean again when the values are set back', () => {
     expect(isDraftDirty(detail, { status: 'new', priority: 'normal', note: '  ' })).toBe(false)
   })
@@ -100,7 +169,7 @@ describe('detailView', () => {
 
   it('colors each status and priority choice in the open list', () => {
     const html = detailView(detail, { canTriage: true, listFilter: {} })
-    expect(html).toContain('<option value="done" data-fb-tone="green">Done</option>')
+    expect(html).toContain('<option value="done" data-fb-tone="green">Completed</option>')
     expect(html).toContain('<option value="urgent" data-fb-tone="brickSolid">P1 Urgent</option>')
     expect(html).toContain('<option value="new" data-fb-tone="navy" selected>New</option>')
   })

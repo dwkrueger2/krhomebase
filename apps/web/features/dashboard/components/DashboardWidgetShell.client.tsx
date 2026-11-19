@@ -8,7 +8,7 @@
  *
  * Changed from the old shell: the collapse button is not ported (the old clock widget had it disabled, and collapsed
  * state was never saved); a widget is hidden in User Settings → Dashboard instead. The old scope tag is not ported.
- * A `wide` widget takes two columns from tablet width.
+ * A `wide` widget takes two columns from tablet width. The two timekeeping widgets have a fixed 300px width and minimum width; Team Status stays medium so it occupies one grid column.
  *
  * @param props - The widget's definition and its body.
  * @returns The widget card.
@@ -20,6 +20,7 @@ import type { WidgetDefinition } from '@krhomebase/tool-sdk/types'
 const LAYOUT_STYLES = {
   card: 'min-w-0 overflow-hidden flex flex-col',
   wide: 'md:col-span-2',
+  fixed300: 'w-[300px] min-w-[300px]',
   header: 'min-h-[30px] px-[8px] py-[6px] gap-[8px] flex items-center justify-between',
   body: 'p-[8px] min-w-0',
 } as const
@@ -48,7 +49,7 @@ export default function DashboardWidgetShell({ definition, children }: Dashboard
   return (
     <article
       aria-labelledby={`dashboard-widget-${definition.id}-title`}
-      className={`${LAYOUT_STYLES.card} ${definition.size === 'wide' ? LAYOUT_STYLES.wide : ''} ${STYLES.card}`}
+      className={`${LAYOUT_STYLES.card} ${definition.size === 'wide' ? LAYOUT_STYLES.wide : ''} ${definition.id === 'team-status' || definition.id === 'employee-clock-in' ? LAYOUT_STYLES.fixed300 : ''} ${STYLES.card}`}
       data-kr-component="DashboardWidgetShell"
       data-kr-id={`dashboard-widget-${definition.id}`}
       data-kr-widget-size={definition.size}

@@ -5,7 +5,10 @@
  *     from the KR Homebase menu), the page shows only how to open it. The colors of `feedbackColors.ts` are written
  *     onto the page root.
  *  2. Show the screen the address after `#` names (`route.ts`): the list, or one request with arrows to the requests
- *     before and after it in the list it was opened from.
+ *     before and after it in the list it was opened from. The list (tool version 1.4.0) is two tables, Open Items and
+ *     Completed Items, sorted and paged in the page (`listTables.ts`) from every request, loaded once
+ *     (`feedbackApi.listAll`) and kept while the person sorts and pages; it is loaded again after a request was open,
+ *     when the kind changes, and when the page is reloaded.
  *  3. Handle the forms and buttons (`data-action` in `views.ts`): filter, save a status, priority or note change, copy
  *     for Claude. Every call goes through the kit (`feedbackApi.ts`); KR Homebase checks the person and the tool on
  *     each one.
@@ -16,17 +19,21 @@
  *  5. The Markers switch (`markerPick.ts`): outline this tool's markers and copy one for a feedback request, since
  *     KR Homebase's Dev View cannot see inside the frame.
  *  6. The screenshots' Magnify (a lens in three sizes) and Pop out (`magnifier.ts`).
+ *  7. Save and Mark Complete (tool 1.7.0, the requester, Nov 18, 2026): the note ends with "FB Marked complete by
+ *     <name>" (the signed-in person, read once with `whoIsCalling`), and once saved the request closes and the list
+ *     shows again, with the result above it.
  */
 
 import { connectToHost, type ToolHost } from '@krhomebase/tool-sdk/frame'
 import { applyFeedbackTheme, paintTones, PRIORITY_TONES, STATUS_TONES, toneOf } from './feedbackColors.ts'
-import { feedbackApi, problemText, type FeedbackApi, type ListFilter } from './feedbackApi.ts'
-import { FEEDBACK_PRIORITIES, FEEDBACK_STATUSES, type FeedbackDetail, type FeedbackPriority, type FeedbackStatus } from './feedbackTypes.ts'
+import { feedbackApi, problemText, type FeedbackAll, type FeedbackApi } from './feedbackApi.ts'
+import { FEEDBACK_PRIORITIES, FEEDBACK_STATUSES, type FeedbackDetail, type FeedbackKind, type FeedbackPriority, type FeedbackStatus } from './feedbackTypes.ts'
+import { listOrder, PAGE_SIZES, TABLE_NAMES, type PageSize, type TableName } from './listTables.ts'
 import { installMagnifier, syncMagnifierControls } from './magnifier.ts'
 import { installMarkerPick } from './markerPick.ts'
-import { listHash, parseRoute } from './route.ts'
+import { listHash, parseRoute, tablesOf, type ListFilter } from './route.ts'
 import { tool } from './tool.ts'
-import { busyHtml, detailView, draftChangeWords, isDraftDirty, leaveDialogHtml, listView, loadingView, messageView, type DraftChange, type Neighbors, type Notice } from './views.ts'
+import { busyHtml, completionNote, detailView, draftChangeWords, isDraftDirty, leaveDialogHtml, listView, loadingView, messageView, type DraftChange, type Neighbors, type Notice } from './views.ts'
 import './viewer.css'
 
 const app = document.getElementById('app') as HTMLElement
@@ -40,12 +47,18 @@ let current: FeedbackDetail | null = null
 let lastListFilter: ListFilter = {}
 /** The request codes of the list last shown, in order, for the Previous and Next arrows. */
 let listCodes: string[] = []
+/** Every request of the kind last listed, kept while the person sorts and pages; null to load again. */
+let listCache: { kind: FeedbackKind | undefined; data: FeedbackAll } | null = null
 /** The address after `#` of the screen on show, to put back when the person chooses Stay. */
 let shownHash = ''
 /** True while the change form differs from what is saved. */
 let dirty = false
 /** True while a save is on its way, so a second click does not send it twice. */
 let busy = false
+/** The signed-in person's name for the Save and Mark Complete note; null until read (stage 7). */
+let personName: string | null = null
+/** The result to show above the list the next time it is drawn (after Save and Mark Complete). */
+let listNotice: Notice | undefined
 
 function show(html: string): void {
   app.innerHTML = html
@@ -100,6 +113,16 @@ function showDetail(notice?: Notice): void {
   refreshDirty()
 }
 
+/** Every request of one kind (or all): the kept copy when it is of that kind, else loaded through the API. */
+async function loadList(kind: FeedbackKind | undefined): Promise<{ ok: true; data: FeedbackAll } | { ok: false; text: string }> {
+  if (listCache && listCache.kind === kind) return { ok: true, data: listCache.data }
+  if (!api) return { ok: false, text: 'Not connected to KR Homebase.' }
+  const reply = await api.listAll(kind)
+  if (!reply.ok) return { ok: false, text: problemText(reply.error, reply.requestId) }
+  listCache = { kind, data: reply.data }
+  return { ok: true, data: reply.data }
+}
+
 /** Stage 2: draws the screen the address names. */
 async function render(): Promise<void> {
   if (!api) return
@@ -108,15 +131,16 @@ async function render(): Promise<void> {
   if (route.view === 'list') {
     lastListFilter = route.filter
     current = null
-    show(loadingView('Requests'))
-    const reply = await api.list(route.filter)
-    if (!reply.ok) {
-      show(messageView('Requests', problemText(reply.error, reply.requestId), false))
+    if (!listCache || listCache.kind !== route.filter.kind) show(loadingView('Requests'))
+    const list = await loadList(route.filter.kind)
+    if (!list.ok) {
+      show(messageView('Requests', list.text, false))
       return
     }
-    canTriage = reply.data.viewer.canTriage
-    listCodes = reply.data.items.map((item) => item.code)
-    show(listView(reply.data, route.filter))
+    canTriage = list.data.viewer.canTriage
+    listCodes = listOrder(list.data.items, tablesOf(route.filter))
+    show(listView(list.data, route.filter, listNotice))
+    listNotice = undefined
     host?.setTitle('Homebase Feedback')
     refreshDirty()
     return
@@ -124,10 +148,12 @@ async function render(): Promise<void> {
   show(loadingView('Request'))
   if (canTriage === null || !listCodes.length) {
     // Opened straight on a request: the list gives what the person may do and the order for the arrows.
-    const who = await api.list(lastListFilter)
+    const who = await loadList(lastListFilter.kind)
     canTriage = who.ok ? who.data.viewer.canTriage : false
-    if (who.ok) listCodes = who.data.items.map((item) => item.code)
+    if (who.ok) listCodes = listOrder(who.data.items, tablesOf(lastListFilter))
   }
+  // A request may change while it is open (here or elsewhere), so the list is read again on the way back.
+  listCache = null
   const reply = await api.get(route.number)
   if (!reply.ok) {
     current = null
@@ -196,16 +222,45 @@ async function copyField(button: HTMLButtonElement): Promise<void> {
   }, 2000)
 }
 
-/** Saves the change form in one step, then shows the request as KR Homebase saved it, or the refusal. */
-async function saveDraft(draft: DraftChange): Promise<void> {
+/**
+ * Stage 7: the signed-in person's name, read once from KR Homebase (`/v1/tools/context`). '' when it cannot be read;
+ * it is then asked again the next time.
+ */
+async function personNameOnce(): Promise<string> {
+  if (personName !== null || !api) return personName ?? ''
+  const who = await api.whoIsCalling()
+  if (!who.ok) return ''
+  personName = who.data.user?.displayName ?? ''
+  return personName
+}
+
+/**
+ * Saves the change form in one step, then shows the request as KR Homebase saved it, or the refusal.
+ * Save and Mark Complete (`complete`, stage 7) sends the status Completed with "FB Marked complete by <name>" at the
+ * end of the note, and once saved closes the request and shows the list again.
+ *
+ * @param draft - The form's values as the person set them.
+ * @param complete - True for Save and Mark Complete.
+ */
+async function saveDraft(draft: DraftChange, complete = false): Promise<void> {
   if (!api || !current || busy) return
   busy = true
+  const number = current.number
   for (const control of Array.from(app.querySelectorAll('button, textarea, select'))) (control as HTMLButtonElement).disabled = true
   // The rainbow ring beside Save Changes while the save is on its way.
   app.querySelector('.save')?.insertAdjacentHTML('afterend', ` ${busyHtml('Saving...')}`)
-  const reply = await api.change(current.number, draft)
+  const sent: DraftChange = complete ? { ...draft, status: 'done', note: completionNote(draft.note, await personNameOnce()) } : draft
+  const reply = await api.change(number, sent)
   busy = false
-  if (reply.ok) {
+  if (reply.ok && complete) {
+    // Close the request and go back to the list it was opened from, with the result above it. The form is saved, so
+    // nothing asks "Leave without saving?".
+    dirty = false
+    host?.setDirty(false)
+    listCache = null
+    listNotice = { kind: 'good', text: `${reply.data.feedback.code} saved and marked Completed.` }
+    location.hash = listHash(lastListFilter)
+  } else if (reply.ok) {
     current = reply.data.feedback
     showDetail({ kind: 'good', text: 'Changes saved.' })
   } else {
@@ -213,7 +268,7 @@ async function saveDraft(draft: DraftChange): Promise<void> {
     // Keep what the person chose, so a refused save does not lose it.
     const form = app.querySelector<HTMLFormElement>('form[data-action="change"]')
     if (form) {
-      ;(form.elements.namedItem('status') as HTMLSelectElement).value = draft.status
+      ;(form.elements.namedItem('status') as HTMLSelectElement).value = sent.status
       ;(form.elements.namedItem('priority') as HTMLSelectElement).value = draft.priority
       ;(form.elements.namedItem('note') as HTMLTextAreaElement).value = draft.note
       refreshDirty()
@@ -228,15 +283,20 @@ app.addEventListener('submit', (event) => {
   const data = new FormData(form)
   const action = form.dataset.action
   if (action === 'filter') {
-    // parseRoute keeps only known values, so the address never carries anything else.
-    const query = new URLSearchParams({ status: String(data.get('status') ?? ''), kind: String(data.get('kind') ?? '') })
-    const route = parseRoute(`#/?${query.toString()}`)
-    location.hash = route.view === 'list' ? listHash(route.filter) : '#/'
+    // parseRoute keeps only known values, so the address never carries anything else. A new kind keeps each table's
+    // sort and rows a page, and starts both on their first page.
+    const route = parseRoute(`#/?${new URLSearchParams({ kind: String(data.get('kind') ?? '') }).toString()}`)
+    const tables = tablesOf(lastListFilter)
+    const kind = route.view === 'list' ? route.filter.kind : undefined
+    location.hash = listHash({ kind, open: { ...tables.open, page: 1 }, completed: { ...tables.completed, page: 1 } })
     return
   }
   if (action === 'change' && current) {
     const draft = readDraft()
-    if (draft && isDraftDirty(current, draft)) void saveDraft(draft)
+    // Save and Mark Complete (FB-0013): the form's values with the status Completed, saved even when nothing else changed.
+    const submitter = (event as SubmitEvent).submitter as HTMLButtonElement | null
+    if (draft && submitter?.value === 'complete') void saveDraft(draft, true)
+    else if (draft && isDraftDirty(current, draft)) void saveDraft(draft)
   }
 })
 
@@ -257,7 +317,17 @@ app.addEventListener('click', (event) => {
 })
 
 app.addEventListener('input', () => refreshDirty())
-app.addEventListener('change', () => refreshDirty())
+app.addEventListener('change', (event) => {
+  // A table's rows a page (10, 25, 50, 100): kept in the address, back on the first page.
+  const select = (event.target as HTMLElement).closest<HTMLSelectElement>('select[data-action="page-size"]')
+  const name = select?.dataset.table as TableName | undefined
+  const size = Number(select?.value) as PageSize
+  if (select && name && (TABLE_NAMES as readonly string[]).includes(name) && (PAGE_SIZES as readonly number[]).includes(size)) {
+    location.hash = listHash({ ...lastListFilter, [name]: { ...tablesOf(lastListFilter)[name], size, page: 1 } })
+    return
+  }
+  refreshDirty()
+})
 
 /** Stage 4: the browser's back and forward buttons inside the frame change the address without a click. */
 window.addEventListener('hashchange', () => {

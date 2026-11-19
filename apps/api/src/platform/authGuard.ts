@@ -40,10 +40,20 @@ import { accessAllows } from '../features/auth/rules.ts'
 import { permissionQueriesFor } from '../features/permissions/queries.ts'
 import { isAuthorized } from '../features/permissions/rules.ts'
 import { toolQueriesFor, type ToolQueries } from '../features/tools/queries.ts'
-import { bearerToken, hashToolSecret, ipAllowed, scopeAllows, toolUsableBy, type ToolCaller } from '../features/tools/rules.ts'
+import {
+  bearerToken,
+  hashToolSecret,
+  ipAllowed,
+  scopeAllows,
+  TOOL_DEVELOPER_PERMISSION,
+  toolRefusal,
+  type ToolCaller,
+  type ToolViewer,
+} from '../features/tools/rules.ts'
 import { routeRegistry, type RouteMeta } from './defineRoute.ts'
 import { failure } from './envelope.ts'
 import { logLine } from './log.ts'
+import { isDevelopmentServer } from './runtime.ts'
 import { readAuthSettings } from './settings.ts'
 import { validateSession } from './sessionClient.ts'
 import type { AppEnv } from './types.ts'
@@ -116,6 +126,10 @@ async function serverToolGate(c: Context<AppEnv>, next: Next, route: RouteMeta |
   if (!tool) return failure(c, 401, 'TOOL_TOKEN_INVALID', 'The access token is not valid.', { reason: 'token_invalid' })
   if (tool.status !== 'active') return failure(c, 403, 'TOOL_FORBIDDEN', 'This tool is turned off.', { reason: 'tool_disabled' })
   if (!tool.serverAccessEnabled) return failure(c, 403, 'TOOL_FORBIDDEN', 'Server access is turned off for this tool.', { reason: 'server_access_disabled' })
+  // A local-only tool (migration 058) does not exist for the deployed API, on this path too.
+  if (tool.localOnly && !isDevelopmentServer(c.env)) {
+    return failure(c, 403, 'TOOL_FORBIDDEN', 'This tool is for local development only.', { reason: 'tool_local_only' })
+  }
   if (!ipAllowed(tool.serverIpAllowlist, clientIp(c.req.raw.headers))) {
     return failure(c, 403, 'TOOL_FORBIDDEN', 'This address may not call for this tool.', { reason: 'ip_not_allowed' })
   }
@@ -129,6 +143,36 @@ async function serverToolGate(c: Context<AppEnv>, next: Next, route: RouteMeta |
   await auditToolCall(c, queries, caller, null)
 }
 
+/** The sentence for each reason a person may not use a tool (`toolRefusal`). */
+const TOOL_REFUSAL_WORDS: Record<NonNullable<ReturnType<typeof toolRefusal>>, string> = {
+  tool_disabled: 'This tool is turned off.',
+  tool_local_only: 'This tool is for local development only.',
+  role_not_allowed: 'Your role may not use this tool.',
+  developers_only: 'This tool is for developers only.',
+}
+
+/**
+ * Who is asking and where, for `toolRefusal` (the menu, the health check and the frame gate use it). Whether the
+ * person holds `developer_tools` read is asked only when `needsDeveloperCheck` is true (a developers-only tool is in
+ * question), so other tools cost no permission read. When the permissions cannot be read the answer is no, logged.
+ *
+ * @param c - The request (its bindings and request id).
+ * @param session - The checked session.
+ * @param needsDeveloperCheck - True when at least one tool in question is developers-only.
+ */
+export async function toolViewerFor(c: Context<AppEnv>, session: SessionUser, needsDeveloperCheck: boolean): Promise<ToolViewer> {
+  const viewer: ToolViewer = { role: session.role, developmentServer: isDevelopmentServer(c.env), isDeveloper: false }
+  if (!needsDeveloperCheck) return viewer
+  const queries = permissionQueriesFor(c.env)
+  if (!queries) return viewer
+  try {
+    viewer.isDeveloper = await isAuthorized(queries, session.userId, TOOL_DEVELOPER_PERMISSION.resource, TOOL_DEVELOPER_PERMISSION.action)
+  } catch (error) {
+    logLine('TOOL_GATE:developer_check_failed', c.get('requestId'), { reason: error instanceof Error ? error.message.slice(0, 80) : 'unknown' })
+  }
+  return viewer
+}
+
 /**
  * Path A: a browser call the host page made for a tool in a frame. The session was already checked; this
  * adds the tool's role list and permissions.
@@ -138,8 +182,8 @@ async function frameToolGate(c: Context<AppEnv>, next: Next, route: RouteMeta, s
   if (!queries) return failure(c, 503, 'TOOLS_UNAVAILABLE', 'Outside tools are not available right now.')
   const tool = await queries.findToolByClientId(clientId)
   if (!tool) return failure(c, 403, 'TOOL_FORBIDDEN', 'No such tool.', { reason: 'tool_unknown' })
-  if (tool.status !== 'active') return failure(c, 403, 'TOOL_FORBIDDEN', 'This tool is turned off.', { reason: 'tool_disabled' })
-  if (!toolUsableBy(tool, session)) return failure(c, 403, 'TOOL_FORBIDDEN', 'Your role may not use this tool.', { reason: 'role_not_allowed' })
+  const refusal = toolRefusal(tool, await toolViewerFor(c, session, tool.developersOnly))
+  if (refusal) return failure(c, 403, 'TOOL_FORBIDDEN', TOOL_REFUSAL_WORDS[refusal], { reason: refusal })
   const allowed = scopeAllows(route.toolAccess, tool.scopes)
   if (!allowed.ok) return failure(c, 403, 'TOOL_FORBIDDEN', 'This tool lacks the permission this route needs.', { reason: allowed.reason, needs: route.toolAccess ?? null })
 

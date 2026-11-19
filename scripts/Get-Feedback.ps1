@@ -4,8 +4,10 @@
 #
 #   pnpm feedback:get -Number 12            writes feedback-cache\FB-0012\FB-0012.md
 #   pnpm feedback:get -Number FB-0012       the same
-#   pnpm feedback:get -Open                 writes feedback-cache\index.md: every request not Done or Will not do,
-#                                           most urgent first (what Claude reads for "plan open feedback")
+#   pnpm feedback:get -Open                 writes feedback-cache\index.md: every request not Completed or Will not do,
+#                                           developers' requests first, then most urgent (what Claude reads for
+#                                           "plan open feedback"; the requester, Nov 17, 2026: "Feedback from users
+#                                           with developer role get priority")
 #
 # Read-only: it runs one `wrangler d1 execute ... --command` of SELECT statements (AGENTS_06 and the root AGENTS.md
 # hard rule 4 allow read-only commands), and one `wrangler r2 object get` per screenshot (stage F3), which downloads
@@ -112,6 +114,8 @@ function ConvertFrom-JsonArray([string]$Json) {
 # The plain words for each stored value (packages/contracts/src/homebaseFeedback.ts).
 $KindWords = @{ issue = 'Bug'; usability = 'Usability'; feature = 'Feature request'; question = 'Question' }
 $PriorityWords = @{ urgent = 'P1 Urgent'; high = 'P2 High'; normal = 'P3 Normal'; low = 'P4 Low' }
+# `done` is shown as Completed (repository patch 58); the stored value is unchanged.
+$StatusWords = @{ new = 'New'; reopened = 'Reopened'; triaged = 'Triaged'; needs_info = 'Needs info'; planned = 'Planned'; in_progress = 'In progress'; done = 'Completed'; will_not_do = 'Will not do' }
 
 <# A stored value with its plain words in front: "Bug (issue)". #>
 function Format-Words([hashtable]$Words, $Value) {
@@ -120,15 +124,18 @@ function Format-Words([hashtable]$Words, $Value) {
 }
 
 if ($Open) {
-    # Every request still waiting for work, most urgent first, then oldest first.
+    # Every request still waiting for work: a developer's first (the sender holds the Internal Developer or Super Admin
+    # role set now, the same rule as the API's list), then most urgent, then oldest first.
     $openSql = @"
 SELECT f.number, f.kind, f.title, f.status, f.priority, f.created_at, f.web_version,
        (SELECT COUNT(*) FROM homebase_feedback_image i WHERE i.feedback_id = f.id) AS image_count,
        (SELECT COUNT(*) FROM homebase_feedback_note n WHERE n.feedback_id = f.id) AS note_count,
-       su.email AS submitter_email, si.preferred_name AS submitter_preferred_name, si.first_name AS submitter_first_name, si.last_name AS submitter_last_name, f.submitted_by_user_id
+       su.email AS submitter_email, si.preferred_name AS submitter_preferred_name, si.first_name AS submitter_first_name, si.last_name AS submitter_last_name, f.submitted_by_user_id,
+       CASE WHEN su.role = 'super_admin' OR EXISTS (SELECT 1 FROM user_role_set urs WHERE urs.user_id = f.submitted_by_user_id AND urs.is_active = 1
+         AND (urs.role_set_id = 'role_super_admin' OR EXISTS (SELECT 1 FROM role_set_permission rsp WHERE rsp.role_set_id = urs.role_set_id AND rsp.permission_key = 'developer_tools' AND rsp.can_read = 1))) THEN 1 ELSE 0 END AS submitter_developer
   FROM homebase_feedback f LEFT JOIN user su ON su.id = f.submitted_by_user_id LEFT JOIN individual si ON si.id = su.individual_id
  WHERE f.status NOT IN ('done', 'will_not_do')
- ORDER BY CASE f.priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END, f.number;
+ ORDER BY submitter_developer DESC, CASE f.priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END, f.number;
 "@ -replace '\r?\n', ' '
     Write-Host "Reading the open requests from $Database (read-only)..."
     $openRows = @((Invoke-ReadOnlyQuery $openSql)[0].results | ForEach-Object { $_ })
@@ -137,17 +144,17 @@ SELECT f.number, f.kind, f.title, f.status, f.priority, f.created_at, f.web_vers
     $index.Add("")
     $index.Add("<small>Read $(Get-Date -Format 'MMM d, yyyy h:mmtt') by scripts/Get-Feedback.ps1 -Open from $Database (read-only). Git-ignored; never commit.</small>")
     $index.Add("")
-    $index.Add("Every request not Done or Will not do, most urgent first. For each one run ``pnpm feedback:get -Number <n>`` and plan it (root AGENTS.md, ""Homebase Feedback: asking Claude"").")
+    $index.Add("Every request not Completed or Will not do: developers' requests first (D), then most urgent. For each one run ``pnpm feedback:get -Number <n>`` and plan it (root AGENTS.md, ""Homebase Feedback: asking Claude""). Plan a developer's request first, and give its words the most weight.")
     $index.Add("")
     if ($openRows.Count -eq 0) {
         $index.Add("None open.")
     } else {
-        $index.Add("| Request | Priority | Status | Kind | Title | From | Sent | Web version | Images | Notes |")
-        $index.Add("|---|---|---|---|---|---|---|---|---|---|")
+        $index.Add("| Request | Priority | Status | Kind | Title | D | From | Sent | Web version | Images | Notes |")
+        $index.Add("|---|---|---|---|---|---|---|---|---|---|---|")
         foreach ($row in $openRows) {
             $rowCode = "FB-{0:D4}" -f [int64]$row.number
             $from = Get-PersonLabel $row 'submitter' $row.submitted_by_user_id
-            $index.Add("| $rowCode | $(Format-Cell (Format-Words $PriorityWords $row.priority)) | $(Format-Cell $row.status) | $(Format-Cell (Format-Words $KindWords $row.kind)) | $(Format-Cell $row.title) | $(Format-Cell $from) | $(Format-Cell $row.created_at) | $(Format-Cell $row.web_version) | $($row.image_count) | $($row.note_count) |")
+            $index.Add("| $rowCode | $(Format-Cell (Format-Words $PriorityWords $row.priority)) | $(Format-Cell (Format-Words $StatusWords $row.status)) | $(Format-Cell (Format-Words $KindWords $row.kind)) | $(Format-Cell $row.title) | $(if ([int]$row.submitter_developer -eq 1) { 'D' } else { '' }) | $(Format-Cell $from) | $(Format-Cell $row.created_at) | $(Format-Cell $row.web_version) | $($row.image_count) | $($row.note_count) |")
         }
     }
     $index.Add("")
@@ -197,7 +204,7 @@ $lines.Add("")
 $lines.Add("| Field | Value |")
 $lines.Add("|---|---|")
 $lines.Add("| Kind | $(Format-Cell (Format-Words $KindWords $request.kind)) |")
-$lines.Add("| Status | $(Format-Cell $request.status) |")
+$lines.Add("| Status | $(Format-Cell (Format-Words $StatusWords $request.status)) |")
 $lines.Add("| Priority | $(Format-Cell (Format-Words $PriorityWords $request.priority)) |")
 $lines.Add("| Sent by | $(Format-Cell (Get-PersonLabel $request 'submitter' $request.submitted_by_user_id)) ($(Format-Cell $request.submitter_role)) |")
 $lines.Add("| Sent | $(Format-Cell $request.created_at) |")
@@ -305,7 +312,7 @@ if ($notes.Count -eq 0) {
     foreach ($note in $notes) {
         $who = Get-PersonLabel $note 'author' $note.author_user_id
         $what = switch ($note.note_type) {
-            'status_change'   { "Status $($note.from_value) to $($note.to_value)" }
+            'status_change'   { "Status $(Format-Words $StatusWords $note.from_value) to $(Format-Words $StatusWords $note.to_value)" }
             'priority_change' { "Priority $($note.from_value) to $($note.to_value)" }
             default           { '' }
         }

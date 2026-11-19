@@ -36,7 +36,8 @@ export const STATUS_LABELS: Record<FeedbackStatus, string> = {
   needs_info: 'Needs info',
   planned: 'Planned',
   in_progress: 'In progress',
-  done: 'Done',
+  // Shown as Completed (the requester, Nov 17, 2026); the stored value stays `done`, so no migration.
+  done: 'Completed',
   will_not_do: 'Will not do',
 }
 /** Priority as number and words (FB-0006): P1 is the most urgent. */
@@ -53,6 +54,8 @@ export interface FeedbackSummary {
   priority: FeedbackPriority
   submittedByUserId: string
   submittedByLabel: string
+  /** The sender is a developer (Internal Developer or Super Admin role set): their requests come first (API 1.1.1 p47). */
+  submittedByDeveloper?: boolean
   sectionId: string | null
   markerCount: number
   noteCount: number

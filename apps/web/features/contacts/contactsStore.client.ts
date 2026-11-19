@@ -13,6 +13,10 @@
  *    lib/ may not import a feature (apps/web/AGENTS.md, dependency rule).
  *  - Requests go through `fetchContactList` (api.client.ts) to `/api/v1/contacts`, checked against the contract.
  *  - `clientDisplayName` (the client account's own name) is mapped and cached, for the billing client list.
+ *  - The last four digits of the SSN and EIN (`ssnLast4`, `einLast4`) are cached (Nov 17, 2026, FB-0014, the
+ *    requester: "SSN not being displayed despite showing up in edit contact"). The identity summary shows them
+ *    masked; without them a contact read from the cache showed "No SSN recorded" until the next full load. A cache
+ *    written before this change lacks them and is reloaded in full once (`cacheLacksTaxIdDigits`).
  */
 
 import { BLC, LCB } from '@/lib/KRUtilities'
@@ -194,6 +198,8 @@ export function toClientContactElement(contact: KRContactRecord): ClientContactE
     status: contact.status,
     isMinor: contact.isMinor,
     isAttorney: contact.isAttorney,
+    ssnLast4: contact.ssnLast4 ?? null, // Changed: FB-0014.
+    einLast4: contact.einLast4 ?? null, // Changed: FB-0014.
     isClient: contact.isClient,
     clientId: contact.clientId,
     clientNumber: contact.clientNumber,
@@ -224,7 +230,8 @@ export function fromClientContactElement(element: ClientContactElement): KRConta
     preferredName: element.preferredName,
     dob: null,
     ssn: null,
-    ssnLast4: null,
+    ssnLast4: element.ssnLast4 ?? null, // Changed: FB-0014 (absent in older caches).
+    einLast4: element.einLast4 ?? null, // Changed: FB-0014.
     isMinor: element.isMinor,
     isAttorney: element.isAttorney,
     email: element.email,
@@ -323,9 +330,19 @@ function writeLastFullContactsSync(scope: string, at: string): void {
   }
 }
 
+/**
+ * Changed (FB-0014): true when the cache was written before the last four SSN and EIN digits were cached. A delta
+ * refreshes only changed contacts, so such a cache would show "No SSN recorded" for every other contact; it is
+ * reloaded in full once instead.
+ */
+export function cacheLacksTaxIdDigits(cached: ClientDataCollection<ClientContactElement>): boolean {
+  return cached.elements.some((element) => !('ssnLast4' in element))
+}
+
 /** Reconciles changed contacts from the server while retaining unchanged encrypted elements locally. */
 export async function syncContacts(scope: string, cached: ClientDataCollection<ClientContactElement> | null): Promise<ContactsSyncResult> {
   if (!cached) return syncFullContacts(scope)
+  if (cacheLacksTaxIdDigits(cached)) return syncFullContacts(scope) // Changed: FB-0014.
   if (Date.now() - readLastFullContactsSync(scope) > CONTACTS_FULL_RECONCILE_MS) return syncFullContacts(scope)
   const startedAt = window.performance.now()
   const response: ContactsClientDataResponse = await fetchContactList(cached.fetchedAt) // Changed: contract-checked call.

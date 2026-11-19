@@ -33,6 +33,7 @@
  */
 
 import type { BillingInvoice, BillingLedgerEntry, BillingPayment, BillingRecord, BillingTimeEntry, BillingTrustEntry, InvoiceBody, LedgerEntryBody, PaymentApplyBody, PaymentApplyData, PaymentBody, TimeEntryBody, TrustEntryBody, TrustRequestBody } from '@krhomebase/contracts'
+import { readBillingRateSchedule } from '@krhomebase/contracts'
 import type { AuditEntry } from '../../platform/queries.ts'
 import { logLine } from '../../platform/log.ts'
 import { generatePublicCode } from '../contact-edits/rules.ts'
@@ -427,7 +428,7 @@ export async function loadBillingRecord(queries: BillingQueries, clientId: strin
   const client = await requireClient(queries, clientId)
   const matters = await loadMatters(queries, client, matterId)
   const matterIds = matters.map((matter) => matter.id)
-  const [timeEntries, allInvoices, allPayments, ledger, trustRequests, staff, totals] = await Promise.all([
+  const [timeEntries, allInvoices, allPayments, ledger, trustRequests, staff, totals, ratesJson] = await Promise.all([
     queries.timeEntriesOfMatters(matterIds),
     queries.invoicesOfClient(client.id),
     queries.paymentsOfClient(client.id),
@@ -435,7 +436,10 @@ export async function loadBillingRecord(queries: BillingQueries, clientId: strin
     queries.trustRequestsOfClient(client.id),
     queries.staff(),
     queries.accountTotals(client.id),
+    queries.billingRates(),
   ])
+  // FB-0008: the active rate classes, and each person's default, for a new time entry's rate.
+  const rates = readBillingRateSchedule(ratesJson)
   const inScope = (id: string | null) => !matterId || id === matterId
   const invoices = allInvoices.filter((invoice) => inScope(invoice.matter_id))
   const payments = allPayments.filter((payment) => !matterId || payment.matter_id === matterId)
@@ -463,7 +467,8 @@ export async function loadBillingRecord(queries: BillingQueries, clientId: strin
     trustEntries: projectTrust(trustRequests.filter((row) => inScope(row.matter_id)), allLedger, matterMap),
     staffOptions: staff
       .filter((row) => row.account_status !== 'deactivated' && row.is_active !== 0)
-      .map((row) => ({ id: row.id, label: staffLabel(row, row.id), staffCode: row.staff_code?.trim() || null })),
+      .map((row) => ({ id: row.id, label: staffLabel(row, row.id), staffCode: row.staff_code?.trim() || null, defaultRateClassId: rates.defaults[row.id] ?? null })),
+    rateClasses: rates.classes.filter((item) => item.active),
     accountTotals: {
       openInvoiceBalance: round(num(totals.open_balance)),
       openInvoiceCount: num(totals.open_count),

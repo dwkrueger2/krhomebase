@@ -30,6 +30,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DisplayMode } from '@krhomebase/tool-sdk/types'
 import { attachToolHost, collectTheme } from '@/components/shell/toolHost'
+import { useUnloadWarning } from '@/components/shell/useUnloadWarning.client'
 import type { ToolHealthData } from '@krhomebase/contracts'
 import { fetchToolHealth, relayToolRequest } from '@/lib/toolRelay'
 
@@ -167,14 +168,9 @@ export default function ExternalToolFrame({ clientId, label, origin, entryUrl, m
     }
   }, [clientId, attempt])
 
-  // Stage 3: warn before the holding window closes or reloads while the tool has unsaved work.
-  useEffect(() => {
-    const hostWindow = frameRef.current?.ownerDocument.defaultView
-    if (!dirty || !hostWindow) return
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault()
-    hostWindow.addEventListener('beforeunload', warn)
-    return () => hostWindow.removeEventListener('beforeunload', warn)
-  }, [dirty])
+  // Stage 3: warn before the holding window closes or reloads while the tool has unsaved work. The shared hook stays
+  // quiet during a forced sign-out and tells the Log out button the tool has unsaved work (web patch 566).
+  useUnloadWarning(`tool:${clientId}`, dirty, () => [frameRef.current?.ownerDocument.defaultView])
 
   return (
     <div

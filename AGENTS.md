@@ -1,11 +1,11 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.31</small><br>
-<small>Updated Nov 17, 2026 10:15pm</small>
+<small>Version 2.27</small><br>
+<small>Updated Nov 16, 2026 8:33pm</small>
 
 ## Agent Guide Index
 
-- This file is the root guide for AI agents and programmers working in `D:\Repos\KrhomebaseGPT`. Read it first.
+- This file is the root guide for AI agents and programmers working in `D:\Repos\krhomebase` (or `D:\Repos\KrhomebaseGPT`). Read it first.
 - Read and follow `AGENTS_01_version-procedures.md` for version and patch procedures. It applies to nearly every task that changes a file.
 - Read and follow `AGENTS_02_commit-push-procedures.md` for commit and push procedures.
 - Read and follow `AGENTS_03_documentation-standards.md` for Markdown document title, version, and updated-time requirements. It applies to every task that creates or changes a `.md` file.
@@ -221,6 +221,7 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 - Wire format is camelCase only. Database columns stay snake_case; the mapping happens in each feature's `queries.ts`.
 - **The `lookup` table:** it holds choice lists and firm-wide settings rows (JSON in `description`); its use is documented in `docs/Schema_8.0/table_lookup.html`, section "How KR Homebase uses this table". Code that reads or writes `lookup`, or names a `lookup` row id, carries the comment `// See the lookup table as described in Schema 8.0: docs/Schema_8.0/table_lookup.html (section "How KR Homebase uses this table").` A new settings row or category is added to that section's tables in the same change.
 - Every reply uses the envelope from `packages/contracts` and includes `requestId`.
+- **Following a code** (the requester, Nov 18, 2026): every short code a screen shows (WSID, task id, client, matter, LCID, ICID, ECID) is a link that opens its target, drawn only with `KRCodeLink`; the rule and the table of targets are in `apps/web/AGENTS.md`, "Following a code".
 - Error codes are stable, safe to expose, and free of secrets and personal information.
 - Folder and file names are plain nouns for a business area (`clients`, `billing`). No `kr-` or `hb-` prefixes. No folder repeats its parent's name.
 - Server-only helpers live in `apps/api/src/platform/`. Do not turn helper files into route handlers.
@@ -268,15 +269,12 @@ pnpm listScripts      # show the root scripts
 | Root script | Folder | Runs |
 |---|---|---|
 | `dev` | root | `dev:api` and `dev:web`, together |
-| `dev:branch2` | root | `dev:branch2:api` and `dev:branch2:web`, together; Vite branch2 mode targets API port 8789 |
-| `dev:branch2:api` | `apps/api` | `wrangler dev --port 8789 --inspector-port 9345 --var KR_APP_BASE_URL:http://localhost:3031` |
-| `dev:branch2:web` | `apps/web` | `vite dev --port 3031 --strictPort --mode branch2`; Vite embeds API port 8789 in the local Worker |
 | `build` | root | `build:web` |
 | `typecheck` | `packages/contracts`, `packages/tool-sdk`, `packages/documents`, `apps/api`, `apps/external-api`, `workers/feedback-viewer`, `apps/web` | `typecheck` in each, in that order, joined by `&&` |
 | `test` | `packages/contracts`, `packages/tool-sdk`, `packages/documents`, `apps/api`, `apps/external-api`, `workers/feedback-viewer`, `apps/web` | `test` in each, in that order, joined by `&&` |
 | `check` | root | `typecheck`, then `test` |
 | `types:cf` | `apps/api` | `wrangler types --config kr-api-wrangler.jsonc` |
-| `dev:api` | `apps/api` | `wrangler dev --port 8788 --inspector-port 9344` |
+| `dev:api` | `apps/api` | `wrangler dev --port 8787 --inspector-port 9339` |
 | `dev:web` | `apps/web` | `vite dev --port 3011` |
 | `build:web` | `apps/web` | `vite build` |
 | `deploy:api` | `apps/api` | `wrangler deploy` |
@@ -308,8 +306,8 @@ A request's detail in the Feedback pop-out has a "Copy for Claude" button that c
 1. Runs the read-only script (allowed under hard rule 4: it only SELECTs and downloads; `-NoImages` skips the screenshots):
 
    ```powershell
-   $SetLocation = "D:\Repos\KrhomebaseGPT"
-   Set-Location $SetLocation
+   $Repo = "D:\Repos\krhomebase"
+   Set-Location $Repo
    pnpm feedback:get -Number 12
    ```
 

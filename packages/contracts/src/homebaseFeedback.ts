@@ -62,7 +62,8 @@ export const HOMEBASE_FEEDBACK_STATUS_LABELS: Record<HomebaseFeedbackStatus, str
   needs_info: 'Needs info',
   planned: 'Planned',
   in_progress: 'In progress',
-  done: 'Done',
+  // Shown as Completed (the requester, Nov 17, 2026, repository patch 58); the stored value stays `done`.
+  done: 'Completed',
   will_not_do: 'Will not do',
 }
 /** Priority as number and words (FB-0006): P1 is the most urgent. */
@@ -212,6 +213,7 @@ export const HomebaseFeedbackSummary = z.object({
   priority: HomebaseFeedbackPriority,
   submittedByUserId: z.string().describe('Who sent it.'),
   submittedByLabel: z.string().describe("That person's name (preferred name, else first and last name, else email)."),
+  submittedByDeveloper: z.boolean().optional().describe('The sender holds the Internal Developer or Super Admin role set now: their requests come first (the requester, Nov 17, 2026).'),
   sectionId: z.string().nullable().describe('The section it was sent from.'),
   markerCount: z.number().int().describe('How many markers the text names.'),
   noteCount: z.number().int().describe('How many developer notes it has.'),

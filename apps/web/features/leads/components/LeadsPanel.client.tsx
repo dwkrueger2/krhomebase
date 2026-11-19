@@ -34,6 +34,10 @@
  *
  * State: this panel owns the loaded leads, the paging cursor, the open lead, the edit draft, the dialogs and the
  * status line. Its children take values and handlers only (the notes card loads its own notes).
+ *
+ * Nov 18, 2026 (web patch 571, "Following a code"): a followed lead code (`KRCodeLink`, an LCID or a lead id) opens
+ * Leads with `?lead=<code>`; the panel opens that lead, reading it on its own (`fetchLead`) when it is not in the loaded
+ * page.
  */
 
 import { useEffect, useMemo, useState } from 'react'
@@ -47,7 +51,7 @@ import { openContact } from '@/features/contacts/openContact'
 import type { KRContactRecord } from '@/features/contacts/types'
 import { useContactCapabilities } from '@/features/contacts/useContactCapabilities.client'
 import { L } from '@/lib/KRUtilities'
-import { convertLead, fetchLeads, updateLead } from '../api.client'
+import { convertLead, fetchLead, fetchLeads, updateLead } from '../api.client'
 import { appendLeads, conversionMessage, createdLeadMessage, directoryRows, draftFromLead, leadNumber, moreLeadsLine, upsertLead, type KRLeadContact, type KRLeadDraft } from '../leadRows'
 import LeadConvertDialog from './LeadConvertDialog.client'
 import LeadCreateDialog from './LeadCreateDialog.client'
@@ -130,6 +134,8 @@ export default function LeadsPanel({ initialData, viewer }: LeadsPanelProps) {
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  // A followed lead code (web patch 571): from the address (`?lead=`) on arrival, or a request while showing.
+  const [leadRequest, setLeadRequest] = useState<string | null>(() => (typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('lead')))
 
   const { leadRows, individualRows } = useMemo(() => directoryRows(leads, contacts, includeConverted), [contacts, includeConverted, leads])
   const contactById = useMemo(() => new Map(contacts.map((contact) => [contact.id, contact])), [contacts])
@@ -163,6 +169,41 @@ export default function LeadsPanel({ initialData, viewer }: LeadsPanelProps) {
     void loadLeads()
     return () => { cancelled = true }
   }, [includeConverted, initialData])
+
+  // A request made while Leads is already showing.
+  useEffect(() => {
+    const request = navigation.subPageRequest
+    if (request?.sectionId === 'leads' && request.subPage) setLeadRequest(request.subPage)
+  }, [navigation.subPageRequest])
+
+  // Opens the requested lead: from the loaded leads, else read on its own once the first page is in.
+  useEffect(() => {
+    if (!leadRequest) return
+    const wanted = leadRequest.trim().toUpperCase()
+    const loaded = leads.find((lead) => lead.id.toUpperCase() === wanted || (lead.lcid ?? '').toUpperCase() === wanted)
+    if (loaded) {
+      setSelectedLeadId(loaded.id)
+      setLeadRequest(null)
+      return
+    }
+    if (loading) return
+    let cancelled = false
+    fetchLead(leadRequest.trim())
+      .then(({ lead }) => {
+        if (cancelled) return
+        setLeads((current) => upsertLead(current, lead))
+        setSelectedLeadId(lead.id)
+      })
+      .catch(() => {
+        if (!cancelled) setStatus(`No lead has the code ${leadRequest}.`)
+      })
+      .finally(() => {
+        if (!cancelled) setLeadRequest(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [leadRequest, leads, loading])
 
   // The edit draft follows the open lead.
   useEffect(() => {

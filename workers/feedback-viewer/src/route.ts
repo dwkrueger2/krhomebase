@@ -3,16 +3,32 @@
  * Where the tool is, kept in the address after `#` so the list filters and the open request survive the browser's
  * back and forward buttons inside the frame:
  *
- *   #/                          the list (all requests)
- *   #/?status=new&kind=issue    the list, filtered (`cursor` for a later page)
- *   #/FB-0012   (or #/12)       one request
+ *   #/                                    the list: Open Items and Completed Items, each as it starts
+ *   #/?kind=issue&open=status-desc-25-2   the list of one kind; a table's sort, direction, rows and page
+ *                                         (`listTables.ts`; written only when not the default)
+ *   #/FB-0012   (or #/12)                 one request
+ *
+ * Tool version 1.4.0 (Nov 17, 2026): the Status filter and the API's `cursor` paging gave way to the two tables
+ * (`listTables.ts`); an old `status=` or `cursor=` in the address is ignored.
  *
  * KR Homebase loads the tool's entry address again when the tool is popped out or back in (tool kit guide, section 4,
  * "Pop-out"), so the tool then starts on the list.
  */
 
-import { FEEDBACK_KINDS, FEEDBACK_STATUSES, type FeedbackKind, type FeedbackStatus } from './feedbackTypes.ts'
-import type { ListFilter } from './feedbackApi.ts'
+import { FEEDBACK_KINDS, type FeedbackKind } from './feedbackTypes.ts'
+import { DEFAULT_TABLES, readTableState, sameTableState, TABLE_NAMES, writeTableState, type TableName, type TableState } from './listTables.ts'
+
+/** What the list shows: one kind or all, and each table's state (left out: the table's default). */
+export interface ListFilter {
+  kind?: FeedbackKind
+  open?: TableState
+  completed?: TableState
+}
+
+/** Both tables' states, with the defaults filled in. */
+export function tablesOf(filter: ListFilter): Record<TableName, TableState> {
+  return { open: filter.open ?? DEFAULT_TABLES.open, completed: filter.completed ?? DEFAULT_TABLES.completed }
+}
 
 export type ViewerRoute = { view: 'list'; filter: ListFilter } | { view: 'detail'; number: number }
 
@@ -34,22 +50,24 @@ export function parseRoute(hash: string): ViewerRoute {
     if (number >= 1 && number <= MAX_NUMBER) return { view: 'detail', number }
   }
   const params = new URLSearchParams(query)
-  const status = params.get('status') ?? ''
   const kind = params.get('kind') ?? ''
-  const cursor = params.get('cursor') ?? ''
   const filter: ListFilter = {}
-  if ((FEEDBACK_STATUSES as readonly string[]).includes(status)) filter.status = status as FeedbackStatus
   if ((FEEDBACK_KINDS as readonly string[]).includes(kind)) filter.kind = kind as FeedbackKind
-  if (cursor && cursor.length <= 40) filter.cursor = cursor
+  for (const name of TABLE_NAMES) {
+    const state = readTableState(params.get(name), DEFAULT_TABLES[name])
+    if (!sameTableState(state, DEFAULT_TABLES[name])) filter[name] = state
+  }
   return { view: 'list', filter }
 }
 
 /** The address after `#` for a list filter. */
 export function listHash(filter: ListFilter): string {
   const params = new URLSearchParams()
-  if (filter.status) params.set('status', filter.status)
   if (filter.kind) params.set('kind', filter.kind)
-  if (filter.cursor) params.set('cursor', filter.cursor)
+  for (const name of TABLE_NAMES) {
+    const state = filter[name]
+    if (state && !sameTableState(state, DEFAULT_TABLES[name])) params.set(name, writeTableState(state))
+  }
   const query = params.toString()
   return query ? `#/?${query}` : '#/'
 }

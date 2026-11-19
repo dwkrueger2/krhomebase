@@ -144,6 +144,11 @@ describe('GET /v1/homebase-feedback (developers)', () => {
     expect(all.items.map((item) => item.code)).toEqual(['FB-0002', 'FB-0001'])
     const questions = await data(await call('GET', '/v1/homebase-feedback?kind=question', undefined, 'u-dee'), HomebaseFeedbackListData)
     expect(questions.items.map((item) => item.title)).toEqual(['Pat asks'])
+    // The requester, Nov 17, 2026: a developer's request is marked, so it can come first.
+    expect(all.items.map((item) => item.submittedByDeveloper)).toEqual([false, false])
+    await call('POST', '/v1/homebase-feedback', { kind: 'issue', title: 'Dee found it', body: 'x' }, 'u-dee')
+    const withDee = await data(await call('GET', '/v1/homebase-feedback', undefined, 'u-dee'), HomebaseFeedbackListData)
+    expect(withDee.items.map((item) => [item.code, item.submittedByDeveloper])).toEqual([['FB-0003', true], ['FB-0002', false], ['FB-0001', false]])
     const none = await data(await call('GET', '/v1/homebase-feedback?status=done', undefined, 'u-dee'), HomebaseFeedbackListData)
     expect(none.items).toEqual([])
     expect(await errorCode(await call('GET', '/v1/homebase-feedback?status=closed', undefined, 'u-dee'), 422)).toBe('HOMEBASE_FEEDBACK_STATUS_INVALID')

@@ -16,6 +16,10 @@
  * - `communicationEntryFromActivity` reads the new API's camelCase `WorkstreamActivity` instead of the old raw row,
  *   names the author from `performedByLabel`, and labels each entry with its client, matter or lead (the firm feed
  *   mixes every client).
+ * - Nov 18, 2026 (FB-0016, web patch 570): an entry carries every type it has (`activityTypes`, the main one first);
+ *   the task's assignee shows when Task is any of them.
+ * - Nov 18, 2026 (web patch 571): an entry carries what its source label follows (`sourceTarget`: the client's detail,
+ *   else the lead, with a hover naming the client: "Open Client 090 Best In Class"), so the thread draws a code link.
  */
 
 import type { WorkstreamActivity, WorkstreamSubgroup } from '@krhomebase/contracts'
@@ -106,7 +110,10 @@ export interface CommunicationEntry {
   createdLabel: string
   edited?: boolean
   direction: 'inbound' | 'outbound' | 'internal'
+  /** The main type. */
   activityType: WorkstreamCommunicationActivityType
+  /** Every type of the entry, the main one first (FB-0016). */
+  activityTypes: WorkstreamCommunicationActivityType[]
   /** The saved subject line (new; the old thread did not show it). */
   subject: string
   body: string
@@ -115,6 +122,11 @@ export interface CommunicationEntry {
   /** Who a task is assigned to, as the API shows it (new). */
   assigneeLabel?: string
   sourceLabel: string
+  /**
+   * What the source label follows (web patch 571, "Following a code"): the client's detail (the requester: the client, not
+   * Projects & Matters), else the lead; `title` is the hover ("Open Client 090 Best In Class").
+   */
+  sourceTarget?: { kind: 'client' | 'lead'; code: string; title: string } | null
 }
 
 /** The signed-in person as `app/page.tsx` hands it over from the session. */
@@ -190,6 +202,11 @@ export function communicationOwnerLabel(activity: Pick<WorkstreamActivity, 'clie
   return 'WorkStream activity'
 }
 
+/** "Open Client 090 Best In Class": a client link's hover (the client's number and name, not the matter's). */
+export function clientLinkTitle(activity: Pick<WorkstreamActivity, 'clientNumber' | 'clientDisplayName'>): string {
+  return ['Open Client', activity.clientNumber, activity.clientDisplayName].filter(Boolean).join(' ')
+}
+
 /**
  * Turns one API entry into the thread's entry. The viewer's own entries carry the viewer's name and tone; other
  * people's entries are named from `performedByLabel` (the old code showed "WorkStream user" for everyone else).
@@ -201,6 +218,7 @@ export function communicationEntryFromActivity(activity: WorkstreamActivity, cur
     ? currentUser
     : { id: activity.performedByUserId ?? 'workstream-user', name: otherName, handle: otherName.toLowerCase().replace(/[^a-z0-9]+/g, '-'), role: 'WorkStream', initials: communicationInitials(otherName, ''), avatarTone: 'blue' }
   const bodyHtml = activity.noteHtml?.trim() ? activity.noteHtml : undefined
+  const activityTypes = activity.subgroups?.length ? activity.subgroups : [activity.subgroup]
   return {
     wsid: activity.wsid,
     author,
@@ -209,12 +227,18 @@ export function communicationEntryFromActivity(activity: WorkstreamActivity, cur
     edited: Boolean(activity.updatedAt),
     direction: 'internal',
     activityType: activity.subgroup,
+    activityTypes,
     subject: activity.title,
     body: bodyHtml ? activity.note : activity.note || activity.title,
     bodyHtml,
     attachments: activity.documentUrl ? [{ label: activity.documentLabel || 'Linked document', url: activity.documentUrl }] : [],
-    assigneeLabel: activity.subgroup === 'Tasks' && activity.assigneeLabel ? activity.assigneeLabel : undefined,
+    assigneeLabel: activityTypes.includes('Tasks') && activity.assigneeLabel ? activity.assigneeLabel : undefined,
     sourceLabel: communicationOwnerLabel(activity),
+    sourceTarget: activity.clientId
+      ? { kind: 'client', code: activity.clientId, title: clientLinkTitle(activity) }
+      : activity.lcid || activity.leadId
+        ? { kind: 'lead', code: (activity.lcid ?? activity.leadId)!, title: `Open Lead ${activity.lcid ?? activity.leadId}` }
+        : null,
   }
 }
 

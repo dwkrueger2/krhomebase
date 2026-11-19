@@ -24,6 +24,9 @@
  *   lists the chosen client's matters (`fetchClientMatters`).
  * - The viewer comes from `app/page.tsx` as `viewer` (it was the old session object `user`).
  * - Loading and saving show `RainbowBusySpinner`; diagnostics use `L` with `[COMMUNICATIONS_PANEL:line]`.
+ * - Nov 18, 2026 (FB-0016, FB-0017, web patch 570): a draft is saved once, as one entry with every chosen type
+ *   (it was saved once for each type, one entry and one WSID each). With Task chosen, the "Assignees" menu's people
+ *   become the task's assignees on the Tasks screen (only the first was sent before, and no task was made).
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -196,41 +199,43 @@ export default function CommunicationsPanel({ context, viewer }: CommunicationsP
     setComposerClientState(nextState)
   }
 
-  /** Saves one draft to every selected WorkStream activity type and puts each returned entry at the top. */
+  /** Saves one draft as one WorkStream entry with every selected activity type and puts it at the top. */
   async function handleDraftSubmit(body: string, activityTypes: readonly WorkstreamCommunicationActivityType[], noteHtml?: string, assigneeUserIds?: readonly string[]): Promise<void> {
     const parsed = parseWorkstreamSlashCommands(body, activityTypes[0] ?? 'PhoneCalls')
     const selectedActivityTypes = [...new Set(activityTypes)]
     const savedActivityTypes = parsed.activityCommand ? [...new Set([...selectedActivityTypes, parsed.activityType])] : selectedActivityTypes
-    if (!savedActivityTypes.length) throw new Error('At least one WorkStream activity type is required.')
+    const mainType = savedActivityTypes[0]
+    if (!mainType) throw new Error('At least one WorkStream activity type is required.')
     setSaving(true)
     setStatusOverride('Saving communication...')
-    let savedCount = 0
     try {
       const target = await resolveCommunicationSaveTarget({ context, clientState: composerClientState, composerOwner, composerMatterId: composerMatter?.id ?? null, contacts }, fetchClientMatters)
-      L(`[COMMUNICATIONS_PANEL:190] save start types=${savedActivityTypes.join(',')} owner=${target.leadId ? 'lead' : 'client'}`)
-      for (const savedActivityType of savedActivityTypes) {
-        const { activity } = await createWorkstreamEntry({
-          subgroup: savedActivityType,
-          ...(target.leadId ? { leadId: target.leadId } : { clientId: target.clientId, ...(target.matterId ? { matterId: target.matterId } : {}) }),
-          title: subjectFromBody(parsed.body, savedActivityType, parsed.subject),
-          note: parsed.body,
-          // Slash commands are normalized from the plain body. Preserve rich
-          // HTML when no command prefix needs to be removed from it.
-          noteHtml: noteHtml && parsed.body === body.trim() ? noteHtml : undefined,
-          ...(assigneeUserIds?.[0] ? { assigneeUserId: assigneeUserIds[0] } : {}),
-        })
-        savedCount += 1
-        const entry: CommunicationEntry = communicationEntryFromActivity(activity, currentUser)
-        const belongsToList = (threadFilterTypes.length === 0 || threadFilterTypes.includes(activity.subgroup)) && (!context?.matterId || activity.matterId === context.matterId)
-        if (belongsToList) feed.prepend([entry])
-        setSelectedWsid(activity.wsid)
-      }
-      setStatusOverride(`Saved ${savedCount} WorkStream entr${savedCount === 1 ? 'y' : 'ies'} to ${target.label}.`)
-      L(`[COMMUNICATIONS_PANEL:209] save done count=${savedCount}`)
+      L(`[COMMUNICATIONS_PANEL:205] save start types=${savedActivityTypes.join(',')} owner=${target.leadId ? 'lead' : 'client'}`)
+      const { activity, taskError } = await createWorkstreamEntry({
+        subgroup: mainType,
+        subgroups: savedActivityTypes,
+        ...(target.leadId ? { leadId: target.leadId } : { clientId: target.clientId, ...(target.matterId ? { matterId: target.matterId } : {}) }),
+        title: subjectFromBody(parsed.body, mainType, parsed.subject),
+        note: parsed.body,
+        // Slash commands are normalized from the plain body. Preserve rich
+        // HTML when no command prefix needs to be removed from it.
+        noteHtml: noteHtml && parsed.body === body.trim() ? noteHtml : undefined,
+        // FB-0017: the Assignees menu's people are the task's (all of them); other entries keep the API's default.
+        ...(savedActivityTypes.includes('Tasks') && assigneeUserIds ? { assigneeUserIds: [...assigneeUserIds] } : {}),
+      })
+      const entry: CommunicationEntry = communicationEntryFromActivity(activity, currentUser)
+      const belongsToList = (threadFilterTypes.length === 0 || entry.activityTypes.some((type) => threadFilterTypes.includes(type))) && (!context?.matterId || activity.matterId === context.matterId)
+      if (belongsToList) feed.prepend([entry])
+      setSelectedWsid(activity.wsid)
+      setStatusOverride(
+        taskError
+          ? `Saved ${activity.wsid} to ${target.label}, but its task on the Tasks screen was not made (${taskError}); edit the entry to try again.`
+          : `Saved ${activity.wsid} to ${target.label}${activity.taskId ? ` with Task #${activity.taskId}` : ''}.`,
+      )
+      L(`[COMMUNICATIONS_PANEL:228] save done wsid=${activity.wsid} task=${activity.taskId ?? '-'}${taskError ? ` taskError=${taskError}` : ''}`)
     } catch (error) {
-      const detail = errorSentence(error)
-      setStatusOverride(savedCount ? `Saved ${savedCount} of ${savedActivityTypes.length} entries; remaining save failed: ${detail}` : `Communication was not saved: ${detail}`)
-      L(`[COMMUNICATIONS_PANEL:213] save failed saved=${savedCount} code=${error instanceof WorkstreamApiError ? `${error.code} requestId=${error.requestId ?? '-'}` : 'local'}`)
+      setStatusOverride(`Communication was not saved: ${errorSentence(error)}`)
+      L(`[COMMUNICATIONS_PANEL:231] save failed code=${error instanceof WorkstreamApiError ? `${error.code} requestId=${error.requestId ?? '-'}` : 'local'}`)
       throw error
     } finally {
       setSaving(false)

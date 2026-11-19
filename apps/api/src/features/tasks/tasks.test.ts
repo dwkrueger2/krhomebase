@@ -12,7 +12,7 @@
  */
 
 import type { DatabaseSync } from 'node:sqlite'
-import { ErrorEnvelope, TasksData, TaskSavedData } from '@krhomebase/contracts'
+import { ErrorEnvelope, TaskNotesData, TasksData, TaskSavedData } from '@krhomebase/contracts'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../app.ts'
 import { clearSessionCache } from '../../platform/sessionClient.ts'
@@ -61,6 +61,8 @@ beforeEach(() => {
   matter('m200-1', '200.1', 'cl-200')
   run(`INSERT INTO matter (id, matter_number, title, practice_area_lookup_id, status_lookup_id, created_by_user_id) VALUES ('m-orphan', '999.1', 'No party', 'lk_practice_area_miscellaneous', 'lk_matter_status_open', 'u-staff')`)
   run(`INSERT INTO workstream_activity (id, wsid, client_id, matter_id, subgroup, subject) VALUES ('wsa-1', 'AB12CD3', 'cl-100', 'm100-0', 'Tasks', 'Call the bank')`)
+  // A staff code for Sam (API 1.2.0 patch 2: the assignee cell shows it); Annie has none.
+  run(`INSERT INTO employee (id, user_id, staff_code) VALUES ('emp-sam', 'u-staff', 'SS1')`)
 })
 
 async function call(method: 'GET' | 'POST' | 'PATCH' | 'PUT', path: string, body?: unknown, role = 'staff', userId = 'u-staff') {
@@ -131,11 +133,11 @@ describe('GET /v1/tasks', () => {
     const a = tasks.find((item) => item.id === 'TASKA01')!
     expect(a).toMatchObject({ clientNumber: '100', clientDisplayName: 'Hundred Family', matterNumber: '100.1', matterTitle: 'Matter 100.1', createdByLabel: 'Sam Staff' })
     expect(a.assignees).toEqual([
-      { userId: 'u-ann', label: 'Annie' },
-      { userId: 'u-staff', label: 'Sam Staff' },
+      { userId: 'u-ann', label: 'Annie', staffCode: null },
+      { userId: 'u-staff', label: 'Sam Staff', staffCode: 'SS1' },
     ])
     expect(tasks.find((item) => item.id === 'TASKB01')!.assignees).toEqual([])
-    expect(tasks.find((item) => item.id === 'TASKC01')!.assignees).toEqual([{ userId: 'u-ann', label: 'Annie' }])
+    expect(tasks.find((item) => item.id === 'TASKC01')!.assignees).toEqual([{ userId: 'u-ann', label: 'Annie', staffCode: null }])
   })
 
   it('lists closed tasks only when asked, and filters by status, assignee, client and matter', async () => {
@@ -161,7 +163,7 @@ describe('POST /v1/tasks', () => {
     const { task: saved } = await data(await call('POST', '/v1/tasks', { title: '  Draft the will  ' }), TaskSavedData)
     expect(saved.id).toMatch(/^[A-Z0-9]{7}$/)
     expect(saved).toMatchObject({ title: 'Draft the will', status: 'open', priority: 'normal', billingStatus: 'not_ready', clientId: null, matterId: null, completedAt: null, createdByUserId: 'u-staff', assignedByUserId: 'u-staff' })
-    expect(saved.assignees).toEqual([{ userId: 'u-staff', label: 'Sam Staff' }])
+    expect(saved.assignees).toEqual([{ userId: 'u-staff', label: 'Sam Staff', staffCode: 'SS1' }])
     expect(one(`SELECT assigned_to_user_id FROM task WHERE id = ?`, saved.id)).toEqual({ assigned_to_user_id: 'u-staff' })
     expect(all(`SELECT id, user_id, is_current FROM task_assignee WHERE task_id = ?`, saved.id)).toEqual([expect.objectContaining({ user_id: 'u-staff', is_current: 1, id: expect.stringMatching(/^tas_/) })])
     expect(one(`SELECT resource, action, actor_user_id FROM audit_log WHERE target_id = ?`, saved.id)).toEqual({ resource: 'tasks', action: 'CREATE', actor_user_id: 'u-staff' })
@@ -321,6 +323,33 @@ describe('roles (D9)', () => {
     expect((await call('GET', '/v1/tasks', undefined, 'external_cpa', 'u-client')).status).toBe(403)
     expect((await data(await call('GET', '/v1/tasks', undefined, 'attorney', 'u-ann'), TasksData)).viewer).toEqual({ canWrite: true })
     const { task: saved } = await data(await call('POST', '/v1/tasks', { title: 'By the attorney' }, 'attorney', 'u-ann'), TaskSavedData)
-    expect(saved.assignees).toEqual([{ userId: 'u-ann', label: 'Annie' }])
+    expect(saved.assignees).toEqual([{ userId: 'u-ann', label: 'Annie', staffCode: null }])
+  })
+})
+
+describe('follow-up notes (migration 003; the requester, Nov 18, 2026)', () => {
+  beforeEach(() => {
+    task('TASKN01', 'Call back', 'open', null, '2026-11-01T00:00:00Z', { clientId: 'cl-100' })
+  })
+
+  it('adds notes written by the caller, lists them newest first, and audits without the text', async () => {
+    expect((await data(await call('GET', '/v1/tasks/TASKN01/notes'), TaskNotesData)).notes).toEqual([])
+    await data(await call('POST', '/v1/tasks/TASKN01/notes', { text: '  Left a message.  ' }), TaskNotesData)
+    const after = await data(await call('POST', '/v1/tasks/TASKN01/notes', { text: 'She called back.' }, 'attorney', 'u-ann'), TaskNotesData)
+    expect(after.taskId).toBe('TASKN01')
+    expect(after.notes.map((note) => [note.text, note.authorLabel])).toEqual([
+      ['She called back.', 'Annie'],
+      ['Left a message.', 'Sam Staff'],
+    ])
+    const audit = one(`SELECT resource, action, client_id, new_json FROM audit_log WHERE action = 'NOTE' ORDER BY rowid LIMIT 1`)
+    expect(audit).toMatchObject({ resource: 'tasks', action: 'NOTE', client_id: 'cl-100' })
+    expect(String(audit?.new_json)).not.toContain('Left a message')
+  })
+
+  it('refuses an empty note and an unknown task', async () => {
+    expect(await errorCode(await call('POST', '/v1/tasks/TASKN01/notes', { text: '   ' }), 422)).toBe('VALIDATION_FAILED')
+    expect(await errorCode(await call('GET', '/v1/tasks/ZZZZZZ9/notes'), 404)).toBe('TASK_NOT_FOUND')
+    expect(await errorCode(await call('POST', '/v1/tasks/ZZZZZZ9/notes', { text: 'X' }), 404)).toBe('TASK_NOT_FOUND')
+    expect(one(`SELECT COUNT(*) AS n FROM task_note`)).toEqual({ n: 0 })
   })
 })

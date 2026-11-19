@@ -14,13 +14,18 @@
  *   POST   /v1/tools/registrations/health-check        read a tool address's health route and icon route (before or after saving)
  *
  *  Any signed-in person:
- *   GET    /v1/tools/menu                              active tools this person's role may use (any one of the tool's roles)
+ *   GET    /v1/tools/menu                              active tools this person may use (`toolRefusal`: role, local only, developers only)
  *   GET    /v1/tools/menu/{clientId}/health            read the health route of a tool this person may open
  *
  * Icons: a tool has a built-in fallback icon name (default `tool`, the orange diamond) and, optionally, its own SVG
  * icon, which the tool serves at `GET <origin>/tool-icon.svg` (the kit's rules; not typed by the super admin). The API
  * reads it each time a registration is saved (`fetchToolIcon`) and stores its standard form beside the name in the
  * one `icon` column, as `<name>` or `<name> <svg ...>` (`storedIcon` / `iconParts`), so no migration is needed.
+ *
+ * Visibility (repository patch 58, migration 058): `localOnly` keeps a tool to a development server (`pnpm dev`; for a
+ * tool registered at a localhost address, which the deployed app could not load anyway) and `developersOnly` to people
+ * who hold `developer_tools` read. Both are applied by `toolRefusal` (rules.ts) to the menu, the health check and every
+ * frame call; a hidden tool's health answers 404, as if it did not exist.
  *
  * Health: every tool answers `GET <origin>/health-check` with `{ status, version }` (`platform/toolHealth.ts`). The
  * menu does not wait for it; the frame asks when a person opens the tool and shows a notice in place of the tool
@@ -62,7 +67,7 @@ import {
 } from '@krhomebase/contracts'
 import type { OpenAPIHono } from '@hono/zod-openapi'
 import type { Context } from 'hono'
-import { clientIp } from '../../platform/authGuard.ts'
+import { clientIp, toolViewerFor } from '../../platform/authGuard.ts'
 import { defineRoute } from '../../platform/defineRoute.ts'
 import { failure } from '../../platform/envelope.ts'
 import { logLine } from '../../platform/log.ts'
@@ -315,6 +320,8 @@ export function toRegistration(tool: ToolRecord): ToolRegistration {
     origin: tool.origin,
     entryUrl: tool.entryUrl,
     allowedRoles: tool.allowedRoles,
+    localOnly: tool.localOnly,
+    developersOnly: tool.developersOnly,
     scopes: tool.scopes,
     status: tool.status,
     serverAccessEnabled: tool.serverAccessEnabled,
@@ -376,6 +383,8 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
       origin: place.origin,
       entryUrl: place.entryUrl,
       allowedRoles: withSuperAdmin(body.allowedRoles),
+      localOnly: body.localOnly,
+      developersOnly: body.developersOnly,
       scopes: [...new Set(body.scopes)],
       status: 'active',
       serverAccessEnabled: body.serverAccessEnabled,
@@ -414,6 +423,8 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
       description: body.description,
       menuOrder: body.menuOrder,
       allowedRoles: body.allowedRoles ? withSuperAdmin(body.allowedRoles) : undefined,
+      localOnly: body.localOnly,
+      developersOnly: body.developersOnly,
       scopes: body.scopes ? [...new Set(body.scopes)] : undefined,
       status: body.status,
       serverAccessEnabled: body.serverAccessEnabled,
@@ -495,7 +506,9 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
     if (!queries) return unavailable(c)
     const tool = await queries.findToolByClientId(c.req.valid('param').clientId)
     // A tool this person may not open answers as if it did not exist.
-    if (!tool || !session || !toolUsableBy(tool, session)) return failure(c, 404, 'TOOL_NOT_FOUND', 'No such tool.')
+    if (!tool || !session || !toolUsableBy(tool, await toolViewerFor(c, session, tool.developersOnly))) {
+      return failure(c, 404, 'TOOL_NOT_FOUND', 'No such tool.')
+    }
     const result = await checkToolHealth(tool.origin)
     if (result.state === 'failed') logLine('TOOLS_HEALTH:failed', c.get('requestId'), { clientId: tool.clientId, problem: result.problem ?? '' })
     return c.json({ ok: true as const, data: result, requestId: c.get('requestId') }, 200)
@@ -508,7 +521,10 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
     let tools: ToolRecord[] = []
     if (queries && session) {
       try {
-        tools = (await queries.listTools()).filter((tool) => toolUsableBy(tool, session))
+        const all = await queries.listTools()
+        // One permission read for the whole menu, and only when a developers-only tool is registered.
+        const viewer = await toolViewerFor(c, session, all.some((tool) => tool.developersOnly))
+        tools = all.filter((tool) => toolUsableBy(tool, viewer))
       } catch (error) {
         logLine('TOOLS_MENU:read_failed', c.get('requestId'), { reason: error instanceof Error ? error.message.slice(0, 80) : 'unknown' })
       }

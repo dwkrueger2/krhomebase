@@ -137,6 +137,39 @@ describe('contacts sync adapter', () => {
     expect(urls).toEqual(['/api/v1/contacts'])
     expect(result.source).toBe('collection')
   })
+
+  it('FB-0014: the cache keeps the last four SSN and EIN digits, never the full numbers', async () => {
+    const store = await import('./contactsStore.client')
+    const scope = 'user-sync-3'
+    const person = { ...apiContact('a', 'Ann'), ssn: '123-45-6789', ssnLast4: '6789' }
+    const business = { ...apiContact('e', 'Example LLC'), kind: 'entity', ein: '12-3456789', einLast4: '6789' }
+    stubApi(() => ({ collectionId: 'contacts', schemaVersion: 1, contacts: [person, business], collectionVersion: 'v1', generatedAt: '2026-11-09T10:00:00.000Z', allContactIds: ['a', 'e'], timing }))
+    await store.syncContacts(scope, null)
+    const cached = await store.readCachedContacts(scope)
+    const [ann, llc] = cached!.contacts
+    expect(ann).toMatchObject({ ssn: null, ssnLast4: '6789', dob: null })
+    expect(llc).toMatchObject({ einLast4: '6789' })
+    expect(llc!.ein ?? null).toBeNull()
+    expect(store.cacheLacksTaxIdDigits(cached!.collection!)).toBe(false)
+  })
+
+  it('FB-0014: a cache written before the last four digits were kept is reloaded in full once', async () => {
+    const store = await import('./contactsStore.client')
+    const { writeClientDataCollection } = await import('@/lib/client-data-store/browserStore.client')
+    const scope = 'user-sync-4'
+    stubApi(() => ({ collectionId: 'contacts', schemaVersion: 1, contacts: [apiContact('a', 'Ann')], collectionVersion: 'v1', generatedAt: '2026-11-09T10:00:00.000Z', allContactIds: ['a'], timing }))
+    await store.syncContacts(scope, null)
+    const current = await store.readCachedContacts(scope)
+    const oldElements = current!.collection!.elements.map(({ ssnLast4: _ssn, einLast4: _ein, ...rest }) => rest)
+    await writeClientDataCollection(scope, { ...current!.collection!, elements: oldElements })
+    const old = await store.readCachedContacts(scope)
+    expect(store.cacheLacksTaxIdDigits(old!.collection!)).toBe(true)
+    const urls = stubApi(() => ({ collectionId: 'contacts', schemaVersion: 1, contacts: [{ ...apiContact('a', 'Ann'), ssnLast4: '4321' }], collectionVersion: 'v2', generatedAt: '2026-11-09T10:05:00.000Z', allContactIds: ['a'], timing }))
+    const result = await store.syncContacts(scope, old!.collection!)
+    expect(urls).toEqual(['/api/v1/contacts'])
+    expect(result.source).toBe('collection')
+    expect(result.contacts[0]!.ssnLast4).toBe('4321')
+  })
 })
 
 describe('top-bar pieces outside the data store', () => {

@@ -8,6 +8,9 @@
  *   POST  /api/v1/tasks                       create (the API makes the seven-character id; D21)
  *   PATCH /api/v1/tasks/{taskId}              change the fields sent
  *   PUT   /api/v1/tasks/{taskId}/assignees    replace the current assignees
+ *   GET   /api/v1/tasks/{taskId}/notes        the task's follow-up notes, newest first (web patch 571)
+ *   POST  /api/v1/tasks/{taskId}/notes        add a follow-up note
+ *   GET   /api/v1/workstream/{wsid}           the WorkStream entry a task names (`WS #<wsid>`), for its box on the card
  *
  * This site forwards the calls to the API Worker. Replies are checked against the shared contract
  * (`@krhomebase/contracts`, `tasks.ts`); a failure throws `TasksApiError` with a plain sentence for the screen. The
@@ -19,8 +22,10 @@
 import {
   ErrorEnvelope,
   successEnvelope,
+  TaskNotesData,
   TasksData,
   TaskSavedData,
+  WorkstreamSavedData,
   type TaskCreateBody,
   type TaskUpdateBody,
 } from '@krhomebase/contracts'
@@ -132,4 +137,19 @@ export function updateTask(taskId: string, body: TaskUpdateBody): Promise<TaskSa
 /** Replaces the task's current assignees; the first one is the main assignee, and an empty list removes everyone. */
 export function replaceTaskAssignees(taskId: string, userIds: readonly string[]): Promise<TaskSavedData> {
   return send(TaskSavedData, 'PUT', `${taskPath(taskId)}/assignees`, { userIds: [...userIds] })
+}
+
+/** The task's follow-up notes, newest first. */
+export function fetchTaskNotes(taskId: string): Promise<TaskNotesData> {
+  return send(TaskNotesData, 'GET', `${taskPath(taskId)}/notes`)
+}
+
+/** Adds a follow-up note (written by the signed-in person); answers every note, newest first. */
+export function addTaskNote(taskId: string, text: string): Promise<TaskNotesData> {
+  return send(TaskNotesData, 'POST', `${taskPath(taskId)}/notes`, { text })
+}
+
+/** The WorkStream entry a task names (`WS #<wsid>`), for the box on the task card. */
+export function fetchLinkedWorkstreamEntry(wsid: string): Promise<WorkstreamSavedData> {
+  return send(WorkstreamSavedData, 'GET', `/api/v1/workstream/${encodeURIComponent(wsid)}`)
 }

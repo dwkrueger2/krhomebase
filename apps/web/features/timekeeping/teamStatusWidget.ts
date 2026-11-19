@@ -7,7 +7,7 @@ export const teamStatusWidget = defineWidget({
   id: 'team-status',
   title: 'Team Status',
   description: 'See your selected employees\' clock state and current shift status.',
-  size: 'wide',
+  size: 'medium',
   defaultEnabled: true,
   defaultOrder: 6,
   requires: { resource: 'attendance', action: 'read' },

@@ -32,6 +32,8 @@
  * the frame saves the open items per person.
  * For everyone it places the homebase-feedback feature's `HomebaseFeedbackButton` in the top bar (`topBarFeedback`;
  * plan 12, stage F2), which opens the Feedback pop-out; the API decides who is an Internal Developer.
+ * Over the frame it places the code-link host (`overlays`, web patch 571, "Following a code": a followed WSID, task,
+ * client, matter, lead or contact code opens its target; `features/code-links/CodeLinkHost.client.tsx`).
  * Above the top bar it places the maintenance feature's `MaintenanceBanner` (`topNotice`; repository patch 34): the
  * countdown before a deploy and the sign-out at its end, or the "updated" notice after a hot deploy.
  * Keeping the list here, and not inside `components/shell`, is what lets the shell stay free of any
@@ -55,6 +57,7 @@ import { DataStoreProvider } from '@/features/contacts/DataStoreProvider.client'
 import DashboardPanel from '@/features/dashboard/components/DashboardPanel.client'
 import LeadsPanel from '@/features/leads/components/LeadsPanel.client'
 import MaintenanceBanner from '@/features/maintenance/components/MaintenanceBanner.client'
+import CodeLinkHost from '@/features/code-links/CodeLinkHost.client'
 import DashboardPreferencesPage from '@/features/preferences/components/DashboardPreferencesPage.client'
 import PreferencesPage from '@/features/preferences/components/PreferencesPage.client'
 import { PreferencesProvider } from '@/features/preferences/PreferencesProvider.client'
@@ -74,6 +77,7 @@ import ReportsPanel from '@/features/reports/components/ReportsPanel.client'
 import ApplicationSettingsPanel from '@/features/settings/components/ApplicationSettingsPanel.client'
 import FirmSettingsPanel from '@/features/settings/components/FirmSettingsPanel.client'
 import EmployeePoliciesCard from '@/features/firm/components/EmployeePoliciesCard.client'
+import BillingRatesCard from '@/features/firm/components/BillingRatesCard.client'
 import FirmProfileCard from '@/features/firm/components/FirmProfileCard.client'
 import EmployeeDocumentsCard from '@/features/employee-documents/components/EmployeeDocumentsCard.client'
 import { StripePaymentConfigurationPage } from '@/features/payment-providers/components/StripePaymentConfigurationPage.client'
@@ -167,6 +171,7 @@ export default async function HomePage() {
     'firm-settings': (
       <FirmSettingsPanel
         employeePolicies={<EmployeePoliciesCard />}
+        billingRates={<BillingRatesCard />}
         isSuperAdmin={isSuperAdmin}
         profile={<FirmProfileCard />}
         employeeDocuments={<EmployeeDocumentsCard />}
@@ -204,6 +209,7 @@ export default async function HomePage() {
         topBarStatus={<DataSyncIndicator />}
         topBarFeedback={<HomebaseFeedbackButton submitterName={session.displayName} />}
         topNotice={<MaintenanceBanner />}
+        overlays={<CodeLinkHost viewer={viewer} />}
         openItemPanels={{ contacts: <ContactDetailPanel viewer={viewer} />, billing: <BillingClientPanel /> }}
         storageScope={session.userId}
       />

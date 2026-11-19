@@ -14,18 +14,72 @@
  *
  * At most `MAX_IN_FLIGHT` calls from one tool run at once; more are answered at once with `TOO_MANY_CALLS`.
  * The function never throws for a bad message; it ignores it.
+ *
+ * The pop-out (web patch 568): the browser marks a message as coming from the window whose code sent it, not the
+ * window that holds the frame. The pop-out is drawn by the main window's code, so a reply sent directly would arrive
+ * marked as from the main window, and the tool kit (which accepts only its parent window) would ignore it and stop
+ * with `HOST_DID_NOT_ANSWER`. In a pop-out, replies are therefore sent by a one-line helper placed in the pop-out
+ * window itself (`makeFrameSender`).
  */
 
 import { PROTOCOL_VERSION, parseFrameMessage, type HostToFrameMessage } from '@krhomebase/tool-sdk/protocol'
 import type { DisplayMode } from '@krhomebase/tool-sdk/types'
 import type { ToolRelayReply, ToolRelayRequest } from '@/lib/toolRelay'
+import { L } from '@/lib/KRUtilities'
 
 /** Calls from one tool that may wait for the API at the same time. */
 export const MAX_IN_FLIGHT = 20
 
+/** Name of the sending helper placed in a pop-out window (web patch 568). */
+export const FRAME_SENDER_NAME = '__krhToolPost'
+
+/** Sends one message to the frame's window, for the given origin only. */
+export type FrameSender = (target: Window, message: HostToFrameMessage, origin: string) => void
+
+/** The helper's source: it runs in the pop-out window, so its messages are marked as from that window. */
+const FRAME_SENDER_SOURCE = `window.${FRAME_SENDER_NAME} = function (target, message, origin) { target.postMessage(message, origin) }`
+
+/**
+ * Chooses how replies are sent to a frame held by `hostWindow`.
+ *
+ * Stages: (1) the frame is in this code's own window (the workspace): send directly; (2) the frame is in a pop-out:
+ * place the helper in the pop-out window once (a script element, which runs in that window), then send through it;
+ * (3) the helper could not be placed: send directly and log, so the reason is visible.
+ *
+ * @param hostWindow - The window that holds the frame.
+ * @param ownWindow - The window this code belongs to (the main window); undefined outside a browser.
+ * @returns The function that sends one message.
+ */
+export function makeFrameSender(hostWindow: Window, ownWindow: Window | undefined): FrameSender {
+  const direct: FrameSender = (target, message, origin) => target.postMessage(message, origin)
+  // Stage 1: the workspace.
+  if (hostWindow === ownWindow) return direct
+
+  // Stage 2: the pop-out.
+  const holder = hostWindow as unknown as Record<string, unknown>
+  try {
+    if (typeof holder[FRAME_SENDER_NAME] !== 'function') {
+      const script = hostWindow.document.createElement('script')
+      script.textContent = FRAME_SENDER_SOURCE
+      hostWindow.document.head.appendChild(script)
+      script.remove()
+    }
+  } catch (error) {
+    L(`[TOOL_HOST:68] pop-out sender not placed error=${error instanceof Error ? error.message : String(error)}`)
+  }
+  const helper = holder[FRAME_SENDER_NAME]
+  if (typeof helper === 'function') return (target, message, origin) => (helper as FrameSender)(target, message, origin)
+
+  // Stage 3: no helper; the tool will likely not connect in this window.
+  L('[TOOL_HOST:74] pop-out sender missing; sending directly')
+  return direct
+}
+
 export interface ToolHostOptions {
   /** The window whose `message` events to watch: the frame's parent. */
   hostWindow: Window
+  /** The window this code belongs to. Defaults to the current window; a different `hostWindow` is a pop-out. */
+  ownWindow?: Window
   /** The frame's window (`iframe.contentWindow`). Messages from any other window are ignored. */
   frameWindow: () => Window | null
   /** The tool's client id. */
@@ -50,10 +104,12 @@ export interface ToolHostOptions {
 export function attachToolHost(options: ToolHostOptions): () => void {
   let inFlight = 0
   let stopped = false
+  // Direct in the workspace; through the pop-out window's own helper in a pop-out (see the file comment).
+  const send = makeFrameSender(options.hostWindow, 'ownWindow' in options ? options.ownWindow : typeof window === 'undefined' ? undefined : window)
 
   const post = (message: HostToFrameMessage) => {
     const target = options.frameWindow()
-    if (target && !stopped) target.postMessage(message, options.origin)
+    if (target && !stopped) send(target, message, options.origin)
   }
 
   const onMessage = (event: MessageEvent) => {

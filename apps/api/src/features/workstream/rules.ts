@@ -19,6 +19,17 @@
  * - A change sets only the fields sent (the old one blanked a note or next steps left out).
  * - The audit row has no note text (the old crud Worker copied notes into the audit log, and audited every read).
  * - The email logo travels inside the message (`platform/firmEmail.ts`); an email names a matter by id.
+ *
+ * Changed Nov 18, 2026 (FB-0016, FB-0017; API 1.2.0 patch 1):
+ * - One entry may have several activity types (`subgroups`): the main one stays in `subgroup`, the others are
+ *   `workstream_activity_type` rows written in the entry's own batch (`activityTypes`). The screens used to save one
+ *   entry per type, each with its own WSID.
+ * - An entry with the Task type gets a real task on the Tasks screen, made through the Tasks area's own rules (the
+ *   `WorkstreamTaskPort` that `routes.ts` hands in, so the client, matter and assignee checks are the Tasks ones),
+ *   titled with the subject, described `WS #<wsid>`, and kept in `task_id`. `assigneeUserIds` are its assignees (the
+ *   first is also the entry's assignee); a change sends the whole set to the task. Taking the Task type away leaves
+ *   the task as it is. The entry is saved first: a task that cannot be made or reassigned is reported in `taskError`
+ *   and the entry stands, as a sent email stands when its entry cannot be recorded.
  */
 
 import {
@@ -51,6 +62,40 @@ export const WORKSTREAM_ROLES = ['super_admin', 'admin', 'attorney', 'paralegal'
 export const WORKSTREAM_EMAIL_ROLES = ['super_admin', 'admin', 'attorney', 'paralegal', 'staff', 'employee', 'billing', 'office_manager'] as const
 
 const WSID_ATTEMPTS = 8
+
+/**
+ * What WorkStream needs from the Tasks area (FB-0017), handed in by `routes.ts` so the two rule files do not import
+ * each other. Each call runs the Tasks rules with the same person and writes its own audit row.
+ */
+export interface WorkstreamTaskPort {
+  /** Makes the task for an entry's Task type; answers the task's public id. */
+  create(input: { title: string; description: string; clientId: string | null; matterId: string | null; assigneeUserIds: string[] }): Promise<string>
+  /** Replaces the task's current assignees (the whole set, the first first). */
+  assign(taskId: string, assigneeUserIds: string[]): Promise<void>
+}
+
+/**
+ * The entry's activity types, the main one first and each once (FB-0016). `main` is put first when the list leaves it
+ * out; with no list, the main type alone.
+ */
+export function activityTypes(main: WorkstreamSubgroup, list: readonly WorkstreamSubgroup[] | undefined): WorkstreamSubgroup[] {
+  return Array.from(new Set([main, ...(list ?? [])]))
+}
+
+/** The other types in the order of the type buttons (`WORKSTREAM_SUBGROUPS`), without the main one. */
+function otherTypes(types: readonly WorkstreamSubgroup[]): WorkstreamSubgroup[] {
+  return WORKSTREAM_SUBGROUPS.filter((type) => type !== types[0] && types.includes(type))
+}
+
+function jsonStrings(json: string | null | undefined): string[] {
+  if (!json) return []
+  try {
+    const value: unknown = JSON.parse(json)
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
+  } catch {
+    return []
+  }
+}
 const EMAIL_ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /** A refusal with its code and HTTP status. */
@@ -129,10 +174,15 @@ export function personName(person: Pick<PersonRow, 'preferred_name' | 'first_nam
 export function serializeActivity(row: ActivityRow): WorkstreamActivity {
   const isHtml = row.note_format === 'html'
   const body = row.note_body ?? ''
+  const main: WorkstreamSubgroup = (WORKSTREAM_SUBGROUPS as readonly string[]).includes(row.subgroup) ? (row.subgroup as WorkstreamSubgroup) : 'Notes'
+  const extras = jsonStrings(row.extra_subgroups_json).filter((type): type is WorkstreamSubgroup => (WORKSTREAM_SUBGROUPS as readonly string[]).includes(type))
+  // The task's assignees when the entry has a task (FB-0017), else the entry's own assignee.
+  const assigneeUserIds = row.task_id ? jsonStrings(row.task_assignee_ids_json) : row.assignee_user_id ? [row.assignee_user_id] : []
   return {
     id: row.id,
     wsid: row.wsid,
-    subgroup: (WORKSTREAM_SUBGROUPS as readonly string[]).includes(row.subgroup) ? (row.subgroup as WorkstreamSubgroup) : 'Notes',
+    subgroup: main,
+    subgroups: [main, ...otherTypes([main, ...extras])],
     clientId: row.client_id,
     clientNumber: row.client_number,
     clientDisplayName: row.client_display_name,
@@ -151,6 +201,7 @@ export function serializeActivity(row: ActivityRow): WorkstreamActivity {
     documentLabel: row.document_label,
     taskId: row.task_id,
     assigneeUserId: row.assignee_user_id,
+    assigneeUserIds,
     assigneeContactId: row.assignee_contact_id,
     assigneeLabel: row.assignee_label,
     performedByUserId: row.performed_by_user_id,
@@ -255,8 +306,55 @@ export async function getActivity(q: WorkstreamQueries, wsid: string): Promise<W
   return { activity: serializeActivity(await requireActivity(q, wsid)) }
 }
 
-/** Creates one entry; the `wsid` is made here and tried again on a clash. */
-export async function createActivity(q: WorkstreamQueries, actor: WorkstreamActor, body: WorkstreamCreateBody, now: string): Promise<WorkstreamSavedData> {
+/** The staff users given for a task, each once, in order; refused when one is not an active staff user (422 `WORKSTREAM_ASSIGNEE_NOT_FOUND`). */
+async function checkedTaskAssignees(q: WorkstreamQueries, userIds: readonly string[]): Promise<string[]> {
+  const unique = Array.from(new Set(userIds.map((userId) => userId.trim()).filter(Boolean)))
+  if (!unique.length) return []
+  const staff = new Set((await q.staffUsers()).map((person) => person.id))
+  const missing = unique.filter((userId) => !staff.has(userId))
+  if (missing.length) throw new WorkstreamError('WORKSTREAM_ASSIGNEE_NOT_FOUND', 422, `Not an active staff user: ${missing.join(', ')}.`)
+  return unique
+}
+
+/** The entry's assignee name: the person saving, or the user's own name. */
+async function assigneeName(q: WorkstreamQueries, actor: WorkstreamActor, userId: string): Promise<string> {
+  return userId === actor.userId ? actor.displayName : personName(await q.person(userId), userId)
+}
+
+/** The error code of a task that could not be made or reassigned (the entry is already saved). */
+function taskErrorCode(error: unknown): string {
+  const code = (error as { code?: unknown } | null)?.code
+  return typeof code === 'string' && code ? code : 'WORKSTREAM_TASK_UNAVAILABLE'
+}
+
+/**
+ * Makes the task for an entry with the Task type and keeps its id on the entry (FB-0017). Answers the error code when
+ * it could not, else null.
+ */
+async function makeTask(
+  q: WorkstreamQueries,
+  tasks: WorkstreamTaskPort | undefined,
+  actor: WorkstreamActor,
+  entry: { id: string; wsid: string; subject: string; clientId: string | null; matterId: string | null },
+  assigneeUserIds: string[],
+  now: string,
+): Promise<string | null> {
+  if (!tasks) return 'WORKSTREAM_TASK_UNAVAILABLE'
+  try {
+    const taskId = await tasks.create({ title: entry.subject, description: `From WorkStream entry WS #${entry.wsid}.`, clientId: entry.clientId, matterId: entry.matterId, assigneeUserIds })
+    await q.linkTask(entry.id, taskId, now, auditFor(actor, 'LINK_TASK', { id: entry.id, clientId: entry.clientId }, { wsid: entry.wsid, taskId }))
+    return null
+  } catch (error) {
+    console.error(JSON.stringify({ requestId: actor.requestId, area: 'WORKSTREAM:task', wsid: entry.wsid, code: taskErrorCode(error) }))
+    return taskErrorCode(error)
+  }
+}
+
+/**
+ * Creates one entry with every activity type given; the `wsid` is made here and tried again on a clash. With the
+ * Task type, the task is made after the entry is saved (`makeTask`; a failure is `taskError`, the entry stands).
+ */
+export async function createActivity(q: WorkstreamQueries, actor: WorkstreamActor, body: WorkstreamCreateBody, now: string, tasks?: WorkstreamTaskPort): Promise<WorkstreamSavedData> {
   let clientId: string | null = null
   let leadId: string | null = null
   let matterId: string | null = null
@@ -268,10 +366,15 @@ export async function createActivity(q: WorkstreamQueries, actor: WorkstreamActo
     clientId = (await requireClient(q, body.clientId!)).id
     matterId = (await matterForClient(q, clientId, body.matterId)).id
   }
-  if (body.assigneeUserId && body.assigneeContactId) throw new WorkstreamError('WORKSTREAM_ASSIGNEE_CONFLICT', 422, 'Assign the entry to a user or to a contact, not both.')
+  if ((body.assigneeUserId || body.assigneeUserIds?.length) && body.assigneeContactId) throw new WorkstreamError('WORKSTREAM_ASSIGNEE_CONFLICT', 422, 'Assign the entry to a user or to a contact, not both.')
+  const types = activityTypes(body.subgroup, body.subgroups)
+  const wantsTask = types.includes('Tasks')
+  const listed = wantsTask && body.assigneeUserIds !== undefined ? await checkedTaskAssignees(q, body.assigneeUserIds) : null
   const noOtherAssignee = !body.assigneeContactId && !body.assigneeLabel?.trim()
-  const assigneeUserId = body.assigneeUserId ?? (noOtherAssignee ? actor.userId : null)
-  const assigneeLabel = body.assigneeLabel?.trim() || (assigneeUserId === actor.userId ? actor.displayName : assigneeUserId ? personName(await q.person(assigneeUserId), assigneeUserId) : null)
+  // A task's assignee list names the entry's assignee too (its first); otherwise the old rule: the one given, else the person saving.
+  const assigneeUserId = listed ? (listed[0] ?? null) : (body.assigneeUserId ?? (noOtherAssignee ? actor.userId : null))
+  const assigneeLabel = (listed ? null : body.assigneeLabel?.trim()) || (assigneeUserId ? await assigneeName(q, actor, assigneeUserId) : null)
+  const taskAssignees = listed ?? (wantsTask ? await checkedTaskAssignees(q, assigneeUserId ? [assigneeUserId] : []) : [])
   const html = body.noteHtml?.trim() ? sanitizeNoteHtml(body.noteHtml.trim()) : null
   const id = `wsa_${crypto.randomUUID()}`
   for (let attempt = 0; attempt < WSID_ATTEMPTS; attempt += 1) {
@@ -283,7 +386,8 @@ export async function createActivity(q: WorkstreamQueries, actor: WorkstreamActo
         clientId,
         leadId,
         matterId,
-        subgroup: body.subgroup,
+        subgroup: types[0]!,
+        extraSubgroups: otherTypes(types),
         activityAt: body.activityAt ?? now,
         subject: body.title.trim(),
         noteBody: html ?? (body.note?.trim() || null),
@@ -298,16 +402,45 @@ export async function createActivity(q: WorkstreamQueries, actor: WorkstreamActo
         performedByUserId: actor.userId,
         now,
       },
-      auditFor(actor, 'CREATE', { id, clientId }, { wsid, subgroup: body.subgroup, subject: body.title.trim(), leadId, matterId }),
+      auditFor(actor, 'CREATE', { id, clientId }, { wsid, subgroup: types[0], subgroups: types, subject: body.title.trim(), leadId, matterId }),
     )
-    if (saved) return getActivity(q, wsid)
+    if (!saved) continue
+    if (!wantsTask) return getActivity(q, wsid)
+    const taskError = await makeTask(q, tasks, actor, { id, wsid, subject: body.title.trim(), clientId, matterId }, taskAssignees, now)
+    return { ...(await getActivity(q, wsid)), taskError }
   }
   throw new WorkstreamError('WORKSTREAM_WSID_EXHAUSTED', 409, 'A WorkStream id could not be assigned. Try again.')
 }
 
-/** Changes only the fields sent. */
-export async function updateActivity(q: WorkstreamQueries, actor: WorkstreamActor, wsid: string, body: WorkstreamUpdateBody, now: string): Promise<WorkstreamSavedData> {
+/**
+ * The types after a change (FB-0016). `subgroups` is the whole new set: the main type stays when it is in the set (or
+ * `subgroup` when that is), else the set's first. `subgroup` alone replaces the main type and keeps the others.
+ * Answers null when the types do not change.
+ */
+export function changedTypes(current: readonly WorkstreamSubgroup[], body: Pick<WorkstreamUpdateBody, 'subgroup' | 'subgroups'>): WorkstreamSubgroup[] | null {
+  let next: WorkstreamSubgroup[]
+  if (body.subgroups) {
+    const set = Array.from(new Set(body.subgroups))
+    const main = body.subgroup && set.includes(body.subgroup) ? body.subgroup : current[0] && set.includes(current[0]) ? current[0] : set[0]!
+    next = [main, ...otherTypes([main, ...set])]
+  } else if (body.subgroup) {
+    next = [body.subgroup, ...otherTypes([body.subgroup, ...current.slice(1)])]
+  } else return null
+  return next.join(',') === [current[0], ...otherTypes(current)].join(',') ? null : next
+}
+
+/**
+ * Changes only the fields sent. With the Task type, an entry without a task gets one, and `assigneeUserIds` go to
+ * the task (FB-0017); a failure there is `taskError`, and the entry's change stands.
+ */
+export async function updateActivity(q: WorkstreamQueries, actor: WorkstreamActor, wsid: string, body: WorkstreamUpdateBody, now: string, tasks?: WorkstreamTaskPort): Promise<WorkstreamSavedData> {
   const current = await requireActivity(q, wsid)
+  const currentTypes = serializeActivity(current).subgroups
+  const nextTypes = changedTypes(currentTypes, body)
+  const types = nextTypes ?? currentTypes
+  const wantsTask = types.includes('Tasks')
+  if (body.assigneeUserIds !== undefined && !wantsTask) throw new WorkstreamError('WORKSTREAM_TASK_TYPE_REQUIRED', 422, 'Only an entry with the Task type has task assignees.')
+  const listed = body.assigneeUserIds !== undefined ? await checkedTaskAssignees(q, body.assigneeUserIds) : null
   let matterId = current.matter_id
   if (body.matterId !== undefined && body.matterId !== current.matter_id) {
     if (!current.client_id) throw new WorkstreamError('WORKSTREAM_LEAD_HAS_NO_MATTER', 422, 'A lead\'s entries have no matter.')
@@ -323,12 +456,11 @@ export async function updateActivity(q: WorkstreamQueries, actor: WorkstreamActo
     noteFormat = 'plain'
   }
   let assignee = { userId: current.assignee_user_id, contactId: current.assignee_contact_id, label: current.assignee_label }
-  if (body.assigneeUserId !== undefined) {
-    assignee = body.assigneeUserId
-      ? { userId: body.assigneeUserId, contactId: null, label: body.assigneeUserId === actor.userId ? actor.displayName : personName(await q.person(body.assigneeUserId), body.assigneeUserId) }
-      : { userId: null, contactId: null, label: null }
+  const assigneeChange = listed ? (listed[0] ?? null) : body.assigneeUserId
+  if (assigneeChange !== undefined) {
+    assignee = assigneeChange ? { userId: assigneeChange, contactId: null, label: await assigneeName(q, actor, assigneeChange) } : { userId: null, contactId: null, label: null }
   }
-  const subgroup = body.subgroup ?? current.subgroup
+  const subgroup = types[0]!
   const subject = body.title?.trim() || current.subject
   await q.update(
     {
@@ -337,6 +469,7 @@ export async function updateActivity(q: WorkstreamQueries, actor: WorkstreamActo
       leadId: current.lead_id,
       matterId,
       subgroup,
+      extraSubgroups: nextTypes ? otherTypes(nextTypes) : null,
       activityAt: body.activityAt ?? current.activity_at,
       subject,
       noteBody,
@@ -347,9 +480,24 @@ export async function updateActivity(q: WorkstreamQueries, actor: WorkstreamActo
       assigneeLabel: assignee.label,
       now,
     },
-    auditFor(actor, 'UPDATE', { id: current.id, clientId: current.client_id }, { wsid, subgroup, subject, matterId, fields: Object.keys(body) }),
+    auditFor(actor, 'UPDATE', { id: current.id, clientId: current.client_id }, { wsid, subgroup, subgroups: types, subject, matterId, fields: Object.keys(body) }),
   )
-  return getActivity(q, wsid)
+  // FB-0017: a Task type with no task yet gets one; the assignees sent go to the task.
+  if (!wantsTask || (current.task_id && !listed)) return getActivity(q, wsid)
+  let taskError: string | null = null
+  if (!current.task_id) {
+    taskError = await makeTask(q, tasks, actor, { id: current.id, wsid, subject, clientId: current.client_id, matterId }, listed ?? (assignee.userId ? [assignee.userId] : []), now)
+  } else if (!tasks) {
+    taskError = 'WORKSTREAM_TASK_UNAVAILABLE'
+  } else {
+    try {
+      await tasks.assign(current.task_id, listed!)
+    } catch (error) {
+      taskError = taskErrorCode(error)
+      console.error(JSON.stringify({ requestId: actor.requestId, area: 'WORKSTREAM:task-assign', wsid, code: taskError }))
+    }
+  }
+  return { ...(await getActivity(q, wsid)), taskError }
 }
 
 /**
@@ -367,6 +515,7 @@ export async function moveActivity(q: WorkstreamQueries, actor: WorkstreamActor,
       leadId: null,
       matterId: matter.id,
       subgroup: current.subgroup,
+      extraSubgroups: null,
       activityAt: current.activity_at,
       subject: current.subject,
       noteBody: current.note_body,

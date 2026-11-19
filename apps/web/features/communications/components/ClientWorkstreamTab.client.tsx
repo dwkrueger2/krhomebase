@@ -18,23 +18,36 @@
  *  - The contacts feature passes the client's matters (`useClientMatters`), so the matter choices need no request.
  *
  * Saves go to the live database, also under `pnpm dev`.
+ *
+ * Changed Nov 18, 2026 (FB-0016, FB-0017, web patch 570): a row's double-click opens its full view; an edit sends
+ * every type chosen and, with Task, the task's people; a task the API could not make or reassign (`taskError`)
+ * keeps the saved entry and says so.
+ *
+ * Changed Nov 18, 2026 (web patch 571): the client's whole WorkStream loads once (100 a request until the last) and
+ * the SHOW buttons filter it in the browser, so pressing one never shows the spinner; + AddActivity opens the entry
+ * dialog (`WorkstreamEntryDialog`), empty, instead of the old Add activity dialog; the tab carries `panelColors`.
  */
 
 import type { Matter, WorkstreamActivity, WorkstreamAssignee } from '@krhomebase/contracts'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useOptionalDataStore } from '@/features/contacts/DataStoreProvider.client'
 import type { KRContactRecord } from '@/features/contacts/types'
 import { L } from '@/lib/KRUtilities'
 import { createWorkstreamEntry, deleteWorkstreamEntry, fetchWorkstream, fetchWorkstreamAssignees, fetchWorkstreamEntry, updateWorkstreamEntry } from '../api.client'
 import type { CommunicationsViewer } from '../communicationTypes'
-import { generalMatterNumber, ledgerRowFromActivity, mergeSavedActivity, type LedgerActivityFilter, type LedgerActivityRow, type LedgerRowPresentation } from '../workstreamLedgerRows'
-import WorkstreamActivityAddDialog, { type WorkstreamActivityCreateInput } from './WorkstreamActivityAddDialog.client'
+import { generalMatterNumber, ledgerRowFromActivity, mergeSavedActivity, rowMatchesFilter, type LedgerActivityFilter, type LedgerActivityRow, type LedgerRowPresentation } from '../workstreamLedgerRows'
+// Read, not only imported: a CSS module imported for its side effect is left out of the production build (web patch 554).
+import communicationColors from './Communications.module.css'
 import WorkstreamActivityLedger from './WorkstreamActivityLedger.client'
 import WorkstreamEmailDialog, { type WorkstreamEmailSentResult } from './WorkstreamEmailDialog.client'
+import WorkstreamEntryDialog, { type WorkstreamEntryCreateInput } from './WorkstreamEntryDialog.client'
 import WorkstreamSummaryCard, { type WorkstreamSummaryUpdate } from './WorkstreamSummaryCard.client'
 
-/** One page of the ledger (D10). */
-export const CLIENT_WORKSTREAM_PAGE_SIZE = 50
+/** Entries per request while the whole list loads (the API's most). */
+export const CLIENT_WORKSTREAM_PAGE_SIZE = 100
+
+/** At most this many requests for one client (10,000 entries), so a broken cursor can never loop for ever. */
+export const CLIENT_WORKSTREAM_MAX_PAGES = 100
 
 const NO_CONTACTS: readonly KRContactRecord[] = []
 
@@ -60,14 +73,36 @@ function reason(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback
 }
 
+/** Spacing for the task notice above the ledger. */
+const LAYOUT_STYLES = {
+  notice: 'mb-[4px]',
+} as const
+
+/** The task notice: a short warning line in the danger color. */
+const STYLES = {
+  notice: 'text-[11px] font-[700] text-(color:--kr-theme-danger)',
+// b1: ' border-red-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
+// b2: ' border-blue-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
+// b3: ' border-green-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
+// b4: ' border-purple-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
+} as const
+
+// const b1 = STYLES.b1
+// const b2 = STYLES.b2
+// const b3 = STYLES.b3
+// const b4 = STYLES.b4
+
+/** The sentence for a saved entry whose task could not be made or reassigned (FB-0017). */
+export function taskProblemSentence(taskError: string): string {
+  return `The entry was saved, but its task on the Tasks screen was not (${taskError}). Save it again to try once more.`
+}
+
 /** Renders a client's WorkStream tab. */
 export default function ClientWorkstreamTab({ clientId, clientNumber, displayName, matters, viewer = null }: ClientWorkstreamTabProps) {
   const contacts = useOptionalDataStore()?.contacts ?? NO_CONTACTS
   const [filter, setFilter] = useState<LedgerActivityFilter>('all')
   const [activities, setActivities] = useState<WorkstreamActivity[]>([])
-  const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
   const [assignees, setAssignees] = useState<WorkstreamAssignee[]>([])
@@ -76,34 +111,44 @@ export default function ClientWorkstreamTab({ clientId, clientNumber, displayNam
   const [overrides, setOverrides] = useState<Record<string, LedgerRowPresentation>>({})
   const [addOpen, setAddOpen] = useState(false)
   const [emailOpen, setEmailOpen] = useState(false)
+  // A row's double-click: which entry's full view to open, counted so the same row can open it again (FB-0016).
+  const [openRequest, setOpenRequest] = useState<{ id: string; count: number }>({ id: '', count: 0 })
+  // A new entry saved without its task (FB-0017): said above the ledger until the next save.
+  const [taskNotice, setTaskNotice] = useState<string | null>(null)
   const requestRef = useRef(0)
 
   const sortedMatters = useMemo(() => [...matters].sort((left, right) => matterSequence(left) - matterSequence(right)), [matters])
   const generalMatter = sortedMatters.find((matter) => matter.isGeneralMatter) ?? sortedMatters.find((matter) => matterSequence(matter) === 0) ?? null
-  const subgroup = filter === 'all' ? null : filter
 
-  // The first page, again whenever the client or the type filter changes (a later reply wins over an older one).
+  // Every entry of the client, once (web patch 571): page after page until the last, so the SHOW buttons filter the
+  // list in the browser and never ask again. Again only for another client or Try again (a later reply wins).
   useEffect(() => {
     const request = ++requestRef.current
     setLoading(true)
     setError(null)
-    fetchWorkstream({ clientId, subgroup, limit: CLIENT_WORKSTREAM_PAGE_SIZE })
-      .then((data) => {
+    void (async () => {
+      try {
+        const all: WorkstreamActivity[] = []
+        let cursor: string | undefined
+        for (let page = 0; page < CLIENT_WORKSTREAM_MAX_PAGES; page += 1) {
+          const data = await fetchWorkstream({ clientId, limit: CLIENT_WORKSTREAM_PAGE_SIZE, cursor })
+          if (request !== requestRef.current) return
+          all.push(...data.activities.filter((activity) => !all.some((known) => known.wsid === activity.wsid)))
+          if (!data.nextCursor) break
+          cursor = data.nextCursor
+        }
+        setActivities(all)
+        L(`[CLIENT_WORKSTREAM:140] loaded clientId=${clientId} entries=${all.length}`)
+      } catch (caught) {
         if (request !== requestRef.current) return
-        setActivities(data.activities)
-        setNextCursor(data.nextCursor)
-      })
-      .catch((caught: unknown) => {
-        if (request !== requestRef.current) return
-        L(`[CLIENT_WORKSTREAM:104] list failed clientId=${clientId} subgroup=${subgroup ?? 'all'}`)
+        L(`[CLIENT_WORKSTREAM:143] list failed clientId=${clientId}`)
         setActivities([])
-        setNextCursor(null)
         setError(reason(caught, 'The WorkStream could not be read.'))
-      })
-      .finally(() => {
+      } finally {
         if (request === requestRef.current) setLoading(false)
-      })
-  }, [clientId, reloadKey, subgroup])
+      }
+    })()
+  }, [clientId, reloadKey])
 
   // The staff list for the assignee choices, once.
   useEffect(() => {
@@ -120,23 +165,9 @@ export default function ClientWorkstreamTab({ clientId, clientNumber, displayNam
     }
   }, [clientId])
 
-  const loadMore = useCallback(async () => {
-    if (!nextCursor) return
-    const request = requestRef.current
-    setLoadingMore(true)
-    try {
-      const data = await fetchWorkstream({ clientId, subgroup, limit: CLIENT_WORKSTREAM_PAGE_SIZE, cursor: nextCursor })
-      if (request !== requestRef.current) return
-      setActivities((current) => [...current, ...data.activities.filter((activity) => !current.some((known) => known.wsid === activity.wsid))])
-      setNextCursor(data.nextCursor)
-    } catch (caught) {
-      if (request === requestRef.current) setError(reason(caught, 'Older entries could not be read.'))
-    } finally {
-      setLoadingMore(false)
-    }
-  }, [clientId, nextCursor, subgroup])
-
-  const rows = useMemo<LedgerActivityRow[]>(() => activities.map((activity) => ledgerRowFromActivity(activity, clientNumber)), [activities, clientNumber])
+  const allRows = useMemo<LedgerActivityRow[]>(() => activities.map((activity) => ledgerRowFromActivity(activity, clientNumber)), [activities, clientNumber])
+  // The SHOW filter works on the loaded list: an entry shows under each of its types.
+  const rows = useMemo(() => allRows.filter((row) => rowMatchesFilter(row, filter)), [allRows, filter])
   const assigneeOptions = useMemo(() => assignees.map((user) => ({ id: user.id, label: user.label })), [assignees])
 
   /** Puts a saved entry into the list and selects it. */
@@ -145,25 +176,33 @@ export default function ClientWorkstreamTab({ clientId, clientNumber, displayNam
     if (select && saved.clientId === clientId) setSelectedId(saved.wsid)
   }
 
-  async function create(input: WorkstreamActivityCreateInput): Promise<void> {
-    const { activity } = await createWorkstreamEntry({
-      subgroup: input.subgroup,
+  async function create(input: WorkstreamEntryCreateInput): Promise<void> {
+    const { activity, taskError } = await createWorkstreamEntry({
+      subgroup: input.subgroups[0] ?? 'Notes',
+      subgroups: input.subgroups,
       clientId,
       matterId: input.matterId ?? undefined,
       title: input.title,
       note: input.note,
       noteHtml: input.noteHtml,
       nextSteps: input.nextSteps,
-      assigneeUserId: input.assigneeUserId,
-      assigneeLabel: input.assigneeLabel,
+      ...(input.assigneeUserIds ? { assigneeUserIds: input.assigneeUserIds } : {}),
     })
     keep(activity)
     setAddOpen(false)
+    setTaskNotice(taskError ? taskProblemSentence(taskError) : null)
+    if (taskError) L(`[CLIENT_WORKSTREAM:180] task not made wsid=${activity.wsid} code=${taskError}`)
   }
 
   async function update(wsid: string, change: WorkstreamSummaryUpdate): Promise<void> {
-    const { activity } = await updateWorkstreamEntry(wsid, change)
+    const { activity, taskError } = await updateWorkstreamEntry(wsid, change)
     keep(activity)
+    setTaskNotice(null)
+    if (taskError) {
+      L(`[CLIENT_WORKSTREAM:180] task not saved wsid=${wsid} code=${taskError}`)
+      // The entry is saved; the editor shows the sentence and stays open for another try.
+      throw new Error(taskProblemSentence(taskError))
+    }
   }
 
   async function remove(wsid: string): Promise<void> {
@@ -185,26 +224,33 @@ export default function ClientWorkstreamTab({ clientId, clientNumber, displayNam
   const matterLine = sortedMatters.length ? sortedMatters.map((matter) => `Matter ${matter.matterNumber}`).join(' · ') : (generalMatterNumber(clientNumber) ? `Matter ${generalMatterNumber(clientNumber)}` : 'No matters attached')
 
   return (
-    <div data-kr-id={`ClientWorkstreamTab-${clientNumber ?? clientId}`}>
+    // panelColors: the WorkStream type colors for the SHOW buttons, the row letters and the card's type chips.
+    <div className={communicationColors.panelColors} data-kr-id={`ClientWorkstreamTab-${clientNumber ?? clientId}`}>
+      {/* A saved entry whose task was not made (FB-0017); Edit note and save it again to try once more. */}
+      {taskNotice ? (
+        <p className={`${LAYOUT_STYLES.notice} ${STYLES.notice}`} data-kr-element="workstream-task-notice" role="alert">
+          {taskNotice}
+        </p>
+      ) : null}
       <WorkstreamActivityLedger
         contextLabel={`${clientLabel} · ${matterLine}`}
         error={error}
         filter={filter}
-        hasMore={Boolean(nextCursor)}
+        hasMore={false}
         loading={loading}
-        loadingMore={loadingMore}
+        loadingMore={false}
         presentation={presentation}
         presentationOverrides={overrides}
-        renderDetail={(row, openFullViewRequestId) => (
+        renderDetail={(row) => (
           <WorkstreamSummaryCard
             assigneeOptions={assigneeOptions}
             canDelete={viewer?.role === 'super_admin'}
             contacts={contacts}
-            openFullViewRequestId={openFullViewRequestId}
             row={row}
             onDelete={remove}
             onReassigned={(moved) => keep(moved, false)}
             onUpdate={update}
+            openRequest={openRequest.id === row.id ? openRequest.count : 0}
           />
         )}
         rows={rows}
@@ -217,7 +263,11 @@ export default function ClientWorkstreamTab({ clientId, clientNumber, displayNam
           setFilter(next)
           setSelectedId(null)
         }}
-        onLoadMore={() => void loadMore()}
+        onLoadMore={() => undefined}
+        onOpen={(id) => {
+          setSelectedId(id)
+          setOpenRequest((current) => ({ id, count: current.count + 1 }))
+        }}
         onPresentationChange={(next) => {
           setPresentation(next)
           setOverrides({})
@@ -231,15 +281,18 @@ export default function ClientWorkstreamTab({ clientId, clientNumber, displayNam
           })
         }
       />
+      {/* + AddActivity: the entry dialog, empty, for this client (web patch 571; the old Add dialog is gone). */}
       {addOpen ? (
-        <WorkstreamActivityAddDialog
+        <WorkstreamEntryDialog
+          activity={null}
           assigneeOptions={assigneeOptions}
-          currentUserId={viewer?.userId ?? null}
-          currentUserLabel={viewer?.displayName || 'You'}
+          canDelete={false}
+          clientNumber={clientNumber}
+          contacts={contacts}
           defaultMatterId={generalMatter?.id ?? null}
           matters={sortedMatters}
-          onCancel={() => setAddOpen(false)}
-          onSave={create}
+          onClose={() => setAddOpen(false)}
+          onCreate={create}
         />
       ) : null}
       {emailOpen ? (

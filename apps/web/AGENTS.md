@@ -1,7 +1,7 @@
 # KR Homebase Web Agent Guide
 
-<small>Version 3.43</small><br>
-<small>Updated Nov 17, 2026 9:57pm</small>
+<small>Version 3.41</small><br>
+<small>Updated Nov 16, 2026 9:20pm</small>
 
 ## Purpose
 
@@ -101,6 +101,23 @@ A label may sit above its field when any of these is true:
 The test: a form or panel that people use again and again must be visible whole, without scrolling, in a 1280 by 720 window. If it does not fit, move labels inline and put short fields side by side until it does. A screen that scrolls by nature (a long list, a settings page, a report) may use either layout. These are defaults, not a ban; the requester may allow an exception for one screen, and the file says why in a one-line comment.
 
 **Corners: 2px to 4px.** Use `rounded-[2px]`, `rounded-[3px]` or `rounded-[4px]` on sections, cards, buttons, fields and dialogs. Do not use `rounded-lg`, `rounded-xl`, `rounded-2xl` or `rounded-3xl` there. A full circle is allowed only for avatars, status dots, small count badges and the round collapse handle on the left panel.
+
+## Following a code
+
+The requester's rule (Nov 18, 2026, web patch 571): every short code KR Homebase shows is a link that opens what it names, the same way on every screen. **Never write your own link for a code.** Draw it with `KRCodeLink` (`components/ui/KRCodeLink.client.tsx`), or call `openKRCode` (`components/ui/codeLinks.ts`); the one listener, `features/code-links/CodeLinkHost.client.tsx` (drawn once by `app/page.tsx` through the shell's `overlays`), opens the target:
+
+| Kind | The code | Opens |
+|---|---|---|
+| `workstream` | a WSID (`SHZ7GWE`) | the entry's dialog over the screen (`WorkstreamEntryLoader` → `WorkstreamEntryDialog`) |
+| `task` | a task id (`T4K9QWS`; the table's `id`) | the task's card in a dialog, with Edit (`TaskCodeDialog`) |
+| `client` | a client account id or client number | the client's contact in Clients & Contacts |
+| `matter` | a matter id, with its `clientId` | that contact at Projects & Matters, the matter selected (`contactViewRequests.ts`) |
+| `lead` | an LCID (`L007`) or a lead id | Leads with that lead open (`?lead=`, `SECTION_SUB_PAGE_PARAMS`) |
+| `contact` | an ICID (`individual.icid`), an ECID (`entity.ecid`) or a contact id | the contact in Clients & Contacts |
+
+- Contacts, clients and matters are found in the browser's contact list (the data store), by id or code in any case; leads, tasks and WorkStream entries are read from the API by their code (the API takes these codes). A code that finds nothing says so in a small dialog with Close.
+- `tone="dark"` on the Communication Colors; `onBeforeOpen` runs first (a dialog closes itself before its "Client 090" opens the client). The link is a button: it opens something inside the frame, not an address, and its click does not reach the row underneath.
+- A new kind of code is added in three places together: `KRCodeKind` and its words (`codeLinks.ts`), the host's handling, and the table above.
 
 ## Sign-in screens
 

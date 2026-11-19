@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import PopOutBrowserWindow, { openPopoutBrowserWindow } from '@/components/shell/PopOutBrowserWindow.client'
 import PopOutWindow from '@/components/shell/PopOutWindow.client'
+import { useUnloadWarning } from '@/components/shell/useUnloadWarning.client'
 import DevViewLoader from '@/components/dev-view/DevViewLoader.client'
 import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
 import { sendDevViewCommand } from '@/components/dev-view/devViewRemote'
@@ -71,16 +72,9 @@ export default function HomebaseFeedbackButton({ submitterName }: { submitterNam
 
   // The pop-out in its own browser window is closed with the window's own X, which no page can stop with a dialog of
   // its own: while there is unsent work, the browser asks with its "Leave site?" prompt instead. The main window asks
-  // too, because closing or reloading it closes the pop-out.
-  useEffect(() => {
-    if (!dirty || !place) return
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault()
-    const windows: Window[] = place.kind === 'window' ? [place.popup, window] : [window]
-    for (const target of windows) target.addEventListener('beforeunload', warn)
-    return () => {
-      for (const target of windows) target.removeEventListener('beforeunload', warn)
-    }
-  }, [dirty, place])
+  // too, because closing or reloading it closes the pop-out. The shared hook stays quiet during a forced sign-out
+  // (maintenance, idle limit) and tells the Log out button there is unsent work (web patch 566).
+  useUnloadWarning('homebase-feedback', dirty && place !== null, () => (place?.kind === 'window' ? [place.popup, window] : [window]), place)
 
   function open(): void {
     if (place?.kind === 'window' && !place.popup.closed) {

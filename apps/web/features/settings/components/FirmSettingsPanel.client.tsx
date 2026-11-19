@@ -61,6 +61,8 @@ export interface FirmSettingsPanelProps {
   profile?: ReactNode
   /** The Employee Policies page (stage 5). */
   employeePolicies?: ReactNode
+  /** The Billing Rates page (FB-0008). */
+  billingRates?: ReactNode
   /** The Employee Documents page (stage 5). */
   employeeDocuments?: ReactNode
   /** The Users page (super admin); it opens a user through `EditTargetContext`. */
@@ -79,6 +81,7 @@ export default function FirmSettingsPanel({
   isSuperAdmin = false,
   profile,
   employeePolicies,
+  billingRates,
   employeeDocuments,
   users,
   userEdit,
@@ -130,6 +133,7 @@ export default function FirmSettingsPanel({
   const builtPages: Partial<Record<FirmSettingsPageId, ReactNode>> = {}
   if (profile) builtPages.profile = profile
   if (employeePolicies) builtPages['employee-policies'] = employeePolicies
+  if (billingRates) builtPages['billing-rates'] = billingRates
   if (employeeDocuments) builtPages['employee-documents'] = employeeDocuments
   if (users) builtPages.users = users
   if (editTarget && userEdit) builtPages['edit-user'] = userEdit

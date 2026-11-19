@@ -202,6 +202,38 @@ export function entityTypeLabel(row: EntityRow): string {
   return labels[row.entity_subtype] ?? row.entity_subtype
 }
 
+/** The columns `contactMethodSlots` needs; both the contacts read and the contact edit pass their rows. */
+export type ContactMethodSlotRow = { id: string; contact_type: string; label?: string | null; is_primary: number; valid_to?: string | null; created_at: string }
+
+/** The label the contact edit gives a phone saved in the additional (Cell) slot. Such a row never fills the primary slot. */
+export const ADDITIONAL_PHONE_LABEL = 'Additional phone'
+
+/**
+ * The rows behind the two slots of one contact type: the primary slot (Office phone, email, fax) and the additional
+ * slot (Cell phone). The contacts read and the contact edit use this one rule, so a value saved in a slot is read back
+ * in the same slot (FB-0012, API 1.2.0 patch 0).
+ *
+ * Stages: (1) the open rows of the type, oldest first (then by id); (2) the primary slot is the oldest row marked
+ * primary, or, for older rows that carry no primary mark, the oldest open row not saved as an Additional phone (so a
+ * contact with only a Cell number shows no Office number); (3) the additional slot is the oldest other open row that
+ * is not marked primary.
+ *
+ * @param rows - Contact-method rows of one contact.
+ * @param contactType - `email`, `phone` or `fax`.
+ * @returns The row in each slot, or undefined for an empty slot.
+ */
+export function contactMethodSlots<T extends ContactMethodSlotRow>(rows: readonly T[], contactType: string): { primary: T | undefined; secondary: T | undefined } {
+  // Stage 1: open rows, oldest first.
+  const open = rows
+    .filter((row) => row.contact_type === contactType && !row.valid_to)
+    .sort((left, right) => left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id))
+  // Stage 2: the primary slot.
+  const primary = open.find((row) => row.is_primary === 1) ?? open.find((row) => row.label !== ADDITIONAL_PHONE_LABEL)
+  // Stage 3: the additional slot never repeats the primary slot's row.
+  const secondary = open.find((row) => row !== primary && row.is_primary !== 1)
+  return { primary, secondary }
+}
+
 /**
  * Selects the primary value for a contact type.
  *
@@ -210,9 +242,7 @@ export function entityTypeLabel(row: EntityRow): string {
  * @returns Primary value or first matching value.
  */
 function primaryContactValue(rows: ContactMethodRow[], contactType: string): string | null {
-  const matching = rows.filter((row) => row.contact_type === contactType && !row.valid_to)
-  const primary = matching.find((row) => row.is_primary === 1) ?? matching[0]
-  return primary?.value ?? null
+  return contactMethodSlots(rows, contactType).primary?.value ?? null
 }
 
 /** Builds a stable display name for an individual relationship target. */
@@ -225,12 +255,12 @@ function relatedContactOption(row: IndividualRow, relationship?: string | null):
   return { id: row.id, displayName: individualPublicName(row), icid: row.icid ?? null, relationship: relationship ?? null }
 }
 
-/** Selects the first active non-primary value for a contact type. */
+/**
+ * Selects the additional (Cell) value for a contact type. Before API 1.2.0 a lone unmarked phone was shown in both
+ * slots; it now shows only in the primary slot (`contactMethodSlots`).
+ */
 function secondaryContactValue(rows: ContactMethodRow[], contactType: string): string | null {
-  const matching = rows
-    .filter((row) => row.contact_type === contactType && !row.valid_to && row.is_primary !== 1)
-    .sort((left, right) => left.created_at.localeCompare(right.created_at))
-  return matching[0]?.value ?? null
+  return contactMethodSlots(rows, contactType).secondary?.value ?? null
 }
 
 function primaryAddress(

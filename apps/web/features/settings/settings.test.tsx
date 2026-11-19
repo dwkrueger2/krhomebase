@@ -55,6 +55,8 @@ describe('Settings areas', () => {
       'firm-settings': 'firmSettingsSection',
       // Billing part 7b: Reports' open report, the old Reports panel's `?report=`.
       reports: 'report',
+      // Web patch 571, "Following a code": the lead to open (`?lead=L007`).
+      leads: 'lead',
     })
     expect(USER_SETTINGS_PAGES.map((page) => page.id)).toEqual(['user-settings', 'dashboard-settings', 'time-card', 'employee-file'])
     for (const old of ['role-specifications', 'team-management', 'other-configuration', 'site-feedback']) {
@@ -70,8 +72,9 @@ describe('Settings areas', () => {
 
   it('shows Users and the three IT pages of Firm Settings to a super admin only', () => {
     const superAdminPages = ['users', 'data-management', 'gpt-model-gateway', 'stripe-payment-configuration']
-    expect(visibleSettingsPages(FIRM_SETTINGS_PAGES, false).map((page) => page.id)).toEqual(['profile', 'employee-policies', 'employee-documents'])
-    expect(visibleSettingsPages(FIRM_SETTINGS_PAGES, true).map((page) => page.id).slice(3)).toEqual(superAdminPages)
+    // Billing Rates (FB-0008) is read by everyone and saved by a super admin.
+    expect(visibleSettingsPages(FIRM_SETTINGS_PAGES, false).map((page) => page.id)).toEqual(['profile', 'employee-policies', 'billing-rates', 'employee-documents'])
+    expect(visibleSettingsPages(FIRM_SETTINGS_PAGES, true).map((page) => page.id).slice(4)).toEqual(superAdminPages)
   })
 
   it('keeps the old ids of the three IT cards', () => {
@@ -136,7 +139,7 @@ describe('Settings areas in the workspace', () => {
 
   it('falls back to the first page when the address names a page this person may not see', () => {
     const html = renderInWorkspace(<FirmSettingsPanel />, 'firm-settings', '?firmSettingsSection=stripe-payment-configuration')
-    expect(tabIds(html)).toEqual(['profile', 'employee-policies', 'employee-documents'])
+    expect(tabIds(html)).toEqual(['profile', 'employee-policies', 'billing-rates', 'employee-documents'])
     expect(selectedTab(html)).toBe('profile')
   })
 

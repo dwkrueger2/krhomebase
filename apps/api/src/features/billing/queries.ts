@@ -18,6 +18,7 @@
  */
 
 import { auditStatement, type AuditEntry } from '../../platform/queries.ts'
+import { readBillingRatesRow } from '../firm/queries.ts'
 
 export type ClientRow = { id: string; client_number: string; display_name: string }
 export type MatterRow = { id: string; matter_number: string; title: string; description: string | null }
@@ -302,6 +303,8 @@ export interface BillingQueries {
   linesOfInvoices(invoiceIds: string[]): Promise<InvoiceLineRow[]>
   /** Every login with its person's name and staff code (the staff list and the `CODE - Name` labels). */
   staff(): Promise<StaffRow[]>
+  /** The billing rates settings row's JSON (FB-0008: the rate classes and each person's default), or null. */
+  billingRates(): Promise<string | null>
   accountTotals(clientId: string): Promise<AccountTotalsRow>
 
   // ---- reads: for writes
@@ -498,6 +501,10 @@ export function createBillingQueries(db: D1Database): BillingQueries {
           .prepare('SELECT id, invoice_id, time_entry_id, display_on_invoice FROM invoice_line_item WHERE invoice_id IN (SELECT value FROM json_each(?1)) ORDER BY invoice_id, sort_order')
           .bind(ids(invoiceIds)),
       )
+    },
+    async billingRates() {
+      // See the lookup table as described in Schema 8.0: docs/Schema_8.0/table_lookup.html (section "How KR Homebase uses this table").
+      return (await readBillingRatesRow(db))?.description ?? null
     },
     staff() {
       return all<StaffRow>(

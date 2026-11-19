@@ -54,6 +54,31 @@ export function taskDisplayId(task: Pick<Task, 'id'>): string {
   return `Task #${task.id}`
 }
 
+/** One piece of a task description as shown: plain text, or a WorkStream entry to link. */
+export type TaskDescriptionPart = { text: string } | { wsid: string; label: string }
+
+/**
+ * A task description split for showing (the requester, Nov 18, 2026, web patch 571). The stored words stay as they are
+ * (`WS #<wsid>` is how tasks and entries name each other, D21); only the screen changes: the API's "From WorkStream
+ * entry WS #SHZ7GWE." shows as "From WorkStream " and a small link "(#SHZ7GWE.)", and any other `WS #<wsid>` is a link
+ * with its own words.
+ */
+export function taskDescriptionParts(description: string): TaskDescriptionPart[] {
+  const parts: TaskDescriptionPart[] = []
+  const pattern = /From WorkStream entry WS\s*#([A-Z0-9]{7})\.?|(?<![A-Za-z0-9])[Ww][Ss]\s*#([A-Z0-9]{7})(?![A-Za-z0-9])/g
+  let from = 0
+  for (const match of description.matchAll(pattern)) {
+    const at = match.index ?? 0
+    const made = match[1]
+    const before = description.slice(from, at) + (made ? 'From WorkStream ' : '')
+    if (before) parts.push({ text: before })
+    parts.push(made ? { wsid: made, label: `(#${made}.)` } : { wsid: match[2]!, label: match[0] })
+    from = at + match[0].length
+  }
+  if (from < description.length) parts.push({ text: description.slice(from) })
+  return parts
+}
+
 /** The short form for a ledger cell: `#ABC1234`. */
 export function taskShortId(task: Pick<Task, 'id'>): string {
   return `#${task.id}`
@@ -111,9 +136,12 @@ export function assigneeInitials(label: string): string {
   return words.slice(0, 2).map((word) => word[0]!.toUpperCase()).join('') || '?'
 }
 
-/** The assignee cell: initials joined by spaces ("DE AK"), or "—" for nobody. */
+/**
+ * The assignee cell: each person's staff code (the requester, Nov 18, 2026, web patch 571), else their initials,
+ * joined by spaces ("SS1 AK"), or "—" for nobody.
+ */
 export function assigneesShortLabel(task: Pick<Task, 'assignees'>): string {
-  return task.assignees.length ? task.assignees.map((assignee) => assigneeInitials(assignee.label)).join(' ') : '—'
+  return task.assignees.length ? task.assignees.map((assignee) => assignee.staffCode?.trim() || assigneeInitials(assignee.label)).join(' ') : '—'
 }
 
 /** The assignees in full for a tooltip and the detail card ("Dan Example, Ann Kim"), or "Unassigned". */

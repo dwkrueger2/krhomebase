@@ -11,11 +11,13 @@
 import type { Matter, WorkstreamActivity } from '@krhomebase/contracts'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import WorkstreamActivityAddDialog from './components/WorkstreamActivityAddDialog.client'
 import WorkstreamActivityCards from './components/WorkstreamActivityCards.client'
+import WorkstreamContextLine from './components/WorkstreamContextLine.client'
+import { WorkstreamKindCell } from './components/WorkstreamTypeTags.client'
 import WorkstreamActivityLedger, { type WorkstreamActivityLedgerProps } from './components/WorkstreamActivityLedger.client'
 import WorkstreamSummaryCard from './components/WorkstreamSummaryCard.client'
-import { generalMatterNumber, ledgerContextLine, ledgerRowFromActivity, mergeSavedActivity, nextStepsFromText, titleFromNote } from './workstreamLedgerRows'
+import { taskProblemSentence } from './components/ClientWorkstreamTab.client'
+import { generalMatterNumber, ledgerContextLine, ledgerRowFromActivity, mergeSavedActivity, nextStepsFromText, rowMatchesFilter, titleFromNote } from './workstreamLedgerRows'
 
 const activity = (extra: Partial<WorkstreamActivity> = {}): WorkstreamActivity => ({
   id: 'wsa_1',
@@ -39,6 +41,7 @@ const activity = (extra: Partial<WorkstreamActivity> = {}): WorkstreamActivity =
   documentLabel: null,
   taskId: null,
   assigneeUserId: 'u-dan',
+  assigneeUserIds: ['u-dan'],
   assigneeContactId: null,
   assigneeLabel: 'DK - Dan Krueger',
   performedByUserId: 'u-dan',
@@ -46,6 +49,8 @@ const activity = (extra: Partial<WorkstreamActivity> = {}): WorkstreamActivity =
   createdAt: '2026-11-13T15:30:00.000Z',
   updatedAt: null,
   ...extra,
+  // Every type of the entry (FB-0016): the main one alone unless the test gives the list.
+  subgroups: extra.subgroups ?? [extra.subgroup ?? 'Notes'],
 })
 
 const matter = (id: string, matterNumber: string, title: string): Matter => ({
@@ -112,6 +117,14 @@ describe('ledger rows', () => {
     expect(mergeSavedActivity(list, activity({ wsid: 'A000001', clientId: 'cl-501' }), 'cl-306').map((entry) => entry.wsid)).toEqual(['A000002'])
   })
 
+  it('labels an entry with several types once, with every type (FB-0016)', () => {
+    const row = ledgerRowFromActivity(activity({ subgroups: ['Notes', 'Tasks'] }), '306')
+    expect(row).toMatchObject({ subgroups: ['Notes', 'Tasks'], kindLabel: 'Note · Task' })
+    expect(ledgerContextLine(row)).toBe('Client 306 · Matter 306.1 · Note · Task · WSID AB12CD3')
+    expect(renderToStaticMarkup(<WorkstreamActivityCards presentation="SingleLine" row={row} onSelect={noop} onTogglePresentation={noop} />)).toContain('title="Note · Task"')
+    expect(taskProblemSentence('TASK_MATTER_NOT_FOR_CLIENT')).toContain('its task on the Tasks screen was not (TASK_MATTER_NOT_FOR_CLIENT)')
+  })
+
   it('takes the first line as the title (160 characters) and one next step per line', () => {
     expect(titleFromNote('  First   line\nsecond')).toBe('First line')
     expect(titleFromNote('x'.repeat(200))).toHaveLength(160)
@@ -169,27 +182,42 @@ describe('client WorkStream ledger', () => {
     expect(html).toContain('by Dan Krueger')
     expect(html).toContain('Open full view')
     expect(html).toContain('Edit note')
+    expect(html).not.toContain('workstream-summary-task')
+    // An entry with a task names it (FB-0017).
+    const withTask = renderToStaticMarkup(
+      <WorkstreamSummaryCard assigneeOptions={[]} canDelete={false} contacts={[]} row={ledgerRowFromActivity(activity({ subgroups: ['Notes', 'Tasks'], taskId: 'T4K9QWS' }), '306')} onDelete={async () => undefined} onReassigned={noop} onUpdate={async () => undefined} />,
+    )
+    expect(withTask).toContain('>Task #T4K9QWS</button>')
   })
 
-  it('draws Add activity with the client\'s matters, the default assignee and Other', () => {
-    const html = renderToStaticMarkup(
-      <WorkstreamActivityAddDialog
-        assigneeOptions={[{ id: 'u-sam', label: 'SS - Sam Staff' }]}
-        currentUserId="u-dan"
-        currentUserLabel="Dan Krueger"
-        defaultMatterId="m-306-0"
-        inline
-        matters={[matter('m-306-0', '306.0', 'Client General Matters'), matter('m-306-1', '306.1', 'Estate plan')]}
-        onCancel={noop}
-        onSave={async () => undefined}
-      />,
-    )
-    expect(html).toContain('data-kr-element="workstream-add-activity-dialog"')
-    expect(html).toContain('data-kr-theme-scope="krhomebase"')
-    expect(html).toContain('306.1 · Estate plan')
-    expect(html).toContain('Dan Krueger (default)')
-    expect(html).toContain('SS - Sam Staff')
-    expect(html).toContain('>Other</option>')
-    expect(html).toContain('Save activity')
+  it('names the first type by priority in full and the others as letters, every type on hover (web patch 571)', () => {
+    const row = ledgerRowFromActivity(activity({ subgroups: ['Notes', 'Tasks', 'Emails', 'PhoneCalls'] }), '306')
+    expect(row.subgroups).toEqual(['PhoneCalls', 'Emails', 'Notes', 'Tasks'])
+    const cell = renderToStaticMarkup(<WorkstreamKindCell className="kind" types={row.subgroups} />)
+    expect(cell).toContain('title="Phone call · Email Note · Note · Task"')
+    expect(cell).toContain('>Phone Call</span>')
+    expect(cell.match(/data-kr-workstream-activity-type="(\w+)"/g)).toEqual(['data-kr-workstream-activity-type="Emails"', 'data-kr-workstream-activity-type="Notes"', 'data-kr-workstream-activity-type="Tasks"'])
+    expect(cell).toContain('>E</span>')
+    const note = renderToStaticMarkup(<WorkstreamKindCell className="kind" types={['ReceivedFiles', 'WIP']} />)
+    expect(note).toContain('>Received</span>')
+    expect(note).toContain('>W</span>')
+    expect([rowMatchesFilter(row, 'all'), rowMatchesFilter(row, 'Tasks'), rowMatchesFilter(row, 'WIP')]).toEqual([true, true, false])
+  })
+
+  it('draws the context line with the client and the task as code links and the types as chips', () => {
+    const row = ledgerRowFromActivity(activity({ subgroups: ['Notes', 'Tasks'], taskId: 'T4K9QWS' }), '306')
+    const html = renderToStaticMarkup(<WorkstreamContextLine className="line" row={row} />)
+    expect(html).toContain('data-kr-code-kind="client"')
+    expect(html).toContain('>Client 306</button>')
+    expect(html).toContain('data-kr-code-kind="task"')
+    expect(html).toContain('>Task #T4K9QWS</button>')
+    expect(html).toContain('data-kr-element="workstream-type-tags"')
+    expect(html).toContain('WSID AB12CD3')
+  })
+
+  it('colors the SHOW buttons by type, All in the brand color', () => {
+    const html = renderToStaticMarkup(<WorkstreamActivityLedger {...ledgerProps({ filter: 'Tasks' })} />)
+    expect(html).toMatch(/aria-pressed="true" class="[^"]*bg-\(--CommunicationTasksFill\)[^"]*" data-kr-workstream-activity-type="Tasks"/)
+    expect(html).toMatch(/class="[^"]*border-\(--CommunicationNotesLine\)[^"]*" data-kr-workstream-activity-type="Notes"/)
   })
 })
