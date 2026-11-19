@@ -126,6 +126,18 @@ describe('LeftPanelCollapseButton', () => {
     expect(closed).toContain('Expand KR Homebase navigation')
     expect(closed).toContain('aria-expanded="false"')
   })
+
+  it('is a small clear square with a white chevron inside the panel, not a white circle over the work area (the requester, Nov 18, 2026)', () => {
+    const html = renderToStaticMarkup(<LeftPanelCollapseButton collapsed={false} controlsId="x" onToggleCollapsed={() => undefined} />)
+    expect(html).toContain('size-[20px]')
+    expect(html).toContain('bg-transparent')
+    expect(html).toContain('text-white')
+    // Its right border lies on the panel's right border line; it no longer hangs 15px over the working panel.
+    expect(html).toContain('-right-px')
+    expect(html).not.toContain('-right-[15px]')
+    expect(html).not.toContain('rounded-full')
+    expect(html).not.toContain('bg-white ')
+  })
 })
 
 describe('LeftPanelHeader and LeftPanelFooter', () => {

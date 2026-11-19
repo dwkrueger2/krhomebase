@@ -20,6 +20,11 @@
  * works); paper reads the `--kr-print-*` tokens, which do not change with a person's theme. Arrowheads are drawn as
  * small triangles, not SVG markers, so a copy of the diagram (the print preview clones its pages) needs no shared id.
  *
+ * Text size (the requester, Nov 18, 2026: "too small to read"): the canvas is 812 units wide and the picture grows
+ * to 1040px, so a name is 11 units (about 14px at full width, 11px at 812px) and the small print 9.5 units (about
+ * 12px). A name, an address or a caller too long for its box at that size is put on two lines (`nameLines`,
+ * `addressLines`, `callerLines`); the boxes are tall enough for two lines of each.
+ *
  * @param props - `tone`: `screen` (default) or `print`.
  * @returns One inline SVG (`data-kr-element="it-architecture-diagram"`), scaled to the width it is given.
  */
@@ -50,11 +55,13 @@ export const PLACES: Readonly<Record<string, Place>> = {
   'krhomebase-gpt-models-worker': { row: 'inner', column: 3 },
 }
 
-const VIEW = { width: 812, height: 372 }
-const BOX = { width: 156, gap: 8, height: 58 }
-const ROW_Y = { caller: 6, entry: 66, api: 170, inner: 270 }
-const CALLER_HEIGHT = 30
-const API_BOX = { x: 120, width: 348, height: 52 }
+const VIEW = { width: 812, height: 396 }
+const BOX = { width: 156, gap: 8, height: 66 }
+const ROW_Y = { caller: 6, entry: 76, api: 186, inner: 290 }
+const CALLER_HEIGHT = 34
+const API_BOX = { x: 120, width: 348, height: 60 }
+/** Distance between two lines of a name, and of the small print, in canvas units. */
+const LINE = { name: 13, detail: 11, caller: 12 }
 
 /** A box on the canvas. */
 interface Box {
@@ -71,7 +78,7 @@ function boxOf(place: Place): Box {
 }
 
 /** A Worker's name on one line, or split at the hyphen nearest its middle when it is too long for its box. */
-export function nameLines(name: string, limit = 24): string[] {
+export function nameLines(name: string, limit = 21): string[] {
   if (name.length <= limit) return [name]
   const middle = name.length / 2
   let cut = -1
@@ -79,6 +86,17 @@ export function nameLines(name: string, limit = 24): string[] {
     if (name[index] === '-' && (cut === -1 || Math.abs(index - middle) < Math.abs(cut - middle))) cut = index
   }
   return cut === -1 ? [name] : [name.slice(0, cut + 1), name.slice(cut + 1)]
+}
+
+/** A caller's words on one line, or split at the space nearest their middle when they are too long for the box. */
+export function callerLines(caller: string, limit = 24): string[] {
+  if (caller.length <= limit) return [caller]
+  const middle = caller.length / 2
+  let cut = -1
+  for (let index = 0; index < caller.length; index += 1) {
+    if (caller[index] === ' ' && (cut === -1 || Math.abs(index - middle) < Math.abs(cut - middle))) cut = index
+  }
+  return cut === -1 ? [caller] : [caller.slice(0, cut), caller.slice(cut + 1)]
 }
 
 /** One arrow between two Workers: a service binding of the catalog. */
@@ -123,11 +141,12 @@ const TONES: Record<ItDiagramTone, { box: string; apiBox: string; caller: string
 }
 
 const STYLES = {
-  svg: 'block h-auto w-full max-w-[812px]',
-  nameText: 'text-[9px] font-bold',
-  detailText: 'text-[8px]',
-  callerText: 'text-[8.5px] font-semibold',
-  legendText: 'text-[8px]',
+  // Sizes are canvas units: the picture is 812 units wide and grows to 1040px, where 11 units draw at about 14px.
+  svg: 'block h-auto w-full max-w-[1040px]',
+  nameText: 'text-[11px] font-bold',
+  detailText: 'text-[9.5px]',
+  callerText: 'text-[10px] font-semibold',
+  legendText: 'text-[9.5px]',
   // b1: ' border-red-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
   // b2: ' border-blue-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
   // b3: ' border-green-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
@@ -152,7 +171,7 @@ function arrowHead(x1: number, y1: number, x2: number, y2: number): string {
  * What a Worker's box says under its name: its public address, or that it has none. An address too long for the box
  * is split after its first dot (`krhomebase-feedback-viewer.` over `dankrueger.workers.dev`).
  */
-export function addressLines(worker: Pick<ItCatalogWorker, 'name' | 'publicAddress'>, limit = 32): string[] {
+export function addressLines(worker: Pick<ItCatalogWorker, 'name' | 'publicAddress'>, limit = 28): string[] {
   if (worker.name === 'krhomebase-external-api') return ['No public address yet']
   const address = worker.publicAddress ?? 'No public address'
   const dot = address.indexOf('.')
@@ -204,12 +223,16 @@ export default function ItArchitectureDiagram({ tone = 'screen' }: ItArchitectur
           if (!place.caller) return null
           const box = boxOf(place)
           const center = box.x + box.width / 2
+          const words = callerLines(place.caller)
+          const firstCallerLine = ROW_Y.caller + (words.length > 1 ? 14 : 21)
           return (
             <g key={worker.name}>
               <rect className={colors.caller} height={CALLER_HEIGHT} rx={2} strokeDasharray="3 2" strokeWidth={1} width={box.width - 1} x={box.x + 0.5} y={ROW_Y.caller} />
-              <text className={`${colors.detail} ${STYLES.callerText}`} textAnchor="middle" x={center} y={ROW_Y.caller + 18}>
-                {place.caller}
-              </text>
+              {words.map((line, index) => (
+                <text className={`${colors.detail} ${STYLES.callerText}`} key={line} textAnchor="middle" x={center} y={firstCallerLine + index * LINE.caller}>
+                  {line}
+                </text>
+              ))}
               <line className={colors.line} strokeDasharray="3 2" strokeWidth={1} x1={center} x2={center} y1={ROW_Y.caller + CALLER_HEIGHT} y2={box.y - 1} />
               <polygon className={colors.head} points={arrowHead(center, ROW_Y.caller + CALLER_HEIGHT, center, box.y)} />
             </g>
@@ -223,20 +246,20 @@ export default function ItArchitectureDiagram({ tone = 'screen' }: ItArchitectur
           const place = PLACES[worker.name] as Place
           const box = boxOf(place)
           const isApi = place.row === 'api'
-          const names = nameLines(worker.name, isApi ? 60 : 24)
+          const names = isApi ? [worker.name] : nameLines(worker.name)
           const center = box.x + box.width / 2
           const details = isApi ? ['No public address · every business rule', 'The only code that reads and writes the firm database'] : addressLines(worker)
-          const firstLine = box.y + (names.length > 1 || details.length > 1 ? 15 : 23)
+          const firstLine = box.y + (names.length > 1 || details.length > 1 ? 16 : 26)
           return (
             <g data-kr-worker={worker.name} key={worker.name}>
               <rect className={isApi ? colors.apiBox : colors.box} height={box.height - 1} rx={2} strokeWidth={1} width={box.width - 1} x={box.x + 0.5} y={box.y + 0.5} />
               {names.map((line, index) => (
-                <text className={`${isApi ? colors.apiName : colors.name} ${STYLES.nameText}`} key={line} textAnchor="middle" x={center} y={firstLine + index * 11}>
+                <text className={`${isApi ? colors.apiName : colors.name} ${STYLES.nameText}`} key={line} textAnchor="middle" x={center} y={firstLine + index * LINE.name}>
                   {line}
                 </text>
               ))}
               {details.map((line, index) => (
-                <text className={`${isApi ? colors.apiDetail : colors.detail} ${STYLES.detailText}`} key={line} textAnchor="middle" x={center} y={box.y + box.height - 9 - (details.length - 1 - index) * 9}>
+                <text className={`${isApi ? colors.apiDetail : colors.detail} ${STYLES.detailText}`} key={line} textAnchor="middle" x={center} y={box.y + box.height - 9 - (details.length - 1 - index) * LINE.detail}>
                   {line}
                 </text>
               ))}
@@ -246,7 +269,7 @@ export default function ItArchitectureDiagram({ tone = 'screen' }: ItArchitectur
       </g>
 
       {/* Legend: what the two kinds of arrow mean */}
-      <text className={`${colors.legend} ${STYLES.legendText}`} x={0} y={VIEW.height - 22}>
+      <text className={`${colors.legend} ${STYLES.legendText}`} x={0} y={VIEW.height - 24}>
         Solid arrow: one Worker calls another through a service binding (no public address is used).
       </text>
       <text className={`${colors.legend} ${STYLES.legendText}`} x={0} y={VIEW.height - 10}>

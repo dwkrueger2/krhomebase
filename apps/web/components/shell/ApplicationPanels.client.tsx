@@ -3,8 +3,8 @@
 /**
  * The second row of the application frame: the left menu column and the KRH-Workspace column.
  *
- * Left column: LeftPanelNavList on top, LeftPanelFooter at the bottom, and the round collapse handle
- * on its right edge. Right column: the KRH-Workspace.
+ * Left column: LeftPanelNavList on top, LeftPanelFooter at the bottom, and the small square collapse
+ * handle in its top right corner. Right column: the KRH-Workspace.
  *
  * Tablet and desktop: a subgrid over the frame's two columns, so the left column is as wide as the
  * HeaderBar's left column. Phone (under 768px): the menu becomes a strip across the top, the footer

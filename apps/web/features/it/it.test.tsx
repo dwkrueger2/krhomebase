@@ -18,7 +18,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { PRINT_VIEW_DOCUMENT_KINDS, PRINT_VIEW_REPORT_KINDS } from '@/components/printing/printViewDocuments'
 import { FIRM_SETTINGS_PAGES, SETTINGS_IT_CARDS, visibleSettingsPages } from '@/features/settings/settingsAreas'
-import ItArchitectureDiagram, { addressLines, diagramEdges, nameLines, PLACES } from './components/ItArchitectureDiagram'
+import ItArchitectureDiagram, { addressLines, callerLines, diagramEdges, nameLines, PLACES } from './components/ItArchitectureDiagram'
+import { SECTION_IDS } from './components/ItOverviewPage.client'
 import { ItBindingMatrixTable, ItBucketsTable, ItDataSizeBody, ItDatabasesTable, ItMigrationsTable, ItVersionsTable, ItWorkersTable } from './components/ItOverviewTables'
 import ItReport from './components/ItReport'
 import ItSection from './components/ItSection.client'
@@ -175,6 +176,40 @@ describe('ItArchitectureDiagram', () => {
     expect(addressLines({ name: 'krhomebase-feedback-viewer', publicAddress: 'krhomebase-feedback-viewer.dankrueger.workers.dev' })).toEqual(['krhomebase-feedback-viewer.', 'dankrueger.workers.dev'])
     expect(addressLines({ name: 'krhomebase-api', publicAddress: null })).toEqual(['No public address'])
     expect(addressLines({ name: 'krhomebase-external-api', publicAddress: null })).toEqual(['No public address yet'])
+  })
+
+  it('draws its text large enough to read, with long names and callers on two lines (the requester, Nov 18, 2026)', () => {
+    // 22 letters no longer fit one line at the larger size.
+    expect(nameLines('krhomebase-crud-worker')).toEqual(['krhomebase-', 'crud-worker'])
+    expect(nameLines('kr-pay-worker-live')).toEqual(['kr-pay-worker-live'])
+    expect(callerLines('A browser')).toEqual(['A browser'])
+    expect(callerLines('The KR Homebase page (a frame)')).toEqual(['The KR Homebase', 'page (a frame)'])
+    const html = renderToStaticMarkup(<ItArchitectureDiagram />)
+    expect(html).toContain('text-[11px]')
+    expect(html).toContain('text-[9.5px]')
+    expect(html).not.toContain('text-[8px]')
+    expect(html).toContain('max-w-[1040px]')
+    // No line of a box is longer than the box holds at that size.
+    for (const worker of IT_WORKERS) {
+      if (worker.name === 'krhomebase-api') continue
+      for (const line of nameLines(worker.name)) expect(line.length, line).toBeLessThanOrEqual(21)
+      for (const line of addressLines(worker)) expect(line.length, line).toBeLessThanOrEqual(28)
+    }
+    for (const place of Object.values(PLACES)) for (const line of callerLines(place.caller ?? '')) expect(line.length, line).toBeLessThanOrEqual(24)
+  })
+})
+
+describe('the order of the sections (the requester, Nov 18, 2026)', () => {
+  it('is Software versions, Architecture, Workers, Databases, R2 buckets, Migrations applied, Data size on screen', () => {
+    expect(SECTION_IDS).toEqual(['versions', 'architecture', 'workers', 'databases', 'buckets', 'migrations', 'data-size'])
+  })
+
+  it('is the same in the printed IT Report', () => {
+    const html = renderToStaticMarkup(<ItReport overview={withWebBuild(sampleOverview(), WEB)} printedBy="Test Person" web={WEB} />)
+    const order = ['it-report-versions', 'it-report-architecture', 'it-report-binding-matrix', 'it-report-workers', 'it-report-databases', 'it-report-buckets', 'it-report-migrations', 'it-report-data-size-totals', 'it-report-data-size-tables']
+    const places = order.map((marker) => html.indexOf(`data-kr-element="${marker}"`))
+    expect(places.every((place) => place >= 0)).toBe(true)
+    expect(places).toEqual([...places].sort((a, b) => a - b))
   })
 })
 

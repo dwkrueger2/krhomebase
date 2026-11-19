@@ -185,8 +185,8 @@ components:
 
 # Design System: KR Homebase
 
-<small>Version 1.20</small><br>
-<small>Updated Nov 16, 2026 8:33pm</small>
+<small>Version 1.21</small><br>
+<small>Updated Nov 18, 2026 11:00pm</small>
 
 This file records the visual system that is already in the code (`apps/web/styles/theme.css`, the component `STYLES` maps) and in the old app's reference pages (`/tests/krh/u/default-theme`, `/tests/krh/u5`, `/tests/krh/u1`). The YAML block above must stay at the very top of the file for design tools to read it, so this file's title and version sit below it. Product facts are in `PRODUCT.md`. Layout rules for code (widths, spacing, corners, label placement) are binding in `apps/web/AGENTS.md`; this file describes them and does not override them.
 
@@ -348,7 +348,7 @@ The system is flat. Surfaces sit on Shell Mist and are separated by Cool Hairlin
 
 ## Shapes
 
-Corners are nearly square: 2px on cards, buttons, fields, badges and tabs; 3px on dialog buttons and popovers; 4px on dialogs. A full circle is allowed only for avatars, status dots, small count badges and the round collapse handle of the left menu. Borders are 1px Cool Hairline. Emphasis uses a heavier line, not a fill: the active tab gets a 3px Warm Camel underline and a selected filter card a 3px Firm Navy border.
+Corners are nearly square: 2px on cards, buttons, fields, badges and tabs; 3px on dialog buttons and popovers; 4px on dialogs. A full circle is allowed only for avatars, status dots and small count badges. The left menu's collapse handle is a 20px square with a clear background, a hairline of white and a white chevron, inside the menu's top right corner with its right border on the menu's right border line (web patch 575, the requester, Nov 18, 2026: the earlier white circle hung half over the work area and covered its text). Borders are 1px Cool Hairline. Emphasis uses a heavier line, not a fill: the active tab gets a 3px Warm Camel underline and a selected filter card a 3px Firm Navy border.
 
 The panel accent strip, when the theme turns it on, is a thin band along a panel's top edge in the Firm Navy, Deep Teal and Ledger Slate gradient.
 

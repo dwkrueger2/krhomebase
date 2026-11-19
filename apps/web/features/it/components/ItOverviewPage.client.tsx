@@ -7,7 +7,8 @@
  * `app/page.tsx` places it for a super admin only and passes `web`, what the web app knows about itself
  * (`webBuild.server.ts`). The page reads `GET /api/v1/it/overview` itself (`api.client.ts`; the API refuses anyone
  * else with 403), adds the web app's own version to its row (`withWebBuild`) and draws seven collapsible sections
- * (`ItSection`): Software versions, Workers, R2 buckets, Databases, Migrations applied, Data size and Architecture.
+ * (`ItSection`), in the requester's order (Nov 18, 2026): Software versions, Architecture, Workers, Databases, R2 buckets,
+ * Migrations applied and Data size. The IT Report prints them in the same order.
  *
  * State ownership: this component owns the reply, the load state and which sections are open; the tables and the
  * diagram are pure. It only reads: Refresh reads again, and nothing here changes the system.
@@ -35,8 +36,8 @@ import ItArchitectureDiagram from './ItArchitectureDiagram'
 import { ItBindingMatrixTable, ItBucketsTable, ItDataSizeBody, ItDatabasesTable, ItMigrationsTable, ItVersionsTable, ItWorkersTable } from './ItOverviewTables'
 import ItSection from './ItSection.client'
 
-/** The sections, in page order. */
-const SECTION_IDS = ['versions', 'workers', 'buckets', 'databases', 'migrations', 'data-size', 'architecture'] as const
+/** The sections, in page order (the requester, Nov 18, 2026). `ItReport` prints them in the same order. */
+export const SECTION_IDS = ['versions', 'architecture', 'workers', 'databases', 'buckets', 'migrations', 'data-size'] as const
 type SectionId = (typeof SECTION_IDS)[number]
 
 const LAYOUT_STYLES = {
@@ -47,7 +48,7 @@ const LAYOUT_STYLES = {
   notices: 'gap-[4px] grid',
   notice: 'px-[8px] py-[4px]',
   diagram: 'min-w-0 overflow-x-auto',
-  diagramInner: 'min-w-[640px]',
+  diagramInner: 'min-w-[760px]',
 } as const
 
 const STYLES = {
@@ -208,21 +209,6 @@ export default function ItOverviewPage({ web }: ItOverviewPageProps) {
             <ItSection id="versions" onToggle={() => toggle('versions')} open={openSections.has('versions')} summary={summaries.versions} title="Software versions">
               <ItVersionsTable overview={overview} web={web} />
             </ItSection>
-            <ItSection id="workers" onToggle={() => toggle('workers')} open={openSections.has('workers')} summary={summaries.workers} title="Workers">
-              <ItWorkersTable workers={overview.workers} />
-            </ItSection>
-            <ItSection id="buckets" onToggle={() => toggle('buckets')} open={openSections.has('buckets')} summary={summaries.buckets} title="R2 buckets">
-              <ItBucketsTable buckets={overview.buckets} />
-            </ItSection>
-            <ItSection id="databases" onToggle={() => toggle('databases')} open={openSections.has('databases')} summary={summaries.databases} title="Databases">
-              <ItDatabasesTable databases={overview.databases} />
-            </ItSection>
-            <ItSection id="migrations" onToggle={() => toggle('migrations')} open={openSections.has('migrations')} summary={summaries.migrations} title="Migrations applied">
-              <ItMigrationsTable migrations={overview.migrations} />
-            </ItSection>
-            <ItSection id="data-size" onToggle={() => toggle('data-size')} open={openSections.has('data-size')} summary={summaries['data-size']} title="Data size">
-              <ItDataSizeBody dataSize={overview.dataSize} />
-            </ItSection>
             <ItSection id="architecture" onToggle={() => toggle('architecture')} open={openSections.has('architecture')} summary={summaries.architecture} title="Architecture">
               {/* Request flow: the diagram keeps a readable width and scrolls sideways inside the section on a phone */}
               <div className={LAYOUT_STYLES.diagram}>
@@ -232,6 +218,21 @@ export default function ItOverviewPage({ web }: ItOverviewPageProps) {
               </div>
               {/* Storage: which Worker is bound to which database, key store and bucket */}
               <ItBindingMatrixTable workers={overview.workers} />
+            </ItSection>
+            <ItSection id="workers" onToggle={() => toggle('workers')} open={openSections.has('workers')} summary={summaries.workers} title="Workers">
+              <ItWorkersTable workers={overview.workers} />
+            </ItSection>
+            <ItSection id="databases" onToggle={() => toggle('databases')} open={openSections.has('databases')} summary={summaries.databases} title="Databases">
+              <ItDatabasesTable databases={overview.databases} />
+            </ItSection>
+            <ItSection id="buckets" onToggle={() => toggle('buckets')} open={openSections.has('buckets')} summary={summaries.buckets} title="R2 buckets">
+              <ItBucketsTable buckets={overview.buckets} />
+            </ItSection>
+            <ItSection id="migrations" onToggle={() => toggle('migrations')} open={openSections.has('migrations')} summary={summaries.migrations} title="Migrations applied">
+              <ItMigrationsTable migrations={overview.migrations} />
+            </ItSection>
+            <ItSection id="data-size" onToggle={() => toggle('data-size')} open={openSections.has('data-size')} summary={summaries['data-size']} title="Data size">
+              <ItDataSizeBody dataSize={overview.dataSize} />
             </ItSection>
           </div>
         ) : null}

@@ -1,11 +1,17 @@
 'use client'
 // file: apps/web/components/shell/LeftPanelCollapseButton.client.tsx
 /**
- * The round handle on the right edge of the left panel that collapses and expands it.
+ * The small square handle in the top right corner of the left panel that collapses and expands it.
  *
- * It sits half outside the panel, just under the header. It is hidden on a phone, where the menu
- * is a strip across the top and there is nothing to collapse. ApplicationShell owns `collapsed`;
- * this button only reports the click. The chevron and the accessible name flip with the state.
+ * It sits inside the panel, over the menu's top right corner, just under the header: a 20px square with a clear
+ * background and a white chevron, whose right border lies on the panel's right border line (the right edge of
+ * `data-kr-id="LeftPanelNavList"`). It was a white circle half outside the panel, where it covered the working
+ * panel's text (the requester, Nov 18, 2026). The menu's first row starts 12px down and its label never reaches the
+ * corner, so the square covers no words, open or collapsed (the collapsed strip's icons end 4px before it).
+ *
+ * It is hidden on a phone, where the menu is a strip across the top and there is nothing to collapse.
+ * ApplicationShell owns `collapsed`; this button only reports the click. The chevron and the accessible name flip
+ * with the state.
  */
 
 export interface LeftPanelCollapseButtonProps {
@@ -18,14 +24,16 @@ export interface LeftPanelCollapseButtonProps {
 }
 
 const LAYOUT_STYLES = {
-  button: 'hidden md:inline-flex size-[30px] p-0 items-center justify-center absolute top-px -right-[15px] z-[100]',
-  icon: 'block size-[18px]',
+  // -right-px: the panel's own 1px right border is outside the positioning box, so this puts the square's right
+  // border exactly on that line. 20px: the Density Contract's icon button in a toolbar.
+  button: 'hidden md:inline-flex size-[20px] p-0 items-center justify-center absolute top-px -right-px z-[1]',
+  icon: 'block size-[14px]',
 } as const
 
 const STYLES = {
-  // The one circle in the frame: a round handle, allowed by the corner rule in apps/web/AGENTS.md.
+  // White on the navy panel, as the menu rows are: clear until hovered, then the rows' own hover tint.
   button:
-    'rounded-full border border-(--kr-theme-line) bg-white text-(color:--kr-theme-brand-secondary) shadow-[0_2px_6px_rgba(0,30,58,.25)] cursor-pointer hover:bg-(--kr-theme-shell-surface) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--kr-theme-brand-primary-active)',
+    'rounded-[2px] border border-white/[.3] bg-transparent text-white cursor-pointer hover:border-white/[.6] hover:bg-white/[.12] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-white/70',
   // b1: ' border-red-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
   // b2: ' border-blue-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
   // b3: ' border-green-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className

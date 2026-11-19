@@ -89,7 +89,9 @@ export function navLabelMarker(sectionId: string): string {
 }
 
 const STYLES = {
-  list: 'm-0 list-none',
+  // A thin pale scrollbar on a clear track when the menu is taller than the panel (web patch 575): the collapse square
+  // sits over the list's top right corner, and its white chevron cannot be seen on the browser's default light scrollbar.
+  list: 'm-0 list-none md:[scrollbar-width:thin] md:[scrollbar-color:rgba(255,255,255,.35)_transparent]',
   button:
     'rounded-[2px] border-0 bg-transparent text-left text-[length:var(--kr-theme-font-size-base)] text-white/[.86] cursor-pointer hover:bg-white/[.12] hover:text-white focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-white/70',
   buttonActive: 'bg-(--kr-theme-brand-primary-active) font-extrabold text-white',

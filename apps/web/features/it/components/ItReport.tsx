@@ -18,12 +18,14 @@
  *   1. ReportHeader         title, when the system was read, who printed it
  *   2. ReportNotices        a development computer answered; Cloudflare was not asked (only when either is true)
  *   3. Software versions    the three version tracks
- *   4. Workers              every Worker: repository version, when its live deployment was made, Cloudflare's id
- *   5. R2 buckets           objects and size
+ *   4. Architecture         the request-flow diagram, then the binding matrix
+ *   5. Workers              every Worker: repository version, when its live deployment was made, Cloudflare's id
  *   6. Databases            size, tables, created, newest migration
- *   7. Migrations applied   the migration log
- *   8. Data size            totals, then every table with its rows (three tables to a printed row), then the notes
- *   9. Architecture         the request-flow diagram, then the binding matrix
+ *   7. R2 buckets           objects and size
+ *   8. Migrations applied   the migration log
+ *   9. Data size            totals, then every table with its rows (three tables to a printed row), then the notes
+ *
+ * The order is the screen's (`SECTION_IDS` in `ItOverviewPage`; the requester, Nov 18, 2026).
  *
  * @param props - The overview (with the web app's own version added), the web app's version, and who prints it.
  * @returns The document root (`data-kr-id="it-report"`).
@@ -193,7 +195,31 @@ export default function ItReport({ overview, web, printedBy }: ItReportProps) {
         title="Software versions"
       />
 
-      {/* 4. Workers: repository version and live deployment of every Worker */}
+      {/* 4. Architecture: the request-flow diagram (one unit, never split), then the binding matrix */}
+      <div className={LAYOUT_STYLES.diagram} data-kr-element="it-report-architecture">
+        <div className={`${LAYOUT_STYLES.diagramTitle} ${STYLES.sectionTitle}`}>Architecture: how a request travels</div>
+        <ItArchitectureDiagram tone="print" />
+      </div>
+      <ReportTable
+        columns={[
+          { label: 'Worker', width: '28%' },
+          ...matrix.columns.map((column) => ({
+            label: (
+              <>
+                <span className={STYLES.storageKind}>{column.kind}</span>
+                {column.target}
+              </>
+            ),
+            width: matrixWidth,
+            kind: 'storage' as const,
+          })),
+        ]}
+        krElement="it-report-binding-matrix"
+        rows={matrix.rows.map((row) => [<span className={STYLES.strong}>{row.worker}</span>, ...row.cells.map((binding) => (binding ? <span aria-label={`Bound (${binding})`} className={STYLES.dot} role="img" /> : ''))])}
+        title="Architecture: what each Worker is bound to"
+      />
+
+      {/* 5. Workers: repository version and live deployment of every Worker */}
       <ReportTable
         columns={[{ label: 'Worker', width: '24%' }, { label: 'Version (repository)', width: '14%' }, { label: 'Live deployment made', width: '16%' }, { label: 'Cloudflare id', width: '9%' }, { label: 'Public address', width: '16%' }, { label: 'Remarks', width: '21%' }]}
         krElement="it-report-workers"
@@ -206,20 +232,6 @@ export default function ItReport({ overview, web, printedBy }: ItReportProps) {
           [worker.versionNote, worker.deploymentNote].filter(Boolean).join(' '),
         ])}
         title="Workers"
-      />
-
-      {/* 5. R2 buckets: objects and size, measured through the API's bindings */}
-      <ReportTable
-        columns={[{ label: 'Bucket', width: '32%' }, { label: 'Objects', width: '10%', kind: 'number' }, { label: 'Size', width: '11%', kind: 'number' }, { label: 'Bound by', width: '27%' }, { label: 'Remarks', width: '20%' }]}
-        krElement="it-report-buckets"
-        rows={overview.buckets.map((bucket) => [
-          <NameCell name={bucket.name} sub={bucket.purpose} />,
-          bucket.objects === null ? 'Not available' : `${formatCount(bucket.objects)}${bucket.complete ? '' : '+'}`,
-          bucket.bytes === null ? 'Not available' : `${formatBytes(bucket.bytes)}${bucket.complete ? '' : '+'}`,
-          boundByText(bucket.boundBy),
-          bucket.note ?? '',
-        ])}
-        title="R2 buckets"
       />
 
       {/* 6. Databases: the three D1 databases and the key store */}
@@ -241,7 +253,21 @@ export default function ItReport({ overview, web, printedBy }: ItReportProps) {
         title="Databases"
       />
 
-      {/* 7. Migrations applied: the migration log, by id */}
+      {/* 7. R2 buckets: objects and size, measured through the API's bindings */}
+      <ReportTable
+        columns={[{ label: 'Bucket', width: '32%' }, { label: 'Objects', width: '10%', kind: 'number' }, { label: 'Size', width: '11%', kind: 'number' }, { label: 'Bound by', width: '27%' }, { label: 'Remarks', width: '20%' }]}
+        krElement="it-report-buckets"
+        rows={overview.buckets.map((bucket) => [
+          <NameCell name={bucket.name} sub={bucket.purpose} />,
+          bucket.objects === null ? 'Not available' : `${formatCount(bucket.objects)}${bucket.complete ? '' : '+'}`,
+          bucket.bytes === null ? 'Not available' : `${formatBytes(bucket.bytes)}${bucket.complete ? '' : '+'}`,
+          boundByText(bucket.boundBy),
+          bucket.note ?? '',
+        ])}
+        title="R2 buckets"
+      />
+
+      {/* 8. Migrations applied: the migration log, by id */}
       {overview.migrations.available ? (
         <ReportTable
           columns={[{ label: 'ID', width: '6%' }, { label: 'File', width: '34%' }, { label: 'Applied', width: '15%' }, { label: 'Applied by', width: '17%' }, { label: 'What it changed', width: '28%' }]}
@@ -251,7 +277,7 @@ export default function ItReport({ overview, web, printedBy }: ItReportProps) {
         />
       ) : null}
 
-      {/* 8. Data size: totals, every table with its rows, then what could not be obtained */}
+      {/* 9. Data size: totals, every table with its rows, then what could not be obtained */}
       {dataSize.available ? (
         <div className={LAYOUT_STYLES.totals} data-kr-element="it-report-data-size-totals">
           {[
@@ -282,30 +308,6 @@ export default function ItReport({ overview, web, printedBy }: ItReportProps) {
           ))}
         </ul>
       ) : null}
-
-      {/* 9. Architecture: the request-flow diagram (one unit, never split), then the binding matrix */}
-      <div className={LAYOUT_STYLES.diagram} data-kr-element="it-report-architecture">
-        <div className={`${LAYOUT_STYLES.diagramTitle} ${STYLES.sectionTitle}`}>Architecture: how a request travels</div>
-        <ItArchitectureDiagram tone="print" />
-      </div>
-      <ReportTable
-        columns={[
-          { label: 'Worker', width: '28%' },
-          ...matrix.columns.map((column) => ({
-            label: (
-              <>
-                <span className={STYLES.storageKind}>{column.kind}</span>
-                {column.target}
-              </>
-            ),
-            width: matrixWidth,
-            kind: 'storage' as const,
-          })),
-        ]}
-        krElement="it-report-binding-matrix"
-        rows={matrix.rows.map((row) => [<span className={STYLES.strong}>{row.worker}</span>, ...row.cells.map((binding) => (binding ? <span aria-label={`Bound (${binding})`} className={STYLES.dot} role="img" /> : ''))])}
-        title="Architecture: what each Worker is bound to"
-      />
     </PrintDocument>
   )
 }
