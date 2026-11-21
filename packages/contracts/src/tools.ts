@@ -45,9 +45,23 @@ export const ToolScopes = [
   // Homebase Feedback (requests about KR Homebase itself, plan 12): the developer list, one request, status and notes.
   'homebase-feedback:read',
   'homebase-feedback:write',
+  'tool-registration:read',
 ] as const
 export const ToolScope = z.enum(ToolScopes).describe('A permission granted to an outside tool, in the form <area>:<read|write>.')
 export type ToolScope = z.infer<typeof ToolScope>
+
+/** Fixed user accounts the Outside Tools registration form may grant access to. */
+export const ToolPermittedUserEmails = [
+  'dankrueger@legaldrive.net',
+  'marcusrichard@legaldrive.net',
+  'davismcclellan@legaldrive.net',
+] as const
+export const ToolPermittedUserEmail = z.enum(ToolPermittedUserEmails)
+export const ToolPermittedUsers = z.array(ToolPermittedUserEmail).max(ToolPermittedUserEmails.length)
+  .refine((emails) => new Set(emails).size === emails.length, 'Choose each permitted user once.')
+  .describe('The exact user emails allowed to open this registered tool and make frame calls.')
+export type ToolPermittedUserEmail = z.infer<typeof ToolPermittedUserEmail>
+export type ToolPermittedUsers = z.infer<typeof ToolPermittedUsers>
 
 /** Icons a tool may show in the menu. The same names as the menu icons in apps/web (KRHomebaseIcon). */
 export const ToolIconNames = [
@@ -183,6 +197,7 @@ export const ToolRegistration = z.object({
   origin: z.string().describe('Origin of the tool screen (scheme, host and port), taken from entryUrl.'),
   entryUrl: z.string().describe('Full address of the tool screen.'),
   allowedRoles: z.array(z.string()).describe('Roles that see the tool in the menu and may use it.'),
+  permittedUsers: ToolPermittedUsers.describe('Exact sign-in emails allowed to see and use this tool.'),
   localOnly: ToolLocalOnly,
   developersOnly: ToolDevelopersOnly,
   scopes: z.array(ToolScope).describe('Permissions granted to the tool.'),
@@ -210,6 +225,7 @@ export const ToolCreateBody = z.object({
   menuOrder: z.number().int().min(0).max(9999).default(100).describe('Position among the outside tools; lower comes first.'),
   entryUrl: ToolEntryUrl,
   allowedRoles: z.array(RoleName).min(1).max(20).describe('Roles that see and may use the tool (any one of them). The API always adds super_admin.'),
+  permittedUsers: ToolPermittedUsers.default([...ToolPermittedUserEmails]),
   localOnly: ToolLocalOnly.default(false),
   developersOnly: ToolDevelopersOnly.default(false),
   scopes: z.array(ToolScope).max(ToolScopes.length).default([]).describe('Permissions to grant. Empty means the tool can learn only who is using it.'),
@@ -226,6 +242,7 @@ export const ToolUpdateBody = z.object({
   menuOrder: z.number().int().min(0).max(9999).optional().describe('New menu position.'),
   entryUrl: ToolEntryUrl.optional(),
   allowedRoles: z.array(RoleName).min(1).max(20).optional().describe('New list of roles (any one of them sees the tool). The API always adds super_admin.'),
+  permittedUsers: ToolPermittedUsers.optional(),
   localOnly: ToolLocalOnly.optional(),
   developersOnly: ToolDevelopersOnly.optional(),
   scopes: z.array(ToolScope).max(ToolScopes.length).optional().describe('New list of permissions. Replaces the old list.'),
@@ -268,6 +285,12 @@ export const ToolSecretData = z.object({
   previousSecretValidUntil: z.string().nullable().describe('Until when the old secret still works (ISO time), or null when it ended at once.'),
 })
 export type ToolSecretData = z.infer<typeof ToolSecretData>
+
+/** Registration-specific users returned only to the registered tool's server path. */
+export const ToolPermittedUsersData = z.object({
+  emails: ToolPermittedUsers.describe('Exact email addresses currently permitted to use this tool; an empty list denies all users.'),
+})
+export type ToolPermittedUsersData = z.infer<typeof ToolPermittedUsersData>
 
 /** One recorded call or change. Holds no request or reply bodies. */
 export const ToolAuditEntry = z.object({

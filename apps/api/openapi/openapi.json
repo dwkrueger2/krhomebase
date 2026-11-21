@@ -1207,6 +1207,19 @@
                                 },
                                 "description": "Roles that see the tool in the menu and may use it."
                               },
+                              "permittedUsers": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "dankrueger@legaldrive.net",
+                                    "marcusrichard@legaldrive.net",
+                                    "davismcclellan@legaldrive.net"
+                                  ]
+                                },
+                                "maxItems": 3,
+                                "description": "Exact sign-in emails allowed to see and use this tool."
+                              },
                               "localOnly": {
                                 "type": "boolean",
                                 "description": "True: shown and usable only while KR Homebase runs on a development computer (pnpm dev, a localhost address). The deployed app treats the tool as not there."
@@ -1238,7 +1251,8 @@
                                     "documents:write",
                                     "reports:read",
                                     "homebase-feedback:read",
-                                    "homebase-feedback:write"
+                                    "homebase-feedback:write",
+                                    "tool-registration:read"
                                   ],
                                   "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                                 },
@@ -1301,6 +1315,7 @@
                               "origin",
                               "entryUrl",
                               "allowedRoles",
+                              "permittedUsers",
                               "localOnly",
                               "developersOnly",
                               "scopes",
@@ -1581,6 +1596,24 @@
                     "maxItems": 20,
                     "description": "Roles that see and may use the tool (any one of them). The API always adds super_admin."
                   },
+                  "permittedUsers": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "dankrueger@legaldrive.net",
+                        "marcusrichard@legaldrive.net",
+                        "davismcclellan@legaldrive.net"
+                      ]
+                    },
+                    "maxItems": 3,
+                    "default": [
+                      "dankrueger@legaldrive.net",
+                      "marcusrichard@legaldrive.net",
+                      "davismcclellan@legaldrive.net"
+                    ],
+                    "description": "The exact user emails allowed to open this registered tool and make frame calls."
+                  },
                   "localOnly": {
                     "type": "boolean",
                     "default": false,
@@ -1614,11 +1647,12 @@
                         "documents:write",
                         "reports:read",
                         "homebase-feedback:read",
-                        "homebase-feedback:write"
+                        "homebase-feedback:write",
+                        "tool-registration:read"
                       ],
                       "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                     },
-                    "maxItems": 19,
+                    "maxItems": 20,
                     "default": [],
                     "description": "Permissions to grant. Empty means the tool can learn only who is using it."
                   },
@@ -1732,6 +1766,19 @@
                               },
                               "description": "Roles that see the tool in the menu and may use it."
                             },
+                            "permittedUsers": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "dankrueger@legaldrive.net",
+                                  "marcusrichard@legaldrive.net",
+                                  "davismcclellan@legaldrive.net"
+                                ]
+                              },
+                              "maxItems": 3,
+                              "description": "Exact sign-in emails allowed to see and use this tool."
+                            },
                             "localOnly": {
                               "type": "boolean",
                               "description": "True: shown and usable only while KR Homebase runs on a development computer (pnpm dev, a localhost address). The deployed app treats the tool as not there."
@@ -1763,7 +1810,8 @@
                                   "documents:write",
                                   "reports:read",
                                   "homebase-feedback:read",
-                                  "homebase-feedback:write"
+                                  "homebase-feedback:write",
+                                  "tool-registration:read"
                                 ],
                                 "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                               },
@@ -1826,6 +1874,7 @@
                             "origin",
                             "entryUrl",
                             "allowedRoles",
+                            "permittedUsers",
                             "localOnly",
                             "developersOnly",
                             "scopes",
@@ -2224,6 +2273,19 @@
                               },
                               "description": "Roles that see the tool in the menu and may use it."
                             },
+                            "permittedUsers": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "dankrueger@legaldrive.net",
+                                  "marcusrichard@legaldrive.net",
+                                  "davismcclellan@legaldrive.net"
+                                ]
+                              },
+                              "maxItems": 3,
+                              "description": "Exact sign-in emails allowed to see and use this tool."
+                            },
                             "localOnly": {
                               "type": "boolean",
                               "description": "True: shown and usable only while KR Homebase runs on a development computer (pnpm dev, a localhost address). The deployed app treats the tool as not there."
@@ -2255,7 +2317,8 @@
                                   "documents:write",
                                   "reports:read",
                                   "homebase-feedback:read",
-                                  "homebase-feedback:write"
+                                  "homebase-feedback:write",
+                                  "tool-registration:read"
                                 ],
                                 "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                               },
@@ -2318,6 +2381,7 @@
                             "origin",
                             "entryUrl",
                             "allowedRoles",
+                            "permittedUsers",
                             "localOnly",
                             "developersOnly",
                             "scopes",
@@ -2692,6 +2756,19 @@
                     "maxItems": 20,
                     "description": "New list of roles (any one of them sees the tool). The API always adds super_admin."
                   },
+                  "permittedUsers": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "dankrueger@legaldrive.net",
+                        "marcusrichard@legaldrive.net",
+                        "davismcclellan@legaldrive.net"
+                      ]
+                    },
+                    "maxItems": 3,
+                    "description": "The exact user emails allowed to open this registered tool and make frame calls."
+                  },
                   "localOnly": {
                     "type": "boolean",
                     "description": "True: shown and usable only while KR Homebase runs on a development computer (pnpm dev, a localhost address). The deployed app treats the tool as not there."
@@ -2723,11 +2800,12 @@
                         "documents:write",
                         "reports:read",
                         "homebase-feedback:read",
-                        "homebase-feedback:write"
+                        "homebase-feedback:write",
+                        "tool-registration:read"
                       ],
                       "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                     },
-                    "maxItems": 19,
+                    "maxItems": 20,
                     "description": "New list of permissions. Replaces the old list."
                   },
                   "status": {
@@ -2841,6 +2919,19 @@
                               },
                               "description": "Roles that see the tool in the menu and may use it."
                             },
+                            "permittedUsers": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "dankrueger@legaldrive.net",
+                                  "marcusrichard@legaldrive.net",
+                                  "davismcclellan@legaldrive.net"
+                                ]
+                              },
+                              "maxItems": 3,
+                              "description": "Exact sign-in emails allowed to see and use this tool."
+                            },
                             "localOnly": {
                               "type": "boolean",
                               "description": "True: shown and usable only while KR Homebase runs on a development computer (pnpm dev, a localhost address). The deployed app treats the tool as not there."
@@ -2872,7 +2963,8 @@
                                   "documents:write",
                                   "reports:read",
                                   "homebase-feedback:read",
-                                  "homebase-feedback:write"
+                                  "homebase-feedback:write",
+                                  "tool-registration:read"
                                 ],
                                 "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                               },
@@ -2935,6 +3027,7 @@
                             "origin",
                             "entryUrl",
                             "allowedRoles",
+                            "permittedUsers",
                             "localOnly",
                             "developersOnly",
                             "scopes",
@@ -5173,7 +5266,8 @@
                                     "documents:write",
                                     "reports:read",
                                     "homebase-feedback:read",
-                                    "homebase-feedback:write"
+                                    "homebase-feedback:write",
+                                    "tool-registration:read"
                                   ],
                                   "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                                 },
@@ -5396,11 +5490,12 @@
                         "documents:write",
                         "reports:read",
                         "homebase-feedback:read",
-                        "homebase-feedback:write"
+                        "homebase-feedback:write",
+                        "tool-registration:read"
                       ],
                       "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                     },
-                    "maxItems": 19,
+                    "maxItems": 20,
                     "description": "Optional: ask for fewer permissions than were granted. Left out, the token carries every granted permission."
                   }
                 },
@@ -5468,7 +5563,8 @@
                               "documents:write",
                               "reports:read",
                               "homebase-feedback:read",
-                              "homebase-feedback:write"
+                              "homebase-feedback:write",
+                              "tool-registration:read"
                             ],
                             "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                           },
@@ -5767,7 +5863,8 @@
                                   "documents:write",
                                   "reports:read",
                                   "homebase-feedback:read",
-                                  "homebase-feedback:write"
+                                  "homebase-feedback:write",
+                                  "tool-registration:read"
                                 ],
                                 "description": "A permission granted to an outside tool, in the form <area>:<read|write>."
                               },
@@ -5921,6 +6018,232 @@
           },
           "500": {
             "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tools/permitted-users": {
+      "get": {
+        "summary": "Return the permitted sign-in emails for the calling tool registration.",
+        "description": "Any signed-in user.\n\nSide effects: Writes workspace_tool_audit.\n\nOutside tools: tools granted tool-registration:read.\n\nError codes: UNAUTHENTICATED, FORBIDDEN, TOOL_CALLER_REQUIRED, TOOL_FORBIDDEN, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "tools"
+        ],
+        "responses": {
+          "200": {
+            "description": "The exact users this registration allows.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "emails": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "dankrueger@legaldrive.net",
+                              "marcusrichard@legaldrive.net",
+                              "davismcclellan@legaldrive.net"
+                            ]
+                          },
+                          "maxItems": 3,
+                          "description": "Exact email addresses currently permitted to use this tool; an empty list denies all users."
+                        }
+                      },
+                      "required": [
+                        "emails"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Only a registered tool server with tool-registration:read may call this route.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The tools tables cannot be reached (TOOLS_UNAVAILABLE).",
             "content": {
               "application/json": {
                 "schema": {

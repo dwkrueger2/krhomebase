@@ -1,7 +1,7 @@
 # KR Homebase Tool Kit: Developer Guide
 
-<small>Version 1.6</small><br>
-<small>Updated Nov 17, 2026 11:20am</small>
+<small>Version 1.7</small><br>
+<small>Updated Nov 21, 2026 4:10pm</small>
 
 **Who this is for:** a developer building an outside tool for KR Homebase without access to the KR Homebase code.
 
@@ -30,6 +30,7 @@ Most tools need only the frame path.
 | Permissions granted | `contacts:read` | No |
 | Server path only: client secret | `krts_...` | **Yes.** Shown once. |
 | Server path only: external API address | `https://<address the super admin gives you>` | No |
+| Server path only: `tool-registration:read` permission | Required only when your server must read its registration's permitted email list | No |
 
 The super admin needs from you: the label, description, version, your page's address (the entry URL), the roles it is for, the permissions you need, and whether you need the server path. `registrationSheet()` (section 5) prints this list, with your health and icon routes.
 
@@ -172,11 +173,11 @@ A `localhost` address is not read (the KR Homebase server cannot reach your comp
 
 A permission is `<area>:read` (look) or `<area>:write` (create, change, delete). Ask for the fewest that work.
 
-`contacts`, `leads`, `communications`, `tasks`, `timekeeping`, `billing`, `matters`, `documents`, `homebase-feedback` (each `:read` and `:write`), and `reports:read`. A new permission comes with a new version of this kit.
+`contacts`, `leads`, `communications`, `tasks`, `timekeeping`, `billing`, `matters`, `documents`, `homebase-feedback` (each `:read` and `:write`), `reports:read`, and `tool-registration:read`. A new permission comes with a new version of this kit.
 
 - A route accepts tools only when KR Homebase opened it to them. In the API reference (the OpenAPI file the super admin can send you), each route's description has a line `Outside tools: ...` naming the permission it needs, or `not allowed`.
-- **Routes open to tools today:** `GET /v1/tools/context` (any tool), and the Homebase Feedback routes for developers: `GET /v1/homebase-feedback`, `GET /v1/homebase-feedback/{number}` (`homebase-feedback:read`), `PATCH /v1/homebase-feedback/{number}` and `POST /v1/homebase-feedback/{number}/notes` (`homebase-feedback:write`). Routes for clients, tasks and the other areas open to tools as KR Homebase builds them. A permission with no route yet grants nothing.
-- A frame call also needs the person to be allowed: KR Homebase applies both your permissions and the person's role.
+- **Routes open to tools today:** `GET /v1/tools/context` (any tool), `GET /v1/tools/permitted-users` (`tool-registration:read`, server path only), and the Homebase Feedback routes for developers: `GET /v1/homebase-feedback`, `GET /v1/homebase-feedback/{number}` (`homebase-feedback:read`), `PATCH /v1/homebase-feedback/{number}` and `POST /v1/homebase-feedback/{number}/notes` (`homebase-feedback:write`). Routes for clients, tasks and the other areas open to tools as KR Homebase builds them. A permission with no route yet grants nothing.
+- A frame call also needs the person to be allowed: KR Homebase applies both your permissions and the person's role and login email. The super admin chooses permitted emails from a fixed firm list in the registration form; an empty list denies everyone.
 
 ## 7. Your server (path B)
 
@@ -190,12 +191,14 @@ const kr = createServerClient({
 })
 
 const who = await kr.get('/v1/tools/context') // who.data.channel === 'server', who.data.user === null
+const permitted = await kr.getPermittedUsers() // requires tool-registration:read; returns only this registration's list
 ```
 
 - The client fetches a 15-minute access token on the first call, keeps it until a minute before it ends, and fetches a new one when needed. Its `scopes` option asks for fewer permissions than were granted.
 - **Keep the client secret on your server only.** Use a secret store or an environment setting. Never put it in a browser page, the frame page, a log or a code repository.
 - Calls are limited to about 120 a minute per token. Over the limit, the reply is `RATE_LIMITED` (HTTP 429); wait a minute.
 - The super admin may also limit your server to a list of IP addresses.
+- `getPermittedUsers()` reads the current allowed-email list for this tool's own registration. It requires server access and the `tool-registration:read` grant, and does not expose another tool's registration. Use it when the tool has its own sign-in; fail closed if the call fails.
 - **New secret.** When the super admin makes a new secret, the old one usually keeps working for 24 hours. Switch to the new one in that time.
 
 ## 8. Errors

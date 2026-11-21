@@ -9,7 +9,7 @@
  * migration 058. Only made-up tools, people and addresses are used. Run: `pnpm --dir apps/api run test`.
  */
 
-import { TOOL_GATEWAY_HEADER, TOOL_GATEWAY_VALUE, TOOL_ID_HEADER } from '@krhomebase/contracts'
+import { TOOL_GATEWAY_HEADER, TOOL_GATEWAY_VALUE, TOOL_ID_HEADER, type ToolPermittedUserEmail } from '@krhomebase/contracts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../app.ts'
 import { clearSessionCache } from '../../platform/sessionClient.ts'
@@ -23,8 +23,8 @@ const DEPLOYED = 'https://krhomebase.example'
 const LOCAL = 'http://localhost:3011'
 
 describe('toolRefusal', () => {
-  const tool = { status: 'active' as const, allowedRoles: ['super_admin', 'staff'], localOnly: false, developersOnly: false }
-  const viewer = { role: 'staff', developmentServer: false, isDeveloper: false }
+  const tool = { status: 'active' as const, allowedRoles: ['super_admin', 'staff'], permittedUsers: ['dankrueger@legaldrive.net'] as ToolPermittedUserEmail[], localOnly: false, developersOnly: false }
+  const viewer = { email: 'dankrueger@legaldrive.net', role: 'staff', developmentServer: false, isDeveloper: false }
 
   it('allows a plain tool anywhere and names the first check that fails', () => {
     expect(toolRefusal(tool, viewer)).toBeNull()
@@ -69,7 +69,7 @@ describe('visibility through the API', () => {
         headers: { cookie: `kr_session=test-${userId}`, ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...headers },
         body: body === undefined ? undefined : JSON.stringify(body),
       },
-      signedInEnv(role, { krhomebase: d1.db, KR_APP_BASE_URL: base }, userId),
+      signedInEnv(role, { krhomebase: d1.db, KR_APP_BASE_URL: base }, userId, userId === 'u-dee' ? 'marcusrichard@legaldrive.net' : 'dankrueger@legaldrive.net'),
     )
     return { status: res.status, body: (await res.json()) as Json }
   }
@@ -160,7 +160,7 @@ describe('before migration 058', () => {
          VALUES ('t1', 'krt_oldtoololdtooloold', 'Old tool', '', 'tool', 100, 'https://old.example.com', 'https://old.example.com/', '["super_admin","staff"]', '[]', 'active', 0, '[]', '2026-11-01T00:00:00Z', '2026-11-01T00:00:00Z')`,
       )
       .run()
-    const res = await app.request('/v1/tools/menu', { headers: { cookie: 'kr_session=test-old' } }, signedInEnv('staff', { krhomebase: d1.db, KR_APP_BASE_URL: DEPLOYED }))
+    const res = await app.request('/v1/tools/menu', { headers: { cookie: 'kr_session=test-old' } }, signedInEnv('staff', { krhomebase: d1.db, KR_APP_BASE_URL: DEPLOYED }, 'user-test-1', 'dankrueger@legaldrive.net'))
     expect(((await res.json()) as Json).data.tools.map((tool: Json) => tool.label)).toEqual(['Old tool'])
   })
 })

@@ -1,7 +1,7 @@
 # Patch Notes
 
-<small>Version 2.5</small><br>
-<small>Updated Nov 9, 2026 9:20am</small>
+<small>Version 2.6</small><br>
+<small>Updated Nov 21, 2026 4:10pm</small>
 
 ## Purpose
 
@@ -25,9 +25,9 @@ File name: `Outstanding Task List_PatchXXX_MM_DD.md`, where `XXX` is the track's
 
 | Track | Latest list |
 |---|---|
-| Repository | `repository/Outstanding Task List_Patch016_11_09.md` |
-| API | `api/Outstanding Task List_Patch006_11_09.md` |
-| Web | `web/Outstanding Task List_Patch508_11_09.md` |
+| Repository | `repository/Outstanding Task List_Patch073_11_21.md` |
+| API | `api/Outstanding Task List_Patch051_11_21.md` |
+| Web | `web/Outstanding Task List_Patch576_11_21.md` |
 
 Migration files are not kept here: they live in `docs/Schema_8.0/migrations/` (`AGENTS_06`; moved in repository patch 45, Nov 15, 2026). Older lists still name the old place, `repository/Migration_Patch...sql`.
 

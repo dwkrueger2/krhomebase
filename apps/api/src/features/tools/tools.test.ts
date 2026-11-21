@@ -8,7 +8,7 @@
  * Only made-up tools, people and addresses are used. Run: `pnpm --dir apps/api run test`.
  */
 
-import { TOOL_GATEWAY_HEADER, TOOL_GATEWAY_VALUE, TOOL_ID_HEADER } from '@krhomebase/contracts'
+import { TOOL_GATEWAY_HEADER, TOOL_GATEWAY_VALUE, TOOL_ID_HEADER, type ToolPermittedUserEmail } from '@krhomebase/contracts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../app.ts'
 import { clearSessionCache } from '../../platform/sessionClient.ts'
@@ -43,8 +43,8 @@ describe('tool rules', () => {
   })
 
   it('lets listed roles and always the super admin use an active tool', () => {
-    const tool = { status: 'active' as const, allowedRoles: ['staff'], localOnly: false, developersOnly: false }
-    const as = (role: string) => ({ role, developmentServer: false, isDeveloper: false })
+    const tool = { status: 'active' as const, allowedRoles: ['staff'], permittedUsers: ['dankrueger@legaldrive.net'] as ToolPermittedUserEmail[], localOnly: false, developersOnly: false }
+    const as = (role: string) => ({ email: 'dankrueger@legaldrive.net', role, developmentServer: false, isDeveloper: false })
     expect(toolUsableBy(tool, as('staff'))).toBe(true)
     expect(toolUsableBy(tool, as('billing'))).toBe(false)
     // A row saved before the super admin became automatic still shows to a super admin.
@@ -102,7 +102,7 @@ describe('outside tools through the API', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   /** Bindings for a person with `role`, with the in-memory database and the app address. */
-  const envFor = (role: string) => signedInEnv(role, { krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE })
+  const envFor = (role: string) => signedInEnv(role, { krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE }, 'user-test-1', 'dankrueger@legaldrive.net')
   /** Bindings for a call with no person (the server path). */
   const bareEnv = () => ({ krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE }) as unknown as Env
   /** Each role gets its own cookie, so the session cache never mixes two roles. */

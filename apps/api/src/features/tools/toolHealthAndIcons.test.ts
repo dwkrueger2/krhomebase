@@ -125,7 +125,7 @@ describe('health, icon and role routes', () => {
     const res = await app.request(
       path,
       { method, headers: { cookie: `kr_session=test-${role}`, ...(body === undefined ? {} : { 'content-type': 'application/json' }) }, body: body === undefined ? undefined : JSON.stringify(body) },
-      signedInEnv(role, { krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE }),
+      signedInEnv(role, { krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE }, 'user-test-1', 'dankrueger@legaldrive.net'),
     )
     return { status: res.status, body: (await res.json()) as Json }
   }

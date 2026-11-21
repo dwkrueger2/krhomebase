@@ -1,0 +1,28 @@
+{
+  "$schema": "https://developers.cloudflare.com/workers/wrangler/schema.json",
+  "name": "krhomebase-google-chat-scraper-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-30",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+  "triggers": { "crons": [] },
+  "d1_databases": [
+    {
+      "binding": "CHAT_IMPORT_DB",
+      "database_name": "krhtool-google-chat-scraper",
+      "database_id": "105e3458-16d0-461a-93d1-451d66d9a288",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "LIVE_CHAT_SYNC_ENABLED": "false",
+    "REAL_MESSAGE_GEMINI_ENABLED": "false",
+    "ACCESS_TEAM_DOMAIN": "NOT_SET_REVIEW_BEFORE_USE",
+    "ACCESS_AUD": "NOT_SET_REVIEW_BEFORE_USE",
+    "KR_EXTERNAL_API_URL": "NOT_SET_REVIEW_BEFORE_USE",
+    "GOOGLE_OAUTH_CLIENT_ID": "853554586739-0g1g2s93krlqhhkdkus6d9oclccbnc1a.apps.googleusercontent.com",
+    "GOOGLE_OAUTH_REDIRECT_URI": "https://chat-tool.krhomebase.com/auth"
+  }
+}

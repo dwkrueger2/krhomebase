@@ -13,10 +13,11 @@
  *   import { createServerClient } from '@krhomebase/tool-sdk/server'
  *   const kr = createServerClient({ baseUrl: 'https://<external API address>', clientId, clientSecret })
  *   const who = await kr.get('/v1/tools/context')
+ *   const permitted = await kr.getPermittedUsers()
  */
 
 import { isAllowedApiPath } from './protocol.ts'
-import type { ApiReply, HttpMethod, TokenReply, ToolScopeName } from './types.ts'
+import type { ApiReply, HttpMethod, TokenReply, ToolPermittedUsersData, ToolScopeName } from './types.ts'
 
 export interface ServerClientOptions {
   /** The KR Homebase external API address the super admin gave you, for example `https://tools-api.krhomebase.com`. */
@@ -40,6 +41,8 @@ export interface ServerClient {
   put<T = unknown>(path: string, body?: unknown): Promise<ApiReply<T>>
   patch<T = unknown>(path: string, body?: unknown): Promise<ApiReply<T>>
   delete<T = unknown>(path: string): Promise<ApiReply<T>>
+  /** Reads the emails permitted by this registration; requires the `tool-registration:read` grant. */
+  getPermittedUsers(): Promise<ApiReply<ToolPermittedUsersData>>
   /** The current access token, fetching one when needed. Rarely needed directly. */
   getAccessToken(): Promise<string>
   /** Forget the cached token, so the next call fetches a new one. */
@@ -118,6 +121,7 @@ export function createServerClient(options: ServerClientOptions): ServerClient {
     put: (path, body) => request('PUT', path, body),
     patch: (path, body) => request('PATCH', path, body),
     delete: (path) => request('DELETE', path),
+    getPermittedUsers: () => request('GET', '/v1/tools/permitted-users'),
     getAccessToken,
     clearToken: () => {
       cached = null

@@ -1,7 +1,7 @@
 # Outside Tools: Design, Security and Operation
 
-<small>Version 1.6</small><br>
-<small>Updated Nov 17, 2026 7:20am</small>
+<small>Version 1.7</small><br>
+<small>Updated Nov 21, 2026 4:10pm</small>
 
 **Headline:** other developers can add a tool to the left menu without a redeploy. A super admin registers the tool's address and grants it permissions. KR Homebase shows the tool in a sealed frame, in the workspace or popped out. The tool reaches data only through KR Homebase, and only within its grant.
 
@@ -25,6 +25,12 @@
 | Access token | A 15-minute pass (`krtt_...`) the tool server gets with its secret. Stored only as a hash. |
 | Permission (scope) | What a tool may do, as `<area>:read` or `<area>:write`. List: `ToolScopes` in `packages/contracts/src/tools.ts`. |
 | `toolAccess` | A field on a route's `defineRoute()` that opens the route to tools (`'any'` or one permission). |
+
+## Permitted users (repository patch 73, migration 073)
+
+Each registration has a `permitted_users` JSON column containing exact sign-in email addresses chosen from the fixed list in `packages/contracts/src/tools.ts`: `dankrueger@legaldrive.net`, `marcusrichard@legaldrive.net`, and `davismcclellan@legaldrive.net`. New registrations default to all three. The Outside Tools form places **Permitted users** directly under **Roles**; selected addresses appear as removable chips. An empty list denies everyone. This is a second gate in addition to role, local/developer visibility and permissions. It applies to the menu, tool health route and every frame API call, including super admins.
+
+For a tool that has its own sign-in (such as Google OpenID Connect), its server may read only its own list using `GET /v1/tools/permitted-users`. The route requires server access and the `tool-registration:read` scope, uses the tool's own bearer token, returns no-store data, and does not permit frame access or reads of another registration. The SDK exposes `ServerClient.getPermittedUsers()`. The tool must fail closed if the request is refused or unavailable. Changing a registration list applies immediately to frame checks and to the next standalone sign-in/session validation.
 
 ## 2. The two paths
 
@@ -65,7 +71,7 @@ Path B: tool server (client secret)
 1. The frame loads only the registered address. The sandbox allows scripts, forms, new tabs, downloads and the tool's own storage. It blocks changing the KR Homebase page's address and browser alert boxes. `allow=""` blocks camera, microphone and location, and the frame sends no referrer.
 2. The host page accepts a message only when the browser reports it came from that frame's window and from the registered origin. The browser sets both values, so a page cannot fake them. Replies go only to that origin.
 3. The host page checks the method and the path (`/v1/` only; no `..`, `//` or `\`). It then calls the API with the person's cookie and `x-kr-tool-id`. The tool never sees the cookie.
-4. The API checks the session first, as it does for every call. It then checks that the tool exists and is active, that it is not local only on a deployed server, that the person's role is on the tool's list, that a developers-only tool's person holds `developer_tools` read, and that the route's `toolAccess` is `'any'` or a permission the tool was granted. **A tool never sees more than the person using it.**
+4. The API checks the session first, as it does for every call. It then checks that the tool exists and is active, that it is not local only on a deployed server, that the person's role and exact email are on the tool's lists, that a developers-only tool's person holds `developer_tools` read, and that the route's `toolAccess` is `'any'` or a permission the tool was granted. **A tool never sees more than the person using it.**
 5. Another site cannot make the browser send the cookie with `x-kr-tool-id`. The cookie is `SameSite=Lax`, so the browser does not send it on another site's background requests, and a custom header from another site needs a CORS permission (cross-site request permission) that KR Homebase never gives.
 6. **Host tools on their own domain, not on a `krhomebase.com` subdomain.** Browsers treat a subdomain as the same site, so a `SameSite=Lax` cookie would travel with its requests. The CORS rule above still blocks them, but a separate domain keeps two guards instead of one.
 
@@ -96,6 +102,7 @@ Path B: tool server (client secret)
 ## 4. What is open to tools today
 
 - `GET /v1/tools/context` (`toolAccess: 'any'`). It tells the tool who is calling.
+- `GET /v1/tools/permitted-users` (`tool-registration:read`, server path only). It returns the current permitted-email list for the calling registration only.
 - Homebase Feedback (Nov 14, 2026, the requester's choice): `GET /v1/homebase-feedback` and `GET /v1/homebase-feedback/{number}` (`homebase-feedback:read`), `PATCH /v1/homebase-feedback/{number}` and `POST /v1/homebase-feedback/{number}/notes` (`homebase-feedback:write`). The person's own permission (`developer_tools`) still applies on the frame path. The first tool to use them is `workers/feedback-viewer`, built with only the kit as a test of it; what it found about the kit is in its `README.md`.
 
 Each business area opens its routes when it is built, by adding `toolAccess: '<area>:read'` or `'<area>:write'` to `defineRoute()`. A new permission is added to `ToolScopes` (contracts) and the kit's `TOOL_SCOPES` together, so outside developers need the new kit file for it. The generated `apps/api/openapi/openapi.json` says, for every route, `Outside tools: ...` or `Outside tools: not allowed.`

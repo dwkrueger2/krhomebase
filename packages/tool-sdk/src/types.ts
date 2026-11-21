@@ -26,6 +26,7 @@ export const TOOL_SCOPES = [
   'reports:read',
   'homebase-feedback:read',
   'homebase-feedback:write',
+  'tool-registration:read',
 ] as const
 export type ToolScopeName = (typeof TOOL_SCOPES)[number]
 
@@ -71,6 +72,11 @@ export interface ToolContext {
   channel: 'frame' | 'server'
   /** The person using the tool (frame calls only); null on the server path. */
   user: { displayName: string; role: string; firmName: string } | null
+}
+
+/** Reply from `ServerClient.getPermittedUsers()`: the emails selected for this tool's own registration. */
+export interface ToolPermittedUsersData {
+  emails: string[]
 }
 
 /** Reply data of `POST /v1/tools/token`. */

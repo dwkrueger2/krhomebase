@@ -17,6 +17,7 @@ const tool: ToolRegistration = {
   origin: 'http://localhost:5174',
   entryUrl: 'http://localhost:5174/',
   allowedRoles: ['super_admin'],
+  permittedUsers: ['dankrueger@legaldrive.net', 'marcusrichard@legaldrive.net', 'davismcclellan@legaldrive.net'],
   localOnly: false,
   developersOnly: true,
   scopes: [],
