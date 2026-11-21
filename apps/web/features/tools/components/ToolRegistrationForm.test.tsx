@@ -51,4 +51,12 @@ describe('ToolRegistrationForm Shown row', () => {
     expect(html).toContain('data-kr-element="tool-local-address-hint"')
     expect(render({ ...tool, localOnly: true })).not.toContain('tool-local-address-hint')
   })
+
+  it('leaves only route-backed scopes selectable and marks the remaining permissions TBD', () => {
+    const html = render(tool)
+    expect(html).toMatch(/tool-scope-contacts-read"><input type="checkbox"\/>contacts:read/)
+    expect(html).toMatch(/tool-scope-documents-read"><input type="checkbox" disabled=""\/>documents:read — TBD/)
+    expect(html).toMatch(/tool-scope-workstream-write"><input type="checkbox" disabled=""\/>workstream:write — TBD/)
+    expect(html).not.toContain('communications:read')
+  })
 })

@@ -54,7 +54,7 @@ export type AttendanceScope = z.infer<typeof AttendanceScope>
 
 export const TimeCardQuery = z.object({
   date: isoDate.optional().describe('Any date in the wanted pay period (firm-local YYYY-MM-DD). Default: today.'),
-  employeeId: z.string().trim().min(1).max(120).optional().describe("The employee whose card to show. Default: the signed-in person's own. Another employee needs the team or all scope."),
+  employeeId: z.string().trim().min(1).max(120).optional().describe("The employee whose card to show. Default: the signed-in person's own; a server tool must provide an employee id. Another employee needs the team or all scope on a frame call."),
 })
 export type TimeCardQuery = z.infer<typeof TimeCardQuery>
 
@@ -209,7 +209,7 @@ export const ClockStateData = z.object({
   minutesWorkedToday: z.number().int().describe('Minutes worked today so far, the open shift included.'),
   openPunch: OpenPunchInfo.nullable().describe('The open shift\'s clock-in, or null.'),
   staleOpenPunch: StaleOpenPunch.nullable().describe('An older clock-in never closed: it must be repaired on the time card. Today\'s clock still works.'),
-  canClock: z.boolean().describe('True when the viewer may use Clock in and Clock out (an active employee with the attendance create and update grants).'),
+  canClock: z.boolean().describe('True when the signed-in viewer may use Clock in and Clock out (an active employee with the attendance create and update grants); false on the personless server path.'),
 })
 export type ClockStateData = z.infer<typeof ClockStateData>
 

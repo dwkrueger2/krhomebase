@@ -13,5 +13,7 @@ export const tool = defineTool({
   // The KR Homebase addresses this tool trusts. localhost:3011 is a KR Homebase developer's local copy.
   hostOrigins: ['https://krhomebase.com', 'http://localhost:3011'],
   scopes: [],
+  // While it runs on localhost, ask for Local development only, so the deployed KR Homebase never lists it.
+  localOnly: true,
   serverAccess: false,
 })

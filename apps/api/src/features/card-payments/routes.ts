@@ -7,8 +7,9 @@
  *   GET  /v1/billing/clients/{clientId}/card-payment?environment=   Stripe.js settings and the payer prefill
  *   POST /v1/billing/clients/{clientId}/card-payment/intent         create the PaymentIntent (sandbox: confirmed here)
  *
- * Who may call (old, unchanged): the billing write roles, the same people who may post payments. Outside tools: closed
- * (no `toolAccess`). The intent route writes nothing to the database but charges a card in the sandbox, so it goes
+ * Who may call (old, unchanged): the billing write roles, the same people who may post payments. The GET settings
+ * route is open to outside tools with `billing:read`; the intent route remains closed. It writes nothing to the
+ * database but charges a card in the sandbox, so it goes
  * through the write gate like any other write (refused while the Data Import lock is on).
  *
  * The payment itself is posted by `POST /v1/billing/clients/{clientId}/payments` with `stripePaymentIntentId`
@@ -47,6 +48,7 @@ export const cardPaymentConfigRoute = defineRoute({
   feature: 'billing',
   summary: "Stripe.js settings for taking a card payment (the publishable key, the environment the server will use, whether this person may switch) and the client's name and email for the card rows.",
   access: { roles: BILLING_WRITE_ROLES },
+  toolAccess: 'billing:read',
   errors: ['VALIDATION_CLIENT_NOT_FOUND', UNAVAILABLE],
   sideEffects: ['None'],
   request: { params: BillingClientParams, query: CardPaymentConfigQuery },

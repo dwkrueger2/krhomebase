@@ -2,6 +2,7 @@
 // Connects to KR Homebase, asks who is using the tool, and shows the answer.
 import { connectToHost } from '@krhomebase/tool-sdk/frame'
 import type { ToolContext } from '@krhomebase/tool-sdk/types'
+import { TOOL_SDK_VERSION } from '@krhomebase/tool-sdk/version'
 import { tool } from './tool.ts'
 
 const status = document.getElementById('status')!
@@ -12,7 +13,7 @@ async function start(): Promise<void> {
   try {
     const host = await connectToHost({ hostOrigins: tool.hostOrigins })
     host.setTitle('Hello Tool')
-    status.textContent = `Connected (${host.mode}).`
+    status.textContent = `Connected (${host.mode}, kit ${TOOL_SDK_VERSION}).`
 
     const ask = async () => {
       const answer = await host.api.get<ToolContext>('/v1/tools/context')

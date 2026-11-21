@@ -11,7 +11,8 @@
  *
  * Task ids are seven-character public codes (D21). The default assignee follows the creator's Task Settings
  * preference (D20). Who: every staff role (D9, the same as WorkStream). No delete route. Rules: `rules.ts`. Writes pass the write gate
- * and are audited (resource `tasks`). Outside tools: closed.
+ * and are audited (resource `tasks`). Outside tools may read tasks and notes with `tasks:read` (approved Nov 21,
+ * 2026); frame calls retain the person's roles and ownership rules.
  */
 
 import { DEFAULT_USER_PREFERENCES, ErrorEnvelope, successEnvelope, TaskAssigneesBody, TaskCreateBody, TaskNoteBody, TaskNotesData, TaskParams, TasksData, TaskSavedData, TasksQuery, TaskUpdateBody } from '@krhomebase/contracts'
@@ -41,6 +42,7 @@ export const tasksRoute = defineRoute({
   feature: 'tasks',
   summary: 'Tasks by due date (no due date last, then newest recorded) with their current assignees; open ones unless closed ones are asked for; one page at a time.',
   access: STAFF,
+  toolAccess: 'tasks:read',
   errors: ['TASK_STATUS_INVALID', 'TASK_CURSOR_INVALID', 'TASKS_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { query: TasksQuery },
@@ -57,6 +59,7 @@ export const taskRoute = defineRoute({
   feature: 'tasks',
   summary: 'One task with its current assignees.',
   access: STAFF,
+  toolAccess: 'tasks:read',
   errors: ['TASK_NOT_FOUND', 'TASKS_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { params: TaskParams },
@@ -123,6 +126,7 @@ export const taskNotesRoute = defineRoute({
   feature: 'tasks',
   summary: "A task's follow-up notes, newest first, with who wrote each (migration 003).",
   access: STAFF,
+  toolAccess: 'tasks:read',
   errors: ['TASK_NOT_FOUND', 'TASKS_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { params: TaskParams },
@@ -156,9 +160,10 @@ function handle(app: OpenAPIHono<AppEnv>, route: ReturnType<typeof defineRoute>,
   app.openapi(route, (async (c: Context<AppEnv>) => {
     const queries = taskQueriesFor(c.env)
     const session = c.get('session')
-    if (!queries || !session) return failure(c, 503, 'TASKS_UNAVAILABLE', 'Tasks are not available right now.')
+    const serverTool = c.get('tool')?.channel === 'server'
+    if (!queries || (!session && !serverTool)) return failure(c, 503, 'TASKS_UNAVAILABLE', 'Tasks are not available right now.')
     try {
-      const actor: TaskActor = { userId: session.userId, email: session.email ?? '', role: session.role ?? '', requestId: c.get('requestId') }
+      const actor: TaskActor = { userId: session?.userId ?? '', email: session?.email ?? '', role: session?.role ?? '', requestId: c.get('requestId') }
       const data = await work(queries, actor, c)
       logLine(`TASKS:${tag}`, c.get('requestId'), { route: route.path })
       return c.json({ ok: true as const, data, requestId: c.get('requestId') }, 200)

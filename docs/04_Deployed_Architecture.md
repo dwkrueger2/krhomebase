@@ -1,7 +1,7 @@
 # Deployed Architecture
 
-<small>Version 2.9</small><br>
-<small>Updated Nov 18, 2026 11:00pm</small>
+<small>Version 3.0</small><br>
+<small>Updated Nov 21, 2026 12:21pm</small>
 
 **Status:** live since Nov 6, 2026. Read this file before any work that touches a Worker, a binding, a web address, a secret or a deploy command. Update it in the same change as any of those.
 
@@ -72,7 +72,7 @@ Sign-in sequence: Turnstile check, then Google, then the API creates the user an
 | `krhomebase-api` | `EMPLOYEE_STORAGE` | R2 bucket `kr-homebase-employee-storage` | Same |
 | `krhomebase-api` | `ARTICLES` | R2 bucket `kr-homebase-articles` (`kr-homebase-articles-dev` under `pnpm dev`): Front End Publishing | Same |
 | `krhomebase-api` | `FEEDBACK_STORAGE` | R2 bucket `kr-homebase-feedback`: Homebase Feedback screenshots (writes) | Same |
-| `krhomebase-api` | `DOCUMENTS` | R2 bucket `krhomebase-media-dev` (the old app's documents bucket, the requester's choice): stored billing email copies and PDFs (Billing part 7c) | Same |
+| `krhomebase-api` | `DOCUMENTS` | R2 bucket `krhomebase-media-dev`: stored billing email copies and PDFs (Billing part 7c), plus the tool kit ZIP under the separate `tool-sdk/` prefix (`krhomebase-sdk-<version>.zip` and `latest.json`; repository patch 68) | Same |
 | `krhomebase-api` | `GPT_WORKER` | Worker `krhomebase-gpt-models-worker` (live, with the secret `KR_GPT_WORKER_SECRET`) | Same |
 | `krhomebase-api` | `CF_VERSION_METADATA` | Cloudflare's id, tag and time of the deployed version of the API (the IT Overview reports it; in the configuration file since API patch 50, Nov 18, 2026; live with the next API deploy) | Same |
 | `krhomebase-gpt-models-worker` | `GPT_USAGE_DB` | D1 `krhomebase_gpt_usage_dev` (shared with the old app's GPT Worker) | `gpt-models-worker.jsonc` |

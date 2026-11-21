@@ -51,6 +51,17 @@ export interface ToolManifest {
    * chooses the final list at registration; this is the developer's suggestion, printed on the registration sheet.
    */
   roles?: ToolRoleName[]
+  /**
+   * Optional (kit 1.1.0): ask the super admin to tick **Local development only**, so the tool shows only while KR
+   * Homebase runs on a developer's computer (`pnpm dev`). Use it for a copy registered at a `localhost` address. Like
+   * `roles`, it is a request printed on the registration sheet; the super admin decides.
+   */
+  localOnly?: boolean
+  /**
+   * Optional (kit 1.1.0): ask the super admin to tick **Developers only**, so the tool shows only to people who hold
+   * the Internal Developer permission (`developer_tools`), whatever their role. A request, printed on the sheet.
+   */
+  developersOnly?: boolean
   /** True when the tool's own server will call KR Homebase (path B) and needs a client secret. */
   serverAccess: boolean
   /** Optional: the addresses the tool server calls from, when server access is on. */
@@ -130,11 +141,23 @@ export function registrationSheet(manifest: Readonly<ToolManifest>): string {
     `Health route: ${new URL(TOOL_HEALTH_PATH, manifest.entryUrl).href}`,
     `Icon route: ${new URL(TOOL_ICON_PATH, manifest.entryUrl).href}`,
     `Roles (any one of them sees the tool): ${manifest.roles?.length ? manifest.roles.join(', ') : 'not suggested'}`,
+    `Shown: ${shownOptions(manifest)}`,
     `Permissions requested: ${manifest.scopes.length ? manifest.scopes.join(', ') : 'none (reads only who is using it)'}`,
     `Server access (client secret): ${manifest.serverAccess ? 'yes' : 'no'}`,
     ...(manifest.serverAccess && manifest.serverIpAllowlist?.length ? [`Server addresses: ${manifest.serverIpAllowlist.join(', ')}`] : []),
     ...(manifest.widgets?.length ? [`Dashboard widgets: ${manifest.widgets.map((widget) => `${widget.title} (${widget.id}, ${widget.size})`).join('; ')}`] : []),
   ].join('\n')
+}
+
+/**
+ * The Shown options the tool asks for, in the words of the KR Homebase registration form.
+ *
+ * @param manifest - A value returned by `defineTool`.
+ * @returns For example `Local development only, Developers only`, or `everyone the roles allow`.
+ */
+function shownOptions(manifest: Readonly<ToolManifest>): string {
+  const options = [...(manifest.localOnly ? ['Local development only'] : []), ...(manifest.developersOnly ? ['Developers only'] : [])]
+  return options.length ? options.join(', ') : 'everyone the roles allow'
 }
 
 /**

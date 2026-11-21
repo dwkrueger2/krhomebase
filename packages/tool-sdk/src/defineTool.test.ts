@@ -41,6 +41,12 @@ describe('defineTool', () => {
     expect(() => defineTool({ ...good, roles: ['owner' as 'staff'] })).toThrow('unknown role')
   })
 
+  it('prints the Shown options the tool asks for', () => {
+    expect(registrationSheet(defineTool(good))).toContain('Shown: everyone the roles allow')
+    expect(registrationSheet(defineTool({ ...good, localOnly: true, developersOnly: true }))).toContain('Shown: Local development only, Developers only')
+    expect(registrationSheet(defineTool({ ...good, developersOnly: true }))).toContain('Shown: Developers only')
+  })
+
   it('writes the health document', () => {
     expect(healthDocument(defineTool(good))).toEqual({ status: 'ok', version: '1.0.0', protocol: 1 })
   })

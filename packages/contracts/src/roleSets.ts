@@ -109,7 +109,9 @@ export type RoleSetBody = z.infer<typeof RoleSetBody>
 export const RoleSetParams = z.object({
   roleSetId: z
     .string()
-    .regex(/^role_[a-z0-9][a-z0-9_-]{1,95}$/i)
+    // Written without the `i` flag (it matches the same text), because the API reference writer copies the flag into
+    // the pattern text as `.../i` (tool kit 1.1.0, repository patch 67).
+    .regex(/^[Rr][Oo][Ll][Ee]_[A-Za-z0-9][A-Za-z0-9_-]{1,95}$/)
     .describe('Role set id.'),
 })
 export type RoleSetParams = z.infer<typeof RoleSetParams>

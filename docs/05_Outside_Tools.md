@@ -1,13 +1,15 @@
 # Outside Tools: Design, Security and Operation
 
-<small>Version 1.6</small><br>
-<small>Updated Nov 17, 2026 7:20am</small>
+<small>Version 1.8</small><br>
+<small>Updated Nov 21, 2026 12:21pm</small>
 
 **Headline:** other developers can add a tool to the left menu without a redeploy. A super admin registers the tool's address and grants it permissions. KR Homebase shows the tool in a sealed frame, in the workspace or popped out. The tool reaches data only through KR Homebase, and only within its grant.
 
 **Status (Nov 9, 2026):** built in repository patch 16, API patch 6 and web patch 508. Not deployed. Steps are in section 7.
 
 **The developer guide is `packages/tool-sdk/README.md`.** It ships inside the kit file given to developers. This document is for people working on KR Homebase itself.
+
+**Kit releases (Nov 20, 2026):** the kit is its own version track (1.1.0 is its first release) and is published to the private GitHub repository `dwkrueger2/krhomebase-sdk` with `pnpm release:tool-sdk -PublishTo D:\Repos\krhomebase-sdk`. GitHub decides who may download it. The process: `packages/tool-sdk/AGENTS.md`, "Releasing the kit to developers".
 
 ---
 
@@ -97,6 +99,11 @@ Path B: tool server (client secret)
 
 - `GET /v1/tools/context` (`toolAccess: 'any'`). It tells the tool who is calling.
 - Homebase Feedback (Nov 14, 2026, the requester's choice): `GET /v1/homebase-feedback` and `GET /v1/homebase-feedback/{number}` (`homebase-feedback:read`), `PATCH /v1/homebase-feedback/{number}` and `POST /v1/homebase-feedback/{number}/notes` (`homebase-feedback:write`). The person's own permission (`developer_tools`) still applies on the frame path. The first tool to use them is `workers/feedback-viewer`, built with only the kit as a test of it; what it found about the kit is in its `README.md`.
+- Approved Nov 21, 2026, all candidate GET routes are open. `contacts:read`: `GET /v1/contacts` and `GET /v1/contacts/{contactId}` (the latter includes full SSN and date of birth); `matters:read`: `GET /v1/clients` and `GET /v1/clients/{clientId}/matters`; `leads:read`: `GET /v1/leads` and `GET /v1/leads/{leadId}`; `tasks:read`: `GET /v1/tasks`, `GET /v1/tasks/{taskId}` and `GET /v1/tasks/{taskId}/notes`; `workstream:read`: `GET /v1/workstream`, `/v1/workstream/feed` and `/v1/workstream/{wsid}`; `billing:read`: all eight existing GET routes under `/v1/billing/`, including billing records, stored billing emails and PDFs, pay links and Stripe card-payment configuration; `timekeeping:read`: `GET /v1/timekeeping/team-status`, `/time-card`, `/clock-state` and `/employees`.
+
+Frame calls still require the signed-in person's route roles, fine-grained permission and existing own/team/all checks. Server calls have no person: route `access` roles and person permissions do not apply; `toolAccess` and the token's granted scope are the gate. Server handlers do not impersonate a person. In timekeeping, own/team/all are frame-person rules only; the server scope grants the tool a read-all view. A server time-card request must supply `employeeId`; `GET /clock-state` has no employee parameter and returns an empty no-person state with `canClock: false`.
+
+**SDK download:** `GET /v1/tools/sdk` reports metadata from `DOCUMENTS` R2 `tool-sdk/latest.json` and its versioned ZIP; `GET /v1/tools/sdk/download` downloads the ZIP. These routes have no `toolAccess` and are limited to super admins and people with `developer_tools` read. Release preparation prints owner-run R2 upload commands; see `packages/tool-sdk/AGENTS.md`, "Storing a kit ZIP in KR Homebase".
 
 Each business area opens its routes when it is built, by adding `toolAccess: '<area>:read'` or `'<area>:write'` to `defineRoute()`. A new permission is added to `ToolScopes` (contracts) and the kit's `TOOL_SCOPES` together, so outside developers need the new kit file for it. The generated `apps/api/openapi/openapi.json` says, for every route, `Outside tools: ...` or `Outside tools: not allowed.`
 
@@ -146,7 +153,7 @@ pnpm deploy:web
 ```
 
 3. Choose the server-path address, for example `tools-api.krhomebase.com`. Add it as a Custom Domain to `krhomebase-external-api` in the Cloudflare dashboard (Workers & Pages, the Worker, Settings, Domains & Routes), and record it in `docs/04_Deployed_Architecture.md`. Until then, path B is not reachable; path A works without it.
-4. Build the kit file for developers: `pnpm pack:tool-sdk`, which writes `dist\tool-sdk\krhomebase-tool-sdk-1.0.0.tgz`.
+4. Build the release for developers: `pnpm release:tool-sdk -PublishTo D:\Repos\krhomebase-sdk` (the kit file, the guide, the changes, the API reference of the routes open to tools and the example, zipped and copied into the SDK repository's clone), then commit and push that clone, and give each developer's GitHub account access to the repository.
 5. Register a test tool under Settings, Application Settings, Outside tools.
 
 ## 7a. Dashboard widgets
@@ -164,7 +171,11 @@ Added with Settings and Dashboard stage 3 (`docs/08_Settings_Dashboard_Plan.md`,
 - **Audit retention:** `workspace_tool_audit` grows without limit. Decide how long to keep rows.
 - **Schema documentation:** add the three tables to `docs/Schema_8.0` once the migration is applied (that folder is generated from the live database).
 - **Built-in tools as packages:** each built-in menu item becomes its own `packages/tools/<name>` package declared with `defineTool` (agreed in principle; not started).
-- **Kit delivery:** the kit is a `.tgz` file. A private registry can replace it later.
+- **Kit delivery:** decided Nov 20, 2026: a release zip in the private GitHub repository `dwkrueger2/krhomebase-sdk` (`pnpm release:tool-sdk`). On a personal GitHub account every person given access can also push; a GitHub organization (free) allows read-only access. A private package registry can replace the zip later.
+- **Routes for tools:** see the approved route list in section 4. Write routes and the deferred `documents:read/write` and `reports:read` scopes remain closed and are marked TBD in the registration form. The kit's next release needs a refreshed API reference for the newly opened routes; do not rebuild released kit 1.1.0.
+- **Protocol theme updates:** `krh:init` sends the theme once. A tool left open while the person changes theme keeps its old colors. Consider a `krh:theme` protocol message in a later kit release; report only, not implemented.
+- **SDK R2 uploads:** `scripts/Release-ToolSdk.ps1` now prints the versioned ZIP and `latest.json` commands targeting `krhomebase-media-dev/tool-sdk/`; the requester reviews and runs them. The API serves only the pointer's validated `tool-sdk/` key.
+- **Server path address:** `krhomebase-external-api` still has no Custom Domain (`docs/04_Deployed_Architecture.md` section 7), so a tool server (path B) cannot reach KR Homebase yet; the frame path works.
 - **Tool signing keys (decided Nov 14, 2026: not now).** The idea: each tool holds a private key, its public key is stored at registration, and KR Homebase checks a signed nonce on the health route. Not built, because HTTPS to the registered origin already stops a plain man in the middle; a key would only add protection against a takeover of the tool's domain or hosting, and even then would not prove the page a person's browser loads; and every tool would need a server and key handling, ruling out static tools. If it comes back, consider signing the tool page itself or stricter pinning of the tool's address instead.
 - **Health in the tools list:** the Outside tools screen checks a tool only on request (the form's Check health). A health column filled in the background, or a recorded last result, could follow.
 - **Outside Dashboard widgets:** store a tool's widget list at registration, return it with the menu, and draw each in a sandboxed widget frame on the Dashboard, honoring `krh:set-height` (section 7a).

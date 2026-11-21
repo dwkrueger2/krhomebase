@@ -17,7 +17,7 @@
  *  - Edit: `contacts.update`, or the contact is the caller's own (their login is linked to it). Checked in the
  *    handler because of that exception.
  *  - Client lookups: `contacts.read`. Client status: the office write roles, as before.
- *  - Outside tools: closed (no `toolAccess`).
+ *  - Outside tools may use only `GET /v1/clients` with `matters:read`; every other route here remains closed.
  */
 
 import {
@@ -135,6 +135,7 @@ export const lookupClientsRoute = defineRoute({
   summary: 'Look client accounts up by client number (leading zeros ignored) or id. Used to check a number is free.',
   access: 'signed-in',
   permission: { resource: 'contacts', action: 'read' },
+  toolAccess: 'matters:read',
   errors: ['CONTACTS_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { query: ClientLookupQuery },

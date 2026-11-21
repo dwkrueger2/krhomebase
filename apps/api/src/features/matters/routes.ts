@@ -10,7 +10,8 @@
  *   GET    /v1/matters/{matterId}/delete-check  whether it may be deleted and what blocks it (read roles)
  *   DELETE /v1/matters/{matterId}               delete a matter with no records (super admin, typed confirmation)
  *
- * Rules: `rules.ts`. Writes pass the write gate and are audited (resource `matters`). Outside tools: closed.
+ * Rules: `rules.ts`. Writes pass the write gate and are audited (resource `matters`). Outside tools may read matters
+ * with `matters:read` (approved Nov 21, 2026); frame calls retain the person's existing authorization.
  */
 
 import {
@@ -58,6 +59,7 @@ export const clientMattersRoute = defineRoute({
   feature: 'matters',
   summary: "A client's matters in number order, the status and practice-area choices, and whether the viewer may add, change or delete matters.",
   access: { roles: MATTER_READ_ROLES },
+  toolAccess: 'matters:read',
   errors: ['MATTER_CLIENT_NOT_FOUND', 'MATTERS_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { params: MatterClientParams },
@@ -147,9 +149,10 @@ function handle(
   app.openapi(route, (async (c: Context<AppEnv>) => {
     const queries = matterQueriesFor(c.env)
     const session = c.get('session')
-    if (!queries || !session) return failure(c, 503, 'MATTERS_UNAVAILABLE', 'Matters are not available right now.')
+    const serverTool = c.get('tool')?.channel === 'server'
+    if (!queries || (!session && !serverTool)) return failure(c, 503, 'MATTERS_UNAVAILABLE', 'Matters are not available right now.')
     try {
-      const actor: MatterActor = { userId: session.userId, email: session.email ?? null, role: session.role ?? null, requestId: c.get('requestId') }
+      const actor: MatterActor = { userId: session?.userId ?? '', email: session?.email ?? null, role: session?.role ?? null, requestId: c.get('requestId') }
       const data = await work(queries, actor, c)
       logLine(`MATTERS:${tag}`, c.get('requestId'), { route: route.path })
       return c.json({ ok: true as const, data, requestId: c.get('requestId') }, 200)

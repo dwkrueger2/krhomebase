@@ -17,7 +17,8 @@
  *   DELETE /v1/workstream/{wsid}             delete an entry (super admin)
  *
  * Who: every staff role (D9); email the old send roles; delete super admin. Rules: `rules.ts`. Writes pass the write
- * gate and are audited (resource `workstream`). Outside tools: closed. The fixed paths are registered before
+ * gate and are audited (resource `workstream`). The approved list, feed and detail GET routes are open with
+ * `workstream:read`; other GETs and all writes remain closed. The fixed paths are registered before
  * `{wsid}` so they always win.
  */
 
@@ -89,6 +90,7 @@ export const listWorkstreamRoute = defineRoute({
   feature: 'workstream',
   summary: "A client's (optionally one matter's) or a lead's WorkStream entries, every type or one, newest first, one page at a time.",
   access: STAFF,
+  toolAccess: 'workstream:read',
   errors: ['WORKSTREAM_OWNER_REQUIRED', 'WORKSTREAM_CURSOR_INVALID', 'WORKSTREAM_SUBGROUP_INVALID', ...OWNER_ERRORS, 'WORKSTREAM_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { query: WorkstreamListQuery },
@@ -101,6 +103,7 @@ export const workstreamFeedRoute = defineRoute({
   feature: 'workstream',
   summary: 'Every WorkStream entry of every client and lead, newest first, one page at a time (the Communications section).',
   access: STAFF,
+  toolAccess: 'workstream:read',
   errors: ['WORKSTREAM_CURSOR_INVALID', 'WORKSTREAM_SUBGROUP_INVALID', 'WORKSTREAM_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { query: WorkstreamFeedQuery },
@@ -175,6 +178,7 @@ export const getWorkstreamRoute = defineRoute({
   feature: 'workstream',
   summary: 'One WorkStream entry by its seven-character id.',
   access: STAFF,
+  toolAccess: 'workstream:read',
   errors: ['WORKSTREAM_NOT_FOUND', 'WORKSTREAM_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { params: WorkstreamParams },
@@ -244,9 +248,10 @@ function handle(app: OpenAPIHono<AppEnv>, route: ReturnType<typeof defineRoute>,
   app.openapi(route, (async (c: Context<AppEnv>) => {
     const queries = workstreamQueriesFor(c.env)
     const session = c.get('session')
-    if (!queries || !session) return failure(c, 503, 'WORKSTREAM_UNAVAILABLE', 'WorkStream is not available right now.')
+    const serverTool = c.get('tool')?.channel === 'server'
+    if (!queries || (!session && !serverTool)) return failure(c, 503, 'WORKSTREAM_UNAVAILABLE', 'WorkStream is not available right now.')
     try {
-      const actor: WorkstreamActor = { userId: session.userId, email: session.email ?? null, role: session.role ?? null, displayName: session.displayName || session.email || session.userId, requestId: c.get('requestId') }
+      const actor: WorkstreamActor = { userId: session?.userId ?? '', email: session?.email ?? null, role: session?.role ?? null, displayName: session?.displayName || session?.email || session?.userId || 'Outside tool', requestId: c.get('requestId') }
       const data = await work(queries, actor, c)
       logLine(`WORKSTREAM:${tag}`, c.get('requestId'), { route: route.path })
       return c.json({ ok: true as const, data, requestId: c.get('requestId') }, 200)

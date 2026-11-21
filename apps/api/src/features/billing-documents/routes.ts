@@ -21,7 +21,8 @@
  *
  * Who may call (the old roles): reading (recipients, sent copies, a stored file) the office read roles; previewing
  * and sending the billing write roles (the old send roles); the sample PDF super admin and admin (old `sample-pdf`).
- * The previews write nothing, so they pass the write gate. Outside tools: closed (no `toolAccess`).
+ * The previews write nothing, so they pass the write gate. The four email-info GET routes and stored-document file
+ * GET are open with `billing:read`; their POST routes remain closed to outside tools.
  */
 
 import {
@@ -114,6 +115,7 @@ const infoRoute = (path: string, summary: string, params: z.ZodObject, data: z.Z
     feature: FEATURE,
     summary,
     access: { roles: BILLING_READ_ROLES },
+    toolAccess: 'billing:read',
     errors,
     sideEffects: ['None'],
     request: { params, ...(query ? { query } : {}) },
@@ -196,6 +198,7 @@ export const documentFileRoute = defineRoute({
   feature: FEATURE,
   summary: 'A stored copy of a sent invoice, statement, receipt or refund notice (the PDF, or the email HTML with `format=html`), shown inline and not cached.',
   access: { roles: BILLING_READ_ROLES },
+  toolAccess: 'billing:read',
   errors: ['BILLING_DOCUMENT_NOT_FOUND', 'BILLING_DOCUMENT_FILE_MISSING', 'BILLING_DOCUMENT_STORAGE_UNAVAILABLE', UNAVAILABLE],
   sideEffects: ['None'],
   request: { params: BillingDocumentParams, query: BillingDocumentFileQuery },

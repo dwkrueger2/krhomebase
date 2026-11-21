@@ -63,6 +63,19 @@ type ToolRoleName = (typeof ToolRoleNames)[number]
 /** Always on every tool's role list; shown ticked and locked. The API adds it as well. */
 const LOCKED_ROLE: ToolRoleName = 'super_admin'
 
+/** Permissions with an opened route; all remaining grants are unavailable until a route is approved. */
+const OPEN_TOOL_SCOPES = new Set<ToolScope>([
+  'contacts:read',
+  'matters:read',
+  'leads:read',
+  'tasks:read',
+  'workstream:read',
+  'billing:read',
+  'timekeeping:read',
+  'homebase-feedback:read',
+  'homebase-feedback:write',
+])
+
 /** Words for each role in the role grid. */
 const ROLE_LABELS: Record<ToolRoleName, string> = {
   super_admin: 'Super admin',
@@ -330,9 +343,9 @@ export default function ToolRegistrationForm({ tool, busy, error, onSave, onCanc
         <span className={STYLES.label}>Permissions</span>
         <div className={LAYOUT_STYLES.checks}>
           {ToolScopes.map((scope) => (
-            <label key={scope} className={`${LAYOUT_STYLES.check} ${STYLES.checkRow}`}>
-              <input type="checkbox" checked={scopes.has(scope)} onChange={() => setScopes((current) => toggled(current, scope))} />
-              {scope}
+            <label key={scope} className={`${LAYOUT_STYLES.check} ${OPEN_TOOL_SCOPES.has(scope) ? STYLES.checkRow : STYLES.checkRowLocked}`} data-kr-element={`tool-scope-${scope.replace(':', '-')}`}>
+              <input type="checkbox" checked={scopes.has(scope)} disabled={!OPEN_TOOL_SCOPES.has(scope)} onChange={() => setScopes((current) => toggled(current, scope))} />
+              {scope}{OPEN_TOOL_SCOPES.has(scope) ? '' : ' — TBD'}
             </label>
           ))}
         </div>

@@ -20,6 +20,10 @@
  *
  * Nov 17, 2026 (web patch 564, migration 058): the Roles column adds a "local only" and a "developers only" tag for a
  * tool registered with those options (`ToolRegistrationForm`, Shown row).
+ *
+ * Nov 21, 2026 (web patch 577): the header links to the private GitHub repository, the source for the kit, guide and
+ * changes, and shows the versioned archive stored in R2. GitHub decides who may open the repository; the download
+ * button is also available from the developer-facing Feedback panel to people with `developer_tools`.
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -32,6 +36,14 @@ import ToolRegistrationForm from '@/features/tools/components/ToolRegistrationFo
 import ToolSecretNotice from '@/features/tools/components/ToolSecretNotice.client'
 import KRHomebaseIcon from '@/components/ui/KRHomebaseIcon.client'
 import ToolSvgIcon from '@/components/ui/ToolSvgIcon.client'
+import ToolKitDownload from '@/features/tools/components/ToolKitDownload.client'
+
+/**
+ * The private GitHub repository that publishes the tool kit (the requester, Nov 20, 2026). Its front page names the
+ * current release; `scripts/Release-ToolSdk.ps1 -PublishTo` fills its local clone. Change it here if the repository
+ * moves (for example to a GitHub organization).
+ */
+const TOOL_SDK_REPOSITORY_URL = 'https://github.com/dwkrueger2/krhomebase-sdk'
 
 /** A secret to show once. */
 interface SecretToShow {
@@ -47,6 +59,7 @@ type PendingConfirm = { kind: 'delete'; tool: ToolRegistration } | { kind: 'rota
 const LAYOUT_STYLES = {
   screen: 'mx-[8px] my-[6px] lg:mx-auto max-w-[1100px] gap-[6px] flex flex-col',
   head: 'gap-[6px] px-[8px] py-[4px] flex items-center justify-between',
+  headTitle: 'gap-[10px] flex items-baseline',
   scroller: 'p-[8px] overflow-x-auto',
   cell: 'px-[6px] py-[1px]',
   headCell: 'px-[6px] py-[3px]',
@@ -74,6 +87,7 @@ const STYLES = {
   primary: 'border-(--kr-theme-button-primary-background) bg-(--kr-theme-button-primary-background) text-(color:--kr-theme-text-inverse)',
   danger: 'border-(--kr-theme-danger) bg-transparent text-(color:--kr-theme-danger)',
   field: 'px-[6px] py-[4px] rounded-[2px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface)',
+  kitLink: 'text-[12px] leading-tight text-(color:--kr-theme-text-muted) underline hover:text-(color:--kr-theme-orange)',
 } as const
 
 /**
@@ -160,11 +174,25 @@ export default function OutsideToolsAdmin() {
 
   return (
     <section className={LAYOUT_STYLES.screen} data-kr-id="OutsideToolsAdmin">
-      {/* Screen heading: what this is, where the developer guide is, and the register button */}
+      {/* Screen heading: what this is, where developers get the kit, and the registration action */}
       <div className={`${LAYOUT_STYLES.head} ${STYLES.card}`} data-kr-element="outside-tools-header">
-        <h2 className={STYLES.title} title="Tools other developers build for the left menu. Send developers the tool kit file and its guide (packages/tool-sdk/README.md).">
-          Outside tools
-        </h2>
+        <div className={LAYOUT_STYLES.headTitle}>
+          <h2 className={STYLES.title} title="The private GitHub repository contains the kit, developer guide and changes; access is granted to developer GitHub accounts there.">
+            Outside tools
+          </h2>
+          {/* Private repository source and current versioned archive from R2. */}
+          <a
+            href={TOOL_SDK_REPOSITORY_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={STYLES.kitLink}
+            title="The private GitHub repository contains the kit, developer guide and changes. Give developers access through GitHub."
+            data-kr-element="outside-tools-kit-link"
+          >
+            Private kit repository on GitHub
+          </a>
+          <ToolKitDownload />
+        </div>
         <button type="button" className={`${STYLES.headButton} ${STYLES.primary}`} onClick={() => { setFormError(''); setEditing(null) }} disabled={editing !== undefined}>
           Register tool
         </button>
