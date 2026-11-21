@@ -21,6 +21,7 @@ import { grantDevViewAccess } from '@/components/dev-view/devViewAccess'
 import MenuStyleOne from '@/components/ui/MenuStyleOne.client'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import { L } from '@/lib/KRUtilities'
+import ToolKitDownload from '@/features/tools/components/ToolKitDownload.client'
 import { fetchAllHomebaseFeedback, fetchMyHomebaseFeedback, HomebaseFeedbackApiError } from '../api.client'
 import { FEEDBACK_PANEL_ID } from '../sourcePage'
 import FeedbackRequestForm from './FeedbackRequestForm.client'
@@ -145,6 +146,7 @@ export default function HomebaseFeedbackPanel({ sourceWindow, onDirtyChange, sub
         <KRHomebaseIcons.Feedback className={LAYOUT_STYLES.headerIcon} />
         <span className={STYLES.title}>Feedback about KR Homebase</span>
         {isDeveloper ? <span className={`${LAYOUT_STYLES.badge} ${STYLES.badge}`}>Internal Developer</span> : null}
+        {isDeveloper ? <ToolKitDownload /> : null}
       </header>
 
       {/* Tabs: New request, My requests and (developers) All requests */}

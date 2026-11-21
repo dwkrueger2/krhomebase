@@ -23,6 +23,8 @@ export type RouteMeta = {
    * server call (no person) is allowed on `signed-in` routes only through this field. See docs/05_Outside_Tools.md.
    */
   toolAccess?: 'any' | ToolScope
+  /** Optional channel limit for tools; omitted means both the frame and server paths. */
+  toolChannels?: readonly ('frame' | 'server')[]
   /**
    * Optional. The fine-grained permission a signed-in person needs, for example `{ resource: 'contacts',
    * action: 'read' }`, granted by their role sets (old `isAuthorized`). Checked after `access`. A route whose
@@ -45,8 +47,8 @@ const errorResponse = (description: string) => ({
 })
 
 export function defineRoute<R extends RouteConfig & RouteMeta>(spec: R) {
-  const { feature, summary, access, errors, sideEffects, toolAccess, permission, ...rest } = spec
-  const meta: RouteMeta = { feature, summary, access, errors, sideEffects, ...(toolAccess ? { toolAccess } : {}), ...(permission ? { permission } : {}) }
+  const { feature, summary, access, errors, sideEffects, toolAccess, toolChannels, permission, ...rest } = spec
+  const meta: RouteMeta = { feature, summary, access, errors, sideEffects, ...(toolAccess ? { toolAccess } : {}), ...(toolChannels ? { toolChannels } : {}), ...(permission ? { permission } : {}) }
 
   const hasInput = Boolean(rest.request)
   const roleText =
@@ -56,7 +58,7 @@ export function defineRoute<R extends RouteConfig & RouteMeta>(spec: R) {
     ...(permission ? [`Permission: ${permission.resource}.${permission.action}.`] : []),
     `Side effects: ${sideEffects.join('; ')}.`,
     toolAccess
-      ? `Outside tools: ${toolAccess === 'any' ? 'any registered tool' : `tools granted ${toolAccess}`}.`
+      ? `Outside tools: ${toolAccess === 'any' ? 'any registered tool' : `tools granted ${toolAccess}`}${toolChannels ? ` (${toolChannels.join(' and ')} channel${toolChannels.length === 1 ? '' : 's'} only)` : ''}.`
       : 'Outside tools: not allowed.',
     `Error codes: ${[...(hasInput ? ['VALIDATION_FAILED'] : []), ...(access === 'public' ? [] : ['UNAUTHENTICATED', 'FORBIDDEN']), ...(permission ? ['PERMISSION_REQUIRED', 'PERMISSIONS_UNAVAILABLE'] : []), ...errors, 'INTERNAL_ERROR'].join(', ')}.`,
   ].join('\n\n')

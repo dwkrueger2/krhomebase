@@ -1,17 +1,18 @@
 # AGENTS 01: Version and Patch Procedures
 
-<small>Version 1.4</small><br>
-<small>Updated Nov 17, 2026 8:31am</small>
+<small>Version 1.5</small><br>
+<small>Updated Nov 20, 2026 6:45pm</small>
 
 ## Purpose
 
 This file defines the required versioning, patch-numbering, date, and reporting protocol for automated changes to the KR Homebase repository.
 
-The repository contains three independent version tracks:
+The repository contains four independent version tracks:
 
 1. Repository (root workspace, scripts, documentation).
 2. API (`apps/api`).
 3. Web (`apps/web`).
+4. Tool kit (`packages/tool-sdk`, the kit outside developers install; a track since Nov 20, 2026, the requester's decision, at 1.1.0 patch 1).
 
 These tracks are intentionally separate. A change to one track must not silently advance another track. There are no mirror fields: each track is stored in exactly one `package.json`.
 
@@ -28,6 +29,7 @@ Before making changes, read the current values from the repository. Do not rely 
 | Repository | `package.json` (repository root) | `krhomebase` |
 | API | `apps/api/package.json` | `@krhomebase/api` |
 | Web | `apps/web/package.json` | `@krhomebase/web` |
+| Tool kit | `packages/tool-sdk/package.json` | `@krhomebase/tool-sdk` |
 
 Each file carries the same three fields:
 
@@ -62,7 +64,9 @@ foreach ($p in "package.json", "apps\api\package.json", "apps\web\package.json")
 }
 ```
 
-`packages/*/package.json` files are not version tracks. Leave their `version` at `1.0.0`.
+Other `packages/*/package.json` files are not version tracks. Leave their `version` at `1.0.0`. The one exception is `packages/tool-sdk`, the tool kit track (section 5).
+
+**The tool kit's semantic version is a release to developers.** It names the kit file (`krhomebase-tool-sdk-<version>.tgz`), the release zip and the release in the krhomebase-sdk repository (`scripts/Release-ToolSdk.ps1`), and `TOOL_SDK_VERSION` (`packages/tool-sdk/src/version.ts`) must equal it (a test checks). As for every track, it changes only when the requester asks for a release; `patchNum` and `patchDate` advance with every change to the kit. A released version is never built again with other contents: a change after a release waits for the next version.
 
 ---
 
@@ -121,7 +125,7 @@ next patchNum = current patchNum + 1
 3. Write it back as a string.
 4. Never skip a number without an explicit instruction.
 5. Never reset a patch number because another track has a different number.
-6. Never force the three tracks to match.
+6. Never force the tracks to match.
 7. Increment a track once per completed change set, not once per file, commit, retry, or internal edit.
 8. Do not increment metadata for an abandoned, reverted, or no-change task.
 
@@ -182,6 +186,10 @@ Increment when the patch changes:
 - Web runtime behavior, screens, or build and deploy behavior.
 - Shared contract code whose changed behavior is consumed by the web app.
 - User-facing help documents under `docs/help-docs` that describe web behavior.
+
+### Tool kit track
+
+Increment when the patch changes files under `packages/tool-sdk` (its code, `README.md`, `CHANGELOG.md`, `AGENTS.md`, `examples/` and `release/`). A kit change that `apps/web` uses (the protocol, `TOOL_SDK_VERSION`) also advances the web track; a change to `scripts/Release-ToolSdk.ps1` or `scripts/write-tool-sdk-api-reference.mjs` advances the repository track. Record each change in the kit's `CHANGELOG.md` under the release it will ship in.
 
 ### Shared code (`packages/*`)
 
@@ -302,7 +310,7 @@ Use `unchanged` for unaffected tracks. For each affected track report the semant
 
 Every completed patch creates or updates an outstanding task list under `docs/patch-notes`.
 
-Because the three tracks have independent numbers that can be equal, each track has its own subfolder:
+Because the tracks have independent numbers that can be equal, each track has its own subfolder (`tool-sdk/` for the tool kit):
 
 ```text
 docs/patch-notes/repository/Outstanding Task List_Patch002_11_04.md

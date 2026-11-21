@@ -1,7 +1,7 @@
 # Patch Notes
 
-<small>Version 2.5</small><br>
-<small>Updated Nov 9, 2026 9:20am</small>
+<small>Version 2.8</small><br>
+<small>Updated Nov 21, 2026 1:55pm</small>
 
 ## Purpose
 
@@ -11,12 +11,13 @@ Do not put secrets, keys, client data, database rows, or other sensitive materia
 
 ## Layout
 
-The three version tracks have independent patch numbers that can be equal, so each has its own folder:
+The four version tracks have independent patch numbers that can be equal, so each has its own folder:
 
 ```text
 docs/patch-notes/repository/   root workspace, scripts, documentation
 docs/patch-notes/api/          apps/api and apps/external-api
 docs/patch-notes/web/          apps/web
+docs/patch-notes/tool-sdk/     packages/tool-sdk (the tool kit, a track since Nov 20, 2026)
 ```
 
 File name: `Outstanding Task List_PatchXXX_MM_DD.md`, where `XXX` is the track's new `patchNum` (at least three digits, zero-padded) and `MM_DD` is the patch date.
@@ -25,9 +26,12 @@ File name: `Outstanding Task List_PatchXXX_MM_DD.md`, where `XXX` is the track's
 
 | Track | Latest list |
 |---|---|
-| Repository | `repository/Outstanding Task List_Patch016_11_09.md` |
-| API | `api/Outstanding Task List_Patch006_11_09.md` |
-| Web | `web/Outstanding Task List_Patch508_11_09.md` |
+| Repository | `repository/Outstanding Task List_Patch069_11_21.md` |
+| API | `api/Outstanding Task List_Patch053_11_21.md` |
+| Web | `web/Outstanding Task List_Patch578_11_21.md` |
+| Tool kit | `tool-sdk/Outstanding Task List_Patch002_11_21.md` |
+
+This table was last brought up to date in repository patch 67; the newest file in each folder is always the current list.
 
 Migration files are not kept here: they live in `docs/Schema_8.0/migrations/` (`AGENTS_06`; moved in repository patch 45, Nov 15, 2026). Older lists still name the old place, `repository/Migration_Patch...sql`.
 

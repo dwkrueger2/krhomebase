@@ -1,12 +1,12 @@
 # KR Homebase Agent Guide (repository root)
 
-<small>Version 2.33</small><br>
-<small>Updated Nov 18, 2026 9:02pm</small>
+<small>Version 2.35</small><br>
+<small>Updated Nov 21, 2026 12:21pm</small>
 
 ## Agent Guide Index
 
 - This file is the root guide for AI agents and programmers working in this repository. Read it first.
-- **Two checkouts share this guide.** `D:\Repos\krhomebase` (branch `impeccable-11-09`) is the checkout Claude Code works in. `D:\Repos\KrhomebaseGPT` (branch `GPTWork1`) is the checkout the GPT (Codex) agent works in. "Your checkout" below means the one your session was started in. Where a guide's command sample names one checkout's path, use the path of your checkout.
+- **Two checkouts share this guide.** `D:\Repos\krhomebase` (branch `impeccable-11-09`) is the checkout Claude Code and a Codex project "krhomebase" works in. `D:\Repos\KrhomebaseGPT` (branch `GPTWork1`) is the checkout a separate GPT (Codex) agent works in and that GPTWork1 Codex project is "KrhomebaseGPT2". "Your checkout" below means the one your session was started in. Where a guide's command sample names one checkout's path, use the path of your checkout.
 - Read and follow `AGENTS_01_version-procedures.md` for version and patch procedures. It applies to nearly every task that changes a file.
 - Read and follow `AGENTS_02_commit-push-procedures.md` for commit and push procedures.
 - Read and follow `AGENTS_03_documentation-standards.md` for Markdown document title, version, and updated-time requirements. It applies to every task that creates or changes a `.md` file.
@@ -26,7 +26,7 @@
 
 ## Hard Rules (these override any request to do otherwise)
 
-1. **Write only in your checkout; everything else is read-only.** Change files only in the checkout your session was started in (Agent Guide Index, "Two checkouts share this guide"). The other checkout may be read when needed; never write, edit, move, delete, commit, push or change branches there. So a session in `D:\Repos\krhomebase` writes there and never in `D:\Repos\KrhomebaseGPT`, and a session in `D:\Repos\KrhomebaseGPT` writes there and never in `D:\Repos\krhomebase`. `D:\Repos\krueger-richard-website` is older source material; read only from `apps\kr-homebase` and `apps\shared` (the workers), and never write there. Never read file contents under any folder named `private`, at any depth.
+1. **Write only in your checkout; everything else is read-only.** Change files only in the checkout your session was started in (Agent Guide Index, "Two checkouts share this guide"). The other checkout may be read when needed; never write, edit, move, delete, commit, push or change branches there. So a session in `D:\Repos\krhomebase` writes there and never in `D:\Repos\KrhomebaseGPT`, and a session in `D:\Repos\KrhomebaseGPT` writes there and never in `D:\Repos\krhomebase`. **One stated exception** (the requester, Nov 20, 2026): `D:\Repos\krhomebase-sdk`, the local clone of the private repository `dwkrueger2/krhomebase-sdk`, holds only the published tool kit. A session in `D:\Repos\krhomebase` may write there only through `pnpm release:tool-sdk -PublishTo D:\Repos\krhomebase-sdk` (`packages/tool-sdk/AGENTS.md`); rule 5 applies there too (the requester commits and pushes). `D:\Repos\krueger-richard-website` is older source material; read only from `apps\kr-homebase` and `apps\shared` (the workers), and never write there. Never read file contents under any folder named `private`, at any depth.
 2. **No secrets.** `.env*` files may be read: the requester writes them with paths to key files, not the keys themselves. If a `.env*` value looks like a real secret, stop, do not repeat it, and tell the requester. Never read `.dev.vars*` (except `.dev.vars.example`, which holds names only), key files, or the contents of any folder whose path contains `private`. Folder and file names inside `private` may be listed. Secrets belong in Cloudflare Worker secrets (set by the requester with `wrangler secret put`) or in a git-ignored `private/` folder, never in a tracked file. If a tracked file appears to contain a secret, stop and tell the requester; do not copy or summarize the value.
 3. **No client data.** `snapshots\` holds database dumps with real client data. It is git-ignored. Never read, print, copy or commit a dump.
 4. **Database writes are given to the requester, not run.** Read-only wrangler commands (`SELECT`, `d1 list`, `d1 info`, `d1 export`) are allowed. Any `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `--file` import or migration is written out as a command for the requester to run (see `AGENTS_06`).
@@ -123,7 +123,8 @@ apps/web/            Screens. Next.js on vinext, deployed as the krhomebase-web 
 apps/api/            API. Hono on a Cloudflare Worker (krhomebase-api). All business rules. The only code that touches D1.
 apps/external-api/   krhomebase-external-api Worker: the public door for outside tool servers. Forwards to the API; no rules.
 packages/contracts/  zod descriptions of every request, response and error. Shared by api, external-api and web.
-packages/tool-sdk/   Kit for outside tools (docs/05_Outside_Tools.md). Its README.md is the outside developers' guide.
+packages/tool-sdk/   Kit for outside tools (docs/05_Outside_Tools.md). Its README.md is the outside developers' guide. Its own version track;
+                     released to the private GitHub repository dwkrueger2/krhomebase-sdk (pnpm release:tool-sdk).
 packages/documents/  Printable billing documents (invoice, statement, receipt): data shapes, builders, formatters, letterhead,
                      file name rule, samples, the React templates and print-document.css (Billing parts 7a and 7b),
                      the email builders and the server render for the PDFs with its generated stylesheet (part 7c).
@@ -214,11 +215,11 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 
 ## Build And Version Metadata
 
-- There are three independent version tracks: the repository, the API, and the web app.
-- Repository metadata lives in the root `package.json`. API metadata lives in `apps/api/package.json`. Web metadata lives in `apps/web/package.json`.
+- There are four independent version tracks: the repository, the API, the web app and the tool kit (`packages/tool-sdk`, since Nov 20, 2026).
+- Repository metadata lives in the root `package.json`. API metadata lives in `apps/api/package.json`. Web metadata lives in `apps/web/package.json`. Tool kit metadata lives in `packages/tool-sdk/package.json`.
 - Each track uses the fields `version`, `patchNum` and `patchDate`. The root `package.json` holds only the repository track; it does not mirror the app tracks.
 - `AGENTS_01_version-procedures.md` defines how to read, change and report these values.
-- Package files under `packages/*` are not version tracks and stay at `1.0.0`.
+- Package files under `packages/*` are not version tracks and stay at `1.0.0`, except `packages/tool-sdk` (the tool kit track).
 
 ## Standards
 
@@ -257,7 +258,8 @@ pnpm deploy:external  # deploy the external-api Worker; the requester runs it, a
 pnpm deploy:pay       # deploy kr-pay-worker-live (pay.krhomebase.com); the requester runs it (workers/d1-workers/kr-pay-worker/README.md)
 pnpm deploy:feedback-viewer  # build and deploy krhomebase-feedback-viewer (an outside tool on its workers.dev address); the requester runs it (workers/feedback-viewer/README.md)
 pnpm deploy:public-article  # deploy krhomebase-public-article-worker (the public site's article reader, bound to krhomebase); the requester runs it (workers/r2-workers/public-article-worker)
-pnpm pack:tool-sdk    # build dist\tool-sdk\krhomebase-tool-sdk-1.0.0.tgz for outside developers
+pnpm pack:tool-sdk    # build dist\tool-sdk\krhomebase-tool-sdk-<version>.tgz for outside developers
+pnpm release:tool-sdk # builds the kit ZIP, guide, changes, API reference and example; prints (does not run) upload commands for the versioned ZIP and tool-sdk/latest.json to krhomebase-media-dev; -PublishTo D:\Repos\krhomebase-sdk fills the private GitHub repository clone
 pnpm feedback:get -Number 12  # read-only: write feedback-cache\FB-0012\FB-0012.md from the live database
 pnpm feedback:get -Open       # read-only: write feedback-cache\index.md, the open requests, developers first ("plan open feedback")
 pnpm stop:ports:all   # stop repository-owned servers and GPTWork1 branch2 ports; leave standard ports alone
@@ -296,6 +298,7 @@ pnpm listScripts      # show the root scripts
 | `deploy:public-article` | root | `wrangler deploy --config workers/r2-workers/public-article-worker/public-article-worker.jsonc` |
 | `deploy:hot`, `deploy:warn`, `deploy:status`, `deploy:finish`, `deploy:cancel` | root | `scripts/Deploy-Krhomebase.ps1 -Mode <mode>` (`hot`, `warn`, `status`, `finish` or `cancel`; `deploy:hotDelay3` and `deploy:hotDelay5` are `-Mode warn 3` and `-Mode warn 5`, repository patch 50): Worker versions uploaded (`wrangler versions upload`, `vinext-cloudflare deploy --no-promote`), then made live (`wrangler versions deploy`), API first; `warn` writes and clears the deploy window on `kr_maintenance_gate` (repository patch 34). Pending and last deploy in the git-ignored `deploy-state/`. |
 | `pack:tool-sdk` | `packages/tool-sdk` | build, then `pnpm pack` into `dist/tool-sdk` |
+| `release:tool-sdk` | root | `scripts/Release-ToolSdk.ps1`: builds the kit and release zip with the tools-only API reference (`scripts/write-tool-sdk-api-reference.mjs`), checks for secrets, and prints (does not run) R2 upload commands for `krhomebase-media-dev/tool-sdk/krhomebase-sdk-<version>.zip` and `tool-sdk/latest.json`; `-PublishTo <clone>` copies the release into the private GitHub repository clone (nothing committed) |
 | `openapi` | `apps/api` | `tsx scripts/write-openapi.ts` |
 | `documents:css` | `packages/documents` | `node scripts/write-document-css.mjs` |
 | `feedback:get` | root | `scripts/Get-Feedback.ps1 -Number <n>` (or `-Open`): read-only `wrangler d1 execute` SELECTs on `krhomebase` (config `apps/api/kr-api-wrangler.jsonc`), then writes `feedback-cache/FB-000n/FB-000n.md` (or `feedback-cache/index.md`) |

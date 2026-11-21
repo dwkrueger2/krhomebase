@@ -9,7 +9,9 @@
  *   POST  /v1/leads/{leadId}/conversion  make the person a client and move the lead's Workstream (write roles and contacts.create)
  *
  * Lead notes are Workstream entries (`/v1/workstream` with `leadId`). Rules: `rules.ts`. Writes pass the write gate
- * and are audited (resource `leads`; the client account's own rows by contact-edits). Outside tools: closed.
+ * and are audited (resource `leads`; the client account's own rows by contact-edits). Outside tools may read leads
+ * with `leads:read` and write with frame-only `leads:write` (approved Nov 21, 2026). Frame calls retain the person's
+ * existing authorization; server tools cannot use writes without a signed-in actor.
  */
 
 import {
@@ -50,6 +52,7 @@ export const leadsRoute = defineRoute({
   feature: 'leads',
   summary: 'Leads newest first with each person\'s current email and phone; converted leads only when asked; one page at a time.',
   access: { roles: LEAD_READ_ROLES },
+  toolAccess: 'leads:read',
   errors: ['LEAD_CURSOR_INVALID', 'LEADS_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { query: LeadsQuery },
@@ -62,6 +65,7 @@ export const leadRoute = defineRoute({
   feature: 'leads',
   summary: 'One lead, by its id or its LCID.',
   access: { roles: LEAD_READ_ROLES },
+  toolAccess: 'leads:read',
   errors: ['LEAD_NOT_FOUND', 'LEADS_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { params: LeadParams },
@@ -74,6 +78,8 @@ export const createLeadRoute = defineRoute({
   feature: 'leads',
   summary: 'Creates a lead for an existing person, or for a new person created with their email and phone; a repeat returns the existing lead.',
   access: { roles: LEAD_WRITE_ROLES },
+  toolAccess: 'leads:write',
+  toolChannels: ['frame'],
   permission: CONTACTS_CREATE,
   errors: ['LEAD_INDIVIDUAL_NOT_FOUND', 'LEAD_PUBLIC_INQUIRY_SOURCE', 'LEAD_LCID_EXHAUSTED', 'VALIDATION_MISSING_FIRST_NAME', 'VALIDATION_MISSING_LAST_NAME', 'LEADS_UNAVAILABLE'],
   sideEffects: ['Writes lead', 'Writes individual and individual_contact_method for a new person', 'Writes audit_log'],
@@ -87,6 +93,8 @@ export const updateLeadRoute = defineRoute({
   feature: 'leads',
   summary: "Changes a lead's status, urgency, summary, practice area or assignee (only the fields sent).",
   access: { roles: LEAD_WRITE_ROLES },
+  toolAccess: 'leads:write',
+  toolChannels: ['frame'],
   errors: ['LEAD_NOT_FOUND', 'LEAD_ASSIGNEE_NOT_FOUND', 'LEADS_UNAVAILABLE'],
   sideEffects: ['Writes lead', 'Writes audit_log'],
   request: { params: LeadParams, body: { content: json(LeadUpdateBody), required: true } },
@@ -99,6 +107,8 @@ export const convertLeadRoute = defineRoute({
   feature: 'leads',
   summary: "Converts a lead: the person becomes a client (next free number and its .0 matter), the lead is marked Won, and its Workstream entries move to the .0 matter.",
   access: { roles: LEAD_WRITE_ROLES },
+  toolAccess: 'leads:write',
+  toolChannels: ['frame'],
   permission: CONTACTS_CREATE,
   errors: ['LEAD_NOT_FOUND', 'LEAD_ALREADY_CONVERTED', 'LEAD_CONVERSION_FAILED', 'VALIDATION_INVALID_CLIENT_NUMBER', 'VALIDATION_CLIENT_NUMBER_ALREADY_ASSIGNED', 'LEADS_UNAVAILABLE'],
   sideEffects: ['Writes client, matter and matter_party (the client account)', 'Writes lead and workstream_activity', 'Writes audit_log'],
@@ -135,11 +145,12 @@ function handle(
     const contacts = contactEditQueriesFor(c.env)
     const permissions = permissionQueriesFor(c.env)
     const session = c.get('session')
-    if (!queries || !contacts || !permissions || !session) return failure(c, 503, 'LEADS_UNAVAILABLE', 'Leads are not available right now.')
+    const serverTool = c.get('tool')?.channel === 'server'
+    if (!queries || !contacts || (!permissions && !serverTool) || (!session && !serverTool)) return failure(c, 503, 'LEADS_UNAVAILABLE', 'Leads are not available right now.')
     try {
-      const role = session.role ?? ''
-      const canCreate = (LEAD_WRITE_ROLES as readonly string[]).includes(role) && (await isAuthorized(permissions, session.userId, 'contacts', 'create'))
-      const actor: LeadActor = { userId: session.userId, email: session.email ?? '', role, requestId: c.get('requestId'), canCreate }
+      const role = session?.role ?? ''
+      const canCreate = !serverTool && Boolean(session && permissions) && (LEAD_WRITE_ROLES as readonly string[]).includes(role) && (await isAuthorized(permissions!, session!.userId, 'contacts', 'create'))
+      const actor: LeadActor = { userId: session?.userId ?? '', email: session?.email ?? '', role, requestId: c.get('requestId'), canCreate }
       const data = await work(queries, contacts, actor, c)
       logLine(`LEADS:${tag}`, c.get('requestId'), { route: route.path })
       return c.json({ ok: true as const, data, requestId: c.get('requestId') }, 200)

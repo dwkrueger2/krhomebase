@@ -51,4 +51,15 @@ describe('ToolRegistrationForm Shown row', () => {
     expect(html).toContain('data-kr-element="tool-local-address-hint"')
     expect(render({ ...tool, localOnly: true })).not.toContain('tool-local-address-hint')
   })
+
+  it('enables route-backed read and frame-only write scopes and marks the remaining permissions TBD', () => {
+    const html = render(tool)
+    expect(html).toMatch(/tool-scope-contacts-read"><input type="checkbox"\/>contacts:read/)
+    expect(html).toMatch(/tool-scope-contacts-write"><input type="checkbox"\/>contacts:write/)
+    expect(html).toMatch(/tool-scope-documents-read"><input type="checkbox" disabled=""\/>documents:read — TBD/)
+    expect(html).toMatch(/tool-scope-documents-write"><input type="checkbox" disabled=""\/>documents:write — TBD/)
+    expect(html).toMatch(/tool-scope-reports-read"><input type="checkbox" disabled=""\/>reports:read — TBD/)
+    expect(html).toMatch(/tool-write-scopes-frame-only/)
+    expect(html).not.toContain('communications:read')
+  })
 })

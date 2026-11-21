@@ -1,7 +1,7 @@
 # Homebase Feedback Viewer (an outside tool built with the tool kit)
 
-<small>Version 2.8</small><br>
-<small>Updated Nov 18, 2026 9:40am</small>
+<small>Version 2.9</small><br>
+<small>Updated Nov 20, 2026 6:45pm</small>
 
 ## Read this first: this tool is a test of the KR Homebase tool kit
 
@@ -96,12 +96,13 @@ Address (entry URL): https://krhomebase-feedback-viewer.dankrueger.workers.dev/
 Health route: https://krhomebase-feedback-viewer.dankrueger.workers.dev/health-check
 Icon route: https://krhomebase-feedback-viewer.dankrueger.workers.dev/tool-icon.svg
 Roles (any one of them sees the tool): super_admin, attorney, paralegal, staff
+Shown: Developers only
 Permissions requested: homebase-feedback:read, homebase-feedback:write
 Server access (client secret): no
 ```
 
 - **Roles:** a person sees the tool when their account's role is any one of the ticked roles. Super admin is always ticked and locked (KR Homebase adds it to every tool). The real limit is the Internal Developer role set (check 4.5 above): a person with a listed role but without that role set is refused.
-- **Shown: Developers only** (KR Homebase repository patch 58, migration 058): tick it, so only people who hold the Internal Developer role set (`developer_tools` read) see the tool in the menu; without it everyone with a listed role saw the menu item and was refused inside. The kit's `defineTool` has no field for this option, so the sheet does not print it ("What this test found", item 9).
+- **Shown: Developers only** (KR Homebase repository patch 58, migration 058): tick it, so only people who hold the Internal Developer role set (`developer_tools` read) see the tool in the menu; without it everyone with a listed role saw the menu item and was refused inside. Since tool kit 1.1.0 `src/tool.ts` asks for it (`developersOnly: true`) and the sheet prints it on its `Shown:` line ("What this test found", item 9).
 - **Icon route:** the tool serves its own menu icon at `/tool-icon.svg` (`public/tool-icon.svg`): a speech bubble behind a magnifying glass with "FB" drawn in its lens, so it does not read as a search icon. KR Homebase reads it each time the registration is saved; nothing is pasted. The fallback is KR Homebase's default tool icon (the orange diamond). `src/tool.test.ts` checks the file passes `checkToolIcon`.
 - **Health route:** every tool must answer `/health-check` (kit guide). This tool serves `public/health-check`, `{ "status": "ok", "version": "1.7.0", "protocol": 1 }`; `src/tool.test.ts` checks it equals `healthDocument(tool)`. **Check health** on the registration form reads it (and the icon route), and **Details** shows the raw answer. When a person opens the tool and it does not answer, KR Homebase shows a notice in place of the tool, with Try again and Open anyway.
 
@@ -251,11 +252,11 @@ The kit was enough to build the whole tool. These points made it harder than it 
 
 1. **No list of permissions per area beyond the guide's text.** Adding a permission for a new area (here `homebase-feedback:*`) needs a change to both the API and the kit (`src/types.ts`), plus a kit release. The guide should say that a new permission arrives with a new kit version.
 2. ~~**The registration sheet has no role list.**~~ Fixed Nov 14, 2026: `defineTool` takes `roles`, and the sheet prints them. The registration form ticks roles from the fixed list. Also added then: the tool's own icon served at `/tool-icon.svg` (`TOOL_ICON_PATH`, checked by `checkToolIcon`), the required health route `/health-check` (`TOOL_HEALTH_PATH`, `healthDocument`: status and version) and `version` in `defineTool`.
-3. **The theme values are not listed.** The guide names three examples. A developer cannot know the other `--kr-theme-*` names (`text-muted`, `line`, `card-surface`, `danger`, `success` and so on) without opening `host.theme` at run time. The guide should list the stable ones.
+3. ~~**The theme values are not listed.**~~ Fixed in tool kit 1.1.0 (guide section 4 lists them). The guide names three examples. A developer cannot know the other `--kr-theme-*` names (`text-muted`, `line`, `card-surface`, `danger`, `success` and so on) without opening `host.theme` at run time. The guide should list the stable ones.
 4. **The clipboard may be blocked.** The frame's `allow=""` lets browsers refuse `navigator.clipboard`. The guide did not say so (added to its "What the frame allows" in version 1.2); KR Homebase could also allow `clipboard-write`. This tool falls back to selecting the text.
 5. **Only JSON travels the bridge.** The KR Homebase side reads every reply as JSON, so a tool cannot fetch an image or a file. For this first-party tool, stage F3 answered it with a short-lived signed address served by the tool's own Worker from a shared bucket (the stated exception above); a real outside tool has no such bucket. For outside tools, either the bridge carries binary replies, or KR Homebase serves such files itself at a short-lived address.
-6. **The API reference has one malformed pattern.** The feedback `{number}` pattern appears as `^(?:FB-?)?\d{1,9}$/i` (a regular expression flag leaked into the text). An outside developer would copy it wrongly.
+6. ~~**The API reference has one malformed pattern.**~~ Fixed Nov 20, 2026 (repository patch 67): the contracts write it without the flag. The feedback `{number}` pattern appears as `^(?:FB-?)?\d{1,9}$/i` (a regular expression flag leaked into the text). An outside developer would copy it wrongly.
 7. **A typed client for business routes is missing.** The kit types only `/v1/tools/context`. Every tool writes its own reply types from the OpenAPI file, as `src/feedbackTypes.ts` does. Generating types from the OpenAPI file into the kit (or a second package) would remove that step.
 8. **Deep links.** KR Homebase loads the entry address without a `#`, so a link such as "open FB-0012 in the viewer" cannot be made from outside the tool. A protocol field for a starting path would allow it.
-9. **The manifest has no field for the Shown options** (Nov 17, 2026). KR Homebase's registration has **Local development only** and **Developers only**, but `defineTool` and `registrationSheet` cannot say a tool wants them, so this README tells the super admin in words.
+9. ~~**The manifest has no field for the Shown options** (Nov 17, 2026).~~ Fixed in tool kit 1.1.0 (Nov 20, 2026): `defineTool` takes `localOnly` and `developersOnly`, and `registrationSheet` prints them on a `Shown:` line. Also fixed then: item 3 (the guide lists the theme colors a tool may rely on, section 4) and item 6 (the API reference writes the feedback number pattern without the `/i`; `pnpm openapi` now refuses a flagged pattern).
 10. **The feedback list sorts newest first only.** For its two sorted tables the viewer loads every request, 100 a call, and sorts them itself. That is fine for hundreds of requests; past that the API would need a `sort` choice.

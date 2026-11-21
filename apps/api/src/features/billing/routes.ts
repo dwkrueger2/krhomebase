@@ -25,7 +25,8 @@
  *
  * Who may call (old role lists, unchanged): reading, the office read roles; writing, the billing write roles;
  * unlock, detach, void and payment void, super admin only (the old route checked that inside and answered 422; here
- * it is the route's access and answers 403). Outside tools: closed (no `toolAccess`).
+ * it is the route's access and answers 403). The billing-record GET is open with `billing:read`; the other seven
+ * approved billing GET routes live in billing-documents, pay-links and card-payments. Billing writes remain closed.
  *
  * Pay links (Billing part 7d) have their own area, `features/pay-links/` (list, post paid links, print link, the pay
  * Worker's webhook); the invoice void here revokes the invoice's open links after the void is saved.
@@ -151,6 +152,7 @@ export const billingRecordRoute = defineRoute({
   feature: 'billing',
   summary: "One client's billing record: matters, time and fees, invoices, payments, the register, trust and the account totals.",
   access: { roles: BILLING_READ_ROLES },
+  toolAccess: 'billing:read',
   errors: ['VALIDATION_CLIENT_NOT_FOUND', 'VALIDATION_MATTER_NOT_ASSIGNED_TO_CLIENT', UNAVAILABLE],
   sideEffects: ['None'],
   request: { params: BillingClientParams, query: BillingRecordQuery },
