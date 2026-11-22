@@ -1,6 +1,6 @@
 # Google Chat Scraper
-<small>Version 1.8</small><br>
-<small>Updated Nov 21, 2026 4:10pm</small>
+<small>Version 2.0</small><br>
+<small>Updated Nov 21, 2026 8:16pm</small>
 
 The Google Chat Scraper is a portable KR Homebase SDK tool for importing read-only messages from the approved **Phone Call & Email Log** space. It stages them in a tool-owned D1 intake queue and drafts phone-call or email activity proposals for human review.
 
@@ -50,7 +50,7 @@ The intended deployment is two Workers: the vinext app Worker and the dedicated 
 
 Do not deploy this tool until its `wrangler` configuration has real user-selected Cloudflare resource identifiers, its Access policy is active, and the manual readiness checklist in [`docs/02_Google_Chat_Readiness.md`](docs/02_Google_Chat_Readiness.md) is complete.
 
-For SSO connectivity, first register this tool in Outside Tools with server access enabled and `tool-registration:read` granted. Set `KR_EXTERNAL_API_URL` to the owner-confirmed external API domain and upload the registration's client id and secret plus `GOOGLE_OAUTH_CLIENT_SECRET` as Worker secrets. Then follow the owner-run deployment order in [`docs/00_Current_Project_Checklist.md`](docs/00_Current_Project_Checklist.md). Agent sessions do not run deployment or secret commands.
+For SSO connectivity, migration 073 is already applied in KR Homebase (verified read-only; do not rerun it). Register this tool in Outside Tools with server access enabled and `tool-registration:read` granted. Set `KR_EXTERNAL_API_URL` to the owner-confirmed external API domain and upload the registration's client id and secret plus `GOOGLE_OAUTH_CLIENT_SECRET` as Worker secrets. Then follow the owner-run deployment order in [`docs/00_Current_Project_Checklist.md`](docs/00_Current_Project_Checklist.md). Agent sessions do not run deployment or secret commands.
 
 ## Documentation
 
@@ -60,6 +60,6 @@ For SSO connectivity, first register this tool in Outside Tools with server acce
 - [`docs/03_First_Extraction_Prompt.md`](docs/03_First_Extraction_Prompt.md): initial extraction prompt artifact.
 - [`docs/patch-notes/05_Outstanding_Task_List_Patch006_11_20.md`](docs/patch-notes/05_Outstanding_Task_List_Patch006_11_20.md): this tool's current patch record and open work.
 - [`docs/patch-notes/06_Outstanding_Task_List_Patch007_11_20.md`](docs/patch-notes/06_Outstanding_Task_List_Patch007_11_20.md): Google SSO and Worker diagnostics implementation, owner deployment sequence, and remaining verification.
-- [`docs/patch-notes/07_Outstanding_Task_List_Patch008_11_21.md`](docs/patch-notes/07_Outstanding_Task_List_Patch008_11_21.md): registration-backed permitted-user sign-in and SDK source handoff status.
+- [`docs/patch-notes/08_Outstanding_Task_List_Patch009_11_21.md`](docs/patch-notes/08_Outstanding_Task_List_Patch009_11_21.md): verified migration status and remaining owner setup after integration into KR Homebase.
 - [`worker-and-d1/README.md`](worker-and-d1/README.md): Worker/D1 relationship, migration ownership, and schema location.
 

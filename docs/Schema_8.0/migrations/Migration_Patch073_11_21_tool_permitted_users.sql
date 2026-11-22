@@ -8,6 +8,8 @@
 --
 -- Expected starting schema: migrations 016 (workspace_tool), 044 (kr_schema_migration), and 058 (tool visibility).
 -- This adds one column only; it changes no rows, indexes, foreign keys or other tables.
+-- Owner verification (Nov 21, 2026): migration row 073 and workspace_tool.permitted_users both exist in krhomebase.
+-- Do not apply or rerun this migration.
 --
 -- Check first (read-only, from apps\api):
 --   pnpm.cmd exec wrangler d1 execute $Db --remote --config kr-api-wrangler.jsonc --command "SELECT id FROM kr_schema_migration WHERE id IN ('016', '044', '058', '073') ORDER BY id;"

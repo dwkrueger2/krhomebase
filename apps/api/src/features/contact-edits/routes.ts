@@ -17,7 +17,9 @@
  *  - Edit: `contacts.update`, or the contact is the caller's own (their login is linked to it). Checked in the
  *    handler because of that exception.
  *  - Client lookups: `contacts.read`. Client status: the office write roles, as before.
- *  - Outside tools: closed (no `toolAccess`).
+ *  - Outside tools may use `GET /v1/clients` with `matters:read`, plus `POST /v1/contacts`,
+ *    `PATCH /v1/contacts/{contactId}` and `PATCH /v1/clients/status` with frame-only `contacts:write`.
+ *    Other routes here remain closed.
  */
 
 import {
@@ -81,6 +83,8 @@ export const createContactRoute = defineRoute({
   summary: 'Create a person or entity with its email and phone; with createClient, also its client account and General Matter. One batch.',
   access: { roles: OFFICE_WRITE_ROLES },
   permission: { resource: 'contacts', action: 'create' },
+  toolAccess: 'contacts:write',
+  toolChannels: ['frame'],
   errors: ['VALIDATION_MISSING_FIRST_NAME', 'VALIDATION_MISSING_LAST_NAME', 'VALIDATION_MISSING_LEGAL_NAME', 'VALIDATION_INVALID_CLIENT_NUMBER', 'VALIDATION_CLIENT_NUMBER_ALREADY_ASSIGNED', 'CONTACTS_UNAVAILABLE'],
   sideEffects: ['Writes individual or entity', 'Writes individual_contact_method or entity_contact_method', 'With createClient: writes client, matter, matter_party', 'Writes audit_log'],
   request: { body: { required: true, content: json(ContactCreateBody) } },
@@ -97,6 +101,8 @@ export const updateContactRoute = defineRoute({
   feature: 'contacts',
   summary: 'Save the contact edit card in one batch. Needs contacts.update, or the contact must be your own. Refuses a stale expectedUpdatedAt.',
   access: 'signed-in',
+  toolAccess: 'contacts:write',
+  toolChannels: ['frame'],
   errors: [
     'PERMISSION_REQUIRED',
     'CONTACT_NOT_FOUND',
@@ -135,6 +141,7 @@ export const lookupClientsRoute = defineRoute({
   summary: 'Look client accounts up by client number (leading zeros ignored) or id. Used to check a number is free.',
   access: 'signed-in',
   permission: { resource: 'contacts', action: 'read' },
+  toolAccess: 'matters:read',
   errors: ['CONTACTS_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { query: ClientLookupQuery },
@@ -165,6 +172,8 @@ export const clientStatusRoute = defineRoute({
   feature: 'contacts',
   summary: 'Open, reactivate, renumber or close the client account of a contact. A new account gets its General Matter.',
   access: { roles: OFFICE_WRITE_ROLES },
+  toolAccess: 'contacts:write',
+  toolChannels: ['frame'],
   errors: ['CONTACT_NOT_FOUND', 'VALIDATION_INVALID_CLIENT_NUMBER', 'VALIDATION_CLIENT_NUMBER_ALREADY_ASSIGNED', 'VALIDATION_CLIENT_NOT_LINKED', 'VALIDATION_MISSING_DISPLAY_NAME', 'CONTACTS_UNAVAILABLE'],
   sideEffects: ['Writes client', 'New account: writes matter and matter_party', 'Renumbered: renames the General Matter', 'Writes audit_log'],
   request: { body: { required: true, content: json(ClientStatusBody) } },

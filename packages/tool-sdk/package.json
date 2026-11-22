@@ -1,6 +1,8 @@
 {
   "name": "@krhomebase/tool-sdk",
-  "version": "1.0.0",
+  "version": "1.1.0",
+  "patchNum": "3",
+  "patchDate": "11-21",
   "private": true,
   "type": "module",
   "description": "Kit for outside tools in KR Homebase: the frame bridge, the server client and defineTool. Developer guide: README.md.",
@@ -10,7 +12,8 @@
     "./server": "./src/server.ts",
     "./manifest": "./src/defineTool.ts",
     "./protocol": "./src/protocol.ts",
-    "./types": "./src/types.ts"
+    "./types": "./src/types.ts",
+    "./version": "./src/version.ts"
   },
   "publishConfig": {
     "exports": {
@@ -18,10 +21,11 @@
       "./server": { "types": "./dist/server.d.ts", "default": "./dist/server.js" },
       "./manifest": { "types": "./dist/defineTool.d.ts", "default": "./dist/defineTool.js" },
       "./protocol": { "types": "./dist/protocol.d.ts", "default": "./dist/protocol.js" },
-      "./types": { "types": "./dist/types.d.ts", "default": "./dist/types.js" }
+      "./types": { "types": "./dist/types.d.ts", "default": "./dist/types.js" },
+      "./version": { "types": "./dist/version.d.ts", "default": "./dist/version.js" }
     }
   },
-  "files": ["dist/*.js", "dist/*.d.ts", "README.md", "examples"],
+  "files": ["dist/*.js", "dist/*.d.ts", "README.md", "CHANGELOG.md", "examples"],
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

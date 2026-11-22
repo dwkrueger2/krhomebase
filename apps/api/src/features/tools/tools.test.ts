@@ -8,11 +8,13 @@
  * Only made-up tools, people and addresses are used. Run: `pnpm --dir apps/api run test`.
  */
 
-import { TOOL_GATEWAY_HEADER, TOOL_GATEWAY_VALUE, TOOL_ID_HEADER, type ToolPermittedUserEmail } from '@krhomebase/contracts'
+import { TOOL_GATEWAY_HEADER, TOOL_GATEWAY_VALUE, TOOL_ID_HEADER, type ToolPermittedUserEmail, type ToolScope } from '@krhomebase/contracts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../app.ts'
+import { routeRegistry } from '../../platform/defineRoute.ts'
 import { clearSessionCache } from '../../platform/sessionClient.ts'
 import { createTestD1, signedInEnv } from '../../../test/fakes.ts'
+import { clearPermissionCache } from '../permissions/rules.ts'
 import {
   bearerToken,
   hashToolSecret,
@@ -50,6 +52,8 @@ describe('tool rules', () => {
     // A row saved before the super admin became automatic still shows to a super admin.
     expect(toolUsableBy(tool, as('super_admin'))).toBe(true)
     expect(toolUsableBy({ ...tool, status: 'disabled' }, as('super_admin'))).toBe(false)
+    expect(toolUsableBy(tool, { ...as('super_admin'), email: 'someone-else@example.com' })).toBe(false)
+    expect(toolUsableBy({ ...tool, permittedUsers: [] }, as('super_admin'))).toBe(false)
     expect(withSuperAdmin(['staff', 'super_admin', 'staff'])).toEqual(['super_admin', 'staff'])
   })
 
@@ -58,6 +62,62 @@ describe('tool rules', () => {
     expect(scopeAllows('any', [])).toEqual({ ok: true })
     expect(scopeAllows('contacts:read', ['contacts:read'])).toEqual({ ok: true })
     expect(scopeAllows('contacts:write', ['contacts:read'])).toEqual({ ok: false, reason: 'scope_not_granted' })
+  })
+
+  it('declares the approved read and frame-only write routes with their chosen scopes', () => {
+    const expected: Map<string, ToolScope> = new Map([
+      ['/v1/contacts', 'contacts:read'], ['/v1/contacts/{contactId}', 'contacts:read'],
+      ['/v1/clients', 'matters:read'], ['/v1/clients/{clientId}/matters', 'matters:read'],
+      ['/v1/leads', 'leads:read'], ['/v1/leads/{leadId}', 'leads:read'],
+      ['/v1/tasks', 'tasks:read'], ['/v1/tasks/{taskId}', 'tasks:read'], ['/v1/tasks/{taskId}/notes', 'tasks:read'],
+      ['/v1/workstream', 'workstream:read'], ['/v1/workstream/feed', 'workstream:read'], ['/v1/workstream/{wsid}', 'workstream:read'],
+      ['/v1/billing/clients/{clientId}', 'billing:read'],
+      ['/v1/billing/clients/{clientId}/invoices/{invoiceId}/email', 'billing:read'],
+      ['/v1/billing/clients/{clientId}/statement/email', 'billing:read'],
+      ['/v1/billing/clients/{clientId}/payments/{paymentId}/receipt/email', 'billing:read'],
+      ['/v1/billing/clients/{clientId}/payments/{paymentId}/refund-notice/email', 'billing:read'],
+      ['/v1/billing/clients/{clientId}/documents/{documentNumber}/file', 'billing:read'],
+      ['/v1/billing/clients/{clientId}/pay-links', 'billing:read'],
+      ['/v1/billing/clients/{clientId}/card-payment', 'billing:read'],
+      ['/v1/timekeeping/team-status', 'timekeeping:read'], ['/v1/timekeeping/time-card', 'timekeeping:read'],
+      ['/v1/timekeeping/clock-state', 'timekeeping:read'], ['/v1/timekeeping/employees', 'timekeeping:read'],
+      ['/v1/tools/permitted-users', 'tool-registration:read'],
+      ['/v1/homebase-feedback', 'homebase-feedback:read'], ['/v1/homebase-feedback/{number}', 'homebase-feedback:read'],
+    ])
+    const actual = new Map(routeRegistry.filter(({ config }) => config.method === 'get' && config.path.startsWith('/v1/')).map(({ config, meta }) => [config.path, meta.toolAccess]))
+    for (const [path, scope] of expected) {
+      expect(actual.get(path), path).toBe(scope)
+      expect(scopeAllows(scope, [scope])).toEqual({ ok: true })
+      expect(scopeAllows(scope, [])).toEqual({ ok: false, reason: 'scope_not_granted' })
+    }
+    expect(routeRegistry.find(({ config }) => config.path === '/v1/tools/permitted-users')?.meta.toolChannels).toEqual(['server'])
+    expect([...actual].filter(([, scope]) => scope?.endsWith(':read')).map(([path]) => path).sort()).toEqual([...expected.keys()].sort())
+
+    const expectedWrites: Map<string, ToolScope> = new Map([
+      ['post /v1/contacts', 'contacts:write'], ['patch /v1/contacts/{contactId}', 'contacts:write'], ['patch /v1/clients/status', 'contacts:write'],
+      ['post /v1/clients/{clientId}/matters', 'matters:write'], ['patch /v1/matters/{matterId}', 'matters:write'],
+      ['get /v1/matters/{matterId}/delete-check', 'matters:write'], ['delete /v1/matters/{matterId}', 'matters:write'],
+      ['post /v1/leads', 'leads:write'], ['patch /v1/leads/{leadId}', 'leads:write'], ['post /v1/leads/{leadId}/conversion', 'leads:write'],
+      ['post /v1/tasks', 'tasks:write'], ['patch /v1/tasks/{taskId}', 'tasks:write'], ['put /v1/tasks/{taskId}/assignees', 'tasks:write'], ['post /v1/tasks/{taskId}/notes', 'tasks:write'],
+      ['post /v1/workstream', 'workstream:write'], ['patch /v1/workstream/{wsid}', 'workstream:write'], ['post /v1/workstream/{wsid}/move', 'workstream:write'],
+      ['delete /v1/workstream/{wsid}', 'workstream:write'], ['post /v1/workstream/email', 'workstream:write'],
+      ['put /v1/timekeeping/team-status', 'timekeeping:write'], ['post /v1/timekeeping/clock-in', 'timekeeping:write'],
+      ['post /v1/timekeeping/clock-out', 'timekeeping:write'], ['post /v1/timekeeping/missed-clock-out', 'timekeeping:write'],
+      ['post /v1/timekeeping/punches', 'timekeeping:write'], ['delete /v1/timekeeping/punches/{punchId}', 'timekeeping:write'],
+      ['put /v1/timekeeping/events', 'timekeeping:write'], ['post /v1/timekeeping/time-cards/{cardId}/approve', 'timekeeping:write'],
+      ['post /v1/timekeeping/time-cards/{cardId}/reopen', 'timekeeping:write'],
+    ])
+    const actualWrites = new Map(routeRegistry
+      .filter(({ meta }) => meta.toolAccess?.endsWith(':write') && meta.toolAccess !== 'homebase-feedback:write')
+      .map(({ config, meta }) => [`${config.method} ${config.path}`, meta.toolAccess]))
+    for (const [route, scope] of expectedWrites) {
+      const registered = routeRegistry.find(({ config }) => `${config.method} ${config.path}` === route)
+      expect(actualWrites.get(route), route).toBe(scope)
+      expect(registered?.meta.toolChannels, route).toEqual(['frame'])
+      expect(scopeAllows(scope, [scope])).toEqual({ ok: true })
+      expect(scopeAllows(scope, [])).toEqual({ ok: false, reason: 'scope_not_granted' })
+    }
+    expect([...actualWrites.keys()].sort()).toEqual([...expectedWrites.keys()].sort())
   })
 
   it('gives a token the requested permissions only when they were granted', () => {
@@ -95,14 +155,15 @@ describe('outside tools through the API', () => {
 
   beforeEach(() => {
     clearSessionCache()
-    d1 = createTestD1()
+    clearPermissionCache()
+    d1 = createTestD1({ fullSchema: true })
     // Saving a registration reads the tool's icon route; these tools serve none (a stand-in, never the network).
     vi.stubGlobal('fetch', async () => new Response('not found', { status: 404 }))
   })
   afterEach(() => vi.unstubAllGlobals())
 
   /** Bindings for a person with `role`, with the in-memory database and the app address. */
-  const envFor = (role: string) => signedInEnv(role, { krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE }, 'user-test-1', 'dankrueger@legaldrive.net')
+  const envFor = (role: string, extra: Record<string, unknown> = {}) => signedInEnv(role, { krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE, ...extra }, 'user-test-1', 'dankrueger@legaldrive.net')
   /** Bindings for a call with no person (the server path). */
   const bareEnv = () => ({ krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE }) as unknown as Env
   /** Each role gets its own cookie, so the session cache never mixes two roles. */
@@ -168,6 +229,17 @@ describe('outside tools through the API', () => {
       expect(tool.hasSecret).toBe(false)
     })
 
+    it('saves the default permitted users and allows the list to be narrowed or emptied', async () => {
+      const { tool } = await register()
+      expect(tool.permittedUsers).toEqual(['dankrueger@legaldrive.net', 'marcusrichard@legaldrive.net', 'davismcclellan@legaldrive.net'])
+      const narrowed = await call('super_admin', 'PATCH', `/v1/tools/registrations/${tool.id}`, {
+        permittedUsers: ['marcusrichard@legaldrive.net'],
+      })
+      expect(narrowed.body.data.tool.permittedUsers).toEqual(['marcusrichard@legaldrive.net'])
+      const empty = await call('super_admin', 'PATCH', `/v1/tools/registrations/${tool.id}`, { permittedUsers: [] })
+      expect(empty.body.data.tool.permittedUsers).toEqual([])
+    })
+
     it('refuses an address that is not https or is the app itself', async () => {
       const plain = await call('super_admin', 'POST', '/v1/tools/registrations', { label: 'X', entryUrl: 'http://tool.example.com', allowedRoles: ['staff'] })
       expect(plain.status).toBe(400)
@@ -190,6 +262,53 @@ describe('outside tools through the API', () => {
     })
   })
 
+  describe('tool kit download', () => {
+    function grantDeveloperToolsRead() {
+      d1.sqlite.exec(`
+        INSERT INTO role_set (id, role_key, label, is_system, is_active) VALUES ('rs_dev_test', 'internal_developer_test', 'Internal Developer Test', 0, 1);
+        INSERT INTO user (id, email, password_hash, role) VALUES ('user-test-1', 'developer@example.test', 'unused', 'staff');
+        INSERT INTO user_role_set (id, user_id, role_set_id, is_primary, is_active) VALUES ('urs_dev_test', 'user-test-1', 'rs_dev_test', 1, 1);
+        INSERT INTO role_set_permission (id, role_set_id, permission_key, permission_label, permission_group, can_read) VALUES ('rsp_dev_test', 'rs_dev_test', 'developer_tools', 'Internal Developer Tools', 'developer_tools', 1);
+      `)
+    }
+
+    it('returns a clear not-found reply when no ZIP pointer is stored', async () => {
+      grantDeveloperToolsRead()
+      const env = envFor('staff', { DOCUMENTS: { get: async () => null } })
+      const res = await app.request('/v1/tools/sdk', { headers: cookieFor('staff') }, env)
+      expect(res.status).toBe(404)
+      expect(((await res.json()) as Json).error.code).toBe('TOOL_SDK_NOT_FOUND')
+    })
+
+    it('serves the R2 version and ZIP to a developer with an attachment name', async () => {
+      grantDeveloperToolsRead()
+      const pointer = { version: '1.2.3', fileName: 'krhomebase-sdk-1.2.3.zip', key: 'tool-sdk/krhomebase-sdk-1.2.3.zip' }
+      const zipBytes = new Uint8Array([0x50, 0x4b, 0x03])
+      const documents = {
+        get: async (key: string) => key === 'tool-sdk/latest.json'
+          ? { text: async () => JSON.stringify(pointer) }
+          : key === pointer.key
+            ? { size: zipBytes.byteLength, uploaded: new Date('2026-11-21T12:00:00.000Z'), body: new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(zipBytes); controller.close() } }) }
+            : null,
+      }
+      const env = envFor('staff', { DOCUMENTS: documents })
+      const metadata = await app.request('/v1/tools/sdk', { headers: cookieFor('staff') }, env)
+      expect(metadata.status).toBe(200)
+      expect(((await metadata.json()) as Json).data).toEqual({ version: pointer.version, fileName: pointer.fileName, size: 3, uploadedAt: '2026-11-21T12:00:00.000Z' })
+      const download = await app.request('/v1/tools/sdk/download', { headers: cookieFor('staff') }, env)
+      expect(download.status).toBe(200)
+      expect(download.headers.get('content-disposition')).toContain(pointer.fileName)
+      expect(new Uint8Array(await download.arrayBuffer())).toEqual(zipBytes)
+    })
+
+    it('refuses a signed-in person without developer_tools read', async () => {
+      const env = envFor('staff', { DOCUMENTS: { get: async () => null } })
+      const res = await app.request('/v1/tools/sdk', { headers: cookieFor('staff') }, env)
+      expect(res.status).toBe(403)
+      expect(((await res.json()) as Json).error.code).toBe('PERMISSION_REQUIRED')
+    })
+  })
+
   describe('menu', () => {
     it('lists active tools for the roles on their list only', async () => {
       await register({ label: 'For staff', allowedRoles: ['staff'] })
@@ -209,6 +328,95 @@ describe('outside tools through the API', () => {
   })
 
   describe('frame path (path A)', () => {
+    it('enforces permitted emails for the menu and frame calls, including super admins', async () => {
+      const { tool } = await register({ permittedUsers: ['marcusrichard@legaldrive.net'] })
+      const deniedMenu = await call('staff', 'GET', '/v1/tools/menu')
+      expect(deniedMenu.body.data.tools).toEqual([])
+      const deniedFrame = await call('super_admin', 'GET', '/v1/tools/context', undefined, { [TOOL_ID_HEADER]: tool.clientId })
+      expect(deniedFrame.status).toBe(403)
+      expect(deniedFrame.body.error.details.reason).toBe('user_not_allowed')
+      const permitted = await app.request('/v1/tools/menu', { headers: { cookie: 'kr_session=test-marcus' } }, signedInEnv('staff', { krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE }, 'user-test-marcus', 'marcusrichard@legaldrive.net'))
+      expect(((await permitted.json()) as Json).data.tools).toHaveLength(1)
+    })
+
+    it('returns only this registration permitted users to a server with its explicit scope', async () => {
+      const emails = ['marcusrichard@legaldrive.net']
+      const { tool, clientSecret } = await register({ scopes: ['tool-registration:read'], permittedUsers: emails, serverAccessEnabled: true })
+      const issued = await token(tool.clientId, clientSecret!)
+      const headers = { ...GATEWAY, authorization: `Bearer ${issued.body.data.accessToken}` }
+      const server = await call(null, 'GET', '/v1/tools/permitted-users', undefined, headers)
+      expect(server.status).toBe(200)
+      expect(server.body.data.emails).toEqual(emails)
+      const frame = await call('super_admin', 'GET', '/v1/tools/permitted-users', undefined, { [TOOL_ID_HEADER]: tool.clientId })
+      expect(frame.status).toBe(403)
+      expect(frame.body.error.details.reason).toBe('tool_channel_not_allowed')
+
+      const { tool: unscoped, clientSecret: unscopedSecret } = await register({ scopes: [], serverAccessEnabled: true })
+      const unscopedToken = await token(unscoped.clientId, unscopedSecret!)
+      const refused = await call(null, 'GET', '/v1/tools/permitted-users', undefined, { ...GATEWAY, authorization: `Bearer ${unscopedToken.body.data.accessToken}` })
+      expect(refused.status).toBe(403)
+      expect(refused.body.error.details.reason).toBe('scope_not_granted')
+    })
+
+    it('allows a granted frame write, refuses a missing scope, and blocks the server path', async () => {
+      const body = { kind: 'individual', firstName: 'Tool', lastName: 'Writer' }
+      const { tool, clientSecret } = await register({ scopes: ['contacts:write'], serverAccessEnabled: true })
+      const issued = await token(tool.clientId, clientSecret!)
+      expect(issued.status).toBe(200)
+
+      const server = await call(null, 'POST', '/v1/contacts', body, { ...GATEWAY, authorization: `Bearer ${issued.body.data.accessToken}` })
+      expect(server.status).toBe(403)
+      expect(server.body.error.details.reason).toBe('tool_channel_not_allowed')
+
+      const frame = await call('super_admin', 'POST', '/v1/contacts', body, { [TOOL_ID_HEADER]: tool.clientId })
+      expect(frame.status, JSON.stringify(frame.body)).toBe(201)
+      expect(frame.body.data.displayName).toBe('Tool Writer')
+
+      const { tool: unscopedTool } = await register({ scopes: [] })
+      const deniedFrame = await call('super_admin', 'POST', '/v1/contacts', { ...body, firstName: 'No' }, { [TOOL_ID_HEADER]: unscopedTool.clientId })
+      expect(deniedFrame.status).toBe(403)
+      expect(deniedFrame.body.error.details.reason).toBe('scope_not_granted')
+    })
+
+    it('keeps a frame call subject to the person permission while the server path uses only the tool scope', async () => {
+      const { tool, clientSecret } = await register({ scopes: ['contacts:read'], serverAccessEnabled: true })
+      const issued = await token(tool.clientId, clientSecret!)
+      expect(issued.status).toBe(200)
+      const server = await call(null, 'GET', '/v1/contacts', undefined, { ...GATEWAY, authorization: `Bearer ${issued.body.data.accessToken}` })
+      expect(server.status, JSON.stringify(server.body)).toBe(200)
+      expect(server.body.ok).toBe(true)
+
+      const frame = await call('staff', 'GET', '/v1/contacts', undefined, { [TOOL_ID_HEADER]: tool.clientId })
+      expect(frame.status).toBe(403)
+      expect(frame.body.error.code).toBe('PERMISSION_REQUIRED')
+    })
+
+    it('refuses a server call without the route scope and accepts a scoped WorkStream feed', async () => {
+      const { tool: deniedTool, clientSecret: deniedSecret } = await register({ scopes: [], serverAccessEnabled: true })
+      const deniedToken = await token(deniedTool.clientId, deniedSecret!)
+      const denied = await call(null, 'GET', '/v1/workstream/feed', undefined, { ...GATEWAY, authorization: `Bearer ${deniedToken.body.data.accessToken}` })
+      expect(denied.status).toBe(403)
+      expect(denied.body.error.details.reason).toBe('scope_not_granted')
+
+      const { tool, clientSecret } = await register({ scopes: ['workstream:read'], serverAccessEnabled: true })
+      const issued = await token(tool.clientId, clientSecret!)
+      const accepted = await call(null, 'GET', '/v1/workstream/feed', undefined, { ...GATEWAY, authorization: `Bearer ${issued.body.data.accessToken}` })
+      expect(accepted.status, JSON.stringify(accepted.body)).toBe(200)
+      const frame = await call('staff', 'GET', '/v1/workstream/feed', undefined, { [TOOL_ID_HEADER]: tool.clientId })
+      expect(frame.status, JSON.stringify(frame.body)).toBe(200)
+    })
+
+    it('drops a stored legacy communications grant without promoting it to WorkStream access', async () => {
+      const { tool, clientSecret } = await register({ scopes: ['workstream:read'], serverAccessEnabled: true })
+      d1.sqlite.prepare('UPDATE workspace_tool SET scopes = ?').run(JSON.stringify(['communications:read']))
+      const frame = await call('staff', 'GET', '/v1/workstream/feed', undefined, { [TOOL_ID_HEADER]: tool.clientId })
+      expect(frame.status).toBe(403)
+      expect(frame.body.error.details.reason).toBe('scope_not_granted')
+      const serverToken = await token(tool.clientId, clientSecret!, { scopes: ['workstream:read'] })
+      expect(serverToken.status).toBe(403)
+      expect(serverToken.body.error.details.reason).toBe('scope_not_granted')
+    })
+
     it('tells the tool who is using it and records the call', async () => {
       const { tool } = await register()
       const res = await call('staff', 'GET', '/v1/tools/context', undefined, { [TOOL_ID_HEADER]: tool.clientId })

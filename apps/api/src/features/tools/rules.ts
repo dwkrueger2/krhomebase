@@ -7,9 +7,9 @@
  *    own origin would escape the sandbox, because the frame is given `allow-scripts allow-same-origin`.
  *  - Who may use a tool (`toolRefusal`, `toolUsableBy`): the tool is active; a local-only tool only on a
  *    development server (`pnpm dev`); the person's role is on its list (any one of them; `super_admin` is always on
- *    it); a developers-only tool only for a person who holds `developer_tools` read (migration 058); and the exact
- *    login email is on the registration's permitted-user list (migration 073). The email check also applies to super
- *    admins. The same answer decides the menu, health check and every frame call. A server call has no person.
+ *    it, `withSuperAdmin`); a developers-only tool only for a person who holds `developer_tools` read (migration 058);
+ *    and the exact login email is on the registration's permitted-user list (migration 073). The email check also
+ *    applies to super admins. The same answer decides the menu, health check and every frame call. A server call has no person.
  *  - What a call may do (`scopeAllows`): the route's `toolAccess` is `'any'`, or it names a permission the
  *    tool (or token) was granted. A route without `toolAccess` is closed to every tool.
  *  - Secrets and tokens: made from 32 random bytes, stored only as SHA-256 hashes, compared in constant time.
@@ -41,7 +41,7 @@ export interface ToolRecord {
   origin: string
   entryUrl: string
   allowedRoles: string[]
-  /** Exact login emails allowed to see and use this tool (migration 073). */
+  /** Exact login emails allowed to see and use the tool (migration 073). */
   permittedUsers: ToolPermittedUserEmail[]
   /** Shown and usable only on a development server (migration 058; a missing column reads as false). */
   localOnly: boolean

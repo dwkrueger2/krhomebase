@@ -11,7 +11,9 @@
  *
  * Task ids are seven-character public codes (D21). The default assignee follows the creator's Task Settings
  * preference (D20). Who: every staff role (D9, the same as WorkStream). No delete route. Rules: `rules.ts`. Writes pass the write gate
- * and are audited (resource `tasks`). Outside tools: closed.
+ * and are audited (resource `tasks`). Outside tools may read tasks and notes with `tasks:read`, and create, update,
+ * reassign and add notes with frame-only `tasks:write` (approved Nov 21, 2026); frame calls retain the person's roles
+ * and signed-in audit identity. Server tools cannot use task writes.
  */
 
 import { DEFAULT_USER_PREFERENCES, ErrorEnvelope, successEnvelope, TaskAssigneesBody, TaskCreateBody, TaskNoteBody, TaskNotesData, TaskParams, TasksData, TaskSavedData, TasksQuery, TaskUpdateBody } from '@krhomebase/contracts'
@@ -41,6 +43,7 @@ export const tasksRoute = defineRoute({
   feature: 'tasks',
   summary: 'Tasks by due date (no due date last, then newest recorded) with their current assignees; open ones unless closed ones are asked for; one page at a time.',
   access: STAFF,
+  toolAccess: 'tasks:read',
   errors: ['TASK_STATUS_INVALID', 'TASK_CURSOR_INVALID', 'TASKS_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { query: TasksQuery },
@@ -57,6 +60,7 @@ export const taskRoute = defineRoute({
   feature: 'tasks',
   summary: 'One task with its current assignees.',
   access: STAFF,
+  toolAccess: 'tasks:read',
   errors: ['TASK_NOT_FOUND', 'TASKS_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { params: TaskParams },
@@ -69,6 +73,8 @@ export const createTaskRoute = defineRoute({
   feature: 'tasks',
   summary: "Creates a task with a new seven-character public id and its assignees (when none are given, the caller unless their Task Settings say nobody); the client, matter, supervisor and assignees are checked.",
   access: STAFF,
+  toolAccess: 'tasks:write',
+  toolChannels: ['frame'],
   errors: [...LINK_ERRORS, 'TASK_ASSIGNEE_NOT_FOUND', 'TASK_ID_EXHAUSTED', 'TASKS_UNAVAILABLE'],
   sideEffects: ['Writes task', 'Writes task_assignee', 'Writes audit_log'],
   request: { body: { content: json(TaskCreateBody), required: true } },
@@ -87,6 +93,8 @@ export const updateTaskRoute = defineRoute({
   feature: 'tasks',
   summary: "Changes a task's fields (only the fields sent; null clears what may be cleared); the completion time follows the status.",
   access: STAFF,
+  toolAccess: 'tasks:write',
+  toolChannels: ['frame'],
   errors: ['TASK_NOT_FOUND', ...LINK_ERRORS, 'TASKS_UNAVAILABLE'],
   sideEffects: ['Writes task', 'Writes audit_log'],
   request: { params: TaskParams, body: { content: json(TaskUpdateBody), required: true } },
@@ -104,6 +112,8 @@ export const taskAssigneesRoute = defineRoute({
   feature: 'tasks',
   summary: "Replaces a task's current assignees: removed users' rows are ended, returning users' rows come back, the first assignee is the task's main assignee.",
   access: STAFF,
+  toolAccess: 'tasks:write',
+  toolChannels: ['frame'],
   errors: ['TASK_NOT_FOUND', 'TASK_ASSIGNEE_NOT_FOUND', 'TASKS_UNAVAILABLE'],
   sideEffects: ['Writes task_assignee', 'Writes task', 'Writes audit_log'],
   request: { params: TaskParams, body: { content: json(TaskAssigneesBody), required: true } },
@@ -123,6 +133,7 @@ export const taskNotesRoute = defineRoute({
   feature: 'tasks',
   summary: "A task's follow-up notes, newest first, with who wrote each (migration 003).",
   access: STAFF,
+  toolAccess: 'tasks:read',
   errors: ['TASK_NOT_FOUND', 'TASKS_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { params: TaskParams },
@@ -135,6 +146,8 @@ export const addTaskNoteRoute = defineRoute({
   feature: 'tasks',
   summary: 'Adds a follow-up note to a task, written by the caller; answers every note, newest first.',
   access: STAFF,
+  toolAccess: 'tasks:write',
+  toolChannels: ['frame'],
   errors: ['TASK_NOT_FOUND', 'TASKS_UNAVAILABLE'],
   sideEffects: ['Writes task_note', 'Writes audit_log'],
   request: { params: TaskParams, body: { content: json(TaskNoteBody), required: true } },
@@ -156,9 +169,10 @@ function handle(app: OpenAPIHono<AppEnv>, route: ReturnType<typeof defineRoute>,
   app.openapi(route, (async (c: Context<AppEnv>) => {
     const queries = taskQueriesFor(c.env)
     const session = c.get('session')
-    if (!queries || !session) return failure(c, 503, 'TASKS_UNAVAILABLE', 'Tasks are not available right now.')
+    const serverTool = c.get('tool')?.channel === 'server'
+    if (!queries || (!session && !serverTool)) return failure(c, 503, 'TASKS_UNAVAILABLE', 'Tasks are not available right now.')
     try {
-      const actor: TaskActor = { userId: session.userId, email: session.email ?? '', role: session.role ?? '', requestId: c.get('requestId') }
+      const actor: TaskActor = { userId: session?.userId ?? '', email: session?.email ?? '', role: session?.role ?? '', requestId: c.get('requestId') }
       const data = await work(queries, actor, c)
       logLine(`TASKS:${tag}`, c.get('requestId'), { route: route.path })
       return c.json({ ok: true as const, data, requestId: c.get('requestId') }, 200)

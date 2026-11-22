@@ -1,6 +1,6 @@
 # Google Chat Scraper: Current Project Checklist
-<small>Version 1.7</small><br>
-<small>Updated Nov 21, 2026 4:10pm</small>
+<small>Version 1.9</small><br>
+<small>Updated Nov 21, 2026 8:16pm</small>
 
 ## Status at a glance
 
@@ -9,10 +9,10 @@
 - [x] Initial D1 schema `0001_initial_sql_d1_start.sql` applied (requester-reported; remote ledger verification is still pending).
 - [x] Google SSO, authenticated Worker health, and D1 migration-status routes and interface implemented in the isolated tool.
 - [x] OAuth client ID and exact callback URL are in the Worker configuration; the custom domain is in vinext config. Google OAuth secret, tool registration credentials, and deployment remain unverified.
-- [x] Outside Tools stores permitted sign-in emails per registration (migration 073); Google SSO reads only this tool's list through SDK `getPermittedUsers()` with `tool-registration:read`.
+- [x] Outside Tools stores permitted sign-in emails per registration (migration 073); its ledger row and `workspace_tool.permitted_users` column were verified read-only on Nov 21, 2026. Google SSO reads only this tool's list through SDK `getPermittedUsers()` with `tool-registration:read`.
 - [x] Vinext production build completed with the installed local Vite launcher; it reported plugin sourcemap and ineffective dynamic-import warnings.
 - [ ] Default typecheck remains blocked by dependency declarations (`@cloudflare/workers-utils`, `cloudflare:pipelines`, Worker globals, and `PromiseWithResolvers`). `tsc --noEmit --skipLibCheck` passes for the project source; the pnpm script also hits the user-config `EPERM` in this agent environment.
-- [ ] Apply Homebase migration 073 before deploying the API; register/update the scraper with server access enabled and `tool-registration:read` granted.
+- [ ] Register/update the scraper with server access enabled and `tool-registration:read` granted. Homebase migration 073 is already applied and verified; do not rerun it.
 - [ ] Confirm the external API custom domain and configure `KR_EXTERNAL_API_URL`; upload `GOOGLE_OAUTH_CLIENT_SECRET`, `KR_TOOL_CLIENT_ID`, and `KR_TOOL_CLIENT_SECRET` as Worker secrets.
 - [ ] Deploy the private Worker and then the vinext Worker to `chat-tool.krhomebase.com`; verify allowed and refused Google accounts against the registration selection.
 - [ ] Have the separate SDK distribution workstream rebuild and validate its package from the updated SDK source; this tool patch only updates the vendored source snapshot.
@@ -77,9 +77,9 @@ Yes, before D1-backed queue routes can read or update proposals. Migration 0001 
 5. **Implement the single-owner importer and review queue.** Add the three-month backfill, D1 lease/checkpoint, retry behavior, and resource-name deduplication. Confirm retention before storing real messages.
 6. **Add human-approved Workstream export.** Define a Homebase authorization/API contract that atomically creates activity and links source message/segment for idempotency. Keep approval disabled until implemented and reviewed.
 
-### D1 commands when the schema is approved
+### D1 migration command for a new database only
 
-The following migration command changes the separate tool database. Do not run it until the schema has been reviewed and the owner is ready to create the tables.
+The requester reports that migration 0001 was applied to the tool database. Do not run the migration command against that database again. It is shown only for initializing a different, empty tool database after reviewing the schema.
 
 ```powershell
 $SetLocation = "D:\Repos\KrhomebaseGPT\standalone-sdk-tools\google-chat-scraper\worker-and-d1"
@@ -105,7 +105,7 @@ pnpm exec wrangler d1 execute $Db --remote --config .\chat-worker-wrangler.jsonc
 
 ### Owner-run Google SSO deployment steps
 
-The repository rules require the owner to run deploy and secret commands. First apply Homebase migration 073, register/update the scraper with server access enabled and `tool-registration:read` granted, confirm the external API domain, and check that the web domain can be assigned to this Worker. The registration's permitted-user selection becomes the Google sign-in policy. Cloudflare documents `domains` as the custom-domain setting applied when its parent Worker is deployed ([Cloudflare programmatic configuration](https://developers.cloudflare.com/cf/projects/cloudflare-config/)).
+The repository rules require the owner to run deploy and secret commands. Homebase migration 073 has already been applied and its ledger row and column were verified read-only; do not re-run it. Register/update the scraper with server access enabled and `tool-registration:read` granted, confirm the external API domain, and check that the web domain can be assigned to this Worker. The registration's permitted-user selection becomes the Google sign-in policy. Cloudflare documents `domains` as the custom-domain setting applied when its parent Worker is deployed ([Cloudflare programmatic configuration](https://developers.cloudflare.com/cf/projects/cloudflare-config/)).
 
 Deploy the D1-owning Worker first:
 

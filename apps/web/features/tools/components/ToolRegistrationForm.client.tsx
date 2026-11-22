@@ -65,6 +65,26 @@ type ToolRoleName = (typeof ToolRoleNames)[number]
 /** Always on every tool's role list; shown ticked and locked. The API adds it as well. */
 const LOCKED_ROLE: ToolRoleName = 'super_admin'
 
+/** Permissions with an opened route; all remaining grants are unavailable until a route is approved. */
+const OPEN_TOOL_SCOPES = new Set<ToolScope>([
+  'contacts:read',
+  'tool-registration:read',
+  'contacts:write',
+  'matters:read',
+  'matters:write',
+  'leads:read',
+  'leads:write',
+  'tasks:read',
+  'tasks:write',
+  'workstream:read',
+  'workstream:write',
+  'billing:read',
+  'timekeeping:read',
+  'timekeeping:write',
+  'homebase-feedback:read',
+  'homebase-feedback:write',
+])
+
 /** Words for each role in the role grid. */
 const ROLE_LABELS: Record<ToolRoleName, string> = {
   super_admin: 'Super admin',
@@ -100,6 +120,8 @@ const STYLES = {
   hint: 'text-[12px] leading-tight text-(color:--kr-theme-text-muted)',
   checkRow: 'h-[19px] text-[12px] leading-tight text-(color:--kr-theme-text)',
   checkRowLocked: 'h-[19px] cursor-not-allowed text-[12px] leading-tight text-(color:--kr-theme-text-muted) opacity-65',
+  userChip: 'gap-[3px] px-[5px] py-[2px] inline-flex items-center rounded-[2px] border border-(--kr-theme-line) text-[11px] leading-tight text-(color:--kr-theme-text)',
+  removeUser: 'size-[16px] inline-flex items-center justify-center rounded-[2px] border-0 bg-transparent cursor-pointer text-[13px] leading-none text-(color:--kr-theme-text-muted) hover:text-(color:--kr-theme-danger)',
   ok: 'text-[12px] leading-tight font-semibold text-(color:--kr-theme-success)',
   bad: 'text-[12px] leading-tight text-(color:--kr-theme-danger)',
   error: 'm-0 text-[12px] leading-tight text-(color:--kr-theme-danger)',
@@ -318,7 +340,7 @@ export default function ToolRegistrationForm({ tool, busy, error, onSave, onCanc
       </div>
 
       {/* Permitted users: a fixed set of firm accounts, enforced by the API for frame use and available to the tool server through its own grant. */}
-      <div className={`${LAYOUT_STYLES.rowTop} ${STYLES.section} ${LAYOUT_STYLES.section}`} data-kr-element="tool-permitted-users-row">
+      <div className={`${LAYOUT_STYLES.rowTop} ${LAYOUT_STYLES.section} ${STYLES.section}`} data-kr-element="tool-permitted-users-row">
         <label className={STYLES.label} htmlFor="tool-permitted-user-add" title="Only these exact sign-in emails may use this tool">Permitted users</label>
         <div className={LAYOUT_STYLES.permittedUsers}>
           {[...permittedUsers].map((email) => (
@@ -334,6 +356,7 @@ export default function ToolRegistrationForm({ tool, busy, error, onSave, onCanc
               >×</button>
             </span>
           ))}
+          {permittedUsers.size === 0 && <span className={STYLES.hint} data-kr-element="tool-no-permitted-users">No users selected; nobody can open this tool.</span>}
           <select
             id="tool-permitted-user-add"
             aria-label="Add permitted user"
@@ -375,12 +398,15 @@ export default function ToolRegistrationForm({ tool, busy, error, onSave, onCanc
         <span className={STYLES.label}>Permissions</span>
         <div className={LAYOUT_STYLES.checks}>
           {ToolScopes.map((scope) => (
-            <label key={scope} className={`${LAYOUT_STYLES.check} ${STYLES.checkRow}`}>
-              <input type="checkbox" checked={scopes.has(scope)} onChange={() => setScopes((current) => toggled(current, scope))} />
-              {scope}
+            <label key={scope} className={`${LAYOUT_STYLES.check} ${OPEN_TOOL_SCOPES.has(scope) ? STYLES.checkRow : STYLES.checkRowLocked}`} data-kr-element={`tool-scope-${scope.replace(':', '-')}`}>
+              <input type="checkbox" checked={scopes.has(scope)} disabled={!OPEN_TOOL_SCOPES.has(scope)} onChange={() => setScopes((current) => toggled(current, scope))} />
+              {scope}{OPEN_TOOL_SCOPES.has(scope) ? '' : ' — TBD'}
             </label>
           ))}
         </div>
+        <p className={STYLES.hint} data-kr-element="tool-write-scopes-frame-only">
+          Write permissions work only when the tool is open in the signed-in Homebase frame. Server calls remain read-only.
+        </p>
       </div>
 
       {/* Server path: the tool's own server may get access tokens with a client secret */}

@@ -29,7 +29,8 @@ export const tool = defineTool({
   scopes: ['homebase-feedback:read', 'homebase-feedback:write'],
   // A person holding any one of these roles sees the tool; the Internal Developer role set is the real limit. Since
   // repository patch 58 the super admin also ticks "Developers only" on the registration, so only developers see it
-  // in the menu (the kit's manifest has no field for that option yet: README.md, "What this test found about the kit").
+  // in the menu. Since tool kit 1.1.0 the manifest asks for it (`developersOnly`), and the sheet prints it.
   roles: ['super_admin', 'attorney', 'paralegal', 'staff'],
+  developersOnly: true,
   serverAccess: false,
 })

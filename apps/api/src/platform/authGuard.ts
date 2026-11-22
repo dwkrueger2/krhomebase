@@ -105,6 +105,9 @@ async function auditToolCall(c: Context<AppEnv>, queries: ToolQueries, tool: Too
 async function serverToolGate(c: Context<AppEnv>, next: Next, route: RouteMeta | null) {
   const requestId = c.get('requestId')
   if (!route) return next()
+  if (route.toolChannels && !route.toolChannels.includes('server')) {
+    return failure(c, 403, 'TOOL_FORBIDDEN', 'This route is available to outside tools in the signed-in frame only.', { reason: 'tool_channel_not_allowed', availableChannels: route.toolChannels })
+  }
   const open = scopeAllows(route.toolAccess, [])
   if (!open.ok && open.reason === 'route_not_open_to_tools') {
     return failure(c, 403, 'TOOL_FORBIDDEN', 'This route is not open to outside tools.', { reason: open.reason })
@@ -179,6 +182,9 @@ export async function toolViewerFor(c: Context<AppEnv>, session: SessionUser, ne
  * adds the tool's role list and permissions.
  */
 async function frameToolGate(c: Context<AppEnv>, next: Next, route: RouteMeta, session: SessionUser, clientId: string) {
+  if (route.toolChannels && !route.toolChannels.includes('frame')) {
+    return failure(c, 403, 'TOOL_FORBIDDEN', 'This route is not available to outside tools in the signed-in frame.', { reason: 'tool_channel_not_allowed', availableChannels: route.toolChannels })
+  }
   const queries = toolQueriesFor(c.env)
   if (!queries) return failure(c, 503, 'TOOLS_UNAVAILABLE', 'Outside tools are not available right now.')
   const tool = await queries.findToolByClientId(clientId)

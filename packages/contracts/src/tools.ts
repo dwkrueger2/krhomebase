@@ -29,8 +29,8 @@ export const ToolScopes = [
   'contacts:write',
   'leads:read',
   'leads:write',
-  'communications:read',
-  'communications:write',
+  'workstream:read',
+  'workstream:write',
   'tasks:read',
   'tasks:write',
   'timekeeping:read',
@@ -62,6 +62,23 @@ export const ToolPermittedUsers = z.array(ToolPermittedUserEmail).max(ToolPermit
   .describe('The exact user emails allowed to open this registered tool and make frame calls.')
 export type ToolPermittedUserEmail = z.infer<typeof ToolPermittedUserEmail>
 export type ToolPermittedUsers = z.infer<typeof ToolPermittedUsers>
+
+/** The latest SDK archive stored in R2; the ZIP itself is served by the adjacent download route. */
+export const ToolSdkData = z.object({
+  version: z.string().describe('The stored tool kit semantic version.'),
+  fileName: z.string().describe('The versioned ZIP file name.'),
+  size: z.number().int().nonnegative().describe('The ZIP size in bytes.'),
+  uploadedAt: z.string().describe('When the ZIP was uploaded to R2, as an ISO timestamp.'),
+}).describe('Metadata for the latest tool kit archive stored in KR Homebase.')
+export type ToolSdkData = z.infer<typeof ToolSdkData>
+
+/** The R2 latest pointer written alongside a versioned SDK archive. */
+export const ToolSdkPointer = z.object({
+  version: z.string().describe('The semantic version of the ZIP.'),
+  fileName: z.string().describe('The ZIP file name.'),
+  key: z.string().describe('The versioned R2 key below tool-sdk/.'),
+}).describe('The latest tool kit version pointer stored in R2.')
+export type ToolSdkPointer = z.infer<typeof ToolSdkPointer>
 
 /** Icons a tool may show in the menu. The same names as the menu icons in apps/web (KRHomebaseIcon). */
 export const ToolIconNames = [
@@ -256,6 +273,12 @@ export const ToolRegistrationData = z.object({
   tool: ToolRegistration.describe('The registration.'),
 })
 export type ToolRegistrationData = z.infer<typeof ToolRegistrationData>
+
+/** Registration-specific users returned only to the registered tool's server path. */
+export const ToolPermittedUsersData = z.object({
+  emails: ToolPermittedUsers.describe('Exact email addresses currently permitted to use this tool; an empty list denies all users.'),
+})
+export type ToolPermittedUsersData = z.infer<typeof ToolPermittedUsersData>
 
 /** Reply to registering a tool. `clientSecret` is shown this once and never again. */
 export const ToolCreatedData = z.object({

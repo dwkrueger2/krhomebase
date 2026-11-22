@@ -1,7 +1,7 @@
 {
   "name": "@krhomebase/google-chat-scraper",
   "version": "1.0.0",
-  "patchNum": "8",
+  "patchNum": "9",
   "patchDate": "11-21",
   "private": true,
   "type": "module",

@@ -15,6 +15,7 @@ import {
   ToolListData,
   ToolRegistrationData,
   ToolSecretData,
+  ToolSdkData,
   successEnvelope,
   type ToolCreateBody,
   type ToolUpdateBody,
@@ -30,6 +31,7 @@ const ERROR_SENTENCES: Record<string, string> = {
   TOOL_NOT_FOUND: 'That tool no longer exists. Reload the list.',
   TOOL_SERVER_ACCESS_OFF: 'Turn server access on before making a client secret.',
   TOOLS_UNAVAILABLE: 'The outside-tool tables are not available. Has the migration been applied?',
+  TOOL_SDK_NOT_FOUND: 'No tool kit stored yet.',
   FORBIDDEN: 'Only a super admin may manage outside tools.',
   UNAUTHENTICATED: 'Your session has ended. Sign in again.',
   VALIDATION_FAILED: 'Some values are not valid. Check the fields and try again.',
@@ -81,3 +83,24 @@ export const fetchToolAudit = (toolId: string) => callTools(`/v1/tools/registrat
 /** Reads a tool address's health route (`GET <origin>/health-check`) and icon route (`/tool-icon.svg`) through the API, with the raw answer. */
 export const checkToolAddressHealth = (entryUrl: string, name?: string) =>
   callTools('/v1/tools/registrations/health-check', ToolHealthData, { method: 'POST', body: { entryUrl, ...(name ? { name } : {}) } })
+
+/** Reads the latest versioned SDK archive metadata stored in the DOCUMENTS R2 bucket. */
+export const fetchToolSdk = () => callTools('/v1/tools/sdk', ToolSdkData)
+
+/** Downloads the latest SDK ZIP; the API authorizes only super admins and people with developer_tools read. */
+export async function downloadToolSdk(): Promise<ToolsCallResult<{ blob: Blob; fileName: string }>> {
+  try {
+    const response = await fetch('/api/v1/tools/sdk/download')
+    if (response.ok) {
+      const disposition = response.headers.get('content-disposition') ?? ''
+      const fileName = /filename="([^"]+)"/.exec(disposition)?.[1] ?? 'krhomebase-sdk.zip'
+      return { ok: true, data: { blob: await response.blob(), fileName } }
+    }
+    const body: unknown = await response.json().catch(() => null)
+    const error = ErrorEnvelope.safeParse(body)
+    if (error.success) return { ok: false, message: error.data.error.code === 'TOOL_SDK_NOT_FOUND' ? 'No tool kit stored yet.' : error.data.error.message }
+    return { ok: false, message: `The tool kit could not be downloaded (HTTP ${response.status}).` }
+  } catch {
+    return { ok: false, message: 'The tool kit could not be downloaded. Try again.' }
+  }
+}

@@ -16,9 +16,11 @@
  *   POST   /v1/timekeeping/time-cards/{cardId}/reopen     reopen a submitted or approved card (stage 5)
  *
  * Who may call: any signed-in person; the Attendance permissions are checked in `rules.ts` because they are scoped
- * (own, team, all), which the route-level `permission` check does not handle. Outside tools: closed (no `toolAccess`;
- * the `timekeeping:read` tool scope exists, but opening a route to tools is the requester's decision). Every write is
- * one batch with its `audit_log` rows and passes the write gate (feature `timekeeping` is not exempt).
+ * (own, team, all), which the route-level `permission` check does not handle. Outside tools may call the approved GET
+ * routes with `timekeeping:read` and the write routes with frame-only `timekeeping:write` (approved Nov 21, 2026).
+ * Frame calls retain the person's own/team/all rules and audit identity. Server tools cannot use writes because they
+ * have no person. Every write is one batch with its `audit_log` rows and passes the write gate (feature `timekeeping`
+ * is not exempt).
  */
 
 import {
@@ -63,6 +65,7 @@ import {
   clockOut,
   listAttendanceEmployees,
   loadClockState,
+  loadNoPersonClockState,
   loadTimeCard,
   missedClockOut,
   reopenTimeCard,
@@ -86,6 +89,7 @@ export const teamStatusRoute = defineRoute({
   feature: 'timekeeping',
   summary: 'Reads the selected employees\' current official clock state and per-shift status, limited by Attendance scope.',
   access: 'signed-in',
+  toolAccess: 'timekeeping:read',
   errors: [...ACCESS_ERRORS, 'TEAM_STATUS_MIGRATION_REQUIRED', UNAVAILABLE],
   sideEffects: ['None'],
   request: { query: TeamStatusQuery },
@@ -102,6 +106,8 @@ export const saveTeamStatusRoute = defineRoute({
   feature: 'timekeeping',
   summary: 'Saves a short note and optional location for one employee\'s current shift.',
   access: 'signed-in',
+  toolAccess: 'timekeeping:write',
+  toolChannels: ['frame'],
   errors: [...ACCESS_ERRORS, 'EMPLOYEE_NOT_FOUND', 'NO_OPEN_CLOCK_IN', 'TEAM_STATUS_MIGRATION_REQUIRED', UNAVAILABLE],
   sideEffects: ['Writes employee_shift_status', 'Writes audit_log'],
   request: { body: { required: true, content: json(SaveTeamStatusBody) } },
@@ -121,7 +127,8 @@ export const timeCardRoute = defineRoute({
   summary:
     "One employee's time card for the pay period holding a date: punches, worked spans, hand-entered hours, totals, what the viewer may do and whether they may approve now. Default: the viewer's own card, today. Another employee needs the attendance team or all scope.",
   access: 'signed-in',
-  errors: ['ATTENDANCE_PERMISSION_REQUIRED', 'EMPLOYEE_ENROLLMENT_REQUIRED', 'EMPLOYEE_NOT_FOUND', 'ATTENDANCE_SCOPE_NOT_AUTHORIZED', 'VALIDATION_INVALID_DATE', UNAVAILABLE],
+  toolAccess: 'timekeeping:read',
+  errors: ['ATTENDANCE_PERMISSION_REQUIRED', 'EMPLOYEE_ENROLLMENT_REQUIRED', 'EMPLOYEE_NOT_FOUND', 'ATTENDANCE_SCOPE_NOT_AUTHORIZED', 'VALIDATION_INVALID_DATE', 'TOOL_EMPLOYEE_REQUIRED', UNAVAILABLE],
   sideEffects: ['None'],
   request: { query: TimeCardQuery },
   responses: {
@@ -137,8 +144,9 @@ export const clockStateRoute = defineRoute({
   method: 'get',
   path: '/v1/timekeeping/clock-state',
   feature: 'timekeeping',
-  summary: "The signed-in person's clock: clocked in or out, minutes worked today, the open shift, any older clock-in that needs repair, and whether they may use the clock.",
+  summary: "The signed-in person's clock: clocked in or out, minutes worked today, the open shift, any older clock-in that needs repair, and whether they may use the clock. A server tool has no person and receives an empty clock state.",
   access: 'signed-in',
+  toolAccess: 'timekeeping:read',
   errors: ['ATTENDANCE_PERMISSION_REQUIRED', 'EMPLOYEE_ENROLLMENT_REQUIRED', UNAVAILABLE],
   sideEffects: ['None'],
   responses: {
@@ -154,6 +162,7 @@ export const employeesRoute = defineRoute({
   feature: 'timekeeping',
   summary: "The employees whose time cards the viewer may open, for the Attendance picker: their own record first, then everyone (all scope or super admin) or the members of the teams they lead (team scope).",
   access: 'signed-in',
+  toolAccess: 'timekeeping:read',
   errors: ['ATTENDANCE_PERMISSION_REQUIRED', UNAVAILABLE],
   sideEffects: ['None'],
   responses: {
@@ -189,6 +198,8 @@ function writeRoute(spec: WriteSpec) {
     feature: 'timekeeping',
     summary: spec.summary,
     access: 'signed-in',
+    toolAccess: 'timekeeping:write',
+    toolChannels: ['frame'],
     errors: [...ACCESS_ERRORS, ...spec.errors, UNAVAILABLE],
     sideEffects: [...spec.sideEffects, 'Writes audit_log'],
     request: { ...(spec.params ? { params: spec.params } : {}), ...(spec.body ? { body: { required: true, content: json(spec.body) } } : {}) },
@@ -292,12 +303,16 @@ const unavailable = (c: Context<AppEnv>) => failure(c, 503, UNAVAILABLE, 'Attend
 async function setup(c: Context<AppEnv>): Promise<{ queries: TimekeepingQueries; viewer: Viewer; actor: Actor } | null> {
   const queries = timekeepingQueriesFor(c.env)
   const permissionQueries = permissionQueriesFor(c.env)
-  if (!queries || !permissionQueries) return null
+  const serverTool = c.get('tool')?.channel === 'server'
+  if (!queries || (!permissionQueries && !serverTool)) return null
   const session = c.get('session')
   const userId = session?.userId ?? ''
+  const permissions = serverTool
+    ? { userId, grants: new Set<string>(), scopedGrants: new Set(['attendance.read.all']), scopedResources: new Set(['attendance']), isBuiltInSuperAdmin: false }
+    : await resolveEffectivePermissions(permissionQueries!, userId)
   return {
     queries,
-    viewer: { userId, role: session?.role ?? '', permissions: await resolveEffectivePermissions(permissionQueries, userId) },
+    viewer: { userId, role: session?.role ?? '', permissions },
     actor: { userId, email: session?.email ?? null, role: session?.role ?? null, requestId: c.get('requestId') },
   }
 }
@@ -343,7 +358,11 @@ export function registerTimekeeping(app: OpenAPIHono<AppEnv>) {
     const ready = await setup(c)
     if (!ready) return unavailable(c)
     try {
-      const data = await loadTimeCard(ready.queries, ready.viewer, c.req.valid('query'))
+      const query = c.req.valid('query')
+      if (c.get('tool')?.channel === 'server' && !query.employeeId) {
+        return failure(c, 422, 'TOOL_EMPLOYEE_REQUIRED', 'A server tool must name the employee whose time card it needs.')
+      }
+      const data = await loadTimeCard(ready.queries, ready.viewer, query)
       logLine('TIMEKEEPING:time_card', c.get('requestId'), { scope: data.viewer.scope, punches: data.punches.length, period: data.period.id })
       return c.json({ ok: true as const, data, requestId: c.get('requestId') }, 200)
     } catch (error) {
@@ -355,7 +374,9 @@ export function registerTimekeeping(app: OpenAPIHono<AppEnv>) {
     const ready = await setup(c)
     if (!ready) return unavailable(c)
     try {
-      const data = await loadClockState(ready.queries, ready.viewer)
+      const data = c.get('tool')?.channel === 'server'
+        ? await loadNoPersonClockState(ready.queries)
+        : await loadClockState(ready.queries, ready.viewer)
       logLine('TIMEKEEPING:clock_state', c.get('requestId'), { clockedIn: data.isClockedIn, stale: Boolean(data.staleOpenPunch) })
       return c.json({ ok: true as const, data, requestId: c.get('requestId') }, 200)
     } catch (error) {

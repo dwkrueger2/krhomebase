@@ -463,6 +463,22 @@ export async function loadClockState(queries: TimekeepingQueries, viewer: Viewer
   }
 }
 
+/** A server tool has no signed-in employee; its clock-state route returns the honest empty state and cannot clock in. */
+export async function loadNoPersonClockState(queries: TimekeepingQueries, now: Date = new Date()): Promise<ClockStateData> {
+  const policies = readEmployeePolicies(await queries.policyJson())
+  const today = localDateForInstant(now, policies.firmTimezone)
+  const stored = await queries.payPeriod(payPeriodForDate(today, policies.payPeriodAnchorDate).id)
+  return {
+    today,
+    period: periodInfo(today, policies, stored),
+    isClockedIn: false,
+    minutesWorkedToday: 0,
+    openPunch: null,
+    staleOpenPunch: null,
+    canClock: false,
+  }
+}
+
 /** The employees whose cards the viewer may open: their own first, then the rest by name (stage 5 picker). */
 export async function listAttendanceEmployees(queries: TimekeepingQueries, viewer: Viewer): Promise<AttendanceEmployeesData> {
   assertAttendanceAccess(viewer)

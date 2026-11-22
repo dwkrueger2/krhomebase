@@ -1116,6 +1116,514 @@
         }
       }
     },
+    "/v1/tools/sdk": {
+      "get": {
+        "summary": "The latest tool kit ZIP stored in R2: version, file name, byte size and upload time.",
+        "description": "Any signed-in user.\n\nPermission: developer_tools.read.\n\nSide effects: Reads R2 DOCUMENTS.\n\nOutside tools: not allowed.\n\nError codes: UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, TOOL_SDK_NOT_FOUND, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "tools"
+        ],
+        "responses": {
+          "200": {
+            "description": "The stored tool kit archive metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "type": "string",
+                          "description": "The stored tool kit semantic version."
+                        },
+                        "fileName": {
+                          "type": "string",
+                          "description": "The versioned ZIP file name."
+                        },
+                        "size": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "The ZIP size in bytes."
+                        },
+                        "uploadedAt": {
+                          "type": "string",
+                          "description": "When the ZIP was uploaded to R2, as an ISO timestamp."
+                        }
+                      },
+                      "required": [
+                        "version",
+                        "fileName",
+                        "size",
+                        "uploadedAt"
+                      ],
+                      "description": "Metadata for the latest tool kit archive stored in KR Homebase."
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No tool kit ZIP is stored yet (TOOL_SDK_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The tool kit storage is unavailable (TOOLS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tools/sdk/download": {
+      "get": {
+        "summary": "Download the latest versioned tool kit ZIP stored in R2.",
+        "description": "Any signed-in user.\n\nPermission: developer_tools.read.\n\nSide effects: Reads R2 DOCUMENTS.\n\nOutside tools: not allowed.\n\nError codes: UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, TOOL_SDK_NOT_FOUND, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "tools"
+        ],
+        "responses": {
+          "200": {
+            "description": "The stored ZIP file.",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "description": "The ZIP file bytes."
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No tool kit ZIP is stored yet (TOOL_SDK_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The tool kit storage is unavailable (TOOLS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/tools/registrations": {
       "get": {
         "summary": "List every registered outside tool, for the super admin.",
@@ -1237,8 +1745,8 @@
                                     "contacts:write",
                                     "leads:read",
                                     "leads:write",
-                                    "communications:read",
-                                    "communications:write",
+                                    "workstream:read",
+                                    "workstream:write",
                                     "tasks:read",
                                     "tasks:write",
                                     "timekeeping:read",
@@ -1633,8 +2141,8 @@
                         "contacts:write",
                         "leads:read",
                         "leads:write",
-                        "communications:read",
-                        "communications:write",
+                        "workstream:read",
+                        "workstream:write",
                         "tasks:read",
                         "tasks:write",
                         "timekeeping:read",
@@ -1796,8 +2304,8 @@
                                   "contacts:write",
                                   "leads:read",
                                   "leads:write",
-                                  "communications:read",
-                                  "communications:write",
+                                  "workstream:read",
+                                  "workstream:write",
                                   "tasks:read",
                                   "tasks:write",
                                   "timekeeping:read",
@@ -2303,8 +2811,8 @@
                                   "contacts:write",
                                   "leads:read",
                                   "leads:write",
-                                  "communications:read",
-                                  "communications:write",
+                                  "workstream:read",
+                                  "workstream:write",
                                   "tasks:read",
                                   "tasks:write",
                                   "timekeeping:read",
@@ -2786,8 +3294,8 @@
                         "contacts:write",
                         "leads:read",
                         "leads:write",
-                        "communications:read",
-                        "communications:write",
+                        "workstream:read",
+                        "workstream:write",
                         "tasks:read",
                         "tasks:write",
                         "timekeeping:read",
@@ -2949,8 +3457,8 @@
                                   "contacts:write",
                                   "leads:read",
                                   "leads:write",
-                                  "communications:read",
-                                  "communications:write",
+                                  "workstream:read",
+                                  "workstream:write",
                                   "tasks:read",
                                   "tasks:write",
                                   "timekeeping:read",
@@ -5252,8 +5760,8 @@
                                     "contacts:write",
                                     "leads:read",
                                     "leads:write",
-                                    "communications:read",
-                                    "communications:write",
+                                    "workstream:read",
+                                    "workstream:write",
                                     "tasks:read",
                                     "tasks:write",
                                     "timekeeping:read",
@@ -5476,8 +5984,8 @@
                         "contacts:write",
                         "leads:read",
                         "leads:write",
-                        "communications:read",
-                        "communications:write",
+                        "workstream:read",
+                        "workstream:write",
                         "tasks:read",
                         "tasks:write",
                         "timekeeping:read",
@@ -5549,8 +6057,8 @@
                               "contacts:write",
                               "leads:read",
                               "leads:write",
-                              "communications:read",
-                              "communications:write",
+                              "workstream:read",
+                              "workstream:write",
                               "tasks:read",
                               "tasks:write",
                               "timekeeping:read",
@@ -5849,8 +6357,8 @@
                                   "contacts:write",
                                   "leads:read",
                                   "leads:write",
-                                  "communications:read",
-                                  "communications:write",
+                                  "workstream:read",
+                                  "workstream:write",
                                   "tasks:read",
                                   "tasks:write",
                                   "timekeeping:read",
@@ -6063,8 +6571,8 @@
     },
     "/v1/tools/permitted-users": {
       "get": {
-        "summary": "Return the permitted sign-in emails for the calling tool registration.",
-        "description": "Any signed-in user.\n\nSide effects: Writes workspace_tool_audit.\n\nOutside tools: tools granted tool-registration:read.\n\nError codes: UNAUTHENTICATED, FORBIDDEN, TOOL_CALLER_REQUIRED, TOOL_FORBIDDEN, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
+        "summary": "For a registered tool server, return the permitted sign-in emails for its own registration.",
+        "description": "Any signed-in user.\n\nSide effects: Writes workspace_tool_audit.\n\nOutside tools: tools granted tool-registration:read (server channel only).\n\nError codes: UNAUTHENTICATED, FORBIDDEN, TOOL_CALLER_REQUIRED, TOOL_FORBIDDEN, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "tools"
         ],
@@ -6290,7 +6798,7 @@
     "/v1/contacts": {
       "get": {
         "summary": "List every contact, or with mode=delta only those changed since a time. No full SSN or date of birth.",
-        "description": "Any signed-in user.\n\nPermission: contacts.read.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, CONTACTS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nPermission: contacts.read.\n\nSide effects: None.\n\nOutside tools: tools granted contacts:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, CONTACTS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "contacts"
         ],
@@ -7060,7 +7568,7 @@
       },
       "post": {
         "summary": "Create a person or entity with its email and phone; with createClient, also its client account and General Matter. One batch.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee.\n\nPermission: contacts.create.\n\nSide effects: Writes individual or entity; Writes individual_contact_method or entity_contact_method; With createClient: writes client, matter, matter_party; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, VALIDATION_MISSING_FIRST_NAME, VALIDATION_MISSING_LAST_NAME, VALIDATION_MISSING_LEGAL_NAME, VALIDATION_INVALID_CLIENT_NUMBER, VALIDATION_CLIENT_NUMBER_ALREADY_ASSIGNED, CONTACTS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee.\n\nPermission: contacts.create.\n\nSide effects: Writes individual or entity; Writes individual_contact_method or entity_contact_method; With createClient: writes client, matter, matter_party; Writes audit_log.\n\nOutside tools: tools granted contacts:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, VALIDATION_MISSING_FIRST_NAME, VALIDATION_MISSING_LAST_NAME, VALIDATION_MISSING_LEGAL_NAME, VALIDATION_INVALID_CLIENT_NUMBER, VALIDATION_CLIENT_NUMBER_ALREADY_ASSIGNED, CONTACTS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "contacts"
         ],
@@ -7465,7 +7973,7 @@
     "/v1/contacts/{contactId}": {
       "get": {
         "summary": "Return one contact with the full SSN and date of birth, for Edit Details. Needs contacts.read, or the contact must be your own.",
-        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, CONTACT_NOT_FOUND, PERMISSION_REQUIRED, CONTACTS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: tools granted contacts:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, CONTACT_NOT_FOUND, PERMISSION_REQUIRED, CONTACTS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "contacts"
         ],
@@ -8289,7 +8797,7 @@
       },
       "patch": {
         "summary": "Save the contact edit card in one batch. Needs contacts.update, or the contact must be your own. Refuses a stale expectedUpdatedAt.",
-        "description": "Any signed-in user.\n\nSide effects: Writes individual or entity; Writes contact methods, address, individual_relationship or entity_contact; When a login email changes: writes user, ends that account's kr_session rows; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, CONTACT_NOT_FOUND, CONTACT_CONFLICT, CONTACT_HAS_MULTIPLE_USER_ACCOUNTS, LOGIN_EMAIL_CHANGE_FORBIDDEN, LOGIN_EMAIL_CHANGE_CONFIRMATION_REQUIRED, VALIDATION_LOGIN_EMAIL_REQUIRED, VALIDATION_LOGIN_EMAIL_ALREADY_ASSIGNED, VALIDATION_MISSING_INDIVIDUAL_NAME, VALIDATION_MISSING_ENTITY_NAME, VALIDATION_RELATIONSHIP_INDIVIDUAL_NOT_FOUND, CONTACTS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nSide effects: Writes individual or entity; Writes contact methods, address, individual_relationship or entity_contact; When a login email changes: writes user, ends that account's kr_session rows; Writes audit_log.\n\nOutside tools: tools granted contacts:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, CONTACT_NOT_FOUND, CONTACT_CONFLICT, CONTACT_HAS_MULTIPLE_USER_ACCOUNTS, LOGIN_EMAIL_CHANGE_FORBIDDEN, LOGIN_EMAIL_CHANGE_CONFIRMATION_REQUIRED, VALIDATION_LOGIN_EMAIL_REQUIRED, VALIDATION_LOGIN_EMAIL_ALREADY_ASSIGNED, VALIDATION_MISSING_INDIVIDUAL_NAME, VALIDATION_MISSING_ENTITY_NAME, VALIDATION_RELATIONSHIP_INDIVIDUAL_NOT_FOUND, CONTACTS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "contacts"
         ],
@@ -9815,7 +10323,7 @@
     "/v1/clients": {
       "get": {
         "summary": "Look client accounts up by client number (leading zeros ignored) or id. Used to check a number is free.",
-        "description": "Any signed-in user.\n\nPermission: contacts.read.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, CONTACTS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nPermission: contacts.read.\n\nSide effects: None.\n\nOutside tools: tools granted matters:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, CONTACTS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "contacts"
         ],
@@ -10147,7 +10655,7 @@
     "/v1/clients/status": {
       "patch": {
         "summary": "Open, reactivate, renumber or close the client account of a contact. A new account gets its General Matter.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee.\n\nSide effects: Writes client; New account: writes matter and matter_party; Renumbered: renames the General Matter; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, CONTACT_NOT_FOUND, VALIDATION_INVALID_CLIENT_NUMBER, VALIDATION_CLIENT_NUMBER_ALREADY_ASSIGNED, VALIDATION_CLIENT_NOT_LINKED, VALIDATION_MISSING_DISPLAY_NAME, CONTACTS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee.\n\nSide effects: Writes client; New account: writes matter and matter_party; Renumbered: renames the General Matter; Writes audit_log.\n\nOutside tools: tools granted contacts:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, CONTACT_NOT_FOUND, VALIDATION_INVALID_CLIENT_NUMBER, VALIDATION_CLIENT_NUMBER_ALREADY_ASSIGNED, VALIDATION_CLIENT_NOT_LINKED, VALIDATION_MISSING_DISPLAY_NAME, CONTACTS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "contacts"
         ],
@@ -13353,7 +13861,7 @@
     "/v1/billing/clients/{clientId}": {
       "get": {
         "summary": "One client's billing record: matters, time and fees, invoices, payments, the register, trust and the account totals.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_MATTER_NOT_ASSIGNED_TO_CLIENT, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: tools granted billing:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, VALIDATION_MATTER_NOT_ASSIGNED_TO_CLIENT, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "billing"
         ],
@@ -21377,7 +21885,7 @@
     "/v1/billing/clients/{clientId}/invoices/{invoiceId}/email": {
       "get": {
         "summary": "An invoice's email recipients and its sent copies.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, BILLING_DOCUMENTS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: tools granted billing:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, BILLING_DOCUMENTS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "billing"
         ],
@@ -22778,7 +23286,7 @@
     "/v1/billing/clients/{clientId}/statement/email": {
       "get": {
         "summary": "The client's (or one matter's) statement recipients and sent statements.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, BILLING_DOCUMENTS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: tools granted billing:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, BILLING_DOCUMENTS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "billing"
         ],
@@ -24179,7 +24687,7 @@
     "/v1/billing/clients/{clientId}/payments/{paymentId}/receipt/email": {
       "get": {
         "summary": "A payment's receipt details, recipients, default wording and sent receipts.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, BILLING_DOCUMENTS_UNAVAILABLE, VALIDATION_PAYMENT_NOT_FOUND, VALIDATION_PAYMENT_VOIDED, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: tools granted billing:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, BILLING_DOCUMENTS_UNAVAILABLE, VALIDATION_PAYMENT_NOT_FOUND, VALIDATION_PAYMENT_VOIDED, INTERNAL_ERROR.",
         "tags": [
           "billing"
         ],
@@ -25657,7 +26165,7 @@
     "/v1/billing/clients/{clientId}/payments/{paymentId}/refund-notice/email": {
       "get": {
         "summary": "A voided payment's Stripe refund, the refund notice's recipients, default wording and sent notices (Billing part 7e).",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, BILLING_DOCUMENTS_UNAVAILABLE, VALIDATION_PAYMENT_NOT_FOUND, VALIDATION_PAYMENT_HAS_NO_REFUND, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: tools granted billing:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, BILLING_DOCUMENTS_UNAVAILABLE, VALIDATION_PAYMENT_NOT_FOUND, VALIDATION_PAYMENT_HAS_NO_REFUND, INTERNAL_ERROR.",
         "tags": [
           "billing"
         ],
@@ -27600,7 +28108,7 @@
     "/v1/billing/clients/{clientId}/documents/{documentNumber}/file": {
       "get": {
         "summary": "A stored copy of a sent invoice, statement, receipt or refund notice (the PDF, or the email HTML with `format=html`), shown inline and not cached.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, BILLING_DOCUMENT_NOT_FOUND, BILLING_DOCUMENT_FILE_MISSING, BILLING_DOCUMENT_STORAGE_UNAVAILABLE, BILLING_DOCUMENTS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: tools granted billing:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, BILLING_DOCUMENT_NOT_FOUND, BILLING_DOCUMENT_FILE_MISSING, BILLING_DOCUMENT_STORAGE_UNAVAILABLE, BILLING_DOCUMENTS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "billing"
         ],
@@ -28219,7 +28727,7 @@
     "/v1/billing/clients/{clientId}/pay-links": {
       "get": {
         "summary": "The client's online pay links, newest first (status, paid and posted details, post errors). Writes nothing.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: tools granted billing:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, BILLING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "billing"
         ],
@@ -29870,7 +30378,7 @@
     "/v1/billing/clients/{clientId}/card-payment": {
       "get": {
         "summary": "Stripe.js settings for taking a card payment (the publishable key, the environment the server will use, whether this person may switch) and the client's name and email for the card rows.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, CARD_PAYMENTS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: None.\n\nOutside tools: tools granted billing:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, VALIDATION_CLIENT_NOT_FOUND, CARD_PAYMENTS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "billing"
         ],
@@ -30729,7 +31237,7 @@
     "/v1/timekeeping/time-card": {
       "get": {
         "summary": "One employee's time card for the pay period holding a date: punches, worked spans, hand-entered hours, totals, what the viewer may do and whether they may approve now. Default: the viewer's own card, today. Another employee needs the attendance team or all scope.",
-        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, EMPLOYEE_NOT_FOUND, ATTENDANCE_SCOPE_NOT_AUTHORIZED, VALIDATION_INVALID_DATE, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: tools granted timekeeping:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, EMPLOYEE_NOT_FOUND, ATTENDANCE_SCOPE_NOT_AUTHORIZED, VALIDATION_INVALID_DATE, TOOL_EMPLOYEE_REQUIRED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "timekeeping"
         ],
@@ -30750,10 +31258,10 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 120,
-              "description": "The employee whose card to show. Default: the signed-in person's own. Another employee needs the team or all scope."
+              "description": "The employee whose card to show. Default: the signed-in person's own; a server tool must provide an employee id. Another employee needs the team or all scope on a frame call."
             },
             "required": false,
-            "description": "The employee whose card to show. Default: the signed-in person's own. Another employee needs the team or all scope.",
+            "description": "The employee whose card to show. Default: the signed-in person's own; a server tool must provide an employee id. Another employee needs the team or all scope on a frame call.",
             "name": "employeeId",
             "in": "query"
           }
@@ -31605,8 +32113,8 @@
     },
     "/v1/timekeeping/clock-state": {
       "get": {
-        "summary": "The signed-in person's clock: clocked in or out, minutes worked today, the open shift, any older clock-in that needs repair, and whether they may use the clock.",
-        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "summary": "The signed-in person's clock: clocked in or out, minutes worked today, the open shift, any older clock-in that needs repair, and whether they may use the clock. A server tool has no person and receives an empty clock state.",
+        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: tools granted timekeeping:read.\n\nError codes: UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "timekeeping"
         ],
@@ -31763,7 +32271,7 @@
                         },
                         "canClock": {
                           "type": "boolean",
-                          "description": "True when the viewer may use Clock in and Clock out (an active employee with the attendance create and update grants)."
+                          "description": "True when the signed-in viewer may use Clock in and Clock out (an active employee with the attendance create and update grants); false on the personless server path."
                         }
                       },
                       "required": [
@@ -31963,7 +32471,7 @@
     "/v1/timekeeping/employees": {
       "get": {
         "summary": "The employees whose time cards the viewer may open, for the Attendance picker: their own record first, then everyone (all scope or super admin) or the members of the teams they lead (team scope).",
-        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: tools granted timekeeping:read.\n\nError codes: UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "timekeeping"
         ],
@@ -32220,7 +32728,7 @@
     "/v1/timekeeping/team-status": {
       "get": {
         "summary": "Reads the selected employees' current official clock state and per-shift status, limited by Attendance scope.",
-        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, TEAM_STATUS_MIGRATION_REQUIRED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: tools granted timekeeping:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, TEAM_STATUS_MIGRATION_REQUIRED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "timekeeping"
         ],
@@ -32552,7 +33060,7 @@
       },
       "put": {
         "summary": "Saves a short note and optional location for one employee's current shift.",
-        "description": "Any signed-in user.\n\nSide effects: Writes employee_shift_status; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_FOUND, NO_OPEN_CLOCK_IN, TEAM_STATUS_MIGRATION_REQUIRED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_shift_status; Writes audit_log.\n\nOutside tools: tools granted timekeeping:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_FOUND, NO_OPEN_CLOCK_IN, TEAM_STATUS_MIGRATION_REQUIRED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "timekeeping"
         ],
@@ -32935,7 +33443,7 @@
     "/v1/timekeeping/clock-in": {
       "post": {
         "summary": "Clock the signed-in person in now (the exact time; only hours are rounded). Refused while a shift is open. A repeated idempotency key returns the first punch.",
-        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_punch; Writes pay_period and employee_time_card when missing; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_ACTIVE, TIME_CARD_LOCKED, ATTENDANCE_STATE_CONFLICT, TIME_CARD_NOT_FOUND, ALREADY_CLOCKED_IN, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_punch; Writes pay_period and employee_time_card when missing; Writes audit_log.\n\nOutside tools: tools granted timekeeping:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_ACTIVE, TIME_CARD_LOCKED, ATTENDANCE_STATE_CONFLICT, TIME_CARD_NOT_FOUND, ALREADY_CLOCKED_IN, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "timekeeping"
         ],
@@ -33312,7 +33820,7 @@
     "/v1/timekeeping/clock-out": {
       "post": {
         "summary": "Clock the signed-in person out now. With no open shift: NO_OPEN_CLOCK_IN (details name an older open punch to repair). Last night's shift still open before 3 am: MISSED_CLOCK_OUT_REQUIRES_REVIEW, answered with the missed clock-out route.",
-        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_punch; Clears employee_shift_status; Writes employee_time_event (each pair's stored hours, time_type 'regular'); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_ACTIVE, TIME_CARD_LOCKED, ATTENDANCE_STATE_CONFLICT, TIME_CARD_NOT_FOUND, NO_OPEN_CLOCK_IN, MISSED_CLOCK_OUT_REQUIRES_REVIEW, TEAM_STATUS_MIGRATION_REQUIRED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_punch; Clears employee_shift_status; Writes employee_time_event (each pair's stored hours, time_type 'regular'); Writes audit_log.\n\nOutside tools: tools granted timekeeping:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_ACTIVE, TIME_CARD_LOCKED, ATTENDANCE_STATE_CONFLICT, TIME_CARD_NOT_FOUND, NO_OPEN_CLOCK_IN, MISSED_CLOCK_OUT_REQUIRES_REVIEW, TEAM_STATUS_MIGRATION_REQUIRED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "timekeeping"
         ],
@@ -33689,7 +34197,7 @@
     "/v1/timekeeping/missed-clock-out": {
       "post": {
         "summary": "Close last night's open shift, before 3 am: `enter_time` saves the given clock-out on that date; `split_midnight` closes it at midnight, starts today at midnight and clocks out now (three punches, one save).",
-        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_punch; Clears employee_shift_status; Writes pay_period and employee_time_card when missing; Writes employee_time_event (each pair's stored hours, time_type 'regular'); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_ACTIVE, TIME_CARD_LOCKED, ATTENDANCE_STATE_CONFLICT, TIME_CARD_NOT_FOUND, NO_OPEN_CLOCK_IN, MISSED_CLOCK_OUT_REPAIR_REQUIRED, MISSED_CLOCK_OUT_TIME_REQUIRED, MISSED_CLOCK_OUT_MUST_USE_OPEN_WORK_DATE, TEAM_STATUS_MIGRATION_REQUIRED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_punch; Clears employee_shift_status; Writes pay_period and employee_time_card when missing; Writes employee_time_event (each pair's stored hours, time_type 'regular'); Writes audit_log.\n\nOutside tools: tools granted timekeeping:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_ACTIVE, TIME_CARD_LOCKED, ATTENDANCE_STATE_CONFLICT, TIME_CARD_NOT_FOUND, NO_OPEN_CLOCK_IN, MISSED_CLOCK_OUT_REPAIR_REQUIRED, MISSED_CLOCK_OUT_TIME_REQUIRED, MISSED_CLOCK_OUT_MUST_USE_OPEN_WORK_DATE, TEAM_STATUS_MIGRATION_REQUIRED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "timekeeping"
         ],
@@ -34068,7 +34576,7 @@
     "/v1/timekeeping/punches": {
       "post": {
         "summary": "Add a punch to an employee's time card, or replace one (the original is voided in the same save). The work date must be inside the edit window (from the work date through the employee's or manager's window; super admins are exempt). A manager's change clears the employee's approval.",
-        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_punch; Writes pay_period and employee_time_card when missing; Writes employee_time_event (each pair's stored hours, time_type 'regular'); Clears employee approval on a manager change (employee_time_card); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_FOUND, EMPLOYEE_NOT_ACTIVE, TIMEKEEPING_OCCURRED_AT_INVALID, CLOCK_EDIT_WINDOW_EXPIRED, TIME_CARD_EDIT_WINDOW_EXPIRED, TIME_CARD_LOCKED, PUNCH_NOT_FOUND, PUNCH_ALREADY_VOIDED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_punch; Writes pay_period and employee_time_card when missing; Writes employee_time_event (each pair's stored hours, time_type 'regular'); Clears employee approval on a manager change (employee_time_card); Writes audit_log.\n\nOutside tools: tools granted timekeeping:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_FOUND, EMPLOYEE_NOT_ACTIVE, TIMEKEEPING_OCCURRED_AT_INVALID, CLOCK_EDIT_WINDOW_EXPIRED, TIME_CARD_EDIT_WINDOW_EXPIRED, TIME_CARD_LOCKED, PUNCH_NOT_FOUND, PUNCH_ALREADY_VOIDED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "timekeeping"
         ],
@@ -34469,7 +34977,7 @@
     "/v1/timekeeping/punches/{punchId}": {
       "delete": {
         "summary": "Void a punch (it stays on record, marked, and stops counting). Same window and lock rules as a change. A punch already voided answers alreadyVoided.",
-        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_punch (voided_at); Writes employee_time_event (each pair's stored hours, time_type 'regular'); Clears employee approval on a manager change (employee_time_card); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_FOUND, EMPLOYEE_NOT_ACTIVE, PUNCH_NOT_FOUND, CLOCK_EDIT_WINDOW_EXPIRED, TIME_CARD_EDIT_WINDOW_EXPIRED, TIME_CARD_LOCKED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_punch (voided_at); Writes employee_time_event (each pair's stored hours, time_type 'regular'); Clears employee approval on a manager change (employee_time_card); Writes audit_log.\n\nOutside tools: tools granted timekeeping:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_FOUND, EMPLOYEE_NOT_ACTIVE, PUNCH_NOT_FOUND, CLOCK_EDIT_WINDOW_EXPIRED, TIME_CARD_EDIT_WINDOW_EXPIRED, TIME_CARD_LOCKED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "timekeeping"
         ],
@@ -34836,7 +35344,7 @@
     "/v1/timekeeping/events": {
       "put": {
         "summary": "Set one kind of hand-entered hours (PTO, holiday, sick, unpaid, other) on one day, with its note. Changes that day's entry of that kind, or makes one. The card must be open and its period inside the window.",
-        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_event; Writes pay_period and employee_time_card when missing; Clears employee approval on a manager change (employee_time_card); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_FOUND, EMPLOYEE_NOT_ACTIVE, VALIDATION_INVALID_DATE, TIME_CARD_EDIT_WINDOW_EXPIRED, TIME_CARD_LOCKED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_event; Writes pay_period and employee_time_card when missing; Clears employee approval on a manager change (employee_time_card); Writes audit_log.\n\nOutside tools: tools granted timekeeping:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_FOUND, EMPLOYEE_NOT_ACTIVE, VALIDATION_INVALID_DATE, TIME_CARD_EDIT_WINDOW_EXPIRED, TIME_CARD_LOCKED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "timekeeping"
         ],
@@ -35243,7 +35751,7 @@
     "/v1/timekeeping/time-cards/{cardId}/approve": {
       "post": {
         "summary": "Approve a time card. On one's own card (employee approval) it submits the card, on a Friday of the period or after it ends. On someone else's (manager approval) it approves and locks the card. Missing clock-ins or clock-outs block both.",
-        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_card; Writes employee_time_event (status); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_FOUND, TIME_CARD_NOT_FOUND, TIME_CARD_LOCKED, TIME_CARD_ALREADY_APPROVED, EMPLOYEE_APPROVAL_NOT_YET_ALLOWED, TIME_CARD_HAS_UNRESOLVED_EXCEPTIONS, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_card; Writes employee_time_event (status); Writes audit_log.\n\nOutside tools: tools granted timekeeping:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_FOUND, TIME_CARD_NOT_FOUND, TIME_CARD_LOCKED, TIME_CARD_ALREADY_APPROVED, EMPLOYEE_APPROVAL_NOT_YET_ALLOWED, TIME_CARD_HAS_UNRESOLVED_EXCEPTIONS, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "timekeeping"
         ],
@@ -35626,7 +36134,7 @@
     "/v1/timekeeping/time-cards/{cardId}/reopen": {
       "post": {
         "summary": "Reopen a submitted or approved time card: clears both approvals and the lock and sets the entered hours back to draft. A manager of the card or a super admin only; an exported card cannot be reopened.",
-        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_card; Writes employee_time_event (status); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_FOUND, TIME_CARD_NOT_FOUND, MANAGER_REOPEN_REQUIRED, TIME_CARD_NOT_APPROVED, TIME_CARD_EXPORTED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Any signed-in user.\n\nSide effects: Writes employee_time_card; Writes employee_time_event (status); Writes audit_log.\n\nOutside tools: tools granted timekeeping:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, ATTENDANCE_PERMISSION_REQUIRED, EMPLOYEE_ENROLLMENT_REQUIRED, ATTENDANCE_SCOPE_NOT_AUTHORIZED, EMPLOYEE_NOT_FOUND, TIME_CARD_NOT_FOUND, MANAGER_REOPEN_REQUIRED, TIME_CARD_NOT_APPROVED, TIME_CARD_EXPORTED, TIMEKEEPING_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "timekeeping"
         ],
@@ -48480,7 +48988,7 @@
           {
             "schema": {
               "type": "string",
-              "pattern": "^role_[a-z0-9][a-z0-9_-]{1,95}$/i",
+              "pattern": "^[Rr][Oo][Ll][Ee]_[A-Za-z0-9][A-Za-z0-9_-]{1,95}$",
               "description": "Role set id."
             },
             "required": true,
@@ -48962,7 +49470,7 @@
           {
             "schema": {
               "type": "string",
-              "pattern": "^role_[a-z0-9][a-z0-9_-]{1,95}$/i",
+              "pattern": "^[Rr][Oo][Ll][Ee]_[A-Za-z0-9][A-Za-z0-9_-]{1,95}$",
               "description": "Role set id."
             },
             "required": true,
@@ -69989,7 +70497,7 @@
     "/v1/clients/{clientId}/matters": {
       "get": {
         "summary": "A client's matters in number order, the status and practice-area choices, and whether the viewer may add, change or delete matters.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, MATTER_CLIENT_NOT_FOUND, MATTERS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: tools granted matters:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, MATTER_CLIENT_NOT_FOUND, MATTERS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "matters"
         ],
@@ -70476,7 +70984,7 @@
       },
       "post": {
         "summary": "Creates the client's next numbered matter (`[Client Number].[n]`, n from 1) with its primary-client party and optional Initial Notes.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee.\n\nSide effects: Writes matter, matter_party and matter_activity_log (Initial Notes); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, MATTER_CLIENT_NOT_FOUND, MATTER_CLIENT_NUMBER_INVALID, MATTER_CHOICE_INVALID, MATTER_NUMBER_IN_USE, MATTERS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee.\n\nSide effects: Writes matter, matter_party and matter_activity_log (Initial Notes); Writes audit_log.\n\nOutside tools: tools granted matters:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, MATTER_CLIENT_NOT_FOUND, MATTER_CLIENT_NUMBER_INVALID, MATTER_CHOICE_INVALID, MATTER_NUMBER_IN_USE, MATTERS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "matters"
         ],
@@ -70979,7 +71487,7 @@
     "/v1/matters/{matterId}": {
       "patch": {
         "summary": "Changes a matter's title (fixed on a `.0` matter), description, status and opened date, and adds Initial Notes when given.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee.\n\nSide effects: Writes matter and matter_activity_log (Initial Notes); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, MATTER_NOT_FOUND, MATTER_CHOICE_INVALID, MATTERS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee.\n\nSide effects: Writes matter and matter_activity_log (Initial Notes); Writes audit_log.\n\nOutside tools: tools granted matters:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, MATTER_NOT_FOUND, MATTER_CHOICE_INVALID, MATTERS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "matters"
         ],
@@ -71435,7 +71943,7 @@
       },
       "delete": {
         "summary": "Deletes a matter that has no records, with its party, access and staff rows, after the typed confirmation `Delete Matter <number>` (super admin).",
-        "description": "Roles: super_admin.\n\nSide effects: Deletes matter, matter_party, matter_access and matter_staff_assignment rows; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, MATTER_NOT_FOUND, MATTER_DELETE_CONFIRMATION_MISMATCH, MATTER_GENERAL_PROTECTED, MATTER_HAS_RECORDS, MATTERS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin.\n\nSide effects: Deletes matter, matter_party, matter_access and matter_staff_assignment rows; Writes audit_log.\n\nOutside tools: tools granted matters:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, MATTER_NOT_FOUND, MATTER_DELETE_CONFIRMATION_MISMATCH, MATTER_GENERAL_PROTECTED, MATTER_HAS_RECORDS, MATTERS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "matters"
         ],
@@ -71825,7 +72333,7 @@
     "/v1/matters/{matterId}/delete-check": {
       "get": {
         "summary": "Whether the viewer may delete the matter, and which records (or the `.0` rule) block it.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, MATTER_NOT_FOUND, MATTERS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: tools granted matters:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, MATTER_NOT_FOUND, MATTERS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "matters"
         ],
@@ -72187,7 +72695,7 @@
     "/v1/workstream/feed": {
       "get": {
         "summary": "Every WorkStream entry of every client and lead, newest first, one page at a time (the Communications section).",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_CURSOR_INVALID, WORKSTREAM_SUBGROUP_INVALID, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: None.\n\nOutside tools: tools granted workstream:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_CURSOR_INVALID, WORKSTREAM_SUBGROUP_INVALID, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "workstream"
         ],
@@ -73728,7 +74236,7 @@
     "/v1/workstream/email": {
       "post": {
         "summary": "Sends a client email from the firm's mailbox and records it as an Emails entry on its matter (the client's .0 when none is chosen).",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: Sends an email through Gmail (firm mailbox); Writes workstream_activity; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_EMAIL_INVALID_RECIPIENT, WORKSTREAM_EMAIL_INVALID_CC, WORKSTREAM_EMAIL_SUBJECT_REQUIRED, WORKSTREAM_EMAIL_MESSAGE_REQUIRED, WORKSTREAM_EMAIL_NOT_CONFIGURED, WORKSTREAM_EMAIL_FAILED, WORKSTREAM_CLIENT_NOT_FOUND, WORKSTREAM_LEAD_NOT_FOUND, WORKSTREAM_MATTER_NOT_FOR_CLIENT, WORKSTREAM_LEAD_HAS_NO_MATTER, WORKSTREAM_GENERAL_MATTER_MISSING, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager.\n\nSide effects: Sends an email through Gmail (firm mailbox); Writes workstream_activity; Writes audit_log.\n\nOutside tools: tools granted workstream:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_EMAIL_INVALID_RECIPIENT, WORKSTREAM_EMAIL_INVALID_CC, WORKSTREAM_EMAIL_SUBJECT_REQUIRED, WORKSTREAM_EMAIL_MESSAGE_REQUIRED, WORKSTREAM_EMAIL_NOT_CONFIGURED, WORKSTREAM_EMAIL_FAILED, WORKSTREAM_CLIENT_NOT_FOUND, WORKSTREAM_LEAD_NOT_FOUND, WORKSTREAM_MATTER_NOT_FOR_CLIENT, WORKSTREAM_LEAD_HAS_NO_MATTER, WORKSTREAM_GENERAL_MATTER_MISSING, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "workstream"
         ],
@@ -74182,7 +74690,7 @@
     "/v1/workstream": {
       "get": {
         "summary": "A client's (optionally one matter's) or a lead's WorkStream entries, every type or one, newest first, one page at a time.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_OWNER_REQUIRED, WORKSTREAM_CURSOR_INVALID, WORKSTREAM_SUBGROUP_INVALID, WORKSTREAM_CLIENT_NOT_FOUND, WORKSTREAM_LEAD_NOT_FOUND, WORKSTREAM_MATTER_NOT_FOR_CLIENT, WORKSTREAM_LEAD_HAS_NO_MATTER, WORKSTREAM_GENERAL_MATTER_MISSING, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: None.\n\nOutside tools: tools granted workstream:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_OWNER_REQUIRED, WORKSTREAM_CURSOR_INVALID, WORKSTREAM_SUBGROUP_INVALID, WORKSTREAM_CLIENT_NOT_FOUND, WORKSTREAM_LEAD_NOT_FOUND, WORKSTREAM_MATTER_NOT_FOR_CLIENT, WORKSTREAM_LEAD_HAS_NO_MATTER, WORKSTREAM_GENERAL_MATTER_MISSING, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "workstream"
         ],
@@ -74830,7 +75338,7 @@
       },
       "post": {
         "summary": "Records one WorkStream entry, with every activity type chosen, for a client (on the chosen matter, else the client's .0) or for a lead; the Task type also makes a task on the Tasks screen.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: Writes workstream_activity and workstream_activity_type; Writes task and task_assignee (an entry with the Task type); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_CLIENT_NOT_FOUND, WORKSTREAM_LEAD_NOT_FOUND, WORKSTREAM_MATTER_NOT_FOR_CLIENT, WORKSTREAM_LEAD_HAS_NO_MATTER, WORKSTREAM_GENERAL_MATTER_MISSING, WORKSTREAM_ASSIGNEE_CONFLICT, WORKSTREAM_ASSIGNEE_NOT_FOUND, WORKSTREAM_WSID_EXHAUSTED, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: Writes workstream_activity and workstream_activity_type; Writes task and task_assignee (an entry with the Task type); Writes audit_log.\n\nOutside tools: tools granted workstream:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_CLIENT_NOT_FOUND, WORKSTREAM_LEAD_NOT_FOUND, WORKSTREAM_MATTER_NOT_FOR_CLIENT, WORKSTREAM_LEAD_HAS_NO_MATTER, WORKSTREAM_GENERAL_MATTER_MISSING, WORKSTREAM_ASSIGNEE_CONFLICT, WORKSTREAM_ASSIGNEE_NOT_FOUND, WORKSTREAM_WSID_EXHAUSTED, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "workstream"
         ],
@@ -75554,7 +76062,7 @@
     "/v1/workstream/{wsid}": {
       "get": {
         "summary": "One WorkStream entry by its seven-character id.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_NOT_FOUND, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: None.\n\nOutside tools: tools granted workstream:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_NOT_FOUND, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "workstream"
         ],
@@ -76107,7 +76615,7 @@
       },
       "patch": {
         "summary": "Changes the fields sent (types, matter of the same client, subject, note, next steps, time, assignee, the task's assignees); the rest stay as they are. Adding the Task type makes the task.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: Writes workstream_activity and workstream_activity_type; Writes task and task_assignee (an entry with the Task type); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_NOT_FOUND, WORKSTREAM_MATTER_NOT_FOR_CLIENT, WORKSTREAM_LEAD_HAS_NO_MATTER, WORKSTREAM_ASSIGNEE_NOT_FOUND, WORKSTREAM_TASK_TYPE_REQUIRED, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: Writes workstream_activity and workstream_activity_type; Writes task and task_assignee (an entry with the Task type); Writes audit_log.\n\nOutside tools: tools granted workstream:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_NOT_FOUND, WORKSTREAM_MATTER_NOT_FOR_CLIENT, WORKSTREAM_LEAD_HAS_NO_MATTER, WORKSTREAM_ASSIGNEE_NOT_FOUND, WORKSTREAM_TASK_TYPE_REQUIRED, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "workstream"
         ],
@@ -76763,7 +77271,7 @@
       },
       "delete": {
         "summary": "Deletes a WorkStream entry and its comments (super admin).",
-        "description": "Roles: super_admin.\n\nSide effects: Deletes workstream_activity (and its comments); Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_NOT_FOUND, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin.\n\nSide effects: Deletes workstream_activity (and its comments); Writes audit_log.\n\nOutside tools: tools granted workstream:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_NOT_FOUND, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "workstream"
         ],
@@ -77085,7 +77593,7 @@
     "/v1/workstream/{wsid}/move": {
       "post": {
         "summary": "Moves (reassigns) an entry to a client's matter, the chosen one or else the client's .0; the entry leaves any lead.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: Writes workstream_activity; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_NOT_FOUND, WORKSTREAM_CLIENT_NOT_FOUND, WORKSTREAM_MATTER_NOT_FOR_CLIENT, WORKSTREAM_GENERAL_MATTER_MISSING, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: Writes workstream_activity; Writes audit_log.\n\nOutside tools: tools granted workstream:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, WORKSTREAM_NOT_FOUND, WORKSTREAM_CLIENT_NOT_FOUND, WORKSTREAM_MATTER_NOT_FOR_CLIENT, WORKSTREAM_GENERAL_MATTER_MISSING, WORKSTREAM_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "workstream"
         ],
@@ -77667,7 +78175,7 @@
     "/v1/leads": {
       "get": {
         "summary": "Leads newest first with each person's current email and phone; converted leads only when asked; one page at a time.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, LEAD_CURSOR_INVALID, LEADS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: tools granted leads:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, LEAD_CURSOR_INVALID, LEADS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "leads"
         ],
@@ -78199,7 +78707,7 @@
       },
       "post": {
         "summary": "Creates a lead for an existing person, or for a new person created with their email and phone; a repeat returns the existing lead.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee.\n\nPermission: contacts.create.\n\nSide effects: Writes lead; Writes individual and individual_contact_method for a new person; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, LEAD_INDIVIDUAL_NOT_FOUND, LEAD_PUBLIC_INQUIRY_SOURCE, LEAD_LCID_EXHAUSTED, VALIDATION_MISSING_FIRST_NAME, VALIDATION_MISSING_LAST_NAME, LEADS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee.\n\nPermission: contacts.create.\n\nSide effects: Writes lead; Writes individual and individual_contact_method for a new person; Writes audit_log.\n\nOutside tools: tools granted leads:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, LEAD_INDIVIDUAL_NOT_FOUND, LEAD_PUBLIC_INQUIRY_SOURCE, LEAD_LCID_EXHAUSTED, VALIDATION_MISSING_FIRST_NAME, VALIDATION_MISSING_LAST_NAME, LEADS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "leads"
         ],
@@ -78852,7 +79360,7 @@
     "/v1/leads/{leadId}": {
       "get": {
         "summary": "One lead, by its id or its LCID.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, LEAD_NOT_FOUND, LEADS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, front_end_author.\n\nSide effects: None.\n\nOutside tools: tools granted leads:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, LEAD_NOT_FOUND, LEADS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "leads"
         ],
@@ -79356,7 +79864,7 @@
       },
       "patch": {
         "summary": "Changes a lead's status, urgency, summary, practice area or assignee (only the fields sent).",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee.\n\nSide effects: Writes lead; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, LEAD_NOT_FOUND, LEAD_ASSIGNEE_NOT_FOUND, LEADS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee.\n\nSide effects: Writes lead; Writes audit_log.\n\nOutside tools: tools granted leads:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, LEAD_NOT_FOUND, LEAD_ASSIGNEE_NOT_FOUND, LEADS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "leads"
         ],
@@ -79921,7 +80429,7 @@
     "/v1/leads/{leadId}/conversion": {
       "post": {
         "summary": "Converts a lead: the person becomes a client (next free number and its .0 matter), the lead is marked Won, and its Workstream entries move to the .0 matter.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee.\n\nPermission: contacts.create.\n\nSide effects: Writes client, matter and matter_party (the client account); Writes lead and workstream_activity; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, LEAD_NOT_FOUND, LEAD_ALREADY_CONVERTED, LEAD_CONVERSION_FAILED, VALIDATION_INVALID_CLIENT_NUMBER, VALIDATION_CLIENT_NUMBER_ALREADY_ASSIGNED, LEADS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee.\n\nPermission: contacts.create.\n\nSide effects: Writes client, matter and matter_party (the client account); Writes lead and workstream_activity; Writes audit_log.\n\nOutside tools: tools granted leads:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, PERMISSIONS_UNAVAILABLE, LEAD_NOT_FOUND, LEAD_ALREADY_CONVERTED, LEAD_CONVERSION_FAILED, VALIDATION_INVALID_CLIENT_NUMBER, VALIDATION_CLIENT_NUMBER_ALREADY_ASSIGNED, LEADS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "leads"
         ],
@@ -80506,7 +81014,7 @@
     "/v1/tasks": {
       "get": {
         "summary": "Tasks by due date (no due date last, then newest recorded) with their current assignees; open ones unless closed ones are asked for; one page at a time.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TASK_STATUS_INVALID, TASK_CURSOR_INVALID, TASKS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: None.\n\nOutside tools: tools granted tasks:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TASK_STATUS_INVALID, TASK_CURSOR_INVALID, TASKS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "tasks"
         ],
@@ -81096,7 +81604,7 @@
       },
       "post": {
         "summary": "Creates a task with a new seven-character public id and its assignees (when none are given, the caller unless their Task Settings say nobody); the client, matter, supervisor and assignees are checked.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: Writes task; Writes task_assignee; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TASK_CLIENT_NOT_FOUND, TASK_MATTER_NOT_FOUND, TASK_MATTER_NOT_FOR_CLIENT, TASK_SUPERVISOR_NOT_FOUND, TASK_ASSIGNEE_NOT_FOUND, TASK_ID_EXHAUSTED, TASKS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: Writes task; Writes task_assignee; Writes audit_log.\n\nOutside tools: tools granted tasks:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TASK_CLIENT_NOT_FOUND, TASK_MATTER_NOT_FOUND, TASK_MATTER_NOT_FOR_CLIENT, TASK_SUPERVISOR_NOT_FOUND, TASK_ASSIGNEE_NOT_FOUND, TASK_ID_EXHAUSTED, TASKS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "tasks"
         ],
@@ -81767,7 +82275,7 @@
     "/v1/tasks/{taskId}": {
       "get": {
         "summary": "One task with its current assignees.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TASK_NOT_FOUND, TASKS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: None.\n\nOutside tools: tools granted tasks:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TASK_NOT_FOUND, TASKS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "tasks"
         ],
@@ -82300,7 +82808,7 @@
       },
       "patch": {
         "summary": "Changes a task's fields (only the fields sent; null clears what may be cleared); the completion time follows the status.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: Writes task; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TASK_NOT_FOUND, TASK_CLIENT_NOT_FOUND, TASK_MATTER_NOT_FOUND, TASK_MATTER_NOT_FOR_CLIENT, TASK_SUPERVISOR_NOT_FOUND, TASKS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: Writes task; Writes audit_log.\n\nOutside tools: tools granted tasks:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TASK_NOT_FOUND, TASK_CLIENT_NOT_FOUND, TASK_MATTER_NOT_FOUND, TASK_MATTER_NOT_FOR_CLIENT, TASK_SUPERVISOR_NOT_FOUND, TASKS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "tasks"
         ],
@@ -82952,7 +83460,7 @@
     "/v1/tasks/{taskId}/assignees": {
       "put": {
         "summary": "Replaces a task's current assignees: removed users' rows are ended, returning users' rows come back, the first assignee is the task's main assignee.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: Writes task_assignee; Writes task; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TASK_NOT_FOUND, TASK_ASSIGNEE_NOT_FOUND, TASKS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: Writes task_assignee; Writes task; Writes audit_log.\n\nOutside tools: tools granted tasks:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TASK_NOT_FOUND, TASK_ASSIGNEE_NOT_FOUND, TASKS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "tasks"
         ],
@@ -83513,7 +84021,7 @@
     "/v1/tasks/{taskId}/notes": {
       "get": {
         "summary": "A task's follow-up notes, newest first, with who wrote each (migration 003).",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TASK_NOT_FOUND, TASKS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: None.\n\nOutside tools: tools granted tasks:read.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TASK_NOT_FOUND, TASKS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "tasks"
         ],
@@ -83862,7 +84370,7 @@
       },
       "post": {
         "summary": "Adds a follow-up note to a task, written by the caller; answers every note, newest first.",
-        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: Writes task_note; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TASK_NOT_FOUND, TASKS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin, admin, attorney, paralegal, staff, employee, billing, office_manager, front_end_author.\n\nSide effects: Writes task_note; Writes audit_log.\n\nOutside tools: tools granted tasks:write (frame channel only).\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TASK_NOT_FOUND, TASKS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "tasks"
         ],
@@ -86095,7 +86603,7 @@
           {
             "schema": {
               "type": "string",
-              "pattern": "^(?:FB-?)?\\d{1,9}$/i",
+              "pattern": "^(?:[Ff][Bb]-?)?\\d{1,9}$",
               "description": "The request number: `FB-0012` or `12`."
             },
             "required": true,
@@ -86929,7 +87437,7 @@
           {
             "schema": {
               "type": "string",
-              "pattern": "^(?:FB-?)?\\d{1,9}$/i",
+              "pattern": "^(?:[Ff][Bb]-?)?\\d{1,9}$",
               "description": "The request number: `FB-0012` or `12`."
             },
             "required": true,
@@ -87806,7 +88314,7 @@
           {
             "schema": {
               "type": "string",
-              "pattern": "^(?:FB-?)?\\d{1,9}$/i",
+              "pattern": "^(?:[Ff][Bb]-?)?\\d{1,9}$",
               "description": "The request number: `FB-0012` or `12`."
             },
             "required": true,
@@ -88663,7 +89171,7 @@
           {
             "schema": {
               "type": "string",
-              "pattern": "^(?:FB-?)?\\d{1,9}$/i",
+              "pattern": "^(?:[Ff][Bb]-?)?\\d{1,9}$",
               "description": "The request number: `FB-0012` or `12`."
             },
             "required": true,

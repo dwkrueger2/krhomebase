@@ -10,7 +10,9 @@
  *   GET    /v1/matters/{matterId}/delete-check  whether it may be deleted and what blocks it (read roles)
  *   DELETE /v1/matters/{matterId}               delete a matter with no records (super admin, typed confirmation)
  *
- * Rules: `rules.ts`. Writes pass the write gate and are audited (resource `matters`). Outside tools: closed.
+ * Rules: `rules.ts`. Writes pass the write gate and are audited (resource `matters`). Outside tools may read matters
+ * with `matters:read`; create, update, delete-check and delete use frame-only `matters:write` (approved Nov 21, 2026).
+ * Frame calls retain the person's existing roles; server tools cannot use write routes because they have no person.
  */
 
 import {
@@ -58,6 +60,7 @@ export const clientMattersRoute = defineRoute({
   feature: 'matters',
   summary: "A client's matters in number order, the status and practice-area choices, and whether the viewer may add, change or delete matters.",
   access: { roles: MATTER_READ_ROLES },
+  toolAccess: 'matters:read',
   errors: ['MATTER_CLIENT_NOT_FOUND', 'MATTERS_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { params: MatterClientParams },
@@ -70,6 +73,8 @@ export const createMatterRoute = defineRoute({
   feature: 'matters',
   summary: "Creates the client's next numbered matter (`[Client Number].[n]`, n from 1) with its primary-client party and optional Initial Notes.",
   access: { roles: MATTER_WRITE_ROLES },
+  toolAccess: 'matters:write',
+  toolChannels: ['frame'],
   errors: ['MATTER_CLIENT_NOT_FOUND', 'MATTER_CLIENT_NUMBER_INVALID', 'MATTER_CHOICE_INVALID', 'MATTER_NUMBER_IN_USE', 'MATTERS_UNAVAILABLE'],
   sideEffects: ['Writes matter, matter_party and matter_activity_log (Initial Notes)', 'Writes audit_log'],
   request: { params: MatterClientParams, body: { content: json(MatterCreateBody), required: true } },
@@ -88,6 +93,8 @@ export const updateMatterRoute = defineRoute({
   feature: 'matters',
   summary: "Changes a matter's title (fixed on a `.0` matter), description, status and opened date, and adds Initial Notes when given.",
   access: { roles: MATTER_WRITE_ROLES },
+  toolAccess: 'matters:write',
+  toolChannels: ['frame'],
   errors: ['MATTER_NOT_FOUND', 'MATTER_CHOICE_INVALID', 'MATTERS_UNAVAILABLE'],
   sideEffects: ['Writes matter and matter_activity_log (Initial Notes)', 'Writes audit_log'],
   request: { params: MatterParams, body: { content: json(MatterUpdateBody), required: true } },
@@ -100,6 +107,8 @@ export const matterDeleteCheckRoute = defineRoute({
   feature: 'matters',
   summary: 'Whether the viewer may delete the matter, and which records (or the `.0` rule) block it.',
   access: { roles: MATTER_READ_ROLES },
+  toolAccess: 'matters:write',
+  toolChannels: ['frame'],
   errors: ['MATTER_NOT_FOUND', 'MATTERS_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { params: MatterParams },
@@ -112,6 +121,8 @@ export const deleteMatterRoute = defineRoute({
   feature: 'matters',
   summary: 'Deletes a matter that has no records, with its party, access and staff rows, after the typed confirmation `Delete Matter <number>` (super admin).',
   access: { roles: ['super_admin'] },
+  toolAccess: 'matters:write',
+  toolChannels: ['frame'],
   errors: ['MATTER_NOT_FOUND', 'MATTER_DELETE_CONFIRMATION_MISMATCH', 'MATTER_GENERAL_PROTECTED', 'MATTER_HAS_RECORDS', 'MATTERS_UNAVAILABLE'],
   sideEffects: ['Deletes matter, matter_party, matter_access and matter_staff_assignment rows', 'Writes audit_log'],
   request: { params: MatterParams, body: { content: json(MatterDeleteBody), required: true } },
@@ -147,9 +158,10 @@ function handle(
   app.openapi(route, (async (c: Context<AppEnv>) => {
     const queries = matterQueriesFor(c.env)
     const session = c.get('session')
-    if (!queries || !session) return failure(c, 503, 'MATTERS_UNAVAILABLE', 'Matters are not available right now.')
+    const serverTool = c.get('tool')?.channel === 'server'
+    if (!queries || (!session && !serverTool)) return failure(c, 503, 'MATTERS_UNAVAILABLE', 'Matters are not available right now.')
     try {
-      const actor: MatterActor = { userId: session.userId, email: session.email ?? null, role: session.role ?? null, requestId: c.get('requestId') }
+      const actor: MatterActor = { userId: session?.userId ?? '', email: session?.email ?? null, role: session?.role ?? null, requestId: c.get('requestId') }
       const data = await work(queries, actor, c)
       logLine(`MATTERS:${tag}`, c.get('requestId'), { route: route.path })
       return c.json({ ok: true as const, data, requestId: c.get('requestId') }, 200)

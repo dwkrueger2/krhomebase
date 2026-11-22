@@ -1,12 +1,12 @@
 # Google Chat Scraper Architecture
-<small>Version 1.5</small><br>
-<small>Updated Nov 21, 2026 4:10pm</small>
+<small>Version 1.7</small><br>
+<small>Updated Nov 21, 2026 8:16pm</small>
 
 ## Runtime boundary
 
 The vinext UI Worker serves the tool frame and forwards same-origin `/auth/*` and `/api/*` calls over a Cloudflare service binding. It is configured for the custom domain `chat-tool.krhomebase.com`; the domain assignment is applied by Cloudflare when the web Worker deploys and has not been verified live. The dedicated ingestion Worker is the only Worker with the tool's D1 binding and is the intended single owner of D1 writes and scheduled polling. The database remains within Cloudflare; this avoids a public HTTP hop between Workers. Reviewers still receive the source text in their browser so they can inspect it. Both Workers and their configurations are inside this directory. No Homebase app or shared package is imported at runtime; the public Tool SDK source snapshot is vendored under `vendor/tool-sdk`.
 
-Current status: Google OpenID Connect sign-in, authenticated Worker health and migration-status diagnostics, UI/API forwarding, synthetic preview response, migration source, Access JWT verification, D1-backed proposal listing/detail/edit/reject routes, and a scheduled no-op handler exist. Google sign-in obtains its exact allowed-email list from the tool's Outside Tools registration through the server-only SDK call; owner credentials, the external API domain, migration 073 and deployment remain prerequisites. Proposal review still uses Cloudflare Access as a separate auth boundary. The Worker has no configured cron trigger. Google Chat reads, queue population, Gemini processing, and Homebase export are not implemented. Do not treat docs describing the target flow as proof those runtime pieces exist.
+Current status: Google OpenID Connect sign-in, authenticated Worker health and migration-status diagnostics, UI/API forwarding, synthetic preview response, migration source, Access JWT verification, D1-backed proposal listing/detail/edit/reject routes, and a scheduled no-op handler exist. Google sign-in obtains its exact allowed-email list from the tool's Outside Tools registration through the server-only SDK call. Homebase migration 073 is already applied and its ledger row and `workspace_tool.permitted_users` column were verified read-only; do not rerun it. Owner credentials, the external API domain, and deployment remain prerequisites. Proposal review still uses Cloudflare Access as a separate auth boundary. The Worker has no configured cron trigger. Google Chat reads, queue population, Gemini processing, and Homebase export are not implemented. Do not treat docs describing the target flow as proof those runtime pieces exist.
 
 ## Intake model
 

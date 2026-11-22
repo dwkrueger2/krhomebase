@@ -34,6 +34,9 @@ describe('toolRefusal', () => {
     expect(toolRefusal({ ...tool, developersOnly: true }, { ...viewer, role: 'billing' })).toBe('role_not_allowed')
     expect(toolRefusal({ ...tool, developersOnly: true }, viewer)).toBe('developers_only')
     expect(toolRefusal({ ...tool, developersOnly: true }, { ...viewer, isDeveloper: true })).toBeNull()
+    expect(toolRefusal(tool, { ...viewer, email: 'DANKRUEGER@LEGALDRIVE.NET' })).toBeNull()
+    expect(toolRefusal(tool, { ...viewer, email: 'other@example.com' })).toBe('user_not_allowed')
+    expect(toolRefusal({ ...tool, permittedUsers: [] }, { ...viewer, role: 'super_admin' })).toBe('user_not_allowed')
   })
 
   it('keeps a local-only tool from the super admin on a deployed server too', () => {
@@ -109,6 +112,18 @@ describe('visibility through the API', () => {
     await register({ label: 'Dev viewer', developersOnly: true })
     expect(await menu('u-sam', DEPLOYED)).toEqual([])
     expect(await menu('u-dee', DEPLOYED)).toEqual(['Dev viewer'])
+  })
+
+  it('requires a permitted email even for super admins in the menu, health check, and frame gate', async () => {
+    const tool = await register({ label: 'Marcus only', permittedUsers: ['marcusrichard@legaldrive.net'] })
+    expect(await menu('u-sam', DEPLOYED)).toEqual([])
+    expect((await call('u-admin', 'super_admin', 'GET', `/v1/tools/menu/${tool.clientId}/health`, DEPLOYED)).status).toBe(404)
+    const refused = await call('u-admin', 'super_admin', 'GET', '/v1/tools/context', DEPLOYED, undefined, { [TOOL_ID_HEADER]: tool.clientId })
+    expect(refused.status).toBe(403)
+    expect(refused.body.error.details.reason).toBe('user_not_allowed')
+
+    const allowed = await app.request('/v1/tools/menu', { headers: { cookie: 'kr_session=test-u-dee' } }, signedInEnv('staff', { krhomebase: d1.db, KR_APP_BASE_URL: DEPLOYED }, 'u-dee', 'marcusrichard@legaldrive.net'))
+    expect(((await allowed.json()) as Json).data.tools.map((entry: Json) => entry.label)).toEqual(['Marcus only'])
   })
 
   it('answers a hidden tool health check as not found and refuses its frame calls with the reason', async () => {

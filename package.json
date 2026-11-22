@@ -40,6 +40,7 @@
     "documents:css": "pnpm --dir packages/documents run css",
     "types:cf": "pnpm --dir apps/api run types:cf",
     "pack:tool-sdk": "pnpm --dir packages/tool-sdk run pack",
+    "release:tool-sdk": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Release-ToolSdk.ps1",
     "snapshot:order": "node scripts/snapshot/order-data.mjs",
     "feedback:get": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Get-Feedback.ps1",
     "stop:port:3000": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stop-dev-port.windows.ps1 -Port 3000",

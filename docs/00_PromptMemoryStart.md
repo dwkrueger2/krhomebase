@@ -1,7 +1,7 @@
 # 00_PromptMemoryStart
 
-<small>Version 2.1</small><br>
-<small>Updated Nov 18, 2026 7:57pm</small>
+<small>Version 2.2</small><br>
+<small>Updated Nov 20, 2026 6:45pm</small>
 
 **Purpose:** Read and follow this file at the start of every new prompt in this repository.
 
@@ -60,7 +60,7 @@ Set-Location $SetLocation
 3. Never read file contents under any folder named `private` (recursive, any depth), for example `...\private\*` and `...\private\temp\*`.
 
 ### 3.1a The other checkout: read-only
-Write only in your checkout. The other checkout may be read when needed, but never write, edit, move, delete, commit, push or change branches there: a session in `D:\Repos\KrhomebaseGPT` never writes in `D:\Repos\krhomebase`, and a session in `D:\Repos\krhomebase` never writes in `D:\Repos\KrhomebaseGPT`. Never read file contents under any folder named `private`.
+Write only in your checkout. The other checkout may be read when needed, but never write, edit, move, delete, commit, push or change branches there: a session in `D:\Repos\KrhomebaseGPT` never writes in `D:\Repos\krhomebase`, and a session in `D:\Repos\krhomebase` never writes in `D:\Repos\KrhomebaseGPT`. Never read file contents under any folder named `private`. The one exception is the published tool kit's clone, `D:\Repos\krhomebase-sdk`, written only by `pnpm release:tool-sdk -PublishTo` (root `AGENTS.md`, hard rule 1).
 
 ### 3.2 Folders containing "private": names only
 In any directory whose path contains the text `private`, file names may be listed. File contents must never be read. Keys and secrets are never required by Claude. Never read `.dev.vars*` files (except `.dev.vars.example`) or key files.
@@ -126,7 +126,7 @@ In any directory whose path contains the text `private`, file names may be liste
 
 - Old API route table: `docs\API\`. The generated reference for the new API: `apps\api\openapi\openapi.json`.
 - Code rules for agents: `AGENTS.md` at the repository root (the index), the companion guides `AGENTS_01` to `AGENTS_06` beside it (versions, commits, documentation headers, coding style, Tailwind, D1 migrations), plus the nearest local `AGENTS.md`: `apps\api`, `apps\web`, `apps\external-api`, `packages\contracts`, `packages\tool-sdk`, `packages\documents`. Design records for screens: `apps\web\PRODUCT.md` and `apps\web\DESIGN.md`.
-- Version tracks (repository, API, web) are kept in three `package.json` files; the procedure is `AGENTS_01_version-procedures.md`. Outstanding task lists: `docs\patch-notes\{repository,api,web}` (the newest list in each folder is the current one).
+- Version tracks (repository, API, web, tool kit) are kept in four `package.json` files (the tool kit's is `packages\tool-sdk\package.json`); the procedure is `AGENTS_01_version-procedures.md`. Outstanding task lists: `docs\patch-notes\{repository,api,web,tool-sdk}` (the newest list in each folder is the current one).
 - Documentation model: `docs\Schema_8.0\00_GPT_Instructions_Robust_Database_Schema_Documentation.md`.
 - Documentation is human readable, local-only (no CDN), one page per table.
 

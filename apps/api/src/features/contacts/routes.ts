@@ -11,8 +11,9 @@
  *  - The list needs the `contacts.read` permission (role sets; the old `isAuthorized(userId, 'contacts', 'read')`).
  *  - One contact needs `contacts.read`, or the contact must be the person's own (their login account is linked
  *    to it), as before. That exception is why the one-contact route checks in the handler.
- *  - Outside tools: closed for now (no `toolAccess`). Opening the list to tools granted `contacts:read` is the
- *    requester's decision (apps/api/AGENTS.md, "Outside tools"). One contact carries the SSN and should stay closed.
+ *  - Outside tools may use both GET routes with `contacts:read` and the POST/PATCH routes with frame-only
+ *    `contacts:write` (approved Nov 21, 2026). Frame calls still enforce the person's permission and own-contact
+ *    exception. Server calls have no person, so writes are refused on that path.
  *
  * Writes: creating and editing a contact are in `../contact-edits/`, client accounts in `../clients/`, and
  * contact maintenance in `../contact-maintenance/` (plan stages 1d-3 and 1d-4).
@@ -40,6 +41,7 @@ export const listContactsRoute = defineRoute({
   summary: 'List every contact, or with mode=delta only those changed since a time. No full SSN or date of birth.',
   access: 'signed-in',
   permission: { resource: 'contacts', action: 'read' },
+  toolAccess: 'contacts:read',
   errors: ['CONTACTS_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { query: ContactListQuery },
@@ -55,6 +57,7 @@ export const getContactRoute = defineRoute({
   feature: 'contacts',
   summary: 'Return one contact with the full SSN and date of birth, for Edit Details. Needs contacts.read, or the contact must be your own.',
   access: 'signed-in',
+  toolAccess: 'contacts:read',
   errors: ['CONTACT_NOT_FOUND', 'PERMISSION_REQUIRED', 'CONTACTS_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { params: ContactIdParams, query: ContactOneQuery },
@@ -133,13 +136,14 @@ export function registerContacts(app: OpenAPIHono<AppEnv>) {
     const requestId = c.get('requestId')
     const queries = contactQueriesFor(c.env)
     const permissions = permissionQueriesFor(c.env)
-    if (!queries || !permissions) return unavailable(c)
+    const serverTool = c.get('tool')?.channel === 'server'
+    if (!queries || (!permissions && !serverTool)) return unavailable(c)
     const { contactId } = c.req.valid('param')
     const { includeRelatedContacts } = c.req.valid('query')
     const viewer = viewerOf(c)
 
     // contacts.read, or this contact is linked to the caller's own login account (unchanged rule).
-    const mayRead = await isAuthorized(permissions, viewer.userId, 'contacts', 'read')
+    const mayRead = serverTool || (permissions ? await isAuthorized(permissions, viewer.userId, 'contacts', 'read') : false)
     if (!mayRead && !(await queries.linkedUserIdsFor(contactId)).includes(viewer.userId)) {
       logLine('CONTACTS:one_denied', requestId)
       return failure(c, 403, 'PERMISSION_REQUIRED', 'You need the contacts.read permission.', { permission: 'contacts.read' })

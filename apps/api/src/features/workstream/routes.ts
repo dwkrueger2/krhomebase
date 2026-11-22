@@ -17,8 +17,10 @@
  *   DELETE /v1/workstream/{wsid}             delete an entry (super admin)
  *
  * Who: every staff role (D9); email the old send roles; delete super admin. Rules: `rules.ts`. Writes pass the write
- * gate and are audited (resource `workstream`). Outside tools: closed. The fixed paths are registered before
- * `{wsid}` so they always win.
+ * gate and are audited (resource `workstream`). The approved list, feed and detail GET routes are open with
+ * `workstream:read`; create, update, move, delete and send-email use frame-only `workstream:write` (approved Nov 21,
+ * 2026). Frame calls retain the person's roles and signed-in audit identity; server tools cannot use these writes.
+ * Other GETs and the email preview remain closed. The fixed paths are registered before `{wsid}` so they always win.
  */
 
 import {
@@ -89,6 +91,7 @@ export const listWorkstreamRoute = defineRoute({
   feature: 'workstream',
   summary: "A client's (optionally one matter's) or a lead's WorkStream entries, every type or one, newest first, one page at a time.",
   access: STAFF,
+  toolAccess: 'workstream:read',
   errors: ['WORKSTREAM_OWNER_REQUIRED', 'WORKSTREAM_CURSOR_INVALID', 'WORKSTREAM_SUBGROUP_INVALID', ...OWNER_ERRORS, 'WORKSTREAM_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { query: WorkstreamListQuery },
@@ -101,6 +104,7 @@ export const workstreamFeedRoute = defineRoute({
   feature: 'workstream',
   summary: 'Every WorkStream entry of every client and lead, newest first, one page at a time (the Communications section).',
   access: STAFF,
+  toolAccess: 'workstream:read',
   errors: ['WORKSTREAM_CURSOR_INVALID', 'WORKSTREAM_SUBGROUP_INVALID', 'WORKSTREAM_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { query: WorkstreamFeedQuery },
@@ -148,6 +152,8 @@ export const workstreamEmailSendRoute = defineRoute({
   feature: 'workstream',
   summary: "Sends a client email from the firm's mailbox and records it as an Emails entry on its matter (the client's .0 when none is chosen).",
   access: { roles: WORKSTREAM_EMAIL_ROLES },
+  toolAccess: 'workstream:write',
+  toolChannels: ['frame'],
   errors: [
     'WORKSTREAM_EMAIL_INVALID_RECIPIENT',
     'WORKSTREAM_EMAIL_INVALID_CC',
@@ -175,6 +181,7 @@ export const getWorkstreamRoute = defineRoute({
   feature: 'workstream',
   summary: 'One WorkStream entry by its seven-character id.',
   access: STAFF,
+  toolAccess: 'workstream:read',
   errors: ['WORKSTREAM_NOT_FOUND', 'WORKSTREAM_UNAVAILABLE'],
   sideEffects: ['None'],
   request: { params: WorkstreamParams },
@@ -187,6 +194,8 @@ export const createWorkstreamRoute = defineRoute({
   feature: 'workstream',
   summary: "Records one WorkStream entry, with every activity type chosen, for a client (on the chosen matter, else the client's .0) or for a lead; the Task type also makes a task on the Tasks screen.",
   access: STAFF,
+  toolAccess: 'workstream:write',
+  toolChannels: ['frame'],
   errors: [...OWNER_ERRORS, 'WORKSTREAM_ASSIGNEE_CONFLICT', ...TASK_ERRORS, 'WORKSTREAM_WSID_EXHAUSTED', 'WORKSTREAM_UNAVAILABLE'],
   sideEffects: ENTRY_WRITES,
   request: { body: { content: json(WorkstreamCreateBody), required: true } },
@@ -199,6 +208,8 @@ export const updateWorkstreamRoute = defineRoute({
   feature: 'workstream',
   summary: "Changes the fields sent (types, matter of the same client, subject, note, next steps, time, assignee, the task's assignees); the rest stay as they are. Adding the Task type makes the task.",
   access: STAFF,
+  toolAccess: 'workstream:write',
+  toolChannels: ['frame'],
   errors: ['WORKSTREAM_NOT_FOUND', 'WORKSTREAM_MATTER_NOT_FOR_CLIENT', 'WORKSTREAM_LEAD_HAS_NO_MATTER', ...TASK_ERRORS, 'WORKSTREAM_TASK_TYPE_REQUIRED', 'WORKSTREAM_UNAVAILABLE'],
   sideEffects: ENTRY_WRITES,
   request: { params: WorkstreamParams, body: { content: json(WorkstreamUpdateBody), required: true } },
@@ -211,6 +222,8 @@ export const moveWorkstreamRoute = defineRoute({
   feature: 'workstream',
   summary: "Moves (reassigns) an entry to a client's matter, the chosen one or else the client's .0; the entry leaves any lead.",
   access: STAFF,
+  toolAccess: 'workstream:write',
+  toolChannels: ['frame'],
   errors: ['WORKSTREAM_NOT_FOUND', 'WORKSTREAM_CLIENT_NOT_FOUND', 'WORKSTREAM_MATTER_NOT_FOR_CLIENT', 'WORKSTREAM_GENERAL_MATTER_MISSING', 'WORKSTREAM_UNAVAILABLE'],
   sideEffects: WRITES,
   request: { params: WorkstreamParams, body: { content: json(WorkstreamMoveBody), required: true } },
@@ -223,6 +236,8 @@ export const deleteWorkstreamRoute = defineRoute({
   feature: 'workstream',
   summary: 'Deletes a WorkStream entry and its comments (super admin).',
   access: { roles: ['super_admin'] },
+  toolAccess: 'workstream:write',
+  toolChannels: ['frame'],
   errors: ['WORKSTREAM_NOT_FOUND', 'WORKSTREAM_UNAVAILABLE'],
   sideEffects: ['Deletes workstream_activity (and its comments)', 'Writes audit_log'],
   request: { params: WorkstreamParams },
@@ -244,9 +259,10 @@ function handle(app: OpenAPIHono<AppEnv>, route: ReturnType<typeof defineRoute>,
   app.openapi(route, (async (c: Context<AppEnv>) => {
     const queries = workstreamQueriesFor(c.env)
     const session = c.get('session')
-    if (!queries || !session) return failure(c, 503, 'WORKSTREAM_UNAVAILABLE', 'WorkStream is not available right now.')
+    const serverTool = c.get('tool')?.channel === 'server'
+    if (!queries || (!session && !serverTool)) return failure(c, 503, 'WORKSTREAM_UNAVAILABLE', 'WorkStream is not available right now.')
     try {
-      const actor: WorkstreamActor = { userId: session.userId, email: session.email ?? null, role: session.role ?? null, displayName: session.displayName || session.email || session.userId, requestId: c.get('requestId') }
+      const actor: WorkstreamActor = { userId: session?.userId ?? '', email: session?.email ?? null, role: session?.role ?? null, displayName: session?.displayName || session?.email || session?.userId || 'Outside tool', requestId: c.get('requestId') }
       const data = await work(queries, actor, c)
       logLine(`WORKSTREAM:${tag}`, c.get('requestId'), { route: route.path })
       return c.json({ ok: true as const, data, requestId: c.get('requestId') }, 200)

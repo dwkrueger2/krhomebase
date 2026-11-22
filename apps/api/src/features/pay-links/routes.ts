@@ -10,7 +10,8 @@
  *
  * Who may call (the old roles): the list the office read roles; posting and the print link the billing write roles
  * (the old `PRINT_LINK_ROLES` are the same list); the webhook has no session and is checked by its signature
- * (`X-KR-Pay-Signature`, HMAC from the payment-provider KEK, 300 seconds). Outside tools: closed (no `toolAccess`).
+ * (`X-KR-Pay-Signature`, HMAC from the payment-provider KEK, 300 seconds). The list GET is open with `billing:read`;
+ * posting, print-link and webhook routes remain closed to outside tools.
  *
  * The webhook (decision B4): the pay Worker `kr-pay-worker-live` calls it through its service binding to this API (the
  * API has no public address). It declares no JSON body on purpose: the signature covers the raw bytes, so the body is
@@ -79,6 +80,7 @@ export const payLinksListRoute = defineRoute({
   feature: FEATURE,
   summary: "The client's online pay links, newest first (status, paid and posted details, post errors). Writes nothing.",
   access: { roles: BILLING_READ_ROLES },
+  toolAccess: 'billing:read',
   errors: [UNAVAILABLE],
   sideEffects: ['None'],
   request: { params: BillingClientParams },

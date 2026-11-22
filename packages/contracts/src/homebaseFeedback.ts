@@ -165,7 +165,9 @@ export type HomebaseFeedbackCreateBody = z.infer<typeof HomebaseFeedbackCreateBo
 export const HomebaseFeedbackParams = z.object({
   number: z
     .string()
-    .regex(/^(?:FB-?)?\d{1,9}$/i, 'A request number is FB-0012 or 12.')
+    // Written without the `i` flag (it matches the same text: `FB`, `fb`, `Fb`, `fB`), because the API reference
+    // writer copies the flag into the pattern text as `.../i` (tool kit 1.1.0, repository patch 67).
+    .regex(/^(?:[Ff][Bb]-?)?\d{1,9}$/, 'A request number is FB-0012 or 12.')
     .describe('The request number: `FB-0012` or `12`.'),
 })
 export type HomebaseFeedbackParams = z.infer<typeof HomebaseFeedbackParams>

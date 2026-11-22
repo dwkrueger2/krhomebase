@@ -1,6 +1,6 @@
 # Schema 8.0 - KR Homebase operational database
 <small>Version 1.0</small><br>
-<small>Updated Nov 21, 2026 4:10pm</small>
+<small>Updated Nov 21, 2026 8:16pm</small>
 
 Definitive starting schema for the `krhomebase` repository. Rebuilt on 2026-10-24 from the live D1 schema of **krhomebase_dev** (read with `wrangler d1 execute ... --command "SELECT ... FROM sqlite_schema"`), using the Schema 7.0 documentation as the style and wording reference. It supersedes Schema 7.0.
 
@@ -64,3 +64,4 @@ Migration 073 adds `workspace_tool.permitted_users`, a JSON email list for each 
   ```
 
 - The pages in this folder do not describe the migrations yet (for example `workspace_tool`, `user_preference`, `homebase_feedback`, the deploy window columns and `kr_schema_migration`). They are added when Schema 8.0 is next refreshed from the live database.
+- Migration 073 (`Migration_Patch073_11_21_tool_permitted_users.sql`) adds `workspace_tool.permitted_users`, the registration's exact allowed email list. The owner reported it applied; on Nov 21, 2026 its `kr_schema_migration` row and the column were verified with read-only queries. Do not apply or rerun this migration.

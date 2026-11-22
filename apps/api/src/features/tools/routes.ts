@@ -14,7 +14,7 @@
  *   POST   /v1/tools/registrations/health-check        read a tool address's health route and icon route (before or after saving)
  *
  *  Any signed-in person:
- *   GET    /v1/tools/menu                              active tools this person may use (`toolRefusal`: role, local only, developers only)
+ *   GET    /v1/tools/menu                              active tools this person may use (`toolRefusal`: role, permitted email, local only, developers only)
  *   GET    /v1/tools/menu/{clientId}/health            read the health route of a tool this person may open
  *
  * Icons: a tool has a built-in fallback icon name (default `tool`, the orange diamond) and, optionally, its own SVG
@@ -43,6 +43,7 @@
 import {
   ToolAuditData,
   ToolContextData,
+  ToolPermittedUsersData,
   ToolCreateBody,
   ToolCreatedData,
   ToolDeletedData,
@@ -57,6 +58,8 @@ import {
   ToolTokenData,
   ToolPermittedUsersData,
   ToolUpdateBody,
+  ToolSdkData,
+  ToolSdkPointer,
   ErrorEnvelope,
   TOOL_GATEWAY_HEADER,
   TOOL_GATEWAY_VALUE,
@@ -69,6 +72,7 @@ import {
 } from '@krhomebase/contracts'
 import type { OpenAPIHono } from '@hono/zod-openapi'
 import type { Context } from 'hono'
+import { z } from 'zod'
 import { clientIp, toolViewerFor } from '../../platform/authGuard.ts'
 import { defineRoute } from '../../platform/defineRoute.ts'
 import { failure } from '../../platform/envelope.ts'
@@ -294,9 +298,10 @@ export const toolPermittedUsersRoute = defineRoute({
   method: 'get',
   path: '/v1/tools/permitted-users',
   feature: 'tools',
-  summary: 'Return the permitted sign-in emails for the calling tool registration.',
+  summary: 'For a registered tool server, return the permitted sign-in emails for its own registration.',
   access: 'signed-in',
   toolAccess: 'tool-registration:read',
+  toolChannels: ['server'],
   errors: ['TOOL_CALLER_REQUIRED', 'TOOL_FORBIDDEN', 'TOOLS_UNAVAILABLE'],
   sideEffects: ['Writes workspace_tool_audit'],
   responses: {
@@ -374,8 +379,104 @@ async function auditAdmin(c: Context<AppEnv>, queries: ToolQueries, toolId: stri
 
 const unavailable = (c: Context<AppEnv>) => failure(c, 503, 'TOOLS_UNAVAILABLE', 'Outside tools are not available right now.')
 
+const toolSdkMissing = (c: Context<AppEnv>) => failure(c, 404, 'TOOL_SDK_NOT_FOUND', 'No tool kit ZIP is stored yet.')
+
+const toolSdkRoute = defineRoute({
+  method: 'get',
+  path: '/v1/tools/sdk',
+  feature: 'tools',
+  summary: 'The latest tool kit ZIP stored in R2: version, file name, byte size and upload time.',
+  access: 'signed-in',
+  permission: { resource: 'developer_tools', action: 'read' },
+  errors: ['TOOL_SDK_NOT_FOUND', 'TOOLS_UNAVAILABLE'],
+  sideEffects: ['Reads R2 DOCUMENTS'],
+  responses: {
+    200: { description: 'The stored tool kit archive metadata.', content: json(successEnvelope(ToolSdkData)) },
+    404: errorBody('No tool kit ZIP is stored yet (TOOL_SDK_NOT_FOUND).'),
+    503: errorBody('The tool kit storage is unavailable (TOOLS_UNAVAILABLE).'),
+  },
+})
+
+const toolSdkDownloadRoute = defineRoute({
+  method: 'get',
+  path: '/v1/tools/sdk/download',
+  feature: 'tools',
+  summary: 'Download the latest versioned tool kit ZIP stored in R2.',
+  access: 'signed-in',
+  permission: { resource: 'developer_tools', action: 'read' },
+  errors: ['TOOL_SDK_NOT_FOUND', 'TOOLS_UNAVAILABLE'],
+  sideEffects: ['Reads R2 DOCUMENTS'],
+  responses: {
+    200: { description: 'The stored ZIP file.', content: { 'application/zip': { schema: z.string().describe('The ZIP file bytes.') } } },
+    404: errorBody('No tool kit ZIP is stored yet (TOOL_SDK_NOT_FOUND).'),
+    503: errorBody('The tool kit storage is unavailable (TOOLS_UNAVAILABLE).'),
+  },
+})
+
+/** Reads and validates the latest pointer, then fetches its versioned ZIP without traversing outside tool-sdk/. */
+async function readStoredToolSdk(c: Context<AppEnv>) {
+  const bucket = c.env.DOCUMENTS
+  if (!bucket) return { kind: 'unavailable' as const }
+  let pointerObject: R2ObjectBody | null
+  try {
+    pointerObject = await bucket.get('tool-sdk/latest.json')
+  } catch {
+    return { kind: 'unavailable' as const }
+  }
+  if (!pointerObject) return { kind: 'missing' as const }
+  let pointerText: string
+  try {
+    pointerText = await pointerObject.text()
+  } catch {
+    return { kind: 'unavailable' as const }
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(pointerText)
+  } catch {
+    return { kind: 'missing' as const }
+  }
+  const pointer = ToolSdkPointer.safeParse(parsed)
+  if (!pointer.success || !/^krhomebase-sdk-[0-9]+\.[0-9]+\.[0-9]+\.zip$/.test(pointer.data.fileName) ||
+      pointer.data.key !== `tool-sdk/${pointer.data.fileName}` || pointer.data.version !== pointer.data.fileName.slice('krhomebase-sdk-'.length, -'.zip'.length)) {
+    return { kind: 'missing' as const }
+  }
+  let archive: R2ObjectBody | null
+  try {
+    archive = await bucket.get(pointer.data.key)
+  } catch {
+    return { kind: 'unavailable' as const }
+  }
+  if (!archive) return { kind: 'missing' as const }
+  return {
+    kind: 'ok' as const,
+    pointer: pointer.data,
+    archive,
+    data: { version: pointer.data.version, fileName: pointer.data.fileName, size: archive.size, uploadedAt: archive.uploaded.toISOString() },
+  }
+}
+
 /** Registers the tools routes on the app. */
 export function registerTools(app: OpenAPIHono<AppEnv>) {
+  app.openapi(toolSdkRoute, async (c) => {
+    const stored = await readStoredToolSdk(c)
+    if (stored.kind === 'missing') return toolSdkMissing(c)
+    if (stored.kind === 'unavailable') return failure(c, 503, 'TOOLS_UNAVAILABLE', 'Tool kit storage is not available right now.')
+    c.header('Cache-Control', 'no-store')
+    return c.json({ ok: true as const, data: stored.data, requestId: c.get('requestId') }, 200)
+  })
+
+  app.openapi(toolSdkDownloadRoute, async (c) => {
+    const stored = await readStoredToolSdk(c)
+    if (stored.kind === 'missing') return toolSdkMissing(c)
+    if (stored.kind === 'unavailable') return failure(c, 503, 'TOOLS_UNAVAILABLE', 'Tool kit storage is not available right now.')
+    c.header('Cache-Control', 'no-store')
+    c.header('Content-Disposition', `attachment; filename="${stored.pointer.fileName}"`)
+    c.header('Content-Type', 'application/zip')
+    c.header('Content-Length', String(stored.archive.size))
+    return new Response(stored.archive.body, { status: 200, headers: c.res.headers })
+  })
+
   app.openapi(listToolsRoute, async (c) => {
     const queries = toolQueriesFor(c.env)
     if (!queries) return unavailable(c)

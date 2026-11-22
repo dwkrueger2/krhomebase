@@ -1,13 +1,35 @@
 # KR Homebase Tool Kit: Developer Guide
-
-<small>Version 1.7</small><br>
-<small>Updated Nov 21, 2026 4:10pm</small>
+<small>Version 2.0</small><br>
+<small>Updated Nov 21, 2026 8:16pm</small>
 
 **Who this is for:** a developer building an outside tool for KR Homebase without access to the KR Homebase code.
+
+**Kit version:** 1.1.0 (`TOOL_SDK_VERSION` in `@krhomebase/tool-sdk/version`). What changed in each release: `CHANGELOG.md`.
 
 **What you build:** a web page you host yourself. A KR Homebase super admin adds it to the left menu. When someone opens it, KR Homebase shows your page in its workspace inside a sealed frame, and in its own window when the person pops it out. Your page reads and writes KR Homebase data only through this kit and only within the permissions the super admin granted.
 
 ---
+
+## 0. Getting access
+
+KR Homebase is private. Nothing about a tool is self-service: a KR Homebase super admin gives you the kit, registers your tool and grants what it may do.
+
+1. **Get the kit.** The kit lives in the private GitHub repository `dwkrueger2/krhomebase-sdk`. Ask the super admin to give your GitHub account access. Once you have it, the repository's front page names the current version, and `releases/krhomebase-sdk-<version>.zip` holds the kit file (`krhomebase-tool-sdk-<version>.tgz`), this guide, `CHANGELOG.md`, the API reference (section 6) and the example tool. Without access, GitHub shows "Page not found"; that is GitHub hiding a private repository, not a broken link.
+2. **Build and test on your own computer** (sections 3 to 5 and 9). For a copy at a `localhost` address, set `localOnly: true` in `defineTool`.
+3. **Send the registration sheet.** `registrationSheet(tool)` prints what the super admin types in: the label, description, version, your address, the roles and Shown options you suggest, the permissions you need and whether your own server will call KR Homebase. It holds no secret; email or chat is fine.
+4. **The super admin registers the tool** in KR Homebase (Settings → Application Settings → Outside tools → **Register tool**) and presses **Check health**, which reads your `/health-check` (section 5.3). KR Homebase then issues the tool's identity:
+
+| Issued | What it is | How you get it |
+|---|---|---|
+| Client id (`krt_...`) | The tool's public name in KR Homebase. Not a secret. | The super admin sends it. It never changes. |
+| Permissions | What the super admin ticked. It may be fewer than you asked for. | The super admin tells you. |
+| Client secret (`krts_...`), server path only | The password your **server** uses to get 15-minute access tokens (section 7). | Shown **once**, on the super admin's screen, when **Server access** is ticked. The super admin sends it to you by a private channel (a password manager share, not plain email). KR Homebase keeps only a hash, so a lost secret cannot be shown again: ask for a new one. |
+| External API address, server path only | Where your server calls. | The super admin sends it. |
+
+5. **A frame tool needs no key.** In the frame (path A), KR Homebase vouches for your page: your registered address plus the signed-in person. Nothing secret ever goes into your web page.
+6. **Replacing the secret.** The super admin presses **New secret** and chooses how long the old one keeps working: 0, 24 or 72 hours (0 also ends the old tokens at once). Put the new secret in your server's secret store within that time.
+7. **When you change your tool:** raise `version` in `defineTool` (the health route reports it). A new address, new permissions or a new role list are changes the super admin makes; send a new registration sheet. Turning a tool off, or removing it, ends its access at once.
+8. **New kit versions** appear in the repository. Read `CHANGELOG.md` before you update. A new permission always comes with a new kit version.
 
 ## 1. How it works
 
@@ -36,13 +58,13 @@ The super admin needs from you: the label, description, version, your page's add
 
 ## 3. Install
 
-The kit is delivered as a file, `krhomebase-tool-sdk-1.0.0.tgz`. Copy it into your project and install it:
+The kit is delivered as a file, `krhomebase-tool-sdk-1.1.0.tgz`, inside the release zip (section 0). Copy it into your project and install it:
 
 ```powershell
-pnpm add ./krhomebase-tool-sdk-1.0.0.tgz
+pnpm add ./krhomebase-tool-sdk-1.1.0.tgz
 ```
 
-`npm install ./krhomebase-tool-sdk-1.0.0.tgz` works too. The kit has no other dependencies. It ships JavaScript modules with TypeScript types.
+`npm install ./krhomebase-tool-sdk-1.1.0.tgz` works too. The kit has no other dependencies. It ships JavaScript modules with TypeScript types.
 
 | Import | Use |
 |---|---|
@@ -50,6 +72,7 @@ pnpm add ./krhomebase-tool-sdk-1.0.0.tgz
 | `@krhomebase/tool-sdk/server` | `createServerClient`: your server |
 | `@krhomebase/tool-sdk/manifest` | `defineTool`, `registrationSheet`, `healthDocument`, `checkToolIcon` |
 | `@krhomebase/tool-sdk/types` | Shared types and the lists of permissions and icons |
+| `@krhomebase/tool-sdk/version` | `TOOL_SDK_VERSION`, the kit's version |
 
 ## 4. Your page in the frame (path A)
 
@@ -69,7 +92,19 @@ else console.log(who.error.code, who.error.message)
 - `host.mode` is `workspace` or `popout`.
 - `host.setTitle('...')` sets the words in the pop-out window's title.
 - `host.setDirty(true)` while your page holds unsaved work; `false` once it is saved. KR Homebase then warns before the window closes and asks before the person logs out. When KR Homebase ends the session itself (server maintenance, the idle limit), it leaves without asking: save as you go.
-- `host.theme` holds the KR Homebase colors and fonts as `--kr-theme-*` values. They are already applied to your page's root element, so `color: var(--kr-theme-text)` matches KR Homebase. Pass `applyTheme: false` to skip that.
+- `host.theme` holds the KR Homebase colors and fonts as `--kr-theme-*` values. They are already applied to your page's root element, so `color: var(--kr-theme-text)` matches KR Homebase. Pass `applyTheme: false` to skip that. They follow the person's light or dark theme. Always give a fallback (`var(--kr-theme-text, #1b2330)`), because your page draws before the values arrive.
+
+| Use | `--kr-theme-*` names you may rely on |
+|---|---|
+| Text | `text`, `text-muted`, `text-inverse` (on a dark or colored fill) |
+| Surfaces | `shell-surface` (the page), `card-surface`, `muted-surface`, `panel-background` |
+| Lines | `line` |
+| Signal colors | `orange` (KR Homebase's accent and the Save Changes button), `teal`, `accent`, `brand-primary`, `danger`, `success`, `warning` |
+| Buttons | `button-primary-background`, `button-primary-hover-background`, `button-secondary-background` |
+| Tables | `table-heading-light`, `table-heading-dark`, `table-row-background-1`, `table-row-background-2`, `table-row-hover`, `table-row-selected` |
+| Type | `font-body`, `font-display`, `font-size-base`, `font-size-small`, `font-size-bigger`, `font-size-title` |
+
+Other `--kr-theme-*` values may arrive too; they belong to single KR Homebase screens and may change without notice.
 
 ### Pop-out
 
@@ -114,6 +149,8 @@ export const tool = defineTool({
   hostOrigins: ['https://krhomebase.com'],
   scopes: ['contacts:read'],
   roles: ['staff', 'paralegal'],     // optional suggestion (section 5.2)
+  localOnly: false,                  // optional request: shown only under a local KR Homebase (section 5.2)
+  developersOnly: false,             // optional request: shown only to KR Homebase developers (section 5.2)
   icon: 'documents',                 // optional built-in fallback (section 5.1); left out: the default tool icon
   serverAccess: false,
 })
@@ -154,6 +191,8 @@ Draw like the KR Homebase menu icons: a 24 by 24 grid, strokes of about 1.8, rou
 
 Every KR Homebase account holds one role: `super_admin`, `attorney`, `paralegal`, `staff`, `billing`, `client` or `external_cpa` (`TOOL_ROLES` in `@krhomebase/tool-sdk/types`). The super admin ticks the roles your tool is for; a person holding **any one** of them sees it in the menu. `super_admin` is always included. `roles` in `defineTool` is your suggestion and is printed on the registration sheet. A frame call still needs the person's own permission for each route, whatever their role.
 
+**Shown options.** Two boxes narrow who sees a tool beyond its roles. **Local development only** shows it only while KR Homebase runs on a developer's computer (`pnpm dev`); use it for a copy at a `localhost` address, because a local KR Homebase and the deployed one share the same tool list. **Developers only** shows it only to people who hold KR Homebase's Internal Developer permission. Ask for them with `localOnly: true` and `developersOnly: true` in `defineTool`; the sheet prints them on its `Shown:` line.
+
 ### 5.3 The health route: `/health-check` (required)
 
 Every tool must answer `GET <your origin>/health-check` (`TOOL_HEALTH_PATH`) with JSON, no redirect, within 5 seconds and in at most 4096 bytes:
@@ -173,11 +212,11 @@ A `localhost` address is not read (the KR Homebase server cannot reach your comp
 
 A permission is `<area>:read` (look) or `<area>:write` (create, change, delete). Ask for the fewest that work.
 
-`contacts`, `leads`, `communications`, `tasks`, `timekeeping`, `billing`, `matters`, `documents`, `homebase-feedback` (each `:read` and `:write`), `reports:read`, and `tool-registration:read`. A new permission comes with a new version of this kit.
+`contacts`, `leads`, `workstream`, `tasks`, `timekeeping`, `billing`, `matters`, `documents`, `homebase-feedback` (each `:read` and `:write`), `reports:read`, and `tool-registration:read` (server path only). A new permission comes with a new version of this kit.
 
-- A route accepts tools only when KR Homebase opened it to them. In the API reference (the OpenAPI file the super admin can send you), each route's description has a line `Outside tools: ...` naming the permission it needs, or `not allowed`.
-- **Routes open to tools today:** `GET /v1/tools/context` (any tool), `GET /v1/tools/permitted-users` (`tool-registration:read`, server path only), and the Homebase Feedback routes for developers: `GET /v1/homebase-feedback`, `GET /v1/homebase-feedback/{number}` (`homebase-feedback:read`), `PATCH /v1/homebase-feedback/{number}` and `POST /v1/homebase-feedback/{number}/notes` (`homebase-feedback:write`). Routes for clients, tasks and the other areas open to tools as KR Homebase builds them. A permission with no route yet grants nothing.
-- A frame call also needs the person to be allowed: KR Homebase applies both your permissions and the person's role and login email. The super admin chooses permitted emails from a fixed firm list in the registration form; an empty list denies everyone.
+- A route accepts tools only when KR Homebase opened it to them. **The API reference in the release zip** lists only those routes: `api-reference/API-REFERENCE.md` (to read: each route, the permission it needs, its parameters and its body) and `api-reference/openapi-tools.json` (the same routes as an OpenAPI 3.1 file, for a type generator). Each route's description ends with a line `Outside tools: ...` naming the permission it needs.
+- **Routes open to tools today:** `GET /v1/tools/context` (any tool), `GET /v1/tools/permitted-users` (`tool-registration:read`, server path only, and only this registration's list), the Homebase Feedback routes, and the approved contacts, client/matters, leads, tasks, WorkStream, billing and timekeeping routes listed in `docs/05_Outside_Tools.md`. Frame calls retain the person's authorization checks. Server calls have no person and use the route's granted scope; time-card calls name an employee, while server clock-state returns no person's clock. The next kit release's API reference will include these routes.
+- A frame call also needs the person to be allowed: KR Homebase applies both your permissions and the person's role and login email. The super admin chooses permitted emails from a fixed firm list; an empty list denies everyone.
 
 ## 7. Your server (path B)
 
@@ -193,6 +232,8 @@ const kr = createServerClient({
 const who = await kr.get('/v1/tools/context') // who.data.channel === 'server', who.data.user === null
 const permitted = await kr.getPermittedUsers() // requires tool-registration:read; returns only this registration's list
 ```
+
+When your server needs the emails currently permitted for its registration, grant `tool-registration:read` and call `kr.getPermittedUsers()`. It returns only this registration's list. Treat a failed reply as denied access; do not fall back to a local allowlist or allow the user through.
 
 - The client fetches a 15-minute access token on the first call, keeps it until a minute before it ends, and fetches a new one when needed. Its `scopes` option asks for fewer permissions than were granted.
 - **Keep the client secret on your server only.** Use a secret store or an environment setting. Never put it in a browser page, the frame page, a log or a code repository.
@@ -214,7 +255,7 @@ const permitted = await kr.getPermittedUsers() // requires tool-registration:rea
 | `VALIDATION_FAILED` | The body did not match what the route expects. | `details` lists the fields. |
 | `BRIDGE_TIMEOUT`, `BRIDGE_CLOSED`, `BAD_PATH` | Made by the kit: no answer, disconnected, or a path outside `/v1/`. | Check the path; reload the tool. |
 
-`details.reason` for `TOOL_FORBIDDEN`: `tool_unknown`, `tool_disabled`, `role_not_allowed` (the person's role may not use the tool), `route_not_open_to_tools`, `scope_not_granted` (`details.needs` names the permission), `server_access_disabled`, `ip_not_allowed`.
+`details.reason` for `TOOL_FORBIDDEN`: `tool_unknown`, `tool_disabled`, `role_not_allowed` (the person's role may not use the tool), `user_not_allowed` (the person's email is not on the registration), `route_not_open_to_tools`, `scope_not_granted` (`details.needs` names the permission), `server_access_disabled`, `ip_not_allowed`.
 
 Every reply has a `requestId`. Include it when you report a problem; it matches the KR Homebase logs.
 
@@ -230,13 +271,13 @@ Every reply has a `requestId`. Include it when you report a problem; it matches 
 
 ```powershell
 $Example = "C:\path\to\hello-tool"   # copy the example folder out of the kit
-Copy-Item .\krhomebase-tool-sdk-1.0.0.tgz $Example
+Copy-Item .\krhomebase-tool-sdk-1.1.0.tgz $Example
 Set-Location $Example
 pnpm install
 pnpm dev        # serves http://localhost:5173
 ```
 
-Then register `http://localhost:5173/` (section 9). Its health route and icon are `public/health-check` and `public/tool-icon.svg` (sections 5.3 and 5.1). `server-sync.mjs` shows the server path (`pnpm run sync`, with the three settings named at its top).
+Then register `http://localhost:5173/` (section 9) with **Local development only** ticked (the example's `defineTool` asks for it). Its health route and icon are `public/health-check` and `public/tool-icon.svg` (sections 5.3 and 5.1). `server-sync.mjs` shows the server path (`pnpm run sync`, with the three settings named at its top).
 
 ## 11. Rules for every tool
 
