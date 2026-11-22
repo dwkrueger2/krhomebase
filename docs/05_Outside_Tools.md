@@ -1,7 +1,6 @@
 # Outside Tools: Design, Security and Operation
-
-<small>Version 1.9</small><br>
-<small>Updated Nov 21, 2026 1:55pm</small>
+<small>Version 2.0</small><br>
+<small>Updated Nov 21, 2026 4:11pm</small>
 
 **Headline:** other developers can add a tool to the left menu without a redeploy. A super admin registers the tool's address and grants it permissions. KR Homebase shows the tool in a sealed frame, in the workspace or popped out. The tool reaches data only through KR Homebase, and only within its grant.
 
@@ -55,7 +54,7 @@ Path B: tool server (client secret)
 
 **Who sees a tool.** The super admin ticks roles from the fixed list of roles an account can hold (`ToolRoleNames` in contracts, the `user.role` CHECK list). A person sees the tool when their role is **any one** of them (`toolUsableBy`). `super_admin` is always on the list (the requester, Nov 14, 2026): the API adds it to every saved list (`withSuperAdmin`), `toolUsableBy` honours it for rows saved earlier, and the form shows it ticked, grey and locked. A frame call still needs the person's own permission for each route.
 
-**Two Shown options narrow it** (repository patch 58, the requester, Nov 17, 2026; migration 058, columns `local_only` and `developers_only`, both 0 by default). **Local development only**: the tool is shown and usable only while the API runs under `pnpm dev` (`KR_APP_BASE_URL` a localhost address, `isDevelopmentServer` in `apps/api/src/platform/runtime.ts`); the deployed API treats it as not there, also on the server path. It exists because `pnpm dev` reads the live database: a tool registered at `http://localhost:5174` for local testing showed in the deployed menu too. **Developers only**: shown and usable only by people who hold `developer_tools` read (the built-in Internal Developer role set, which is not a `user.role` value and so cannot be a role on the list; Super Admin holds every permission). It applies on the frame path only (the server path has no person). `toolRefusal` (`apps/api/src/features/tools/rules.ts`) checks, in order: active (`tool_disabled`), local only (`tool_local_only`), role (`role_not_allowed`), developers only (`developers_only`); the same answer decides the menu, the health check (a hidden tool answers 404) and every frame call (403 `TOOL_FORBIDDEN` with that reason). The permission is read only when a developers-only tool is in question (`toolViewerFor` in `authGuard.ts`), once per menu. The registration form shows both as a **Shown** row under Roles, with a hint when a localhost address is not marked local only; the tool list tags them.
+**Shown options narrow it.** Migration 058 adds `local_only` and `developers_only`; migration 073 adds `permitted_users`, the JSON list of exact sign-in emails (defaulting existing and new registrations to the three fixed firm accounts). The registration form shows the permitted addresses as removable chips directly below Roles; removing every chip denies everyone. This email check also applies to super admins. **Local development only**: shown and usable only while the API runs under `pnpm dev` (`KR_APP_BASE_URL` a localhost address, `isDevelopmentServer` in `apps/api/src/platform/runtime.ts`); the deployed API treats the tool as absent. **Developers only**: shown and usable only by people who hold `developer_tools` read. `toolRefusal` checks active state, local-only, role, developers-only and permitted email for the menu, health check and every frame call. The server path has no person, so the role and email list do not restrict server calls; route scopes and server settings do.
 
 **The tool's own icon.** A tool serves its own menu icon at `/tool-icon.svg` as SVG text of the "tool icon" type (`checkToolIcon`, written out in both `packages/tool-sdk/src/toolIcon.ts` and `packages/contracts/src/toolIcon.ts`, kept equal by the kit's sync test): `viewBox="0 0 24 24"`, only shape elements, only drawing attributes, `fill` and `stroke` `none`, `currentColor`, a hex color or a KR theme color (`var(--kr-theme-orange)`; the requester, Nov 15, 2026), comments allowed and removed, no text, styles, scripts, links, images, declarations or entities, at most 4000 characters without comments. The API reads and checks it on every registration save and stores the standard form beside the fallback icon name (default `tool`, KR Homebase's orange diamond) in the `icon` column (`<name> <svg ...>`; no migration). The web app checks it again and draws it from the checked elements with React (`components/ui/ToolSvgIcon.client.tsx`), never as HTML; a refused icon falls back to the built-in one.
 
@@ -67,7 +66,7 @@ Path B: tool server (client secret)
 1. The frame loads only the registered address. The sandbox allows scripts, forms, new tabs, downloads and the tool's own storage. It blocks changing the KR Homebase page's address and browser alert boxes. `allow=""` blocks camera, microphone and location, and the frame sends no referrer.
 2. The host page accepts a message only when the browser reports it came from that frame's window and from the registered origin. The browser sets both values, so a page cannot fake them. Replies go only to that origin.
 3. The host page checks the method and the path (`/v1/` only; no `..`, `//` or `\`). It then calls the API with the person's cookie and `x-kr-tool-id`. The tool never sees the cookie.
-4. The API checks the session first, as it does for every call. It then checks that the tool exists and is active, that it is not local only on a deployed server, that the person's role is on the tool's list, that a developers-only tool's person holds `developer_tools` read, and that the route's `toolAccess` is `'any'` or a permission the tool was granted. **A tool never sees more than the person using it.**
+4. The API checks the session first, as it does for every call. It then checks that the tool exists and is active, that it is not local only on a deployed server, that the person's role and exact login email are on the registration lists, that a developers-only tool's person holds `developer_tools` read, and that the route's `toolAccess` is `'any'` or a permission the tool was granted. **A tool never sees more than the person using it.**
 5. Another site cannot make the browser send the cookie with `x-kr-tool-id`. The cookie is `SameSite=Lax`, so the browser does not send it on another site's background requests, and a custom header from another site needs a CORS permission (cross-site request permission) that KR Homebase never gives.
 6. **Host tools on their own domain, not on a `krhomebase.com` subdomain.** Browsers treat a subdomain as the same site, so a `SameSite=Lax` cookie would travel with its requests. The CORS rule above still blocks them, but a separate domain keeps two guards instead of one.
 
@@ -98,6 +97,7 @@ Path B: tool server (client secret)
 ## 4. What is open to tools today
 
 - `GET /v1/tools/context` (`toolAccess: 'any'`). It tells the tool who is calling.
+- `GET /v1/tools/permitted-users` (`tool-registration:read`, server path only). It returns only the current permitted-email list for the calling registration; callers must fail closed when the API or grant is unavailable.
 - Homebase Feedback (Nov 14, 2026, the requester's choice): `GET /v1/homebase-feedback` and `GET /v1/homebase-feedback/{number}` (`homebase-feedback:read`), `PATCH /v1/homebase-feedback/{number}` and `POST /v1/homebase-feedback/{number}/notes` (`homebase-feedback:write`). The person's own permission (`developer_tools`) still applies on the frame path. The first tool to use them is `workers/feedback-viewer`, built with only the kit as a test of it; what it found about the kit is in its `README.md`.
 - Approved Nov 21, 2026, all candidate GET routes are open. `contacts:read`: `GET /v1/contacts` and `GET /v1/contacts/{contactId}` (the latter includes full SSN and date of birth); `matters:read`: `GET /v1/clients` and `GET /v1/clients/{clientId}/matters`; `leads:read`: `GET /v1/leads` and `GET /v1/leads/{leadId}`; `tasks:read`: `GET /v1/tasks`, `GET /v1/tasks/{taskId}` and `GET /v1/tasks/{taskId}/notes`; `workstream:read`: `GET /v1/workstream`, `/v1/workstream/feed` and `/v1/workstream/{wsid}`; `billing:read`: all eight existing GET routes under `/v1/billing/`, including billing records, stored billing emails and PDFs, pay links and Stripe card-payment configuration; `timekeeping:read`: `GET /v1/timekeeping/team-status`, `/time-card`, `/clock-state` and `/employees`.
 
@@ -116,7 +116,7 @@ Frame calls still require the signed-in person's route roles, fine-grained permi
 
 **SDK download:** `GET /v1/tools/sdk` reports metadata from `DOCUMENTS` R2 `tool-sdk/latest.json` and its versioned ZIP; `GET /v1/tools/sdk/download` downloads the ZIP. These routes have no `toolAccess` and are limited to super admins and people with `developer_tools` read. Release preparation prints owner-run R2 upload commands; see `packages/tool-sdk/AGENTS.md`, "Storing a kit ZIP in KR Homebase".
 
-Each business area opens its routes when it is built, by adding `toolAccess: '<area>:read'` or `'<area>:write'` to `defineRoute()`. `toolChannels: ['frame']` restricts write routes to signed-in frame calls. A new permission is added to `ToolScopes` (contracts) and the kit's `TOOL_SCOPES` together, so outside developers need the new kit file for it. The generated `apps/api/openapi/openapi.json` describes the route's permission and any channel limit.
+Each business area opens its routes when it is built, by adding `toolAccess: '<area>:read'` or `'<area>:write'` to `defineRoute()`. `toolChannels: ['frame']` restricts write routes to signed-in frame calls. `tool-registration:read` is a server-only exception for a tool server to read its own registration's permitted-user list. A new permission is added to `ToolScopes` (contracts) and the kit's `TOOL_SCOPES` together; SDK source changes go through the separate distribution handoff and do not rebuild a released kit version. The generated `apps/api/openapi/openapi.json` describes the route's permission and any channel limit.
 
 ## 5. Where the code is
 
@@ -124,13 +124,13 @@ Each business area opens its routes when it is built, by adding `toolAccess: '<a
 |---|---|
 | Shapes, permission list, header names | `packages/contracts/src/tools.ts` |
 | Developer kit and guide | `packages/tool-sdk/` (`README.md`, `src/frame.ts`, `src/server.ts`, `src/defineTool.ts`, `src/protocol.ts`, `examples/hello-tool/`) |
-| Registration, menu, token and context routes | `apps/api/src/features/tools/` (`routes.ts`, `rules.ts`, `queries.ts`, `tools.test.ts`) |
+| Registration, menu, token, context and permitted-user routes | `apps/api/src/features/tools/` (`routes.ts`, `rules.ts`, `queries.ts`, `tools.test.ts`) |
 | Tool checks on every request | `apps/api/src/platform/authGuard.ts` |
 | `toolAccess` field | `apps/api/src/platform/defineRoute.ts` |
 | Server-path door | `apps/external-api/` (`src/gateway.ts`, `kr-external-api-wrangler.jsonc`) |
 | Menu, frame, host bridge | `apps/web/components/shell/` (`navigation.ts`, `ExternalToolFrame.client.tsx`, `toolHost.ts`, `ApplicationShell.client.tsx`) and `apps/web/lib/toolRelay.ts` |
 | Super-admin screen | `apps/web/features/tools/components/OutsideToolsAdmin.client.tsx` (under Settings, Application Settings) |
-| Tables | `docs/Schema_8.0/migrations/Migration_Patch016_11_09_workspace_tools.sql`, and the Shown options: `Migration_Patch058_11_17_tool_visibility.sql` |
+| Tables | `docs/Schema_8.0/migrations/Migration_Patch016_11_09_workspace_tools.sql`, Shown options: `Migration_Patch058_11_17_tool_visibility.sql`, permitted users: `Migration_Patch073_11_21_tool_permitted_users.sql` |
 
 ## 6. Tables
 
@@ -180,7 +180,7 @@ Added with Settings and Dashboard stage 3 (`docs/08_Settings_Dashboard_Plan.md`,
 
 - **Page security settings:** the app sends no `Content-Security-Policy` yet. A `frame-src` list made from the registered origins would add a second guard on where frames may load from.
 - **Audit retention:** `workspace_tool_audit` grows without limit. Decide how long to keep rows.
-- **Schema documentation:** add the three tables to `docs/Schema_8.0` once the migration is applied (that folder is generated from the live database).
+- **Schema documentation:** refresh the generated `docs/Schema_8.0` table pages from the live database so they include the already-applied `workspace_tool.permitted_users` column.
 - **Built-in tools as packages:** each built-in menu item becomes its own `packages/tools/<name>` package declared with `defineTool` (agreed in principle; not started).
 - **Kit delivery:** decided Nov 20, 2026: a release zip in the private GitHub repository `dwkrueger2/krhomebase-sdk` (`pnpm release:tool-sdk`). On a personal GitHub account every person given access can also push; a GitHub organization (free) allows read-only access. A private package registry can replace the zip later.
 - **Routes for tools:** see the approved route list in section 4. `billing:write`, `documents:read/write` and `reports:read` remain closed and are marked TBD in the registration form. The employee HR upload is excluded from `documents:write`. The kit's next release needs a refreshed API reference for the newly opened routes; do not rebuild released kit 1.1.0.

@@ -1,0 +1,7 @@
+# Make this tool directory its own pnpm workspace root. It is not part of the parent workspace.
+packages: []
+
+allowBuilds:
+  esbuild: true
+  workerd: true
+  sharp: true

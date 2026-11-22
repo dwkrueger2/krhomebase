@@ -17,6 +17,7 @@ const tool: ToolRegistration = {
   origin: 'http://localhost:5174',
   entryUrl: 'http://localhost:5174/',
   allowedRoles: ['super_admin'],
+  permittedUsers: ['dankrueger@legaldrive.net', 'marcusrichard@legaldrive.net', 'davismcclellan@legaldrive.net'],
   localOnly: false,
   developersOnly: true,
   scopes: [],
@@ -56,10 +57,21 @@ describe('ToolRegistrationForm Shown row', () => {
     const html = render(tool)
     expect(html).toMatch(/tool-scope-contacts-read"><input type="checkbox"\/>contacts:read/)
     expect(html).toMatch(/tool-scope-contacts-write"><input type="checkbox"\/>contacts:write/)
+    expect(html).toMatch(/tool-scope-tool-registration-read"><input type="checkbox"\/>tool-registration:read/)
     expect(html).toMatch(/tool-scope-documents-read"><input type="checkbox" disabled=""\/>documents:read — TBD/)
     expect(html).toMatch(/tool-scope-documents-write"><input type="checkbox" disabled=""\/>documents:write — TBD/)
     expect(html).toMatch(/tool-scope-reports-read"><input type="checkbox" disabled=""\/>reports:read — TBD/)
     expect(html).toMatch(/tool-write-scopes-frame-only/)
     expect(html).not.toContain('communications:read')
+  })
+})
+
+describe('ToolRegistrationForm permitted users row', () => {
+  it('shows the fixed allowed accounts after Roles and explains that an empty list denies access', () => {
+    const html = render(tool)
+    expect(html.indexOf('tool-roles-row')).toBeLessThan(html.indexOf('tool-permitted-users-row'))
+    expect(html).toContain('Permitted users')
+    expect(html.match(/tool-permitted-user-chip/g)).toHaveLength(3)
+    expect(render({ ...tool, permittedUsers: [] })).toContain('No users selected; nobody can open this tool.')
   })
 })

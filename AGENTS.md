@@ -1,7 +1,6 @@
 # KR Homebase Agent Guide (repository root)
-
-<small>Version 2.35</small><br>
-<small>Updated Nov 21, 2026 12:21pm</small>
+<small>Version 2.36</small><br>
+<small>Updated Nov 21, 2026 4:11pm</small>
 
 ## Agent Guide Index
 
@@ -130,6 +129,7 @@ packages/documents/  Printable billing documents (invoice, statement, receipt): 
                      the email builders and the server render for the PDFs with its generated stylesheet (part 7c).
                      Shared by api and web (decision B1 of docs/API/Billing_Audit.md, Nov 15, 2026).
 workers/             Cloudflare Workers copied from the old repository. Not part of the apps. Rules: "Workers" below and workers/Readme-workers.md.
+standalone-sdk-tools/ Portable outside tools kept independent of the root workspace. Each owns its SDK snapshot, dependencies, Worker, migrations, documentation and patch list; see its AGENTS.md. Keep workers/feedback-viewer separate.
                      workers/feedback-viewer is new (not copied): the Homebase Feedback viewer, an outside tool built with only the tool kit (a test of the kit), checked by pnpm check.
 docs/                Documentation: schema spaces, architecture, API notes, patch notes, help documents.
 scripts/             Helper scripts: snapshot tools, the stop-port scripts and Get-Feedback.ps1. Replaces the old repo-utilities folder.

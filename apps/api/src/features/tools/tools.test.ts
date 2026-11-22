@@ -8,7 +8,7 @@
  * Only made-up tools, people and addresses are used. Run: `pnpm --dir apps/api run test`.
  */
 
-import { TOOL_GATEWAY_HEADER, TOOL_GATEWAY_VALUE, TOOL_ID_HEADER, type ToolScope } from '@krhomebase/contracts'
+import { TOOL_GATEWAY_HEADER, TOOL_GATEWAY_VALUE, TOOL_ID_HEADER, type ToolPermittedUserEmail, type ToolScope } from '@krhomebase/contracts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../app.ts'
 import { routeRegistry } from '../../platform/defineRoute.ts'
@@ -45,13 +45,15 @@ describe('tool rules', () => {
   })
 
   it('lets listed roles and always the super admin use an active tool', () => {
-    const tool = { status: 'active' as const, allowedRoles: ['staff'], localOnly: false, developersOnly: false }
-    const as = (role: string) => ({ role, developmentServer: false, isDeveloper: false })
+    const tool = { status: 'active' as const, allowedRoles: ['staff'], permittedUsers: ['dankrueger@legaldrive.net'] as ToolPermittedUserEmail[], localOnly: false, developersOnly: false }
+    const as = (role: string) => ({ email: 'dankrueger@legaldrive.net', role, developmentServer: false, isDeveloper: false })
     expect(toolUsableBy(tool, as('staff'))).toBe(true)
     expect(toolUsableBy(tool, as('billing'))).toBe(false)
     // A row saved before the super admin became automatic still shows to a super admin.
     expect(toolUsableBy(tool, as('super_admin'))).toBe(true)
     expect(toolUsableBy({ ...tool, status: 'disabled' }, as('super_admin'))).toBe(false)
+    expect(toolUsableBy(tool, { ...as('super_admin'), email: 'someone-else@example.com' })).toBe(false)
+    expect(toolUsableBy({ ...tool, permittedUsers: [] }, as('super_admin'))).toBe(false)
     expect(withSuperAdmin(['staff', 'super_admin', 'staff'])).toEqual(['super_admin', 'staff'])
   })
 
@@ -79,6 +81,7 @@ describe('tool rules', () => {
       ['/v1/billing/clients/{clientId}/card-payment', 'billing:read'],
       ['/v1/timekeeping/team-status', 'timekeeping:read'], ['/v1/timekeeping/time-card', 'timekeeping:read'],
       ['/v1/timekeeping/clock-state', 'timekeeping:read'], ['/v1/timekeeping/employees', 'timekeeping:read'],
+      ['/v1/tools/permitted-users', 'tool-registration:read'],
       ['/v1/homebase-feedback', 'homebase-feedback:read'], ['/v1/homebase-feedback/{number}', 'homebase-feedback:read'],
     ])
     const actual = new Map(routeRegistry.filter(({ config }) => config.method === 'get' && config.path.startsWith('/v1/')).map(({ config, meta }) => [config.path, meta.toolAccess]))
@@ -87,7 +90,8 @@ describe('tool rules', () => {
       expect(scopeAllows(scope, [scope])).toEqual({ ok: true })
       expect(scopeAllows(scope, [])).toEqual({ ok: false, reason: 'scope_not_granted' })
     }
-    expect([...actual].filter(([, scope]) => scope && scope !== 'any').map(([path]) => path).sort()).toEqual([...expected.keys()].sort())
+    expect(routeRegistry.find(({ config }) => config.path === '/v1/tools/permitted-users')?.meta.toolChannels).toEqual(['server'])
+    expect([...actual].filter(([, scope]) => scope?.endsWith(':read')).map(([path]) => path).sort()).toEqual([...expected.keys()].sort())
 
     const expectedWrites: Map<string, ToolScope> = new Map([
       ['post /v1/contacts', 'contacts:write'], ['patch /v1/contacts/{contactId}', 'contacts:write'], ['patch /v1/clients/status', 'contacts:write'],
@@ -159,7 +163,7 @@ describe('outside tools through the API', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   /** Bindings for a person with `role`, with the in-memory database and the app address. */
-  const envFor = (role: string, extra: Record<string, unknown> = {}) => signedInEnv(role, { krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE, ...extra })
+  const envFor = (role: string, extra: Record<string, unknown> = {}) => signedInEnv(role, { krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE, ...extra }, 'user-test-1', 'dankrueger@legaldrive.net')
   /** Bindings for a call with no person (the server path). */
   const bareEnv = () => ({ krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE }) as unknown as Env
   /** Each role gets its own cookie, so the session cache never mixes two roles. */
@@ -223,6 +227,17 @@ describe('outside tools through the API', () => {
       const { tool, clientSecret } = await register({ serverAccessEnabled: false })
       expect(clientSecret).toBeNull()
       expect(tool.hasSecret).toBe(false)
+    })
+
+    it('saves the default permitted users and allows the list to be narrowed or emptied', async () => {
+      const { tool } = await register()
+      expect(tool.permittedUsers).toEqual(['dankrueger@legaldrive.net', 'marcusrichard@legaldrive.net', 'davismcclellan@legaldrive.net'])
+      const narrowed = await call('super_admin', 'PATCH', `/v1/tools/registrations/${tool.id}`, {
+        permittedUsers: ['marcusrichard@legaldrive.net'],
+      })
+      expect(narrowed.body.data.tool.permittedUsers).toEqual(['marcusrichard@legaldrive.net'])
+      const empty = await call('super_admin', 'PATCH', `/v1/tools/registrations/${tool.id}`, { permittedUsers: [] })
+      expect(empty.body.data.tool.permittedUsers).toEqual([])
     })
 
     it('refuses an address that is not https or is the app itself', async () => {
@@ -313,6 +328,36 @@ describe('outside tools through the API', () => {
   })
 
   describe('frame path (path A)', () => {
+    it('enforces permitted emails for the menu and frame calls, including super admins', async () => {
+      const { tool } = await register({ permittedUsers: ['marcusrichard@legaldrive.net'] })
+      const deniedMenu = await call('staff', 'GET', '/v1/tools/menu')
+      expect(deniedMenu.body.data.tools).toEqual([])
+      const deniedFrame = await call('super_admin', 'GET', '/v1/tools/context', undefined, { [TOOL_ID_HEADER]: tool.clientId })
+      expect(deniedFrame.status).toBe(403)
+      expect(deniedFrame.body.error.details.reason).toBe('user_not_allowed')
+      const permitted = await app.request('/v1/tools/menu', { headers: { cookie: 'kr_session=test-marcus' } }, signedInEnv('staff', { krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE }, 'user-test-marcus', 'marcusrichard@legaldrive.net'))
+      expect(((await permitted.json()) as Json).data.tools).toHaveLength(1)
+    })
+
+    it('returns only this registration permitted users to a server with its explicit scope', async () => {
+      const emails = ['marcusrichard@legaldrive.net']
+      const { tool, clientSecret } = await register({ scopes: ['tool-registration:read'], permittedUsers: emails, serverAccessEnabled: true })
+      const issued = await token(tool.clientId, clientSecret!)
+      const headers = { ...GATEWAY, authorization: `Bearer ${issued.body.data.accessToken}` }
+      const server = await call(null, 'GET', '/v1/tools/permitted-users', undefined, headers)
+      expect(server.status).toBe(200)
+      expect(server.body.data.emails).toEqual(emails)
+      const frame = await call('super_admin', 'GET', '/v1/tools/permitted-users', undefined, { [TOOL_ID_HEADER]: tool.clientId })
+      expect(frame.status).toBe(403)
+      expect(frame.body.error.details.reason).toBe('tool_channel_not_allowed')
+
+      const { tool: unscoped, clientSecret: unscopedSecret } = await register({ scopes: [], serverAccessEnabled: true })
+      const unscopedToken = await token(unscoped.clientId, unscopedSecret!)
+      const refused = await call(null, 'GET', '/v1/tools/permitted-users', undefined, { ...GATEWAY, authorization: `Bearer ${unscopedToken.body.data.accessToken}` })
+      expect(refused.status).toBe(403)
+      expect(refused.body.error.details.reason).toBe('scope_not_granted')
+    })
+
     it('allows a granted frame write, refuses a missing scope, and blocks the server path', async () => {
       const body = { kind: 'individual', firstName: 'Tool', lastName: 'Writer' }
       const { tool, clientSecret } = await register({ scopes: ['contacts:write'], serverAccessEnabled: true })

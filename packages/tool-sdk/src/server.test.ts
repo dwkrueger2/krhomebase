@@ -33,6 +33,14 @@ describe('createServerClient', () => {
     expect(api.calls.at(-1)!.url).toBe('https://tools-api.example/v1/tools/context')
   })
 
+  it('reads the registration permitted-user endpoint through the server client', async () => {
+    const api = fakeApi()
+    const client = createServerClient({ baseUrl: 'https://tools-api.example', clientId: 'krt_x', clientSecret: 'krts_good', fetch: api.fetchFn })
+    const reply = await client.getPermittedUsers()
+    expect(reply.ok).toBe(true)
+    expect(api.calls.at(-1)!.url).toBe('https://tools-api.example/v1/tools/permitted-users')
+  })
+
   it('gets a new token and tries once more when the old one has ended', async () => {
     const api = fakeApi()
     const client = createServerClient({ baseUrl: 'https://tools-api.example', clientId: 'krt_x', clientSecret: 'krts_good', fetch: api.fetchFn })

@@ -1,7 +1,6 @@
 # Patch Notes
-
-<small>Version 2.8</small><br>
-<small>Updated Nov 21, 2026 1:55pm</small>
+<small>Version 2.9</small><br>
+<small>Updated Nov 21, 2026 4:11pm</small>
 
 ## Purpose
 
@@ -26,12 +25,12 @@ File name: `Outstanding Task List_PatchXXX_MM_DD.md`, where `XXX` is the track's
 
 | Track | Latest list |
 |---|---|
-| Repository | `repository/Outstanding Task List_Patch069_11_21.md` |
-| API | `api/Outstanding Task List_Patch053_11_21.md` |
-| Web | `web/Outstanding Task List_Patch578_11_21.md` |
-| Tool kit | `tool-sdk/Outstanding Task List_Patch002_11_21.md` |
+| Repository | `repository/Outstanding Task List_Patch070_11_21.md` |
+| API | `api/Outstanding Task List_Patch054_11_21.md` |
+| Web | `web/Outstanding Task List_Patch579_11_21.md` |
+| Tool kit | `tool-sdk/Outstanding Task List_Patch003_11_21.md` |
 
-This table was last brought up to date in repository patch 67; the newest file in each folder is always the current list.
+This table was last brought up to date in repository patch 70; the newest file in each folder is always the current list.
 
 Migration files are not kept here: they live in `docs/Schema_8.0/migrations/` (`AGENTS_06`; moved in repository patch 45, Nov 15, 2026). Older lists still name the old place, `repository/Migration_Patch...sql`.
 

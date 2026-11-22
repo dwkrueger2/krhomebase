@@ -1,7 +1,6 @@
 # KR Homebase Tool Kit: Developer Guide
-
-<small>Version 1.8</small><br>
-<small>Updated Nov 21, 2026 12:21pm</small>
+<small>Version 1.9</small><br>
+<small>Updated Nov 21, 2026 4:11pm</small>
 
 **Who this is for:** a developer building an outside tool for KR Homebase without access to the KR Homebase code.
 
@@ -212,11 +211,11 @@ A `localhost` address is not read (the KR Homebase server cannot reach your comp
 
 A permission is `<area>:read` (look) or `<area>:write` (create, change, delete). Ask for the fewest that work.
 
-`contacts`, `leads`, `workstream`, `tasks`, `timekeeping`, `billing`, `matters`, `documents`, `homebase-feedback` (each `:read` and `:write`), and `reports:read`. A new permission comes with a new version of this kit.
+`contacts`, `leads`, `workstream`, `tasks`, `timekeeping`, `billing`, `matters`, `documents`, `homebase-feedback` (each `:read` and `:write`), `reports:read`, and `tool-registration:read` (server path only). A new permission comes with a new version of this kit.
 
 - A route accepts tools only when KR Homebase opened it to them. **The API reference in the release zip** lists only those routes: `api-reference/API-REFERENCE.md` (to read: each route, the permission it needs, its parameters and its body) and `api-reference/openapi-tools.json` (the same routes as an OpenAPI 3.1 file, for a type generator). Each route's description ends with a line `Outside tools: ...` naming the permission it needs.
-- **Routes open to tools today:** `GET /v1/tools/context` (any tool), the Homebase Feedback routes, and the approved contacts, client/matters, leads, tasks, WorkStream, billing and timekeeping GET routes listed in `docs/05_Outside_Tools.md`. Frame calls retain the person's authorization checks. Server calls have no person and use the route's granted scope; time-card calls name an employee, while server clock-state returns no person's clock. The next kit release's API reference will include these routes.
-- A frame call also needs the person to be allowed: KR Homebase applies both your permissions and the person's role.
+- **Routes open to tools today:** `GET /v1/tools/context` (any tool), `GET /v1/tools/permitted-users` (`tool-registration:read`, server path only, and only this registration's list), the Homebase Feedback routes, and the approved contacts, client/matters, leads, tasks, WorkStream, billing and timekeeping routes listed in `docs/05_Outside_Tools.md`. Frame calls retain the person's authorization checks. Server calls have no person and use the route's granted scope; time-card calls name an employee, while server clock-state returns no person's clock. The next kit release's API reference will include these routes.
+- A frame call also needs the person to be allowed: KR Homebase applies both your permissions and the person's role and login email. The super admin chooses permitted emails from a fixed firm list; an empty list denies everyone.
 
 ## 7. Your server (path B)
 
@@ -231,6 +230,8 @@ const kr = createServerClient({
 
 const who = await kr.get('/v1/tools/context') // who.data.channel === 'server', who.data.user === null
 ```
+
+When your server needs the emails currently permitted for its registration, grant `tool-registration:read` and call `kr.getPermittedUsers()`. It returns only this registration's list. Treat a failed reply as denied access; do not fall back to a local allowlist or allow the user through.
 
 - The client fetches a 15-minute access token on the first call, keeps it until a minute before it ends, and fetches a new one when needed. Its `scopes` option asks for fewer permissions than were granted.
 - **Keep the client secret on your server only.** Use a secret store or an environment setting. Never put it in a browser page, the frame page, a log or a code repository.
@@ -251,7 +252,7 @@ const who = await kr.get('/v1/tools/context') // who.data.channel === 'server', 
 | `VALIDATION_FAILED` | The body did not match what the route expects. | `details` lists the fields. |
 | `BRIDGE_TIMEOUT`, `BRIDGE_CLOSED`, `BAD_PATH` | Made by the kit: no answer, disconnected, or a path outside `/v1/`. | Check the path; reload the tool. |
 
-`details.reason` for `TOOL_FORBIDDEN`: `tool_unknown`, `tool_disabled`, `role_not_allowed` (the person's role may not use the tool), `route_not_open_to_tools`, `scope_not_granted` (`details.needs` names the permission), `server_access_disabled`, `ip_not_allowed`.
+`details.reason` for `TOOL_FORBIDDEN`: `tool_unknown`, `tool_disabled`, `role_not_allowed` (the person's role may not use the tool), `user_not_allowed` (the person's email is not on the registration), `route_not_open_to_tools`, `scope_not_granted` (`details.needs` names the permission), `server_access_disabled`, `ip_not_allowed`.
 
 Every reply has a `requestId`. Include it when you report a problem; it matches the KR Homebase logs.
 

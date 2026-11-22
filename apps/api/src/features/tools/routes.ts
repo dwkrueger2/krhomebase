@@ -14,7 +14,7 @@
  *   POST   /v1/tools/registrations/health-check        read a tool address's health route and icon route (before or after saving)
  *
  *  Any signed-in person:
- *   GET    /v1/tools/menu                              active tools this person may use (`toolRefusal`: role, local only, developers only)
+ *   GET    /v1/tools/menu                              active tools this person may use (`toolRefusal`: role, permitted email, local only, developers only)
  *   GET    /v1/tools/menu/{clientId}/health            read the health route of a tool this person may open
  *
  * Icons: a tool has a built-in fallback icon name (default `tool`, the orange diamond) and, optionally, its own SVG
@@ -34,6 +34,7 @@
  *  Outside tools:
  *   POST   /v1/tools/token                             server path: client id + secret for a 15-minute token
  *   GET    /v1/tools/context                           who is calling (any tool, either path)
+ *   GET    /v1/tools/permitted-users                   this registration's permitted emails (scoped server calls only)
  *
  * The registration routes are closed to outside tools (no `toolAccess`), so a tool can never change its own
  * permissions. Every change a super admin makes is written to `workspace_tool_audit` with channel `admin`.
@@ -42,6 +43,7 @@
 import {
   ToolAuditData,
   ToolContextData,
+  ToolPermittedUsersData,
   ToolCreateBody,
   ToolCreatedData,
   ToolDeletedData,
@@ -291,6 +293,23 @@ export const toolContextRoute = defineRoute({
   },
 })
 
+export const toolPermittedUsersRoute = defineRoute({
+  method: 'get',
+  path: '/v1/tools/permitted-users',
+  feature: 'tools',
+  summary: 'For a registered tool server, return the permitted sign-in emails for its own registration.',
+  access: 'signed-in',
+  toolAccess: 'tool-registration:read',
+  toolChannels: ['server'],
+  errors: ['TOOL_CALLER_REQUIRED', 'TOOL_FORBIDDEN', 'TOOLS_UNAVAILABLE'],
+  sideEffects: ['Writes workspace_tool_audit'],
+  responses: {
+    200: { description: 'The exact users this registration allows.', content: json(successEnvelope(ToolPermittedUsersData)) },
+    403: errorBody('Only a registered tool server with tool-registration:read may call this route.'),
+    503: errorBody('The tools tables cannot be reached (TOOLS_UNAVAILABLE).'),
+  },
+})
+
 /**
  * The built-in icon name and the SVG icon held in the one `icon` column (`<name>` or `<name> <svg ...>`). An unknown
  * name reads as `documents`; an SVG that no longer passes `checkToolIcon` is dropped.
@@ -323,6 +342,7 @@ export function toRegistration(tool: ToolRecord): ToolRegistration {
     origin: tool.origin,
     entryUrl: tool.entryUrl,
     allowedRoles: tool.allowedRoles,
+    permittedUsers: tool.permittedUsers,
     localOnly: tool.localOnly,
     developersOnly: tool.developersOnly,
     scopes: tool.scopes,
@@ -482,6 +502,7 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
       origin: place.origin,
       entryUrl: place.entryUrl,
       allowedRoles: withSuperAdmin(body.allowedRoles),
+      permittedUsers: body.permittedUsers,
       localOnly: body.localOnly,
       developersOnly: body.developersOnly,
       scopes: [...new Set(body.scopes)],
@@ -522,6 +543,7 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
       description: body.description,
       menuOrder: body.menuOrder,
       allowedRoles: body.allowedRoles ? withSuperAdmin(body.allowedRoles) : undefined,
+      permittedUsers: body.permittedUsers,
       localOnly: body.localOnly,
       developersOnly: body.developersOnly,
       scopes: body.scopes ? [...new Set(body.scopes)] : undefined,
@@ -696,5 +718,19 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
       { ok: true as const, data: { tool: { clientId: tool.clientId, label: tool.label, scopes: tool.scopes }, channel: tool.channel, user }, requestId: c.get('requestId') },
       200,
     )
+  })
+
+  app.openapi(toolPermittedUsersRoute, async (c) => {
+    const caller = c.get('tool')
+    if (!caller) return failure(c, 403, 'TOOL_CALLER_REQUIRED', 'Only a registered tool calls this route.')
+    if (caller.channel !== 'server') {
+      return failure(c, 403, 'TOOL_FORBIDDEN', 'Only the registered tool server may read its permitted-user list.', { reason: 'server_channel_required' })
+    }
+    const queries = toolQueriesFor(c.env)
+    if (!queries) return unavailable(c)
+    const tool = await queries.findToolById(caller.toolId)
+    if (!tool) return failure(c, 403, 'TOOL_FORBIDDEN', 'This registration is no longer available.', { reason: 'tool_unknown' })
+    c.header('Cache-Control', 'no-store, private')
+    return c.json({ ok: true as const, data: { emails: tool.permittedUsers }, requestId: c.get('requestId') }, 200)
   })
 }

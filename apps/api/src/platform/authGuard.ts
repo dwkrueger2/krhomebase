@@ -20,8 +20,8 @@
  * Outside tools (docs/05_Outside_Tools.md) add two more checks, both against the route's `toolAccess`:
  *
  *  - **Frame call (path A):** the request carries the header `x-kr-tool-id` as well as the session cookie.
- *    After the session check, the tool must exist and be active, the person's role must be on the tool's
- *    list, and the route must be open to the tool (`toolAccess`). Refusals are 403 `TOOL_FORBIDDEN`.
+ *    After the session check, the tool must exist and be active, the person's role and login email must be on the
+ *    tool's lists, and the route must be open to the tool (`toolAccess`). Refusals are 403 `TOOL_FORBIDDEN`.
  *  - **Server call (path B):** the request arrived through `krhomebase-external-api` (header
  *    `x-kr-gateway: external-api`, which the web app strips from browser requests). No cookie is read. A
  *    route that is not public needs `Authorization: Bearer <token>` from `POST /v1/tools/token`; a missing,
@@ -152,6 +152,7 @@ const TOOL_REFUSAL_WORDS: Record<NonNullable<ReturnType<typeof toolRefusal>>, st
   tool_local_only: 'This tool is for local development only.',
   role_not_allowed: 'Your role may not use this tool.',
   developers_only: 'This tool is for developers only.',
+  user_not_allowed: 'Your login is not permitted for this tool.',
 }
 
 /**
@@ -164,7 +165,7 @@ const TOOL_REFUSAL_WORDS: Record<NonNullable<ReturnType<typeof toolRefusal>>, st
  * @param needsDeveloperCheck - True when at least one tool in question is developers-only.
  */
 export async function toolViewerFor(c: Context<AppEnv>, session: SessionUser, needsDeveloperCheck: boolean): Promise<ToolViewer> {
-  const viewer: ToolViewer = { role: session.role, developmentServer: isDevelopmentServer(c.env), isDeveloper: false }
+  const viewer: ToolViewer = { email: session.email, role: session.role, developmentServer: isDevelopmentServer(c.env), isDeveloper: false }
   if (!needsDeveloperCheck) return viewer
   const queries = permissionQueriesFor(c.env)
   if (!queries) return viewer

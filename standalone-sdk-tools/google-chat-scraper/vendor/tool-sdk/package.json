@@ -1,0 +1,13 @@
+{
+  "name": "@krhomebase/tool-sdk",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./frame": "./src/frame.ts",
+    "./server": "./src/server.ts",
+    "./manifest": "./src/defineTool.ts",
+    "./protocol": "./src/protocol.ts",
+    "./types": "./src/types.ts"
+  }
+}

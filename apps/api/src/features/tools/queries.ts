@@ -14,8 +14,8 @@
  * rather than crashing the menu.
  */
 
-import type { ToolAuditEntry, ToolScope } from '@krhomebase/contracts'
-import { ToolScopes } from '@krhomebase/contracts'
+import type { ToolAuditEntry, ToolPermittedUserEmail, ToolScope } from '@krhomebase/contracts'
+import { ToolPermittedUserEmails, ToolScopes } from '@krhomebase/contracts'
 import type { ToolRecord } from './rules.ts'
 
 /** A row of `workspace_tool`, as D1 returns it. */
@@ -29,6 +29,7 @@ interface ToolRow {
   origin: string
   entry_url: string
   allowed_roles: string
+  permitted_users?: string | null
   /** Migration 058; missing (undefined) on a database before it, read as 0. */
   local_only?: number | null
   /** Migration 058; missing on a database before it, read as 0. */
@@ -54,6 +55,7 @@ export interface ToolChanges {
   origin?: string
   entryUrl?: string
   allowedRoles?: string[]
+  permittedUsers?: ToolPermittedUserEmail[]
   localOnly?: boolean
   developersOnly?: boolean
   scopes?: ToolScope[]
@@ -122,6 +124,14 @@ function scopeList(text: string | null | undefined): ToolScope[] {
   return stringList(text).filter((item): item is ToolScope => (ToolScopes as readonly string[]).includes(item))
 }
 
+/** Reads only fixed user emails; legacy rows without the migration default to all choices, malformed values deny everyone. */
+function permittedUserList(text: string | null | undefined): ToolPermittedUserEmail[] {
+  if (text == null) return [...ToolPermittedUserEmails]
+  const emails = stringList(text).map((email) => email.trim().toLowerCase())
+    .filter((email): email is ToolPermittedUserEmail => (ToolPermittedUserEmails as readonly string[]).includes(email))
+  return [...new Set(emails)]
+}
+
 /** Maps a `workspace_tool` row to the record the rules use. */
 function toRecord(row: ToolRow): ToolRecord {
   return {
@@ -134,6 +144,7 @@ function toRecord(row: ToolRow): ToolRecord {
     origin: row.origin,
     entryUrl: row.entry_url,
     allowedRoles: stringList(row.allowed_roles),
+    permittedUsers: permittedUserList(row.permitted_users),
     // Before migration 058 the columns are missing: every tool reads as shown everywhere, as it was.
     localOnly: Number(row.local_only ?? 0) === 1,
     developersOnly: Number(row.developers_only ?? 0) === 1,
@@ -159,6 +170,7 @@ const CHANGE_COLUMNS: { [K in keyof ToolChanges]-?: [column: string, store: (val
   origin: ['origin', (v) => v],
   entryUrl: ['entry_url', (v) => v],
   allowedRoles: ['allowed_roles', (v) => JSON.stringify(v)],
+  permittedUsers: ['permitted_users', (v) => JSON.stringify(v)],
   localOnly: ['local_only', (v) => (v ? 1 : 0)],
   developersOnly: ['developers_only', (v) => (v ? 1 : 0)],
   scopes: ['scopes', (v) => JSON.stringify(v)],
@@ -193,10 +205,10 @@ export function createToolQueries(db: D1Database): ToolQueries {
     async insertTool(tool, userId) {
       await db
         .prepare(
-          `INSERT INTO workspace_tool (id, client_id, label, description, icon, menu_order, origin, entry_url, allowed_roles, local_only,
+          `INSERT INTO workspace_tool (id, client_id, label, description, icon, menu_order, origin, entry_url, allowed_roles, permitted_users, local_only,
              developers_only, scopes, status, server_access_enabled, server_ip_allowlist, secret_hash, secret_created_at, previous_secret_hash,
              previous_secret_valid_until, created_at, created_by_user_id, updated_at, updated_by_user_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           tool.id,
@@ -208,6 +220,7 @@ export function createToolQueries(db: D1Database): ToolQueries {
           tool.origin,
           tool.entryUrl,
           JSON.stringify(tool.allowedRoles),
+          JSON.stringify(tool.permittedUsers),
           tool.localOnly ? 1 : 0,
           tool.developersOnly ? 1 : 0,
           JSON.stringify(tool.scopes),

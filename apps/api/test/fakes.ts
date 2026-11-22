@@ -38,6 +38,8 @@ export const WORKSTREAM_TYPES_MIGRATION = join(here, '..', '..', '..', 'docs', '
 export const TASK_NOTES_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch003_11_18_task_notes.sql')
 /** Migration 058: the outside tools' `local_only` and `developers_only` columns (repository patch 58). Always added. */
 export const TOOL_VISIBILITY_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch058_11_17_tool_visibility.sql')
+/** Migration 073: the Outside Tools' permitted sign-in emails. Always added after the base tool table. */
+export const TOOL_PERMITTED_USERS_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch073_11_21_tool_permitted_users.sql')
 
 /**
  * A migration's statements without its own `kr_schema_migration` row (the last statement, after the line
@@ -52,7 +54,7 @@ function withoutLogRow(sql: string): string {
 export const SIGNED_IN_HEADERS = { cookie: 'kr_session=test-session-token' } as const
 
 /** A Session Worker stand-in that answers "valid" with a made-up person of the given role. */
-export function fakeSessionWorker(role: string, userId = 'user-test-1'): Fetcher {
+export function fakeSessionWorker(role: string, userId = 'user-test-1', email = 'test.person@example.com'): Fetcher {
   return {
     fetch: async () =>
       new Response(
@@ -64,7 +66,7 @@ export function fakeSessionWorker(role: string, userId = 'user-test-1'): Fetcher
               sessionId: `session-${role}`,
               userId,
               displayName: 'Test Person',
-              email: 'test.person@example.com',
+              email,
               role,
               firmName: 'Test Firm',
               avatarInitials: 'TP',
@@ -78,8 +80,8 @@ export function fakeSessionWorker(role: string, userId = 'user-test-1'): Fetcher
 }
 
 /** Bindings for a signed-in call as `role`. Add `krhomebase` for routes that need the database. */
-export function signedInEnv(role: string, extra: Record<string, unknown> = {}, userId = 'user-test-1') {
-  return { SESSION_WORKER: fakeSessionWorker(role, userId), KR_SESSION_WORKER_SECRET: 'session-secret', ...extra } as unknown as Env
+export function signedInEnv(role: string, extra: Record<string, unknown> = {}, userId = 'user-test-1', email = 'test.person@example.com') {
+  return { SESSION_WORKER: fakeSessionWorker(role, userId, email), KR_SESSION_WORKER_SECRET: 'session-secret', ...extra } as unknown as Env
 }
 
 type Value = string | number | null
@@ -138,6 +140,7 @@ export function createTestD1(options: { fullSchema?: boolean; withoutLicenseMigr
   if (options.fullSchema) sqlite.exec(withoutLogRow(readFileSync(TASK_NOTES_MIGRATION, 'utf8')))
   sqlite.exec(readFileSync(WORKSPACE_TOOLS_MIGRATION, 'utf8'))
   if (!options.withoutToolVisibilityMigration) sqlite.exec(withoutLogRow(readFileSync(TOOL_VISIBILITY_MIGRATION, 'utf8')))
+  sqlite.exec(withoutLogRow(readFileSync(TOOL_PERMITTED_USERS_MIGRATION, 'utf8')))
   const db = {
     prepare: (sql: string) => new TestStatement(sqlite, sql),
     batch: async (statements: TestStatement[]) => {

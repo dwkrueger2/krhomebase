@@ -32,11 +32,13 @@
 import { useState, type FormEvent } from 'react'
 import {
   ToolIconNames,
+  ToolPermittedUserEmails,
   ToolRoleNames,
   ToolScopes,
   type ToolCreateBody,
   type ToolHealthData,
   type ToolRegistration,
+  type ToolPermittedUserEmail,
   type ToolScope,
   type ToolUpdateBody,
 } from '@krhomebase/contracts'
@@ -66,6 +68,7 @@ const LOCKED_ROLE: ToolRoleName = 'super_admin'
 /** Permissions with an opened route; all remaining grants are unavailable until a route is approved. */
 const OPEN_TOOL_SCOPES = new Set<ToolScope>([
   'contacts:read',
+  'tool-registration:read',
   'contacts:write',
   'matters:read',
   'matters:write',
@@ -104,6 +107,7 @@ const LAYOUT_STYLES = {
   section: 'pt-[4px] border-t',
   checks: 'gap-x-[10px] gap-y-[1px] grid grid-cols-2 lg:grid-cols-4',
   visibility: 'gap-x-[10px] gap-y-[1px] flex flex-wrap items-center',
+  permittedUsers: 'gap-[4px] flex flex-wrap items-center',
   check: 'gap-[4px] flex items-center',
   actions: 'gap-[6px] pt-[2px] flex justify-end',
 } as const
@@ -116,6 +120,8 @@ const STYLES = {
   hint: 'text-[12px] leading-tight text-(color:--kr-theme-text-muted)',
   checkRow: 'h-[19px] text-[12px] leading-tight text-(color:--kr-theme-text)',
   checkRowLocked: 'h-[19px] cursor-not-allowed text-[12px] leading-tight text-(color:--kr-theme-text-muted) opacity-65',
+  userChip: 'gap-[3px] px-[5px] py-[2px] inline-flex items-center rounded-[2px] border border-(--kr-theme-line) text-[11px] leading-tight text-(color:--kr-theme-text)',
+  removeUser: 'size-[16px] inline-flex items-center justify-center rounded-[2px] border-0 bg-transparent cursor-pointer text-[13px] leading-none text-(color:--kr-theme-text-muted) hover:text-(color:--kr-theme-danger)',
   ok: 'text-[12px] leading-tight font-semibold text-(color:--kr-theme-success)',
   bad: 'text-[12px] leading-tight text-(color:--kr-theme-danger)',
   error: 'm-0 text-[12px] leading-tight text-(color:--kr-theme-danger)',
@@ -174,6 +180,10 @@ export default function ToolRegistrationForm({ tool, busy, error, onSave, onCanc
   const [roles, setRoles] = useState<ReadonlySet<ToolRoleName>>(
     new Set([LOCKED_ROLE, ...(tool?.allowedRoles ?? ['staff']).filter((role): role is ToolRoleName => (ToolRoleNames as readonly string[]).includes(role))]),
   )
+  const [permittedUsers, setPermittedUsers] = useState<ReadonlySet<ToolPermittedUserEmail>>(
+    new Set(tool?.permittedUsers ?? [...ToolPermittedUserEmails]),
+  )
+  const [permittedUserToAdd, setPermittedUserToAdd] = useState<ToolPermittedUserEmail | ''>('')
   const [localOnly, setLocalOnly] = useState(tool?.localOnly ?? false)
   const [developersOnly, setDevelopersOnly] = useState(tool?.developersOnly ?? false)
   const [scopes, setScopes] = useState<ReadonlySet<ToolScope>>(new Set(tool?.scopes ?? []))
@@ -211,6 +221,7 @@ export default function ToolRegistrationForm({ tool, busy, error, onSave, onCanc
       menuOrder: Number.parseInt(menuOrder, 10) || 0,
       entryUrl: entryUrl.trim(),
       allowedRoles: ToolRoleNames.filter((role) => role === LOCKED_ROLE || roles.has(role)),
+      permittedUsers: ToolPermittedUserEmails.filter((email) => permittedUsers.has(email)),
       localOnly,
       developersOnly,
       scopes: ToolScopes.filter((scope) => scopes.has(scope)),
@@ -323,6 +334,42 @@ export default function ToolRegistrationForm({ tool, busy, error, onSave, onCanc
               ),
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Permitted users: a fixed set of firm accounts, enforced by the API on the menu, health check and frame path. */}
+      <div className={`${LAYOUT_STYLES.rowTop} ${LAYOUT_STYLES.section} ${STYLES.section}`} data-kr-element="tool-permitted-users-row">
+        <span className={STYLES.label} title="Only these exact sign-in emails may use this tool">Permitted users</span>
+        <div className={LAYOUT_STYLES.permittedUsers}>
+          {[...permittedUsers].map((email) => (
+            <span key={email} className={STYLES.userChip} data-kr-element="tool-permitted-user-chip">
+              {email}
+              <button
+                type="button"
+                className={STYLES.removeUser}
+                aria-label={`Remove ${email}`}
+                title={`Remove ${email}`}
+                onClick={() => setPermittedUsers((current) => toggled(current, email))}
+                data-kr-element="tool-permitted-user-remove"
+              >×</button>
+            </span>
+          ))}
+          {permittedUsers.size === 0 && <span className={STYLES.hint} data-kr-element="tool-no-permitted-users">No users selected; nobody can open this tool.</span>}
+          <select
+            id="tool-permitted-user-add"
+            aria-label="Add permitted user"
+            className={STYLES.field}
+            value={permittedUserToAdd}
+            onChange={(event) => {
+              const email = event.target.value as ToolPermittedUserEmail | ''
+              if (email) setPermittedUsers((current) => new Set([...current, email]))
+              setPermittedUserToAdd('')
+            }}
+            data-kr-element="tool-permitted-user-add"
+          >
+            <option value="">Add a user…</option>
+            {ToolPermittedUserEmails.filter((email) => !permittedUsers.has(email)).map((email) => <option key={email} value={email}>{email}</option>)}
+          </select>
         </div>
       </div>
 

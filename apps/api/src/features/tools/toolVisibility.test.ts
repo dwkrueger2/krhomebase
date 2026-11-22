@@ -9,7 +9,7 @@
  * migration 058. Only made-up tools, people and addresses are used. Run: `pnpm --dir apps/api run test`.
  */
 
-import { TOOL_GATEWAY_HEADER, TOOL_GATEWAY_VALUE, TOOL_ID_HEADER } from '@krhomebase/contracts'
+import { TOOL_GATEWAY_HEADER, TOOL_GATEWAY_VALUE, TOOL_ID_HEADER, type ToolPermittedUserEmail } from '@krhomebase/contracts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../app.ts'
 import { clearSessionCache } from '../../platform/sessionClient.ts'
@@ -23,8 +23,8 @@ const DEPLOYED = 'https://krhomebase.example'
 const LOCAL = 'http://localhost:3011'
 
 describe('toolRefusal', () => {
-  const tool = { status: 'active' as const, allowedRoles: ['super_admin', 'staff'], localOnly: false, developersOnly: false }
-  const viewer = { role: 'staff', developmentServer: false, isDeveloper: false }
+  const tool = { status: 'active' as const, allowedRoles: ['super_admin', 'staff'], permittedUsers: ['dankrueger@legaldrive.net'] as ToolPermittedUserEmail[], localOnly: false, developersOnly: false }
+  const viewer = { email: 'dankrueger@legaldrive.net', role: 'staff', developmentServer: false, isDeveloper: false }
 
   it('allows a plain tool anywhere and names the first check that fails', () => {
     expect(toolRefusal(tool, viewer)).toBeNull()
@@ -34,6 +34,9 @@ describe('toolRefusal', () => {
     expect(toolRefusal({ ...tool, developersOnly: true }, { ...viewer, role: 'billing' })).toBe('role_not_allowed')
     expect(toolRefusal({ ...tool, developersOnly: true }, viewer)).toBe('developers_only')
     expect(toolRefusal({ ...tool, developersOnly: true }, { ...viewer, isDeveloper: true })).toBeNull()
+    expect(toolRefusal(tool, { ...viewer, email: 'DANKRUEGER@LEGALDRIVE.NET' })).toBeNull()
+    expect(toolRefusal(tool, { ...viewer, email: 'other@example.com' })).toBe('user_not_allowed')
+    expect(toolRefusal({ ...tool, permittedUsers: [] }, { ...viewer, role: 'super_admin' })).toBe('user_not_allowed')
   })
 
   it('keeps a local-only tool from the super admin on a deployed server too', () => {
@@ -69,7 +72,7 @@ describe('visibility through the API', () => {
         headers: { cookie: `kr_session=test-${userId}`, ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...headers },
         body: body === undefined ? undefined : JSON.stringify(body),
       },
-      signedInEnv(role, { krhomebase: d1.db, KR_APP_BASE_URL: base }, userId),
+      signedInEnv(role, { krhomebase: d1.db, KR_APP_BASE_URL: base }, userId, userId === 'u-dee' ? 'marcusrichard@legaldrive.net' : 'dankrueger@legaldrive.net'),
     )
     return { status: res.status, body: (await res.json()) as Json }
   }
@@ -109,6 +112,18 @@ describe('visibility through the API', () => {
     await register({ label: 'Dev viewer', developersOnly: true })
     expect(await menu('u-sam', DEPLOYED)).toEqual([])
     expect(await menu('u-dee', DEPLOYED)).toEqual(['Dev viewer'])
+  })
+
+  it('requires a permitted email even for super admins in the menu, health check, and frame gate', async () => {
+    const tool = await register({ label: 'Marcus only', permittedUsers: ['marcusrichard@legaldrive.net'] })
+    expect(await menu('u-sam', DEPLOYED)).toEqual([])
+    expect((await call('u-admin', 'super_admin', 'GET', `/v1/tools/menu/${tool.clientId}/health`, DEPLOYED)).status).toBe(404)
+    const refused = await call('u-admin', 'super_admin', 'GET', '/v1/tools/context', DEPLOYED, undefined, { [TOOL_ID_HEADER]: tool.clientId })
+    expect(refused.status).toBe(403)
+    expect(refused.body.error.details.reason).toBe('user_not_allowed')
+
+    const allowed = await app.request('/v1/tools/menu', { headers: { cookie: 'kr_session=test-u-dee' } }, signedInEnv('staff', { krhomebase: d1.db, KR_APP_BASE_URL: DEPLOYED }, 'u-dee', 'marcusrichard@legaldrive.net'))
+    expect(((await allowed.json()) as Json).data.tools.map((entry: Json) => entry.label)).toEqual(['Marcus only'])
   })
 
   it('answers a hidden tool health check as not found and refuses its frame calls with the reason', async () => {
@@ -160,7 +175,7 @@ describe('before migration 058', () => {
          VALUES ('t1', 'krt_oldtoololdtooloold', 'Old tool', '', 'tool', 100, 'https://old.example.com', 'https://old.example.com/', '["super_admin","staff"]', '[]', 'active', 0, '[]', '2026-11-01T00:00:00Z', '2026-11-01T00:00:00Z')`,
       )
       .run()
-    const res = await app.request('/v1/tools/menu', { headers: { cookie: 'kr_session=test-old' } }, signedInEnv('staff', { krhomebase: d1.db, KR_APP_BASE_URL: DEPLOYED }))
+    const res = await app.request('/v1/tools/menu', { headers: { cookie: 'kr_session=test-old' } }, signedInEnv('staff', { krhomebase: d1.db, KR_APP_BASE_URL: DEPLOYED }, 'user-test-1', 'dankrueger@legaldrive.net'))
     expect(((await res.json()) as Json).data.tools.map((tool: Json) => tool.label)).toEqual(['Old tool'])
   })
 })
