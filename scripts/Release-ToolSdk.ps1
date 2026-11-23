@@ -113,7 +113,21 @@ Write-Host "Checked: no keys, secrets, .env, .dev.vars or private folders."
 # 5. The zip.
 $Zip = Join-Path $OutRoot "$Name.zip"
 if (Test-Path $Zip) { Remove-Item -Force $Zip }
-Compress-Archive -Path (Join-Path $Stage "*") -DestinationPath $Zip
+# Written entry by entry with forward slashes (repository patch 76, Nov 23, 2026). Windows PowerShell 5.1's
+# Compress-Archive stored "api-reference\API-REFERENCE.md", which some Mac and Linux unzip tools read as one file name
+# with a backslash in it instead of a folder. The zip standard uses "/".
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$StageFull = (Resolve-Path $Stage).Path.TrimEnd('\') + '\'
+$Archive = [System.IO.Compression.ZipFile]::Open($Zip, [System.IO.Compression.ZipArchiveMode]::Create)
+try {
+    Get-ChildItem -Recurse -File $Stage | Sort-Object FullName | ForEach-Object {
+        $EntryName = $_.FullName.Substring($StageFull.Length).Replace('\', '/')
+        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($Archive, $_.FullName, $EntryName, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+    }
+} finally {
+    $Archive.Dispose()
+}
 Write-Host "Wrote $Zip"
 
 # R2 is updated by the requester after reviewing these commands. The pointer is versioned from this build and the

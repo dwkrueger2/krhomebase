@@ -1,20 +1,29 @@
 # KR Homebase Tool Kit: Changes
 
-<small>Version 1.2</small><br>
-<small>Updated Nov 23, 2026 3:03pm</small>
+<small>Version 1.3</small><br>
+<small>Updated Nov 23, 2026 3:43pm</small>
 
 Each release of the kit, newest first. The kit's version is in its `package.json`, in `TOOL_SDK_VERSION` (`@krhomebase/tool-sdk/version`) and in the file names (`krhomebase-tool-sdk-<version>.tgz`, `krhomebase-sdk-<version>.zip`). The bridge between a tool and KR Homebase is protocol 1 in every release so far; a tool built with an earlier kit keeps working.
 
-## Next release (version not assigned)
+## 1.2.0 (Nov 23, 2026)
 
-- Rename the WorkStream permission from `communications:read/write` to `workstream:read/write`. Existing stored legacy grants are ignored and never converted into WorkStream access.
-- Refresh the bundled API reference to include the newly opened GET routes when the next kit version is released.
-- **The tool sandbox** (Nov 23, 2026): test a tool against made-up sample data with no KR Homebase data and no internal developer. The super admin gives a **sandbox secret** (`krsbx1_...`, 30 days); a frame page opens in the sandbox's host page, and a server uses `createServerClient` with the sandbox address. Guide section 9 is rewritten around it; section 0 and 2 name the sandbox secret.
-- The example tool lists the sandbox in `hostOrigins` and no longer asks for **Local development only**.
-- `getPermittedUsers()` on the server client and the `tool-registration:read` permission (server path only): a server reads its own registration's permitted emails. An empty list means nobody may use the tool.
-- Write routes are open to tools in the frame only; a server gets `tool_channel_not_allowed`. The guide's error section now lists `tool_channel_not_allowed`, `tool_local_only` and `developers_only`, and the token reasons.
-- The guide says how to read your own grant (`GET /v1/tools/context`), lists the open routes from the zip's API reference instead of an internal document, and says plainly that the server path address is not published yet.
-- Consider a future `krh:theme` protocol message; the host currently sends theme only once in `krh:init`, so an open tool keeps its old colors after a theme change. Report only; not implemented here.
+**Added**
+
+- **The tool sandbox.** Test a tool against made-up sample data, with no KR Homebase data and no internal developer. The super admin gives you a **sandbox secret** (`krsbx1_...`, 30 days) for your tool. A frame page opens in the sandbox's host page; a server uses `createServerClient` with the sandbox address and the sandbox secret. Guide section 9 is rewritten around it; sections 0 and 2 name the sandbox secret.
+- `getPermittedUsers()` on the server client, with the new `tool-registration:read` permission (server path only): a server reads its own registration's permitted emails (`ToolPermittedUsersData`). An empty list means nobody may use the tool; treat a failed reply as no access.
+- The API reference in the release zip lists every route open to tools (59), including the contacts, client and matter, leads, tasks, WorkStream, billing and attendance routes opened on Nov 21, 2026.
+- The guide says how to read your own grant (`GET /v1/tools/context`), and its error section lists `tool_channel_not_allowed`, `tool_local_only`, `developers_only` and the token reasons.
+
+**Changed**
+
+- The WorkStream permission is `workstream:read` / `workstream:write` (it was `communications:read` / `communications:write`, which no route ever accepted). Stored grants under the old names are ignored, never converted.
+- Write routes are open to tools in the signed-in frame only; a server call to one is refused with `tool_channel_not_allowed`.
+- The example tool trusts the sandbox in `hostOrigins` and no longer asks for **Local development only**.
+- The guide lists the open routes from the zip's own API reference instead of an internal document, and says plainly that the server path address is not published yet.
+
+**Not in this release**
+
+- A `krh:theme` protocol message: the host still sends the theme once in `krh:init`, so an open tool keeps its old colors after the person changes theme.
 
 ## 1.1.0 (Nov 20, 2026): the first release to the krhomebase-sdk repository
 

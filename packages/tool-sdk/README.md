@@ -1,10 +1,10 @@
 # KR Homebase Tool Kit: Developer Guide
-<small>Version 2.1</small><br>
-<small>Updated Nov 23, 2026 3:03pm</small>
+<small>Version 2.2</small><br>
+<small>Updated Nov 23, 2026 3:43pm</small>
 
 **Who this is for:** a developer building an outside tool for KR Homebase without access to the KR Homebase code.
 
-**Kit version:** 1.1.0 (`TOOL_SDK_VERSION` in `@krhomebase/tool-sdk/version`). What changed in each release: `CHANGELOG.md`.
+**Kit version:** 1.2.0 (`TOOL_SDK_VERSION` in `@krhomebase/tool-sdk/version`). What changed in each release: `CHANGELOG.md`.
 
 **What you build:** a web page you host yourself. A KR Homebase super admin adds it to the left menu. When someone opens it, KR Homebase shows your page in its workspace inside a sealed frame, and in its own window when the person pops it out. Your page reads and writes KR Homebase data only through this kit and only within the permissions the super admin granted.
 
@@ -60,13 +60,13 @@ The super admin needs from you: the label, description, version, your page's add
 
 ## 3. Install
 
-The kit is delivered as a file, `krhomebase-tool-sdk-1.1.0.tgz`, inside the release zip (section 0). Copy it into your project and install it:
+The kit is delivered as a file, `krhomebase-tool-sdk-1.2.0.tgz`, inside the release zip (section 0). Copy it into your project and install it:
 
 ```powershell
-pnpm add ./krhomebase-tool-sdk-1.1.0.tgz
+pnpm add ./krhomebase-tool-sdk-1.2.0.tgz
 ```
 
-`npm install ./krhomebase-tool-sdk-1.1.0.tgz` works too. The kit has no other dependencies. It ships JavaScript modules with TypeScript types.
+`npm install ./krhomebase-tool-sdk-1.2.0.tgz` works too. The kit has no other dependencies. It ships JavaScript modules with TypeScript types.
 
 | Import | Use |
 |---|---|
@@ -291,7 +291,7 @@ When the tool works in the sandbox, host it at its https address and send the re
 
 ```powershell
 $Example = "C:\path\to\hello-tool"   # copy the example folder out of the kit
-Copy-Item .\krhomebase-tool-sdk-1.1.0.tgz $Example
+Copy-Item .\krhomebase-tool-sdk-1.2.0.tgz $Example
 Set-Location $Example
 pnpm install
 pnpm dev        # serves http://localhost:5173
