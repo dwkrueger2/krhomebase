@@ -1,7 +1,7 @@
 # Deployed Architecture
 
-<small>Version 3.1</small><br>
-<small>Updated Nov 23, 2026 2:04pm</small>
+<small>Version 3.2</small><br>
+<small>Updated Nov 23, 2026 3:23pm</small>
 
 **Status:** live since Nov 6, 2026. Read this file before any work that touches a Worker, a binding, a web address, a secret or a deploy command. Update it in the same change as any of those.
 
@@ -130,7 +130,7 @@ When an item goes live, move its line into sections 1 to 4.
 | Item | State | To go live |
 |---|---|---|
 | IT Overview (Settings → Firm IT; API patch 50, web patch 574, Nov 18, 2026) | Built and tested; not committed or deployed. The API's configuration gains the `CF_VERSION_METADATA` binding; the route is `GET /v1/it/overview` (super admin). | The requester commits and deploys the API and the web app (`pnpm deploy:hot` or `pnpm deploy:warn`). The secret `KR_CF_READ_TOKEN` is already set on `krhomebase-api` (Nov 18, 2026; section 5). Then move this line into sections 4 and 5. |
-| Tool sandbox `krhomebase-sandbox-api` (`apps/sandbox-api`; API patch 55, Nov 23, 2026) | Built and tested; not committed or deployed. Public (`workers_dev`, `https://krhomebase-sandbox-api.dankrueger.workers.dev`), one binding (`CF_VERSION_METADATA`), one secret (`KR_TOOL_SANDBOX_SECRET`, the same value as the API's), no data binding. Health route `GET /health-check` (API track). Already in the IT Overview's catalog, which shows it as not reporting until it is deployed. | The requester makes one random value, sets `KR_TOOL_SANDBOX_SECRET` on `krhomebase-api` and `krhomebase-sandbox-api` (`wrangler secret put`), deploys the API (the route `POST /v1/tools/registrations/{toolId}/sandbox-secret`) and the web app, then `pnpm deploy:sandbox`. Then move this line into sections 1, 2, 4 and 5. |
+| Tool sandbox `krhomebase-sandbox-api` (`apps/sandbox-api`; API patch 55, Nov 23, 2026) | **The Worker is deployed** (Nov 23, 2026, 1.2.0 p55, deployment `e040f1f0`; its signing secret is set: a call without a token answers `token_missing`, not 503). **The API route is not deployed yet** (checked Nov 23, 2026: `POST /api/v1/tools/registrations/{toolId}/sandbox-secret` on krhomebase.com answers 404), so the Outside Tools screen cannot make sandbox secrets until API patch 55 and web patch 581 are deployed. Public (`workers_dev`, `https://krhomebase-sandbox-api.dankrueger.workers.dev`), one binding (`CF_VERSION_METADATA`), one secret (`KR_TOOL_SANDBOX_SECRET`, the same value as the API's), no data binding. Health route `GET /health-check` (API track). Already in the IT Overview's catalog, which shows it as not reporting until it is deployed. | The requester sets `KR_TOOL_SANDBOX_SECRET` on `krhomebase-api` (the same value as the sandbox, `private-kr-outsidetool-sandbox-secret.txt`) if not done yet, and deploys the API and the web app. Then move this line into sections 1, 2, 4 and 5. |
 | Custom Domain for `krhomebase-external-api` | The Worker is deployed (Nov 9, 2026); no domain is recorded here. The `workspace_tool*` tables exist (checked Nov 13, 2026) and the tool routes are in the deployed API. | The requester chooses a domain, adds it in the dashboard, and records it in section 2. |
 | The public site reading `krhomebase-public-article-worker` | The Worker is deployed (section 1). Not checked here: whether the public site's `KR_R2_PUBLIC_ARTICLE_WORKER_URL` points at it. Until it does, the public site reads the old `kr-r2-public-article-worker` (the old database), so nothing published from this app appears there. | The requester checks or changes the setting on the public site (`Readme-public-article-worker.md` in the Worker's folder), then records it in section 2. |
 

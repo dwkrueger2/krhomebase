@@ -29,7 +29,8 @@
  * Internal Developer role set), whatever their role. The API applies both (`toolRefusal`).
  *
  * Nov 23, 2026 (web patch 581): the Permissions hint has a **README First** button (`onShowReadme`) that opens the
- * super admin's help on what each permission hands over, in a dialog the parent owns.
+ * super admin's help on what each permission hands over, in a dialog the parent owns. Web patch 582: that hint runs
+ * across both columns (`fullWidthNote`) instead of wrapping in the 112px label column, which made the form too tall.
  */
 
 import { useState, type FormEvent } from 'react'
@@ -115,6 +116,8 @@ const LAYOUT_STYLES = {
   permittedUsers: 'gap-[4px] flex flex-wrap items-center',
   check: 'gap-[4px] flex items-center',
   actions: 'gap-[6px] pt-[2px] flex justify-end',
+  // A note under a row's fields that runs across both columns, so it does not wrap in the narrow label column.
+  fullWidthNote: 'm-0 md:col-span-2',
 } as const
 
 const STYLES = {
@@ -407,7 +410,7 @@ export default function ToolRegistrationForm({ tool, busy, error, onSave, onCanc
             </label>
           ))}
         </div>
-        <p className={STYLES.hint} data-kr-element="tool-write-scopes-frame-only">
+        <p className={`${LAYOUT_STYLES.fullWidthNote} ${STYLES.hint}`} data-kr-element="tool-write-scopes-frame-only">
           Write permissions work only when the tool is open in the signed-in Homebase frame. Server calls remain read-only.
           {onShowReadme && (
             <>

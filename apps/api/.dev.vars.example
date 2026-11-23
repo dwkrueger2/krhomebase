@@ -32,5 +32,5 @@ KR_CF_READ_TOKEN=
 KR_SUPER_ADMIN_EMAILS=
 # Tool sandbox (Nov 23, 2026): signs the sandbox secrets of the Outside Tools screen; the same value krhomebase-sandbox-api holds.
 # Optional locally: without it "Sandbox secret" answers TOOLS_SANDBOX_NOT_CONFIGURED. Written by Write-DevVars.ps1 from
-# tool-sandbox-secret.txt (made by the script when missing), with the same value in apps/sandbox-api/.dev.vars.
+# private-kr-outsidetool-sandbox-secret.txt (made by the script when missing), with the same value in apps/sandbox-api/.dev.vars.
 KR_TOOL_SANDBOX_SECRET=

@@ -42,8 +42,8 @@
                                       from feedback-image-ticket-secret.txt (added Nov 16, 2026: Homebase Feedback
                                       screenshots in the local viewer). A local value only, never the deployed secret;
                                       when the file is missing the script makes it (32 random bytes, base64).
-        KR_TOOL_SANDBOX_SECRET        from tool-sandbox-secret.txt (added Nov 23, 2026: sandbox secrets on the Outside
-                                      Tools screen). A local value only; made by the script when missing.
+        KR_TOOL_SANDBOX_SECRET        from private-kr-outsidetool-sandbox-secret.txt (added Nov 23, 2026: sandbox secrets on
+                                      the Outside Tools screen); made by the script when missing.
         KR_SUPER_ADMIN_EMAILS         only when -SuperAdminEmails is given
     workers\feedback-viewer\.dev.vars   (the viewer's image Worker under pnpm dev:feedback-viewer:worker)
         KR_FEEDBACK_IMAGE_TICKET_SECRET  the same value as the API's: the local API signs the image tickets and the
@@ -203,9 +203,9 @@ $viewerSettings = [ordered]@{
   KR_FEEDBACK_IMAGE_TICKET_SECRET = $apiSettings['KR_FEEDBACK_IMAGE_TICKET_SECRET']
 }
 # Tool sandbox (Nov 23, 2026): one local signing secret, shared by the API (which signs the sandbox secrets on the
-# Outside Tools screen) and the local sandbox (pnpm dev:sandbox, which checks them). A local value of its own; the
-# deployed secret is made once and set with wrangler secret put on both Workers. Made here when the file is missing.
-$sandboxFile = 'tool-sandbox-secret.txt'
+# Outside Tools screen) and the local sandbox (pnpm dev:sandbox, which checks them). The requester keeps the value in
+# private-kr-outsidetool-sandbox-secret.txt (Nov 23, 2026); when that file is missing a new local value is made here.
+$sandboxFile = 'private-kr-outsidetool-sandbox-secret.txt'
 $sandboxPath = Join-Path $KeysFolder $sandboxFile
 if (-not (Test-Path -LiteralPath $sandboxPath)) {
   $sandboxBytes = New-Object byte[] 32
