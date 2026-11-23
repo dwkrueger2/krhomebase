@@ -9,7 +9,8 @@
  * - The number is `<client number>.<n>`, n one more than the highest positive sequence the client has (`.0` is the
  *   Client General Matters, made with the client by `POST /v1/contacts`, never here).
  * - A `.0` matter is always titled "Client General Matters" and is never deleted.
- * - Initial Notes are a `matter_activity_log` note "Matter Initial Notes", on create and on change.
+ * - Initial Notes are a `matter_activity_log` note "Matter Initial Notes", on create and on change. Since FB-0022 (API
+ *   1.2.0 patch 3) every matter carries its `note` rows back (`notes`, newest first); the old route never read them.
  * - The delete check lists the record tables that hold rows for the matter; only a super admin may delete, and only
  *   a matter with none.
  *
@@ -34,12 +35,13 @@ import {
   type MatterDeleteBody,
   type MatterDeleteCheckData,
   type MatterDeletedData,
+  type MatterNote as MatterNoteData,
   type MatterSavedData,
   type MatterUpdateBody,
 } from '@krhomebase/contracts'
 import type { AuditEntry } from '../../platform/queries.ts'
 import { normalizeClientNumber } from '../contact-edits/rules.ts'
-import { MATTER_RECORD_TABLES, type ChoiceRow, type MatterNote, type MatterQueries, type MatterRow } from './queries.ts'
+import { MATTER_RECORD_TABLES, type ChoiceRow, type MatterNote, type MatterNoteRow, type MatterQueries, type MatterRow } from './queries.ts'
 
 // See the lookup table as described in Schema 8.0: docs/Schema_8.0/table_lookup.html (section "How KR Homebase uses this table").
 // Defaults for a new matter: rows of the `matter_status` and `practice_area` choice lists.
@@ -100,8 +102,22 @@ export function compareMatterNumbers(left: string, right: string): number {
   return left.localeCompare(right, undefined, { numeric: true })
 }
 
+/** A note row as the wire shape; the writer is named by preferred name, else first and last name, else email. */
+export function serializeMatterNote(row: MatterNoteRow): MatterNoteData {
+  const name = row.author_preferred_name?.trim() || [row.author_first_name, row.author_last_name].filter((part) => part?.trim()).join(' ').trim()
+  return {
+    id: row.id,
+    subject: row.subject,
+    text: row.description ?? '',
+    activityDate: row.activity_date,
+    authorUserId: row.performed_by_user_id,
+    authorLabel: name || row.author_email || 'Unknown user',
+    createdAt: row.created_at,
+  }
+}
+
 /** One database row as the wire shape. A `.0` matter always carries the General Matters title. */
-export function serializeMatter(row: MatterRow): Matter {
+export function serializeMatter(row: MatterRow, notes: readonly MatterNoteRow[] = []): Matter {
   const isGeneralMatter = isClientGeneralMatterNumber(row.matter_number)
   return {
     id: row.id,
@@ -118,7 +134,14 @@ export function serializeMatter(row: MatterRow): Matter {
     primaryAttorneyUserId: row.primary_attorney_user_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    notes: notes.filter((note) => note.matter_id === row.id).map(serializeMatterNote),
   }
+}
+
+/** One matter read again with its notes (the reply of a create or change). */
+async function savedMatter(q: MatterQueries, matterId: string): Promise<MatterSavedData> {
+  const [row, notes] = await Promise.all([requireMatter(q, matterId), q.notesFor([matterId])])
+  return { matter: serializeMatter(row, notes) }
 }
 
 const canWrite = (role: string | null) => (MATTER_WRITE_ROLES as readonly string[]).includes(role ?? '')
@@ -167,10 +190,11 @@ export async function loadClientMatters(q: MatterQueries, actor: MatterActor, cl
   const client = await q.client(clientId)
   if (!client) throw new MatterError('MATTER_CLIENT_NOT_FOUND', 404, 'No client account has that id.')
   const [rows, choices] = await Promise.all([q.clientMatters(clientId), q.choices()])
+  const notes = await q.notesFor(rows.map((row) => row.id))
   return {
     clientId: client.id,
     clientNumber: normalizeClientNumber(client.client_number) ?? client.client_number,
-    matters: rows.map(serializeMatter).sort((left, right) => compareMatterNumbers(left.matterNumber, right.matterNumber)),
+    matters: rows.map((row) => serializeMatter(row, notes)).sort((left, right) => compareMatterNumbers(left.matterNumber, right.matterNumber)),
     statuses: choiceList(choices, 'matter_status'),
     practiceAreas: choiceList(choices, 'practice_area'),
     viewer: { canWrite: canWrite(actor.role), canDelete: isSuperAdmin(actor.role) },
@@ -215,7 +239,7 @@ export async function createMatter(q: MatterQueries, actor: MatterActor, clientI
       noteFor(actor, matterId, body.initialNotes, now),
       auditFor(actor, 'CREATE', matterId, client.id, { matterNumber, title: body.title.trim(), statusLookupId, practiceAreaLookupId, openedDate }),
     )
-    if (saved) return { matter: serializeMatter(await requireMatter(q, matterId)) }
+    if (saved) return savedMatter(q, matterId)
   }
   throw new MatterError('MATTER_NUMBER_IN_USE', 409, 'Another matter was created for this client at the same moment. Try again.')
 }
@@ -233,7 +257,7 @@ export async function updateMatter(q: MatterQueries, actor: MatterActor, matterI
     noteFor(actor, matterId, body.initialNotes, now),
     auditFor(actor, 'UPDATE', matterId, null, { matterNumber: current.matter_number, title, description, statusLookupId, openedDate, initialNotes: Boolean(body.initialNotes?.trim()) }),
   )
-  return { matter: serializeMatter(await requireMatter(q, matterId)) }
+  return savedMatter(q, matterId)
 }
 
 const LABELS = new Map<string, string>(MATTER_RECORD_TABLES)

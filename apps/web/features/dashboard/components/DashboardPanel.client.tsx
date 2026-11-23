@@ -9,8 +9,10 @@
  *   (`useShellPreferences().dashboardWidgets`), so a change saved in User Settings → Dashboard shows at once.
  * - **Drawing:** each widget is drawn by its own element inside `DashboardWidgetShell`, looked up from the list; the
  *   old grid's chain of `if (widget.id === ...)` is gone.
- * - **Grid:** one column on a phone, two at tablet width, three from desktop width; a `wide` widget takes two
- *   columns. The old grid used fixed 400px columns.
+ * - **Grid:** as many columns as fit at 300px or wider each (one on a phone), so a card never overlaps the next one;
+ *   a `wide` widget takes two columns. FB-0025 (web patch 585): the grid used to switch to three columns from desktop
+ *   width, and at a 1080px window each column was narrower than the two 300px time widgets, which overlapped. The old
+ *   grid used fixed 400px columns.
  * - **Nothing to show:** a short note with a button to User Settings → Dashboard (the old grid showed a placeholder).
  *
  * @param props - The widgets on offer, each with its definition and element.
@@ -25,7 +27,8 @@ import { visibleWidgets, type DashboardWidget } from '@/features/dashboard/dashb
 const LAYOUT_STYLES = {
   // The 36px right padding keeps the cards clear of the workspace's pop-out button (as Contact Detail does).
   panel: 'p-[8px] pr-[36px] min-w-0',
-  grid: 'gap-[8px] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 items-start',
+  // Columns of at least 300px (the time widgets' width), or the whole width when the screen is narrower.
+  grid: 'gap-[8px] grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] items-start',
   empty: 'p-[10px] gap-[8px] flex flex-wrap items-center',
 } as const
 

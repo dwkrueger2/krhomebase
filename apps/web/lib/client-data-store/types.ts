@@ -178,6 +178,13 @@ export interface ClientContactElement extends ClientDataElement {
   readonly pointOfContact?: { id: string; displayName: string; icid?: string | null; relationship?: string | null } | null
   readonly registeredAgent?: { id: string; displayName: string; icid?: string | null; relationship?: string | null } | null
   readonly relatedContacts?: Array<{ id: string; displayName: string; icid?: string | null; relationship?: string | null }>
+  /**
+   * Changed (Nov 23, 2026, web patch 586): a person's businesses (Related Entities) and the contact's photo (its image
+   * id and circle, never the image). Absent in caches written before; the contacts sync reloads such a cache in full
+   * once (`cacheLacksNewFields`).
+   */
+  readonly relatedEntities?: Array<{ id: string; displayName: string; ecid: string | null; clientNumber: string | null; role: string }>
+  readonly photo?: { assetId: string; width: number; height: number; cropX: number; cropY: number; cropSize: number; updatedAt: string } | null
 }
 
 /** Union of element types approved for the first client-data-store implementation. */

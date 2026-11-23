@@ -13,10 +13,12 @@ import type { ToolApi } from '@krhomebase/tool-sdk/frame'
 import type { ApiReply, ToolContext } from '@krhomebase/tool-sdk/types'
 import type { FeedbackKind, FeedbackListData, FeedbackPriority, FeedbackSavedData, FeedbackStatus, FeedbackSummary } from './feedbackTypes.ts'
 
-/** A status and priority change, with an optional note saved with it. */
+/** A status and priority change (and, since tool 1.8.0, the kind), with an optional note saved with it. */
 export interface FeedbackChange {
   status: FeedbackStatus
   priority: FeedbackPriority
+  /** A corrected kind (Bug, Usability, ...). Left out: the kind is not sent. */
+  kind?: FeedbackKind
   note?: string
 }
 
@@ -81,7 +83,12 @@ export function feedbackApi(api: ToolApi): FeedbackApi {
     },
     change(number, change) {
       const note = change.note?.trim()
-      return api.patch<FeedbackSavedData>(`/v1/homebase-feedback/${number}`, { status: change.status, priority: change.priority, ...(note ? { note } : {}) })
+      return api.patch<FeedbackSavedData>(`/v1/homebase-feedback/${number}`, {
+        status: change.status,
+        priority: change.priority,
+        ...(change.kind ? { kind: change.kind } : {}),
+        ...(note ? { note } : {}),
+      })
     },
     addNote(number, text) {
       return api.post<FeedbackSavedData>(`/v1/homebase-feedback/${number}/notes`, { text: text.trim() })

@@ -33,7 +33,8 @@ export interface IndividualSummaryDetailsProps {
 export default function IndividualSummaryDetails({ contact, onEdit, onOpenMatter, onOpenContact, photo }: IndividualSummaryDetailsProps) {
   return (
     <section className={`${LAYOUT_STYLES.identity} ${STYLES.identity}`} data-kr-id="IndividualSummaryDetails" data-kr-element="contact-detail-identity-header">
-      {photo ?? <ContactIdentityPhotoColumn contact={contact} />}
+      {/* The photo square; whoever may edit the contact may change its photo (web patch 586) */}
+      {photo ?? <ContactIdentityPhotoColumn canEditPhoto={Boolean(onEdit)} contact={contact} />}
       <ContactIdentityDetails contact={contact} onEdit={onEdit} onOpenMatter={onOpenMatter} onOpenContact={onOpenContact} />
     </section>
   )

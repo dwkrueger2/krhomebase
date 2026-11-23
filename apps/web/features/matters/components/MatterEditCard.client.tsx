@@ -14,6 +14,9 @@
  * - The title row has its label beside the field; spacing, field heights and corners follow the Density Contract;
  *   saving shows `RainbowBusySpinner`; errors are plain sentences.
  * - Delete Matter shows only for a super admin (`canDelete` from the API).
+ * - FB-0022 (web patch 585): editing a matter lists its saved notes above the note box (`MatterNotesList`), and the box
+ *   is labeled "Add a note": each save with text adds a new note; the box always opens empty. Before, the saved notes
+ *   were shown nowhere, so a note looked lost after Save Matter.
  * - The dialog is rendered into `document.body` (as `ContactEditDialog` is) with `data-kr-theme-scope`, so the shell's
  *   top bar and left panel cannot cover its header; the old one sat under the top bar through a shell height variable.
  */
@@ -24,6 +27,7 @@ import { createPortal } from 'react-dom'
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
 import { createMatter, MattersApiError, updateMatter } from '../api.client'
 import MatterDeletePrompt from './MatterDeletePrompt.client'
+import MatterNotesList from './MatterNotesList.client'
 
 const STYLES = {
   backdrop: 'bg-[rgba(15,23,42,0.42)]',
@@ -194,9 +198,15 @@ export default function MatterEditCard({ canDelete = false, inline = false, clie
             <label className={STYLES.label} htmlFor="matter-edit-description">Matter Description</label>
             <textarea className={STYLES.textArea} id="matter-edit-description" maxLength={4000} rows={3} value={description} onChange={(event) => setDescription(event.target.value)} />
           </div>
-          {/* Initial notes row: saved as a matter activity note, not a matter column. */}
+          {/* Notes row: the saved notes (editing), then the box that adds a new matter activity note, not a matter column. */}
           <div className={LAYOUT_STYLES.stackRow} data-kr-element="matter-edit-notes-row">
-            <label className={STYLES.label} htmlFor="matter-edit-initial-notes">Initial Notes</label>
+            {matter ? (
+              <>
+                <span className={STYLES.label}>Notes</span>
+                <MatterNotesList element="matter-edit-saved-notes" notes={matter.notes ?? []} />
+              </>
+            ) : null}
+            <label className={STYLES.label} htmlFor="matter-edit-initial-notes">{matter ? 'Add a note' : 'Initial Notes'}</label>
             <textarea className={STYLES.textArea} id="matter-edit-initial-notes" maxLength={10000} rows={3} value={initialNotes} onChange={(event) => setInitialNotes(event.target.value)} />
           </div>
           {error ? <p className={STYLES.error} role="alert">{error}</p> : null}

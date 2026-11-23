@@ -136,6 +136,18 @@ describe('PATCH /v1/matters/{matterId}', () => {
     expect(saved.matter).toMatchObject({ title: 'Second, renamed', description: null, statusLabel: 'Closed', openedDate: '2026-09-30' })
     expect(one(`SELECT COUNT(*) AS n FROM matter_activity_log WHERE matter_id = 'mat-2'`)).toEqual({ n: 1 })
     expect(one(`SELECT action, matter_id FROM audit_log WHERE target_id = 'mat-2'`)).toEqual({ action: 'UPDATE', matter_id: null })
+    // FB-0022: the saved note comes back with the matter, with its writer.
+    expect(saved.matter.notes).toHaveLength(1)
+    expect(saved.matter.notes[0]).toMatchObject({ subject: 'Matter Initial Notes', text: 'Note', authorUserId: 'u-admin' })
+  })
+
+  it('reads every matter\'s notes back in the list, newest first (FB-0022)', async () => {
+    await call('PATCH', '/v1/matters/mat-2', { title: 'Second', initialNotes: 'Older note' })
+    run(`UPDATE matter_activity_log SET created_at = '2026-01-01T00:00:00.000Z' WHERE matter_id = 'mat-2'`)
+    await call('PATCH', '/v1/matters/mat-2', { title: 'Second', initialNotes: 'Newer note' })
+    const list = await data(await call('GET', '/v1/clients/cl-55/matters'), ClientMattersData)
+    expect(list.matters.find((item) => item.id === 'mat-2')?.notes.map((note) => note.text)).toEqual(['Newer note', 'Older note'])
+    expect(list.matters.find((item) => item.id === 'mat-0')?.notes).toEqual([])
   })
 
   it('keeps the .0 title and leaves out fields unchanged', async () => {

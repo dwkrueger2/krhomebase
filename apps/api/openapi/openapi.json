@@ -7499,6 +7499,102 @@
                                   ]
                                 }
                               },
+                              "relatedEntities": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "description": "The entity id."
+                                    },
+                                    "displayName": {
+                                      "type": "string",
+                                      "description": "The entity's legal name."
+                                    },
+                                    "ecid": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "description": "Its ECID."
+                                    },
+                                    "clientNumber": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "description": "Its client number, when it is a client."
+                                    },
+                                    "role": {
+                                      "type": "string",
+                                      "description": "The person's role there: \"Point of contact\", \"Registered agent\" or \"Related contact\"."
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "displayName",
+                                    "ecid",
+                                    "clientNumber",
+                                    "role"
+                                  ]
+                                },
+                                "description": "A person's businesses (`entity_contact`), with their role; empty for an entity. API patch 58; optional so a browser can read an older API."
+                              },
+                              "photo": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "assetId": {
+                                    "type": "string",
+                                    "description": "The image (`media_asset.id`); a new photo has a new id, so the address can be cached."
+                                  },
+                                  "width": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "description": "The image width in pixels."
+                                  },
+                                  "height": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "description": "The image height in pixels."
+                                  },
+                                  "cropX": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "The circle's center, as a fraction of the image width."
+                                  },
+                                  "cropY": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "The circle's center, as a fraction of the image height."
+                                  },
+                                  "cropSize": {
+                                    "type": "number",
+                                    "minimum": 0.05,
+                                    "maximum": 1,
+                                    "description": "The circle's diameter, as a fraction of the image's shorter side."
+                                  },
+                                  "updatedAt": {
+                                    "type": "string",
+                                    "description": "When the photo or its circle last changed (ISO time)."
+                                  }
+                                },
+                                "required": [
+                                  "assetId",
+                                  "width",
+                                  "height",
+                                  "cropX",
+                                  "cropY",
+                                  "cropSize",
+                                  "updatedAt"
+                                ],
+                                "description": "The current photo, or null (FB-0019, API patch 58)."
+                              },
                               "titlePrefix": {
                                 "type": [
                                   "string",
@@ -8675,6 +8771,102 @@
                                   ]
                                 }
                               },
+                              "relatedEntities": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "description": "The entity id."
+                                    },
+                                    "displayName": {
+                                      "type": "string",
+                                      "description": "The entity's legal name."
+                                    },
+                                    "ecid": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "description": "Its ECID."
+                                    },
+                                    "clientNumber": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "description": "Its client number, when it is a client."
+                                    },
+                                    "role": {
+                                      "type": "string",
+                                      "description": "The person's role there: \"Point of contact\", \"Registered agent\" or \"Related contact\"."
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "displayName",
+                                    "ecid",
+                                    "clientNumber",
+                                    "role"
+                                  ]
+                                },
+                                "description": "A person's businesses (`entity_contact`), with their role; empty for an entity. API patch 58; optional so a browser can read an older API."
+                              },
+                              "photo": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "assetId": {
+                                    "type": "string",
+                                    "description": "The image (`media_asset.id`); a new photo has a new id, so the address can be cached."
+                                  },
+                                  "width": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "description": "The image width in pixels."
+                                  },
+                                  "height": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "description": "The image height in pixels."
+                                  },
+                                  "cropX": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "The circle's center, as a fraction of the image width."
+                                  },
+                                  "cropY": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "The circle's center, as a fraction of the image height."
+                                  },
+                                  "cropSize": {
+                                    "type": "number",
+                                    "minimum": 0.05,
+                                    "maximum": 1,
+                                    "description": "The circle's diameter, as a fraction of the image's shorter side."
+                                  },
+                                  "updatedAt": {
+                                    "type": "string",
+                                    "description": "When the photo or its circle last changed (ISO time)."
+                                  }
+                                },
+                                "required": [
+                                  "assetId",
+                                  "width",
+                                  "height",
+                                  "cropX",
+                                  "cropY",
+                                  "cropSize",
+                                  "updatedAt"
+                                ],
+                                "description": "The current photo, or null (FB-0019, API patch 58)."
+                              },
                               "titlePrefix": {
                                 "type": [
                                   "string",
@@ -9384,6 +9576,15 @@
                     },
                     "maxItems": 100
                   },
+                  "relatedContactsRemovedHereOnly": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    },
+                    "maxItems": 100
+                  },
                   "email": {
                     "type": [
                       "string",
@@ -9715,6 +9916,102 @@
                                   "icid"
                                 ]
                               }
+                            },
+                            "relatedEntities": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "The entity id."
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "description": "The entity's legal name."
+                                  },
+                                  "ecid": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "Its ECID."
+                                  },
+                                  "clientNumber": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "Its client number, when it is a client."
+                                  },
+                                  "role": {
+                                    "type": "string",
+                                    "description": "The person's role there: \"Point of contact\", \"Registered agent\" or \"Related contact\"."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "displayName",
+                                  "ecid",
+                                  "clientNumber",
+                                  "role"
+                                ]
+                              },
+                              "description": "A person's businesses (`entity_contact`), with their role; empty for an entity. API patch 58; optional so a browser can read an older API."
+                            },
+                            "photo": {
+                              "type": [
+                                "object",
+                                "null"
+                              ],
+                              "properties": {
+                                "assetId": {
+                                  "type": "string",
+                                  "description": "The image (`media_asset.id`); a new photo has a new id, so the address can be cached."
+                                },
+                                "width": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "description": "The image width in pixels."
+                                },
+                                "height": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "description": "The image height in pixels."
+                                },
+                                "cropX": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1,
+                                  "description": "The circle's center, as a fraction of the image width."
+                                },
+                                "cropY": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1,
+                                  "description": "The circle's center, as a fraction of the image height."
+                                },
+                                "cropSize": {
+                                  "type": "number",
+                                  "minimum": 0.05,
+                                  "maximum": 1,
+                                  "description": "The circle's diameter, as a fraction of the image's shorter side."
+                                },
+                                "updatedAt": {
+                                  "type": "string",
+                                  "description": "When the photo or its circle last changed (ISO time)."
+                                }
+                              },
+                              "required": [
+                                "assetId",
+                                "width",
+                                "height",
+                                "cropX",
+                                "cropY",
+                                "cropSize",
+                                "updatedAt"
+                              ],
+                              "description": "The current photo, or null (FB-0019, API patch 58)."
                             },
                             "titlePrefix": {
                               "type": [
@@ -11357,6 +11654,1512 @@
           },
           "503": {
             "description": "The database cannot be reached (CONTACTS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/contacts/{contactId}/photo": {
+      "put": {
+        "summary": "Upload a new photo for a contact, with its circle; the old one stops being current. Needs contacts.update, or the contact must be your own.",
+        "description": "Any signed-in user.\n\nSide effects: Writes the image to R2 (krhomebase-media-dev); Writes media_asset and contact_photo; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, CONTACT_NOT_FOUND, CONTACT_PHOTO_NOT_FOUND, CONTACT_PHOTOS_UNAVAILABLE, VALIDATION_CONTACT_PHOTO_FILE_REQUIRED, VALIDATION_CONTACT_PHOTO_EMPTY, VALIDATION_CONTACT_PHOTO_TOO_LARGE, VALIDATION_CONTACT_PHOTO_TYPE_UNSUPPORTED, INTERNAL_ERROR.",
+        "tags": [
+          "contacts"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "description": "Id of an individual or an entity."
+            },
+            "required": true,
+            "description": "Id of an individual or an entity.",
+            "name": "contactId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "description": "The image (JPEG, PNG or WebP; 5 MB at most; 1200 pixels on the longer side at most)."
+                  },
+                  "width": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1200,
+                    "description": "The image width in pixels."
+                  },
+                  "height": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1200,
+                    "description": "The image height in pixels."
+                  },
+                  "cropX": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "The circle's center, as a fraction of the image width."
+                  },
+                  "cropY": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "The circle's center, as a fraction of the image height."
+                  },
+                  "cropSize": {
+                    "type": "number",
+                    "minimum": 0.05,
+                    "maximum": 1,
+                    "description": "The circle's diameter, as a fraction of the image's shorter side."
+                  }
+                },
+                "required": [
+                  "width",
+                  "height",
+                  "cropX",
+                  "cropY",
+                  "cropSize"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The current photo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "contactId": {
+                          "type": "string",
+                          "description": "The contact."
+                        },
+                        "photo": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "assetId": {
+                              "type": "string",
+                              "description": "The image (`media_asset.id`); a new photo has a new id, so the address can be cached."
+                            },
+                            "width": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "description": "The image width in pixels."
+                            },
+                            "height": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "description": "The image height in pixels."
+                            },
+                            "cropX": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "The circle's center, as a fraction of the image width."
+                            },
+                            "cropY": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "The circle's center, as a fraction of the image height."
+                            },
+                            "cropSize": {
+                              "type": "number",
+                              "minimum": 0.05,
+                              "maximum": 1,
+                              "description": "The circle's diameter, as a fraction of the image's shorter side."
+                            },
+                            "updatedAt": {
+                              "type": "string",
+                              "description": "When the photo or its circle last changed (ISO time)."
+                            }
+                          },
+                          "required": [
+                            "assetId",
+                            "width",
+                            "height",
+                            "cropX",
+                            "cropY",
+                            "cropSize",
+                            "updatedAt"
+                          ],
+                          "description": "The current photo after the change; null after a removal."
+                        }
+                      },
+                      "required": [
+                        "contactId",
+                        "photo"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No contacts.update and not your own contact (PERMISSION_REQUIRED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contact (CONTACT_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "No file, an empty file, over 5 MB, or not a JPEG, PNG or WebP image.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contact photos cannot be reached right now: the database, the bucket, or migration 078 (CONTACT_PHOTOS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Move or size the circle of a contact’s current photo. Needs contacts.update, or the contact must be your own.",
+        "description": "Any signed-in user.\n\nSide effects: Writes contact_photo; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, CONTACT_NOT_FOUND, CONTACT_PHOTO_NOT_FOUND, CONTACT_PHOTOS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "contacts"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "description": "Id of an individual or an entity."
+            },
+            "required": true,
+            "description": "Id of an individual or an entity.",
+            "name": "contactId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cropX": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "The circle's center, as a fraction of the image width."
+                  },
+                  "cropY": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "The circle's center, as a fraction of the image height."
+                  },
+                  "cropSize": {
+                    "type": "number",
+                    "minimum": 0.05,
+                    "maximum": 1,
+                    "description": "The circle's diameter, as a fraction of the image's shorter side."
+                  }
+                },
+                "required": [
+                  "cropX",
+                  "cropY",
+                  "cropSize"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The current photo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "contactId": {
+                          "type": "string",
+                          "description": "The contact."
+                        },
+                        "photo": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "assetId": {
+                              "type": "string",
+                              "description": "The image (`media_asset.id`); a new photo has a new id, so the address can be cached."
+                            },
+                            "width": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "description": "The image width in pixels."
+                            },
+                            "height": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "description": "The image height in pixels."
+                            },
+                            "cropX": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "The circle's center, as a fraction of the image width."
+                            },
+                            "cropY": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "The circle's center, as a fraction of the image height."
+                            },
+                            "cropSize": {
+                              "type": "number",
+                              "minimum": 0.05,
+                              "maximum": 1,
+                              "description": "The circle's diameter, as a fraction of the image's shorter side."
+                            },
+                            "updatedAt": {
+                              "type": "string",
+                              "description": "When the photo or its circle last changed (ISO time)."
+                            }
+                          },
+                          "required": [
+                            "assetId",
+                            "width",
+                            "height",
+                            "cropX",
+                            "cropY",
+                            "cropSize",
+                            "updatedAt"
+                          ],
+                          "description": "The current photo after the change; null after a removal."
+                        }
+                      },
+                      "required": [
+                        "contactId",
+                        "photo"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No contacts.update and not your own contact (PERMISSION_REQUIRED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contact, or it has no photo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contact photos cannot be reached right now: the database, the bucket, or migration 078 (CONTACT_PHOTOS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove a contact’s current photo (the file is kept). Needs contacts.update, or the contact must be your own.",
+        "description": "Any signed-in user.\n\nSide effects: Writes contact_photo and media_asset; Writes audit_log.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, CONTACT_NOT_FOUND, CONTACT_PHOTO_NOT_FOUND, CONTACT_PHOTOS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "contacts"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "description": "Id of an individual or an entity."
+            },
+            "required": true,
+            "description": "Id of an individual or an entity.",
+            "name": "contactId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "No current photo now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "contactId": {
+                          "type": "string",
+                          "description": "The contact."
+                        },
+                        "photo": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "assetId": {
+                              "type": "string",
+                              "description": "The image (`media_asset.id`); a new photo has a new id, so the address can be cached."
+                            },
+                            "width": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "description": "The image width in pixels."
+                            },
+                            "height": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "description": "The image height in pixels."
+                            },
+                            "cropX": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "The circle's center, as a fraction of the image width."
+                            },
+                            "cropY": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "The circle's center, as a fraction of the image height."
+                            },
+                            "cropSize": {
+                              "type": "number",
+                              "minimum": 0.05,
+                              "maximum": 1,
+                              "description": "The circle's diameter, as a fraction of the image's shorter side."
+                            },
+                            "updatedAt": {
+                              "type": "string",
+                              "description": "When the photo or its circle last changed (ISO time)."
+                            }
+                          },
+                          "required": [
+                            "assetId",
+                            "width",
+                            "height",
+                            "cropX",
+                            "cropY",
+                            "cropSize",
+                            "updatedAt"
+                          ],
+                          "description": "The current photo after the change; null after a removal."
+                        }
+                      },
+                      "required": [
+                        "contactId",
+                        "photo"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No contacts.update and not your own contact (PERMISSION_REQUIRED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such contact, or it has no photo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contact photos cannot be reached right now: the database, the bucket, or migration 078 (CONTACT_PHOTOS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/contacts/{contactId}/photo/{assetId}": {
+      "get": {
+        "summary": "The image of one of a contact’s photos (cached privately: a new photo has a new id). Needs contacts.read, or the contact must be your own.",
+        "description": "Any signed-in user.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, PERMISSION_REQUIRED, CONTACT_PHOTO_NOT_FOUND, CONTACT_PHOTOS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "contacts"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "description": "Id of an individual or an entity."
+            },
+            "required": true,
+            "description": "Id of an individual or an entity.",
+            "name": "contactId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "description": "The image (`ContactPhoto.assetId`)."
+            },
+            "required": true,
+            "description": "The image (`ContactPhoto.assetId`).",
+            "name": "assetId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image.",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "description": "The image bytes (JPEG, PNG or WebP)."
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No contacts.read and not your own contact (PERMISSION_REQUIRED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such photo (CONTACT_PHOTO_NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contact photos cannot be reached right now: the database, the bucket, or migration 078 (CONTACT_PHOTOS_UNAVAILABLE).",
             "content": {
               "application/json": {
                 "schema": {
@@ -70989,6 +72792,53 @@
                                   "null"
                                 ],
                                 "description": "When it last changed (ISO time)."
+                              },
+                              "notes": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "description": "Row id (`mal_<uuid>`)."
+                                    },
+                                    "subject": {
+                                      "type": "string",
+                                      "description": "The row's subject (\"Matter Initial Notes\" for the notes saved by this dialog)."
+                                    },
+                                    "text": {
+                                      "type": "string",
+                                      "description": "The note."
+                                    },
+                                    "activityDate": {
+                                      "type": "string",
+                                      "description": "The day of the note, `YYYY-MM-DD`."
+                                    },
+                                    "authorUserId": {
+                                      "type": "string",
+                                      "description": "Who wrote it."
+                                    },
+                                    "authorLabel": {
+                                      "type": "string",
+                                      "description": "Their name."
+                                    },
+                                    "createdAt": {
+                                      "type": "string",
+                                      "description": "When it was saved (ISO time)."
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "subject",
+                                    "text",
+                                    "activityDate",
+                                    "authorUserId",
+                                    "authorLabel",
+                                    "createdAt"
+                                  ]
+                                },
+                                "default": [],
+                                "description": "The matter's saved notes, newest first (FB-0022)."
                               }
                             },
                             "required": [
@@ -71391,7 +73241,7 @@
                   "initialNotes": {
                     "type": "string",
                     "maxLength": 10000,
-                    "description": "Optional first note, saved as a `matter_activity_log` note \"Matter Initial Notes\"."
+                    "description": "Optional note to add, saved as a `matter_activity_log` note \"Matter Initial Notes\"; read back in `Matter.notes`."
                   },
                   "statusLookupId": {
                     "type": "string",
@@ -71514,6 +73364,53 @@
                                 "null"
                               ],
                               "description": "When it last changed (ISO time)."
+                            },
+                            "notes": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "Row id (`mal_<uuid>`)."
+                                  },
+                                  "subject": {
+                                    "type": "string",
+                                    "description": "The row's subject (\"Matter Initial Notes\" for the notes saved by this dialog)."
+                                  },
+                                  "text": {
+                                    "type": "string",
+                                    "description": "The note."
+                                  },
+                                  "activityDate": {
+                                    "type": "string",
+                                    "description": "The day of the note, `YYYY-MM-DD`."
+                                  },
+                                  "authorUserId": {
+                                    "type": "string",
+                                    "description": "Who wrote it."
+                                  },
+                                  "authorLabel": {
+                                    "type": "string",
+                                    "description": "Their name."
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "description": "When it was saved (ISO time)."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "subject",
+                                  "text",
+                                  "activityDate",
+                                  "authorUserId",
+                                  "authorLabel",
+                                  "createdAt"
+                                ]
+                              },
+                              "default": [],
+                              "description": "The matter's saved notes, newest first (FB-0022)."
                             }
                           },
                           "required": [
@@ -71894,7 +73791,7 @@
                   "initialNotes": {
                     "type": "string",
                     "maxLength": 10000,
-                    "description": "Optional first note, saved as a `matter_activity_log` note \"Matter Initial Notes\"."
+                    "description": "Optional note to add, saved as a `matter_activity_log` note \"Matter Initial Notes\"; read back in `Matter.notes`."
                   },
                   "statusLookupId": {
                     "type": "string",
@@ -72014,6 +73911,53 @@
                                 "null"
                               ],
                               "description": "When it last changed (ISO time)."
+                            },
+                            "notes": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "Row id (`mal_<uuid>`)."
+                                  },
+                                  "subject": {
+                                    "type": "string",
+                                    "description": "The row's subject (\"Matter Initial Notes\" for the notes saved by this dialog)."
+                                  },
+                                  "text": {
+                                    "type": "string",
+                                    "description": "The note."
+                                  },
+                                  "activityDate": {
+                                    "type": "string",
+                                    "description": "The day of the note, `YYYY-MM-DD`."
+                                  },
+                                  "authorUserId": {
+                                    "type": "string",
+                                    "description": "Who wrote it."
+                                  },
+                                  "authorLabel": {
+                                    "type": "string",
+                                    "description": "Their name."
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "description": "When it was saved (ISO time)."
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "subject",
+                                  "text",
+                                  "activityDate",
+                                  "authorUserId",
+                                  "authorLabel",
+                                  "createdAt"
+                                ]
+                              },
+                              "default": [],
+                              "description": "The matter's saved notes, newest first (FB-0022)."
                             }
                           },
                           "required": [
@@ -87841,6 +89785,16 @@
                       "urgent"
                     ],
                     "description": "How urgent the request is."
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "issue",
+                      "usability",
+                      "feature",
+                      "question"
+                    ],
+                    "description": "A new kind (Bug, Usability, ...), when the sender chose the wrong one (API patch 57, the requester, Nov 23, 2026). Recorded as a note \"Kind changed from ... to ...\"."
                   },
                   "note": {
                     "type": "string",

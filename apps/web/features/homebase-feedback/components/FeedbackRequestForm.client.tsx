@@ -19,6 +19,8 @@
  * - Pick from page (stage F4, Internal Developers only): asks the main window's Dev View for one element
  *   (`kr-dev-view:command` `pick`); the picked element's marker comes back (`kr-dev-view:picked`) and is put into the
  *   text where the cursor was. Dev View itself is allowed by the panel once the API says the person is a developer.
+ *   Since web patch 585 (the requester, Nov 23, 2026) the marker is typed in as one undoable edit (`markerInsert.ts`),
+ *   so Ctrl+Z takes it back.
  * - Clear asks first in `U6ConfirmationDialog` when there is text or a screenshot. A sent request shows its number (`FB-0012`) and
  *   the form starts again. `disabledReason` (the migration not applied yet) keeps Send off and says why.
  *
@@ -35,6 +37,7 @@ import {
   type HomebaseFeedbackKind,
 } from '@krhomebase/contracts'
 import { DEV_VIEW_PICKED_EVENT, readDevViewPicked, sendDevViewCommand } from '@/components/dev-view/devViewRemote'
+import { insertUndoably, markerInserted } from '../markerInsert'
 import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
@@ -168,27 +171,24 @@ export default function FeedbackRequestForm({ sourceWindow, disabledReason, isDe
   }, [pickCopied])
   const textRef = useRef<HTMLTextAreaElement | null>(null)
 
-  // Stage F4: a picked marker goes into the text at the cursor (or at the end), with a space on each side.
+  // Stage F4: a picked marker goes into the text at the cursor (or at the end), with a space on each side, as one
+  // undoable edit (Ctrl+Z, web patch 585); where the browser refuses that, the text is set directly.
   useEffect(() => {
     if (!picking) return
     const onPicked = (event: Event) => {
       const picked = readDevViewPicked(event)
       if (!picked) return
       const field = textRef.current
-      setBody((current) => {
-        const at = field && field.selectionStart <= current.length ? field.selectionStart : current.length
-        const before = current.slice(0, at)
-        const after = current.slice(at)
-        const lead = before && !/\s$/.test(before) ? ' ' : ''
-        const tail = after && !/^\s/.test(after) ? ' ' : ''
-        return `${before}${lead}${picked.label}${tail}${after}`
-      })
       // The marker also goes to the clipboard, for pasting elsewhere (the requester, Nov 16, 2026). The main window
-      // has the focus right after the pick, so its clipboard accepts the write; a refusal only skips the copy.
+      // has the focus right after the pick, so its clipboard accepts the write; a refusal only skips the copy. Asked
+      // before the text box takes the focus below.
       void sourceWindow.navigator.clipboard?.writeText(picked.label).then(
         () => setPickCopied(true),
         () => L('[HOMEBASE_FEEDBACK_FORM:160] picked marker not copied: the clipboard refused'),
       )
+      if (!field || !insertUndoably(field, picked.label)) {
+        setBody((current) => markerInserted(current, field && field.selectionStart <= current.length ? field.selectionStart : current.length, picked.label))
+      }
       setSentCode('')
       setPicking(false)
       L(`[HOMEBASE_FEEDBACK_FORM:150] picked ${picked.label.slice(0, 80)}`)

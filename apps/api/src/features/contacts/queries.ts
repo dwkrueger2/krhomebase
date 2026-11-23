@@ -14,6 +14,14 @@
  *
  * Id lists are passed as one JSON value and expanded with `json_each`, because D1 allows at most 100 bound
  * values per statement and a delta can name hundreds of contacts.
+ *
+ * API patch 58 (the requester's plans of Nov 23, 2026):
+ *  - Related entities: a slice also reads the `entity_contact` rows of its people (`individual_id`), with those
+ *    businesses' names and client accounts, so a person's card lists their businesses. A changed link marks the
+ *    person changed too, not only the business.
+ *  - Photos (FB-0019, migration 078): the current `contact_photo` row of each contact with its image's size
+ *    (`media_asset`). Read in a statement of its own (`loadPhotos`), because the table may not exist yet: before
+ *    migration 078 every contact reads as having no photo and the list still works.
  */
 
 import type {
@@ -45,6 +53,22 @@ export type ContactTables = {
   individualRelationships: IndividualRelationshipRow[]
   resolutions: ContactResolutionRow[]
   linkedUsers: LinkedContactUser[]
+  /** Current photos (migration 078); empty before it. */
+  contactPhotos: ContactPhotoRow[]
+}
+
+/** A contact's current photo with its image's size (`contact_photo` joined to `media_asset`). */
+export type ContactPhotoRow = {
+  contact_kind: 'individual' | 'entity'
+  contact_id: string
+  media_asset_id: string
+  crop_x: number
+  crop_y: number
+  crop_size: number
+  width: number | null
+  height: number | null
+  updated_at: string | null
+  created_at: string
 }
 
 /** What a load cost: statements run and rows per table (returned as `timing`, no contact data). */
@@ -53,6 +77,33 @@ export type ContactLoadStats = { statements: number; tables: Array<{ table: stri
 export const EMPTY_CONTACT_TABLES: ContactTables = {
   individuals: [], entities: [], individualMethods: [], entityMethods: [], clients: [], clientMembers: [], individualAddressLinks: [],
   entityAddressLinks: [], addresses: [], entityContactLinks: [], individualRelationships: [], resolutions: [], linkedUsers: [],
+  contactPhotos: [],
+}
+
+const PHOTO_SELECT = `SELECT p.contact_kind, p.contact_id, p.media_asset_id, p.crop_x, p.crop_y, p.crop_size, m.width, m.height, p.updated_at, p.created_at
+  FROM contact_photo p JOIN media_asset m ON m.id = p.media_asset_id WHERE p.is_current = 1`
+
+/** True for D1's "no such table" (a migration not applied yet). */
+function missingTable(error: unknown): boolean {
+  return /no such table/i.test(error instanceof Error ? error.message : String(error))
+}
+
+/**
+ * The current photos of the given contacts (all contacts when `ids` is null). Before migration 078 the table does not
+ * exist: no photos, nothing fails.
+ */
+async function loadPhotos(db: D1Database, ids: string | null, stats: ContactLoadStats): Promise<ContactPhotoRow[]> {
+  try {
+    const statement = ids === null ? db.prepare(PHOTO_SELECT) : db.prepare(`${PHOTO_SELECT} AND p.contact_id IN (SELECT value FROM json_each(?1))`).bind(ids)
+    const result = await statement.all<ContactPhotoRow>()
+    const rows = result.results ?? []
+    stats.statements += 1
+    stats.tables.push({ table: 'contactPhotos', rows: rows.length })
+    return rows
+  } catch (error) {
+    if (missingTable(error)) return []
+    throw error
+  }
 }
 
 // ── column lists ───────────────────────────────────────────────────────────────────────────────────────────
@@ -146,7 +197,7 @@ export function createContactQueries(db: D1Database): ContactQueries {
         },
         stats,
       )
-      return r as unknown as ContactTables
+      return { ...(r as unknown as ContactTables), contactPhotos: await loadPhotos(db, null, stats) }
     },
 
     /**
@@ -169,6 +220,8 @@ export function createContactQueries(db: D1Database): ContactQueries {
         individualAddressLinks: db.prepare(`SELECT individual_id, ${ADDRESS_LINK_COLUMNS} FROM individual_address WHERE ${inList('individual_id')}`).bind(ids),
         entityAddressLinks: db.prepare(`SELECT entity_id, ${ADDRESS_LINK_COLUMNS} FROM entity_address WHERE ${inList('entity_id')}`).bind(ids),
         entityContactLinks: db.prepare(`SELECT ${ENTITY_CONTACT_COLUMNS} FROM entity_contact WHERE ${inList('entity_id')}`).bind(ids),
+        // API patch 58: the businesses each person is linked to (Related Entities on the person's card).
+        entityLinksOfPeople: db.prepare(`SELECT ${ENTITY_CONTACT_COLUMNS} FROM entity_contact WHERE ${inList('individual_id')} AND end_date IS NULL`).bind(ids),
         resolutions: db.prepare(`SELECT ${RESOLUTION_COLUMNS} FROM contact_resolution WHERE ${inList('source_contact_id')}`).bind(ids),
         linkedUsers: db.prepare(`SELECT ${LINKED_USER_COLUMNS} FROM user WHERE ${inList('individual_id')}`).bind(ids),
       }
@@ -181,7 +234,9 @@ export function createContactQueries(db: D1Database): ContactQueries {
       const relationships = includeRelatedContacts
         ? uniqueById([...(r.relationshipsA ?? []), ...(r.relationshipsB ?? [])] as IndividualRelationshipRow[])
         : []
-      const entityContactLinks = r.entityContactLinks as EntityContactRow[]
+      const entityContactLinks = uniqueById([...(r.entityContactLinks ?? []), ...(r.entityLinksOfPeople ?? [])] as EntityContactRow[])
+      const loadedEntityIds = new Set((r.entities as EntityRow[]).map((row) => row.id))
+      const relatedEntityIds = uniqueIds((r.entityLinksOfPeople as EntityContactRow[]).map((link) => link.entity_id)).filter((id) => !loadedEntityIds.has(id))
       const directClients = uniqueById([...(r.clientsByIndividual ?? []), ...(r.clientsByEntity ?? [])] as ContactClientRow[])
       const clientMembers = [...(r.membersByIndividual ?? []), ...(r.membersByEntity ?? [])] as ContactClientMemberRow[]
       const individualAddressLinks = r.individualAddressLinks as ContactAddressLinkRow[]
@@ -198,7 +253,7 @@ export function createContactQueries(db: D1Database): ContactQueries {
           .map((link) => link.individual_id),
       ]).filter((id) => !loadedIndividualIds.has(id))
       const second =
-        addressIds.length || memberClientIds.length || relatedIndividualIds.length
+        addressIds.length || memberClientIds.length || relatedIndividualIds.length || relatedEntityIds.length
           ? await runNamed(
               db,
               {
@@ -206,16 +261,19 @@ export function createContactQueries(db: D1Database): ContactQueries {
                 memberClients: db.prepare(`SELECT ${CLIENT_COLUMNS} FROM client WHERE ${inList('id')}`).bind(JSON.stringify(memberClientIds)),
                 // Related people: names only (never their SSN or date of birth).
                 relatedIndividuals: db.prepare(`SELECT ${INDIVIDUAL_LIST_COLUMNS} FROM individual WHERE ${inList('id')}`).bind(JSON.stringify(relatedIndividualIds)),
+                // Related entities (API patch 58): their names and client accounts (for the client number).
+                relatedEntities: db.prepare(`SELECT ${ENTITY_COLUMNS} FROM entity WHERE ${inList('id')}`).bind(JSON.stringify(relatedEntityIds)),
+                relatedEntityClients: db.prepare(`SELECT ${CLIENT_COLUMNS} FROM client WHERE ${inList('entity_id')}`).bind(JSON.stringify(relatedEntityIds)),
               },
               stats,
             )
-          : { addresses: [], memberClients: [], relatedIndividuals: [] }
+          : { addresses: [], memberClients: [], relatedIndividuals: [], relatedEntities: [], relatedEntityClients: [] }
       const rVal: ContactTables = {
         individuals: [...individuals, ...(second.relatedIndividuals as IndividualRow[])],
-        entities: r.entities as EntityRow[],
+        entities: [...(r.entities as EntityRow[]), ...((second.relatedEntities ?? []) as EntityRow[])],
         individualMethods: r.individualMethods as ContactMethodRow[],
         entityMethods: r.entityMethods as ContactMethodRow[],
-        clients: [...directClients, ...(second.memberClients as ContactClientRow[])],
+        clients: uniqueById([...directClients, ...(second.memberClients as ContactClientRow[]), ...((second.relatedEntityClients ?? []) as ContactClientRow[])]),
         clientMembers,
         individualAddressLinks,
         entityAddressLinks,
@@ -224,6 +282,7 @@ export function createContactQueries(db: D1Database): ContactQueries {
         individualRelationships: relationships,
         resolutions: r.resolutions as ContactResolutionRow[],
         linkedUsers: r.linkedUsers as LinkedContactUser[],
+        contactPhotos: await loadPhotos(db, ids, stats),
       }
       return rVal
     },
@@ -271,7 +330,8 @@ export function createContactQueries(db: D1Database): ContactQueries {
           ...pick(r.entityAddressLinks, 'entity_id'),
           ...pick(r.clients, 'individual_id', 'entity_id'),
           ...pick(r.clientMembers, 'individual_id', 'entity_id'),
-          ...pick(r.entityContactLinks, 'entity_id'),
+          // API patch 58: a changed link changes the person's Related Entities too.
+          ...pick(r.entityContactLinks, 'entity_id', 'individual_id'),
           ...pick(r.relationships, 'individual_a_id', 'individual_b_id'),
           ...pick(r.resolutions, 'source_contact_id', 'target_contact_id'),
           ...pick(r.linkedUsers, 'individual_id'),
@@ -307,6 +367,14 @@ export function createContactQueries(db: D1Database): ContactQueries {
         ...pick(r.allIndividualIds, 'id').filter((id) => !resolved.has(`individual:${id}`)),
         ...pick(r.allEntityIds, 'id').filter((id) => !resolved.has(`entity:${id}`)),
       ].filter((id): id is string => Boolean(id))
+      // FB-0019 (API patch 58): a contact whose photo or circle changed (migration 078; none before it).
+      try {
+        const photos = await db.prepare('SELECT contact_id FROM contact_photo WHERE COALESCE(updated_at, created_at) >= ?1').bind(floor).all<{ contact_id: string }>()
+        stats.statements += 1
+        for (const row of photos.results ?? []) changed.add(row.contact_id)
+      } catch (error) {
+        if (!missingTable(error)) throw error
+      }
       const rVal = { changedIds: [...changed], allIds }
       return rVal
     },

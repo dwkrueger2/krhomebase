@@ -44,6 +44,21 @@ export const MatterParams = z.object({
 })
 export type MatterParams = z.infer<typeof MatterParams>
 
+/**
+ * One saved note of a matter: a `matter_activity_log` row of type `note` (Initial Notes and the notes added later
+ * through Edit Matter). FB-0022 (API patch 57): the notes were saved but never read back, so they looked lost.
+ */
+export const MatterNote = z.object({
+  id: z.string().describe('Row id (`mal_<uuid>`).'),
+  subject: z.string().describe('The row\'s subject ("Matter Initial Notes" for the notes saved by this dialog).'),
+  text: z.string().describe('The note.'),
+  activityDate: z.string().describe('The day of the note, `YYYY-MM-DD`.'),
+  authorUserId: z.string().describe('Who wrote it.'),
+  authorLabel: z.string().describe('Their name.'),
+  createdAt: z.string().describe('When it was saved (ISO time).'),
+})
+export type MatterNote = z.infer<typeof MatterNote>
+
 export const Matter = z.object({
   id: z.string().describe('Matter id (`mat_<uuid>`).'),
   matterNumber: z.string().describe('`[Client Number].[sequence]`; `.0` is the Client General Matters. Assigned by the API, read-only.'),
@@ -59,6 +74,7 @@ export const Matter = z.object({
   primaryAttorneyUserId: z.string().nullable().describe('The primary attorney\'s user id (the creator by default).'),
   createdAt: z.string().describe('When the matter was created (ISO time).'),
   updatedAt: z.string().nullable().describe('When it last changed (ISO time).'),
+  notes: z.array(MatterNote).default([]).describe('The matter\'s saved notes, newest first (FB-0022).'),
 })
 export type Matter = z.infer<typeof Matter>
 
@@ -85,7 +101,7 @@ export type ClientMattersData = z.infer<typeof ClientMattersData>
 
 const title = z.string().trim().min(1, 'Matter Title is required.').max(200).describe('Matter title (ignored on a `.0` matter, which is always "Client General Matters").')
 const description = z.string().trim().max(4000).nullable().optional().describe('Matter description; blank or null clears it.')
-const initialNotes = z.string().trim().max(10000).optional().describe('Optional first note, saved as a `matter_activity_log` note "Matter Initial Notes".')
+const initialNotes = z.string().trim().max(10000).optional().describe('Optional note to add, saved as a `matter_activity_log` note "Matter Initial Notes"; read back in `Matter.notes`.')
 const statusLookupId = z.string().trim().min(1).max(200).describe('A `matter_status` choice id.')
 const openedDate = isoDate.describe('Date opened, `YYYY-MM-DD`.')
 

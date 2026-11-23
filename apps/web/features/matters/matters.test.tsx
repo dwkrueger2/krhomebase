@@ -13,6 +13,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import ClientMattersCard from '@/features/matters/components/ClientMattersCard.client'
 import MatterEditCard from '@/features/matters/components/MatterEditCard.client'
+import SelectedMatterDetailsCard from '@/features/matters/components/SelectedMatterDetailsCard.client'
 import { clientTreeLabel, compareMatterNumbers, displayDate } from '@/features/matters/matterDisplay'
 import type { ClientMattersState } from '@/features/matters/useClientMatters.client'
 
@@ -31,6 +32,7 @@ const matter = (id: string, matterNumber: string, title: string, extra: Partial<
   primaryAttorneyUserId: null,
   createdAt: '2026-11-01T00:00:00.000Z',
   updatedAt: null,
+  notes: [],
   ...extra,
 })
 
@@ -100,5 +102,37 @@ describe('MatterEditCard', () => {
     expect(html).toContain('The .0 matter is always named Client General Matters.')
     expect(html).toContain('Delete Matter')
     expect(html).toMatch(/id="matter-edit-title"[^>]*disabled|disabled[^>]*id="matter-edit-title"/)
+  })
+})
+
+describe('matter notes (FB-0022)', () => {
+  const noop = () => {}
+  const noted = matter('m2', '055.2', 'Estate plan', {
+    notes: [
+      { id: 'mal-2', subject: 'Matter Initial Notes', text: 'Second call', activityDate: '2026-11-20', authorUserId: 'u-1', authorLabel: 'Dan Krueger', createdAt: '2026-11-20T22:50:42.222Z' },
+      { id: 'mal-1', subject: 'Matter Initial Notes', text: 'First call', activityDate: '2026-11-19', authorUserId: 'u-1', authorLabel: 'Dan Krueger', createdAt: '2026-11-19T10:00:00.000Z' },
+    ],
+  })
+
+  it('lists the saved notes, newest first, on the selected matter card', () => {
+    const html = renderToStaticMarkup(<SelectedMatterDetailsCard matter={noted} />)
+    expect(html).toContain('data-kr-element="selected-matter-notes-list"')
+    expect(html.indexOf('Second call')).toBeLessThan(html.indexOf('First call'))
+    expect(html).toContain('11/20/2026')
+    expect(html).toContain('Dan Krueger')
+  })
+
+  it('says when a matter has no notes', () => {
+    expect(renderToStaticMarkup(<SelectedMatterDetailsCard matter={DATA.matters[1]!} />)).toContain('No notes yet.')
+  })
+
+  it('shows the saved notes above an empty "Add a note" box when editing, and "Initial Notes" when adding', () => {
+    const editing = renderToStaticMarkup(<MatterEditCard inline clientId="cl-55" clientNumber="055" matter={noted} open statuses={DATA.statuses} onClose={noop} onDeleted={noop} onSaved={noop} />)
+    expect(editing).toContain('data-kr-element="matter-edit-saved-notes"')
+    expect(editing).toContain('Second call')
+    expect(editing).toContain('Add a note')
+    const adding = renderToStaticMarkup(<MatterEditCard inline clientId="cl-55" clientNumber="055" matter={null} open statuses={DATA.statuses} onClose={noop} onDeleted={noop} onSaved={noop} />)
+    expect(adding).toContain('Initial Notes')
+    expect(adding).not.toContain('matter-edit-saved-notes')
   })
 })

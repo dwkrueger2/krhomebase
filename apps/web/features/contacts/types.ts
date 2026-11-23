@@ -25,6 +25,27 @@ export interface KRRelatedContact {
   relationship?: string | null
 }
 
+/** A business a person is linked to, with the person's role there (Related Entities; API patch 58). */
+export interface KRRelatedEntity {
+  id: string
+  displayName: string
+  ecid: string | null
+  clientNumber: string | null
+  /** "Point of contact", "Registered agent" or "Related contact". */
+  role: string
+}
+
+/** A contact's current photo and its circle (FB-0019, web patch 586); see `ContactPhoto` in the contracts. */
+export interface KRContactPhoto {
+  assetId: string
+  width: number
+  height: number
+  cropX: number
+  cropY: number
+  cropSize: number
+  updatedAt: string
+}
+
 export interface KRContactRecord {
   id: string
   kind: KRContactKind
@@ -92,6 +113,10 @@ export interface KRContactRecord {
   detailsLoaded?: boolean
   relatedMatters: KRRelatedMatter[]
   relatedContacts: KRRelatedContact[]
+  /** A person's businesses (web patch 586); empty for an entity, and in a cache written before. */
+  relatedEntities?: KRRelatedEntity[]
+  /** The current photo, or null (FB-0019, web patch 586). */
+  photo?: KRContactPhoto | null
 }
 
 /** The contact editor's working copy (unchanged from the old types.ts). Text fields are strings; empty means none. */
@@ -134,6 +159,11 @@ export interface KRContactDraft {
   pointOfContactId?: string | null
   registeredAgentId?: string | null
   relatedContactIds?: string[]
+  /**
+   * People taken off this person's Related Contacts who stay on their own list ("Only <name>'s list", FB-0023, web
+   * patch 585). Anyone else removed leaves both lists. Sent as `relatedContactsRemovedHereOnly`.
+   */
+  relatedContactsRemovedHereOnly?: string[]
   /** Firm-assigned client number; blank means the server may estimate one on client creation. */
   clientNumber?: string
 }

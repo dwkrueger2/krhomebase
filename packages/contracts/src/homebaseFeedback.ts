@@ -187,9 +187,10 @@ export const HomebaseFeedbackUpdateBody = z
   .object({
     status: HomebaseFeedbackStatus.optional(),
     priority: HomebaseFeedbackPriority.optional(),
+    kind: HomebaseFeedbackKind.optional().describe('A new kind (Bug, Usability, ...), when the sender chose the wrong one (API patch 57, the requester, Nov 23, 2026). Recorded as a note "Kind changed from ... to ...".'),
     note: text(10_000).optional().describe('An optional note saved with the change.'),
   })
-  .refine((body) => body.status !== undefined || body.priority !== undefined, { message: 'Send a status or a priority to change.' })
+  .refine((body) => body.status !== undefined || body.priority !== undefined || body.kind !== undefined, { message: 'Send a status, a priority or a kind to change.' })
 export type HomebaseFeedbackUpdateBody = z.infer<typeof HomebaseFeedbackUpdateBody>
 
 export const HomebaseFeedbackNoteBody = z.object({

@@ -37,8 +37,8 @@
  */
 
 import type { ClientStatusBody, ClientStatusData, ContactCreateBody, ContactCreateData, ContactUpdateBody } from '@krhomebase/contracts'
-import type { AddressFields, ClientRow, ContactEditQueries, ContactKind, EntityContactRow, MethodRow, NewMethod } from './queries.ts'
-import { ADDITIONAL_PHONE_LABEL, contactMethodSlots } from '../contacts/rules.ts'
+import type { AddressFields, ClientRow, ContactEditQueries, ContactKind, EntityContactRow, MethodRow, NewMethod, RelationshipRow, RelationshipSide } from './queries.ts'
+import { ADDITIONAL_PHONE_LABEL, contactMethodSlots, RELATIONSHIP_SIDE_REMOVED_LOOKUP_ID } from '../contacts/rules.ts'
 
 // ----------------------------------------------------------------------------------------------------------
 // Errors
@@ -400,18 +400,52 @@ async function requireIndividuals(q: ContactEditQueries, ids: string[]): Promise
   if (ids.some((id) => !found.has(id))) throw new ContactEditError('VALIDATION_RELATIONSHIP_INDIVIDUAL_NOT_FOUND', 422, 'A chosen person no longer exists.')
 }
 
-async function individualRelationshipStatements(q: ContactEditQueries, actor: Actor, individualId: string, relatedIds: string[], now: string): Promise<D1PreparedStatement[]> {
+/**
+ * The Related Contacts of one person as a replace set. Two people share one `individual_relationship` row, shown on
+ * both lists. FB-0023 (API patch 57, the requester, Nov 23, 2026): a person left out of `relatedIds` leaves both
+ * lists (the row is ended), unless they are in `removedHereOnly`; then only this person's direction is marked
+ * `lk_relationship_side_removed` and the other person keeps this one on their list. When the other direction was
+ * already removed, the row is ended. Adding back a person whose row is current with this direction removed puts the
+ * label back (the other direction's type, else Related Contact).
+ */
+async function individualRelationshipStatements(
+  q: ContactEditQueries,
+  actor: Actor,
+  individualId: string,
+  relatedIds: string[],
+  removedHereOnly: string[],
+  now: string,
+): Promise<D1PreparedStatement[]> {
   const desired = relatedIds.filter((id) => id !== individualId)
   await requireIndividuals(q, desired)
   const existing = await q.relationshipsOf(individualId)
   const otherOf = (row: { individual_a_id: string; individual_b_id: string }) => (row.individual_a_id === individualId ? row.individual_b_id : row.individual_a_id)
+  // This person's direction of a row (their own list), the other person's, and whether one was removed.
+  const ownSide = (row: RelationshipRow): RelationshipSide => (row.individual_a_id === individualId ? 'a_to_b' : 'b_to_a')
+  const otherSide = (side: RelationshipSide): RelationshipSide => (side === 'a_to_b' ? 'b_to_a' : 'a_to_b')
+  const lookupOf = (row: RelationshipRow, side: RelationshipSide) => (side === 'a_to_b' ? row.a_to_b_relationship_lookup_id : row.b_to_a_relationship_lookup_id)
+  const removedOn = (row: RelationshipRow, side: RelationshipSide) => lookupOf(row, side) === RELATIONSHIP_SIDE_REMOVED_LOOKUP_ID
   const statements: D1PreparedStatement[] = []
   for (const row of existing.filter((candidate) => !candidate.valid_to)) {
-    if (!desired.includes(otherOf(row))) statements.push(q.endRelationship(row.id, now), auditFor(q, actor, 'UPDATE', 'individual_relationship', row.id, { ended: true }))
+    const side = ownSide(row)
+    if (desired.includes(otherOf(row))) {
+      // Back on this list: give this direction its label again.
+      if (removedOn(row, side)) {
+        const label = removedOn(row, otherSide(side)) ? RELATED_CONTACT_LOOKUP_ID : lookupOf(row, otherSide(side))
+        statements.push(q.setRelationshipSide(row.id, side, label, now), auditFor(q, actor, 'UPDATE', 'individual_relationship', row.id, { side, restored: true }))
+      }
+      continue
+    }
+    if (removedOn(row, side)) continue // already off this list only: nothing to do
+    if (removedHereOnly.includes(otherOf(row)) && !removedOn(row, otherSide(side))) {
+      statements.push(q.setRelationshipSide(row.id, side, RELATIONSHIP_SIDE_REMOVED_LOOKUP_ID, now), auditFor(q, actor, 'UPDATE', 'individual_relationship', row.id, { side, removed: true }))
+    } else {
+      statements.push(q.endRelationship(row.id, now), auditFor(q, actor, 'UPDATE', 'individual_relationship', row.id, { ended: true }))
+    }
   }
   for (const targetId of desired) {
     const pairs = existing.filter((row) => otherOf(row) === targetId)
-    if (pairs.some((row) => !row.valid_to)) continue // already current: keep its label
+    if (pairs.some((row) => !row.valid_to)) continue // already current: kept, or its label put back above
     const earlier = pairs[0]
     if (earlier) {
       statements.push(q.restoreRelationship(earlier.id, RELATED_CONTACT_LOOKUP_ID, now), auditFor(q, actor, 'UPDATE', 'individual_relationship', earlier.id, { restored: true }))
@@ -534,7 +568,7 @@ export async function updateContact(
       auditFor(q, actor, 'UPDATE', 'individual', contactId, { fields: 'edit card' }),
     )
     displayName = individualDisplayName(firstName, lastName, preferredName)
-    statements.push(...(await individualRelationshipStatements(q, actor, contactId, idSet(body.relatedContactIds ?? []), now)))
+    statements.push(...(await individualRelationshipStatements(q, actor, contactId, idSet(body.relatedContactIds ?? []), idSet(body.relatedContactsRemovedHereOnly ?? []), now)))
   } else {
     const legalName = clean(body.displayName)
     if (!legalName) throw new ContactEditError('VALIDATION_MISSING_ENTITY_NAME', 422, 'Legal name is required.')

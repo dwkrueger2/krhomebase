@@ -5,7 +5,9 @@
  * - `matter`: the matter row. It has no client column; `matter_number` is UNIQUE and NOT NULL.
  * - `matter_party`: the client-to-matter link. A matter belongs to the client named by its `client_id` party (exactly
  *   one of `client_id`, `individual_id`, `entity_id` per row); a new matter gets one primary-client row.
- * - `matter_activity_log`: the "Matter Initial Notes" (`activity_type 'note'`).
+ * - `matter_activity_log`: the "Matter Initial Notes" (`activity_type 'note'`), written on create and change and, since
+ *   FB-0022 (API patch 57), read back with every matter (`notesFor`, every `note` row, newest first, with the
+ *   writer's name from `user` and `individual`).
  * - `client`: the client number the matter number starts with.
  * - `lookup`: the `matter_status` and `practice_area` choice lists.
  *   See the lookup table as described in Schema 8.0: docs/Schema_8.0/table_lookup.html (section "How KR Homebase uses this table").
@@ -82,6 +84,21 @@ export interface MatterRow {
   updated_at: string | null
 }
 
+/** One `matter_activity_log` note with its writer's name parts. */
+export interface MatterNoteRow {
+  id: string
+  matter_id: string
+  subject: string
+  description: string | null
+  activity_date: string
+  performed_by_user_id: string
+  author_email: string | null
+  author_preferred_name: string | null
+  author_first_name: string | null
+  author_last_name: string | null
+  created_at: string
+}
+
 export interface ClientRow {
   id: string
   client_number: string | null
@@ -134,6 +151,8 @@ export interface MatterQueries {
   /** The client's matters (through any `client_id` party), in no particular order. */
   clientMatters(clientId: string): Promise<MatterRow[]>
   matter(matterId: string): Promise<MatterRow | null>
+  /** The `note` rows of the given matters, newest first (one query, the ids as one JSON value). */
+  notesFor(matterIds: readonly string[]): Promise<MatterNoteRow[]>
   /** Every matter number that starts with `<clientNumber>.`. */
   matterNumbersFor(clientNumber: string): Promise<string[]>
   /** The active `matter_status` and `practice_area` rows, in list order. */
@@ -190,6 +209,25 @@ export function createMatterQueries(db: D1Database): MatterQueries {
       }),
 
     matter: (matterId) => run(() => db.prepare(`SELECT ${MATTER_COLUMNS} FROM matter m ${MATTER_JOINS} WHERE m.id = ?1 LIMIT 1`).bind(matterId).first<MatterRow>()),
+
+    notesFor: (matterIds) =>
+      run(async () => {
+        if (!matterIds.length) return []
+        const result = await db
+          .prepare(
+            `SELECT n.id, n.matter_id, n.subject, n.description, n.activity_date, n.performed_by_user_id, u.email AS author_email,
+                    i.preferred_name AS author_preferred_name, i.first_name AS author_first_name, i.last_name AS author_last_name, n.created_at
+               FROM matter_activity_log n
+               LEFT JOIN user u ON u.id = n.performed_by_user_id
+               LEFT JOIN individual i ON i.id = u.individual_id
+              WHERE n.activity_type = 'note' AND n.matter_id IN (SELECT value FROM json_each(?1))
+              ORDER BY n.created_at DESC, n.id DESC
+              LIMIT 2000`,
+          )
+          .bind(JSON.stringify(matterIds))
+          .all<MatterNoteRow>()
+        return result.results ?? []
+      }),
 
     matterNumbersFor: (clientNumber) =>
       run(async () => {

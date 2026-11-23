@@ -228,6 +228,7 @@ function matter(id: string, matterNumber: string, title: string, area: string, i
     primaryAttorneyUserId: JORDAN.userId,
     createdAt: CREATED,
     updatedAt: UPDATED,
+    notes: [],
   }
 }
 

@@ -8,7 +8,10 @@
  *   a request they sent, without the developer notes).
  * - A developer holds `developer_tools` read (the built-in role set "Internal Developer"; the built-in Super Admin
  *   holds every permission): every request, each with its notes (`listFeedback`, `getFeedback`).
- * - Triage needs `developer_tools` update: status and priority (`changeFeedback`) and notes (`addFeedbackNote`).
+ * - Triage needs `developer_tools` update: status, priority and, since API patch 57, kind (`changeFeedback`) and
+ *   notes (`addFeedbackNote`). A kind change is recorded as a plain note ("Kind changed from Bug to Usability."): the
+ *   note table's `note_type` CHECK allows only note, status_change and priority_change, and a new type would mean
+ *   rebuilding the table.
  *   `routes.ts` declares those two permissions on the routes; `viewerFor` answers both for the screen.
  *
  * Numbers: the next number is the highest plus one; when another request takes it first (the UNIQUE rule on
@@ -30,6 +33,7 @@
 import {
   findFeedbackMarkers,
   formatFeedbackNumber,
+  HOMEBASE_FEEDBACK_KIND_LABELS,
   HOMEBASE_FEEDBACK_KINDS,
   HOMEBASE_FEEDBACK_MAX_IMAGE_BYTES,
   HOMEBASE_FEEDBACK_MAX_IMAGES,
@@ -354,24 +358,34 @@ function auditFor(actor: FeedbackActor, row: FeedbackRow, action: string, newJso
   }
 }
 
+/** A kind's words for a note ("Bug"); an unknown stored kind as it is. */
+function kindLabel(kind: string): string {
+  return (HOMEBASE_FEEDBACK_KIND_LABELS as Record<string, string>)[kind] ?? kind
+}
+
 /**
- * Changes a request's status or priority (developers with `developer_tools` update). Each value that really changes
- * gets a note row recording it (from, to), with the optional note text on the first. With no real change, a note is
- * kept as a plain note, and without one nothing is written.
+ * Changes a request's status, priority or kind (developers with `developer_tools` update). Each value that really
+ * changes gets a note row recording it (status and priority: from, to; kind: a plain note with the words), with the
+ * optional note text on the first. With no real change, a note is kept as a plain note, and without one nothing is
+ * written.
  */
 export async function changeFeedback(queries: HomebaseFeedbackQueries, actor: FeedbackActor, numberText: string, body: HomebaseFeedbackUpdateBody, now: string): Promise<HomebaseFeedbackSavedData> {
   const row = await requireRequest(queries, numberText)
   const status = body.status ?? row.status
   const priority = body.priority ?? row.priority
+  const kind = body.kind ?? row.kind
   const note = body.note?.trim() || null
   const notes: Array<{ id: string; noteType: string; body: string | null; fromValue: string | null; toValue: string | null; authorUserId: string }> = []
   if (status !== row.status) notes.push({ id: `hfn_${crypto.randomUUID()}`, noteType: 'status_change', body: null, fromValue: row.status, toValue: status, authorUserId: actor.userId })
   if (priority !== row.priority) notes.push({ id: `hfn_${crypto.randomUUID()}`, noteType: 'priority_change', body: null, fromValue: row.priority, toValue: priority, authorUserId: actor.userId })
+  // A kind change is a plain note with the words (see the header); the note text, when sent, follows them.
+  const kindLine = kind !== row.kind ? `Kind changed from ${kindLabel(row.kind)} to ${kindLabel(kind)}.` : null
+  if (kindLine) notes.push({ id: `hfn_${crypto.randomUUID()}`, noteType: 'note', body: kindLine, fromValue: null, toValue: null, authorUserId: actor.userId })
   // A note sent with values that did not change is kept as a plain note.
   if (!notes.length && note) notes.push({ id: `hfn_${crypto.randomUUID()}`, noteType: 'note', body: note, fromValue: null, toValue: null, authorUserId: actor.userId })
-  else if (note && notes[0]) notes[0].body = note
+  else if (note && notes[0]) notes[0].body = notes[0].body ? `${notes[0].body}\n${note}` : note
   if (notes.length) {
-    await queries.change({ feedbackId: row.id, status, priority, now, notes }, auditFor(actor, row, 'UPDATE', { status, priority, noted: Boolean(note) }))
+    await queries.change({ feedbackId: row.id, status, priority, kind, now, notes }, auditFor(actor, row, 'UPDATE', { status, priority, kind, noted: Boolean(note) }))
   }
   const fresh = (await queries.byNumber(Number(row.number))) ?? row
   return { feedback: await loadDetail(queries, fresh, actor, true) }
@@ -381,7 +395,7 @@ export async function changeFeedback(queries: HomebaseFeedbackQueries, actor: Fe
 export async function addFeedbackNote(queries: HomebaseFeedbackQueries, actor: FeedbackActor, numberText: string, body: HomebaseFeedbackNoteBody, now: string): Promise<HomebaseFeedbackSavedData> {
   const row = await requireRequest(queries, numberText)
   const note = { id: `hfn_${crypto.randomUUID()}`, noteType: 'note', body: body.text.trim(), fromValue: null, toValue: null, authorUserId: actor.userId }
-  await queries.change({ feedbackId: row.id, status: row.status, priority: row.priority, now, notes: [note] }, auditFor(actor, row, 'NOTE', { noteId: note.id }))
+  await queries.change({ feedbackId: row.id, status: row.status, priority: row.priority, kind: row.kind, now, notes: [note] }, auditFor(actor, row, 'NOTE', { noteId: note.id }))
   const fresh = (await queries.byNumber(Number(row.number))) ?? row
   return { feedback: await loadDetail(queries, fresh, actor, true) }
 }

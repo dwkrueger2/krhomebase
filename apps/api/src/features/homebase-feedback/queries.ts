@@ -156,6 +156,8 @@ export interface FeedbackChange {
   feedbackId: string
   status: string
   priority: string
+  /** The kind (changed by a developer since API patch 57, or kept). */
+  kind: string
   now: string
   notes: Array<{ id: string; noteType: string; body: string | null; fromValue: string | null; toValue: string | null; authorUserId: string }>
 }
@@ -175,7 +177,7 @@ export interface HomebaseFeedbackQueries {
   notes(feedbackId: string): Promise<NoteRow[]>
   /** Saves a request with its markers; false when its number was taken in between. */
   insert(row: FeedbackInsert, audit: AuditEntry): Promise<boolean>
-  /** Saves a status or priority change and its note rows. */
+  /** Saves a status, priority or kind change and its note rows. */
   change(change: FeedbackChange, audit: AuditEntry): Promise<void>
 }
 
@@ -330,7 +332,9 @@ export function createHomebaseFeedbackQueries(db: D1Database): HomebaseFeedbackQ
     async change(change, audit) {
       await run(() =>
         db.batch([
-          db.prepare('UPDATE homebase_feedback SET status = ?2, priority = ?3, updated_at = ?4 WHERE id = ?1').bind(change.feedbackId, change.status, change.priority, change.now),
+          db
+            .prepare('UPDATE homebase_feedback SET status = ?2, priority = ?3, kind = ?5, updated_at = ?4 WHERE id = ?1')
+            .bind(change.feedbackId, change.status, change.priority, change.now, change.kind),
           ...change.notes.map((note) =>
             db
               .prepare(

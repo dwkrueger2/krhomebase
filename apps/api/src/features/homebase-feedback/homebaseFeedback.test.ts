@@ -185,6 +185,17 @@ describe('PATCH /v1/homebase-feedback/{number} and notes', () => {
     expect(await errorCode(await call('PATCH', '/v1/homebase-feedback/FB-0042', { status: 'done' }, 'u-dee'), 404)).toBe('HOMEBASE_FEEDBACK_NOT_FOUND')
     expect(await errorCode(await call('POST', '/v1/homebase-feedback/FB-0001/notes', { text: 'x' }), 403)).toBe('PERMISSION_REQUIRED')
   })
+
+  // API patch 57 (the requester, Nov 23, 2026): a developer may correct the kind; it is recorded as a plain note.
+  it('changes the kind and records it as a note with the words', async () => {
+    await send('Wrong kind')
+    const changed = await data(await call('PATCH', '/v1/homebase-feedback/FB-0001', { kind: 'feature', note: 'A request, not a bug.' }, 'u-dee'), HomebaseFeedbackSavedData)
+    expect(changed.feedback.kind).toBe('feature')
+    expect(changed.feedback.notes.map((note) => [note.noteType, note.text])).toEqual([['note', 'Kind changed from Bug to Feature request.\nA request, not a bug.']])
+    const same = await data(await call('PATCH', '/v1/homebase-feedback/FB-0001', { kind: 'feature' }, 'u-dee'), HomebaseFeedbackSavedData)
+    expect(same.feedback.notes).toHaveLength(1) // no change, no note
+    expect(await errorCode(await call('PATCH', '/v1/homebase-feedback/FB-0001', { kind: 'other' }, 'u-dee'), 422)).toBe('VALIDATION_FAILED')
+  })
 })
 
 describe('before migration 033', () => {

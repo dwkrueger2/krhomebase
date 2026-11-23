@@ -147,6 +147,8 @@ export function draftsMatch(left: KRContactDraft, right: KRContactDraft): boolea
       if (JSON.stringify(left.relatedContactIds ?? []) !== JSON.stringify(right.relatedContactIds ?? [])) return false
       continue
     }
+    // How a removal applies (FB-0023) matters only with a removal, which relatedContactIds already shows.
+    if (key === 'relatedContactsRemovedHereOnly') continue
     const a = left[key] ?? ''
     const b = right[key] ?? ''
     if (a !== b) return false
@@ -409,6 +411,8 @@ export default function ContactEditDialog({ contact: listContact, inline = false
       pointOfContactId: draft.pointOfContactId ?? null,
       registeredAgentId: draft.registeredAgentId ?? null,
       relatedContactIds: draft.relatedContactIds ?? [],
+      // FB-0023: people removed from this list only (never someone still on the list).
+      relatedContactsRemovedHereOnly: (draft.relatedContactsRemovedHereOnly ?? []).filter((id) => !(draft.relatedContactIds ?? []).includes(id)),
       titlePrefix: text(draft.titlePrefix),
       firstName: text(draft.firstName),
       middleName: text(draft.middleName),
@@ -476,6 +480,10 @@ export default function ContactEditDialog({ contact: listContact, inline = false
       setContact(savedContact)
       setDraft(draftFromContact(savedContact))
       await onSaved(savedContact)
+      // FB-0023: a related contact added or removed also changes the other person's list; read the changes since the
+      // last sync so their card shows it too (the API marks both people changed).
+      const relatedBefore = contact.relatedContacts.map((related) => related.id).sort().join(',')
+      if (relatedBefore !== [...(draft.relatedContactIds ?? [])].sort().join(',')) void dataStore?.refresh()
       setSavePhase('saved')
       await new Promise<void>((resolve) => window.setTimeout(resolve, 650))
       onClose()

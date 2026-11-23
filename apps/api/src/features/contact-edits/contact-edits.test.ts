@@ -151,6 +151,41 @@ describe('PATCH /v1/contacts/{contactId}', () => {
     expect(rows("SELECT id FROM individual_relationship WHERE (individual_a_id = 'ind-ann' OR individual_b_id = 'ind-ann') AND valid_to IS NULL").length).toBe(0)
   })
 
+  // FB-0023 (API patch 57, migration 077): one shared row; removing from one list only marks that direction.
+  // A super admin edits, since Bob is linked to a sign-in account.
+  it('removes a related contact from one list only, puts it back, and ends the row when both lists drop it', async () => {
+    const bobEdit = { kind: 'individual', firstName: 'Bob', lastName: 'Example', email: 'bob.login@example.com' }
+    const sides = () => row<{ a: string; b: string; valid_to: string | null }>("SELECT a_to_b_relationship_lookup_id AS a, b_to_a_relationship_lookup_id AS b, valid_to FROM individual_relationship WHERE id = 'rel-1'")
+    const relatedOf = async (id: string) => ContactUpdateData.parse(((await (await send('PATCH', `/v1/contacts/${id}`, 'user-admin', 'super_admin', id === 'ind-bob' ? { ...bobEdit, relatedContactIds: (await currentIds(id)) } : { kind: 'individual', firstName: 'Ann', lastName: 'Example', relatedContactIds: await currentIds(id) })).json()) as { data: unknown }).data).contact?.relatedContacts.map((related) => related.id) ?? null
+    const currentIds = async (id: string) => rows<{ other: string }>(
+      `SELECT CASE WHEN individual_a_id = ?1 THEN individual_b_id ELSE individual_a_id END AS other FROM individual_relationship
+        WHERE (individual_a_id = ?1 AND a_to_b_relationship_lookup_id <> 'lk_relationship_side_removed' OR individual_b_id = ?1 AND b_to_a_relationship_lookup_id <> 'lk_relationship_side_removed') AND valid_to IS NULL`,
+      id,
+    ).map((item) => item.other)
+
+    // Bob takes Ann off his list only: Bob's direction (b_to_a) is marked, Ann still lists Bob as her spouse.
+    expect((await send('PATCH', '/v1/contacts/ind-bob', 'user-admin', 'super_admin', { ...bobEdit, relatedContactIds: [], relatedContactsRemovedHereOnly: ['ind-ann'] })).status).toBe(200)
+    expect(sides()).toEqual({ a: 'lk_relationship_spouse', b: 'lk_relationship_side_removed', valid_to: null })
+    expect(await relatedOf('ind-bob')).toEqual([])
+    expect(await relatedOf('ind-ann')).toEqual(['ind-bob'])
+    expect(sides().valid_to).toBeNull() // saving Bob again without Ann does not end Ann's side
+
+    // Bob adds Ann back: his direction takes Ann's label again.
+    await send('PATCH', '/v1/contacts/ind-bob', 'user-admin', 'super_admin', { ...bobEdit, relatedContactIds: ['ind-ann'] })
+    expect(sides()).toEqual({ a: 'lk_relationship_spouse', b: 'lk_relationship_spouse', valid_to: null })
+
+    // Ann drops Bob from her list only, then Bob drops Ann from his only: both directions gone, so the row ends.
+    await send('PATCH', '/v1/contacts/ind-ann', 'user-admin', 'super_admin', { kind: 'individual', firstName: 'Ann', lastName: 'Example', relatedContactIds: [], relatedContactsRemovedHereOnly: ['ind-bob'] })
+    expect(sides()).toMatchObject({ a: 'lk_relationship_side_removed', valid_to: null })
+    await send('PATCH', '/v1/contacts/ind-bob', 'user-admin', 'super_admin', { ...bobEdit, relatedContactIds: [], relatedContactsRemovedHereOnly: ['ind-ann'] })
+    expect(sides().valid_to).not.toBeNull()
+  })
+
+  it('removes a related contact from both lists when no "this list only" choice is sent', async () => {
+    await send('PATCH', '/v1/contacts/ind-bob', 'user-admin', 'super_admin', { kind: 'individual', firstName: 'Bob', lastName: 'Example', email: 'bob.login@example.com', relatedContactIds: [] })
+    expect(row<{ valid_to: string | null }>("SELECT valid_to FROM individual_relationship WHERE id = 'rel-1'").valid_to).not.toBeNull()
+  })
+
   // FB-0012 (API 1.2.0 patch 0): the Cell phone (phoneSecondary) is saved as not primary and read back as the Cell phone.
   it('saves the Cell phone as an additional phone, reads it back, and does not add a copy on the next save', async () => {
     const first = await send('PATCH', '/v1/contacts/ind-ann', 'user-editor', 'staff', { ...annEdit, phoneSecondary: '5550100002' })

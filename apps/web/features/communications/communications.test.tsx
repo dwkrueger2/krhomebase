@@ -80,6 +80,7 @@ const matter = (id: string, matterNumber: string): Matter => ({
   primaryAttorneyUserId: null,
   createdAt: '2026-11-01T00:00:00.000Z',
   updatedAt: null,
+  notes: [],
 })
 
 const internalMatters = async (clientId: string): Promise<ClientMattersData> => ({

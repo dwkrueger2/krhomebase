@@ -45,6 +45,34 @@ export const RelatedContact = z.object({
 })
 export type RelatedContact = z.infer<typeof RelatedContact>
 
+/**
+ * A business a person is linked to (`entity_contact`), with the person's role there (API patch 58, the requester's
+ * plan of Nov 23, 2026): shown as Related Entities on the person's card, apart from Related Contacts (people).
+ */
+export const RelatedEntity = z.object({
+  id: z.string().describe('The entity id.'),
+  displayName: z.string().describe("The entity's legal name."),
+  ecid: z.string().nullable().describe('Its ECID.'),
+  clientNumber: z.string().nullable().describe('Its client number, when it is a client.'),
+  role: z.string().describe('The person\'s role there: "Point of contact", "Registered agent" or "Related contact".'),
+})
+export type RelatedEntity = z.infer<typeof RelatedEntity>
+
+/**
+ * A contact's current photo (FB-0019, API patch 58, migration 078): the image and where its circle sits. The browser
+ * reads the image from `GET /v1/contacts/{contactId}/photo/{assetId}` and draws the circle itself.
+ */
+export const ContactPhoto = z.object({
+  assetId: z.string().describe('The image (`media_asset.id`); a new photo has a new id, so the address can be cached.'),
+  width: z.number().int().positive().describe('The image width in pixels.'),
+  height: z.number().int().positive().describe('The image height in pixels.'),
+  cropX: z.number().min(0).max(1).describe("The circle's center, as a fraction of the image width."),
+  cropY: z.number().min(0).max(1).describe("The circle's center, as a fraction of the image height."),
+  cropSize: z.number().min(0.05).max(1).describe("The circle's diameter, as a fraction of the image's shorter side."),
+  updatedAt: z.string().describe('When the photo or its circle last changed (ISO time).'),
+})
+export type ContactPhoto = z.infer<typeof ContactPhoto>
+
 const contactFields = {
   id: z.string(),
   kind: z.enum(['individual', 'entity']),
@@ -70,6 +98,8 @@ const contactFields = {
   pointOfContact: RelatedContact.nullable().optional(),
   registeredAgent: RelatedContact.nullable().optional(),
   relatedContacts: z.array(RelatedContact),
+  relatedEntities: z.array(RelatedEntity).optional().describe('A person\'s businesses (`entity_contact`), with their role; empty for an entity. API patch 58; optional so a browser can read an older API.'),
+  photo: ContactPhoto.nullable().optional().describe('The current photo, or null (FB-0019, API patch 58).'),
   titlePrefix: z.string().nullable(),
   firstName: z.string().nullable(),
   middleName: z.string().nullable(),

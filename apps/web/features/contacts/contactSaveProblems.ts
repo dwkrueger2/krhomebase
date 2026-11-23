@@ -53,6 +53,7 @@ export const CONTACT_FIELD_LABELS: Record<keyof ContactUpdateBody, string> = {
   pointOfContactId: 'Point of contact',
   registeredAgentId: 'Registered agent',
   relatedContactIds: 'Related contacts',
+  relatedContactsRemovedHereOnly: 'Related contacts',
   email: 'Email',
   phone: 'Office phone',
   phoneSecondary: 'Cell phone',

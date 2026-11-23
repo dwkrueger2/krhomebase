@@ -98,6 +98,9 @@ export const ContactUpdateBody = z
     pointOfContactId: optionalText(80),
     registeredAgentId: optionalText(80),
     relatedContactIds: z.array(z.string().trim().min(1).max(80)).max(100).optional(),
+    // FB-0023 (API patch 57): people taken off this contact's Related Contacts list who stay on their own list
+    // ("only this list"). Anyone else left out of relatedContactIds leaves both lists, as before.
+    relatedContactsRemovedHereOnly: z.array(z.string().trim().min(1).max(80)).max(100).optional(),
     email: optionalText(254),
     phone: optionalText(40),
     phoneSecondary: optionalText(40),

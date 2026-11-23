@@ -154,6 +154,17 @@ describe('detailView', () => {
     expect(detailView(detail, { canTriage: false, listFilter: {} })).not.toContain('Save and Mark Complete')
   })
 
+  // Tool 1.8.0 (the requester, Nov 23, 2026): the kind can be corrected on the same form.
+  it('offers the kind on the change form and names a kind change beside Save Changes', () => {
+    const html = detailView(detail, { canTriage: true, listFilter: {} })
+    expect(html).toContain('data-kr-element="feedback-viewer-kind"')
+    expect(html).toContain('<option value="usability"')
+    const draft = { status: detail.status, priority: detail.priority, kind: 'usability' as const, note: '' }
+    expect(isDraftDirty(detail, draft)).toBe(true)
+    expect(draftChangeWords(detail, draft)).toBe('Kind Bug → Usability')
+    expect(isDraftDirty(detail, { ...draft, kind: detail.kind })).toBe(false)
+  })
+
   it('is clean again when the values are set back', () => {
     expect(isDraftDirty(detail, { status: 'new', priority: 'normal', note: '  ' })).toBe(false)
   })

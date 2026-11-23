@@ -7,10 +7,13 @@
  * Changed from the old file: status, practice area and opened/closed dates are shown on one line (decision 6 added
  * status and opened date to the dialog); the title uses the card title size instead of the display font; Edit
  * Matter shows only when the viewer may write; spacing follows the Density Contract.
+ * - FB-0022 (web patch 585): the matter's saved notes are listed under the description (`MatterNotesList`), newest
+ *   first; before, the notes were saved but shown nowhere.
  */
 
 import type { Matter } from '@krhomebase/contracts'
 import { displayDate } from '../matterDisplay'
+import MatterNotesList from './MatterNotesList.client'
 
 const STYLES = {
   card: 'rounded-[2px] border border-(--kr-theme-line) bg-(--kr-theme-card-surface) shadow-[0_1px_2px_rgba(27,35,48,0.07)]',
@@ -24,6 +27,7 @@ const STYLES = {
   factValue: 'font-[700] text-(color:--kr-theme-text)',
   description: 'm-0 whitespace-pre-wrap text-[12.5px] leading-[1.35] text-(color:--kr-theme-text)',
   placeholder: 'm-0 text-[11px] leading-[1.3] text-(color:--kr-theme-text-muted)',
+  notesTitle: 'm-0 text-[11px] font-[800] uppercase tracking-[.05em] text-(color:--kr-theme-text-muted)',
   // b1: ' border-red-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
   // b2: ' border-blue-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
   // b3: ' border-green-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
@@ -41,6 +45,7 @@ const LAYOUT_STYLES = {
   body: 'p-[8px] gap-[4px] grid',
   titleRow: 'gap-[6px] flex items-baseline',
   facts: 'gap-x-[10px] gap-y-[2px] flex flex-wrap',
+  notes: 'mt-[4px] gap-[2px] grid',
 } as const
 
 /** Props for the selected matter detail card. */
@@ -63,7 +68,7 @@ export default function SelectedMatterDetailsCard({ matter, onEditMatter }: Sele
           </button>
         ) : null}
       </header>
-      {/* Selected matter detail body: number and title, the status line, then the description. */}
+      {/* Selected matter detail body: number and title, the status line, the description, then the notes. */}
       <div className={LAYOUT_STYLES.body}>
         {matter ? (
           <>
@@ -78,7 +83,12 @@ export default function SelectedMatterDetailsCard({ matter, onEditMatter }: Sele
               {matter.closedDate ? <span>Closed <span className={STYLES.factValue}>{displayDate(matter.closedDate)}</span></span> : null}
             </p>
             <p className={STYLES.description}>{matter.description || 'Matter description is not available.'}</p>
-            <p className={STYLES.placeholder}>Matter notes, assignments, and the full matter record will be connected here.</p>
+            {/* Matter notes: saved through Add and Edit Matter, newest first (FB-0022). */}
+            <div className={LAYOUT_STYLES.notes} data-kr-element="selected-matter-notes">
+              <h5 className={STYLES.notesTitle}>Notes</h5>
+              <MatterNotesList element="selected-matter-notes-list" notes={matter.notes ?? []} />
+            </div>
+            <p className={STYLES.placeholder}>Matter assignments and the full matter record will be connected here.</p>
           </>
         ) : (
           <p className={STYLES.placeholder}>Select a matter from the tree to view its details.</p>

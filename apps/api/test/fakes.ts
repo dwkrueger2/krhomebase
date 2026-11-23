@@ -42,6 +42,10 @@ export const TOOL_VISIBILITY_MIGRATION = join(here, '..', '..', '..', 'docs', 'S
 export const TEAM_STATUS_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch062_11_18_team_status.sql')
 /** Migration 073: the Outside Tools' permitted sign-in emails. Always added after the base tool table. */
 export const TOOL_PERMITTED_USERS_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch073_11_21_tool_permitted_users.sql')
+/** Migration 077: the `lookup` row `lk_relationship_side_removed`, a related contact removed from one list only (FB-0023). Built with fullSchema. */
+export const RELATIONSHIP_SIDE_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch077_11_23_relationship_side.sql')
+/** Migration 078: `contact_photo`, a contact's photo and its circle (FB-0019). Built with fullSchema unless `withoutContactPhotoMigration`. */
+export const CONTACT_PHOTO_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch078_11_23_contact_photo.sql')
 
 /**
  * A migration's statements without its own `kr_schema_migration` row (the last statement, after the line
@@ -132,7 +136,7 @@ class TestStatement {
  *
  * @returns `db` (pass it as the `krhomebase` binding) and `sqlite` (to look at rows directly in a test).
  */
-export function createTestD1(options: { fullSchema?: boolean; withoutLicenseMigration?: boolean; withoutFeedbackMigration?: boolean; withoutToolVisibilityMigration?: boolean } = {}) {
+export function createTestD1(options: { fullSchema?: boolean; withoutLicenseMigration?: boolean; withoutFeedbackMigration?: boolean; withoutToolVisibilityMigration?: boolean; withoutContactPhotoMigration?: boolean } = {}) {
   const sqlite = new DatabaseSync(':memory:')
   sqlite.exec('PRAGMA foreign_keys = ON;')
   // fullSchema: every table of Schema 8.0, for areas that read the firm's records (contacts, permissions).
@@ -144,6 +148,8 @@ export function createTestD1(options: { fullSchema?: boolean; withoutLicenseMigr
   if (options.fullSchema) sqlite.exec(withoutLogRow(readFileSync(WORKSTREAM_TYPES_MIGRATION, 'utf8')))
   if (options.fullSchema) sqlite.exec(withoutLogRow(readFileSync(TASK_NOTES_MIGRATION, 'utf8')))
   if (options.fullSchema) sqlite.exec(withoutLogRow(readFileSync(TEAM_STATUS_MIGRATION, 'utf8')))
+  if (options.fullSchema) sqlite.exec(withoutLogRow(readFileSync(RELATIONSHIP_SIDE_MIGRATION, 'utf8')))
+  if (options.fullSchema && !options.withoutContactPhotoMigration) sqlite.exec(withoutLogRow(readFileSync(CONTACT_PHOTO_MIGRATION, 'utf8')))
   sqlite.exec(readFileSync(WORKSPACE_TOOLS_MIGRATION, 'utf8'))
   if (!options.withoutToolVisibilityMigration) sqlite.exec(withoutLogRow(readFileSync(TOOL_VISIBILITY_MIGRATION, 'utf8')))
   sqlite.exec(withoutLogRow(readFileSync(TOOL_PERMITTED_USERS_MIGRATION, 'utf8')))

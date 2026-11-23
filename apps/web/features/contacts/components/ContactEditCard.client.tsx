@@ -28,6 +28,12 @@
  *    far: the address, the individual's name, email, preferred name, date of birth and SSN, Notes, and a business's
  *    state of formation. The line under the card names every field with its reason.
  *  - The address panel has a 6px gap between its rows, as the phone grid has (it had none).
+ *
+ * Changed Nov 23, 2026 (FB-0023, the requester, web patch 585): two people share one relationship, shown on both
+ * Related Contacts lists. Removing a saved related person from a person's list asks first
+ * (`RelatedContactRemoveDialog`): Both sides (recommended), or only this person's list (the other person keeps this
+ * one; sent as `relatedContactsRemovedHereOnly`), or Cancel. A person added in this edit, or a business's related
+ * contacts, are removed without asking.
  */
 
 import { createPortal } from 'react-dom'
@@ -49,6 +55,7 @@ import type { ContactFieldProblems } from '../contactSaveProblems'
 import { ContactFieldMarksContext, contactFieldMark, useContactFieldMarks } from './contactFieldMarks.client'
 import { ContactLedgerRowHoverCard } from './ContactLedger.client'
 import { relatedContactHoverRow } from './RelatedContactHover.client'
+import RelatedContactRemoveDialog from './RelatedContactRemoveDialog.client'
 
 /** Tailwind layout classes for the editor's structural arrangements. */
 const LAYOUT_STYLES = {
@@ -625,8 +632,11 @@ function ClientEditCardRelatedContacts({ contact, draft, onDraftChange, onEditRe
   const dataStore = useOptionalDataStore()
   const [selectedDirectory, setSelectedDirectory] = useState<Record<string, KRRelatedContact>>({})
   const [hoverState, setHoverState] = useState<RelatedContactHoverState | null>(null)
+  // FB-0023: the saved related person whose removal is being asked about.
+  const [pendingRemoval, setPendingRemoval] = useState<KRRelatedContact | null>(null)
   const hoverClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const selectedIds = draft.relatedContactIds ?? contact.relatedContacts.map((related) => related.id)
+  const removedHereOnly = draft.relatedContactsRemovedHereOnly ?? []
   const relatedContacts = [...contact.relatedContacts, ...Object.values(selectedDirectory)]
     .filter((related, index, all) => selectedIds.includes(related.id) && all.findIndex((candidate) => candidate.id === related.id) === index)
 
@@ -660,9 +670,21 @@ function ClientEditCardRelatedContacts({ contact, draft, onDraftChange, onEditRe
 
   useEffect(() => () => clearHoverTimer(), [])
 
+  /** Takes a person off the draft list; `hereOnly` keeps this person on theirs (FB-0023). */
+  function applyRemoval(id: string, hereOnly: boolean): void {
+    onDraftChange({
+      ...draft,
+      relatedContactIds: selectedIds.filter((selectedId) => selectedId !== id),
+      relatedContactsRemovedHereOnly: hereOnly ? [...new Set([...removedHereOnly, id])] : removedHereOnly.filter((removedId) => removedId !== id),
+    })
+  }
+
+  /** The chip's x: a saved person-to-person relationship asks first (FB-0023); anything else is removed at once. */
   function removeRelatedContact(id: string): void {
     setHoverState(null)
-    onDraftChange({ ...draft, relatedContactIds: selectedIds.filter((selectedId) => selectedId !== id) })
+    const saved = contact.kind === 'individual' ? contact.relatedContacts.find((related) => related.id === id) : undefined
+    if (saved) setPendingRemoval(saved)
+    else applyRemoval(id, false)
   }
   return (
     <div className="min-w-0" data-kr-element="contact-edit-related-contacts">
@@ -675,7 +697,11 @@ function ClientEditCardRelatedContacts({ contact, draft, onDraftChange, onEditRe
           onAddLater={() => undefined}
           onSelect={(selected) => {
             setSelectedDirectory((current) => ({ ...current, [selected.id]: selected }))
-            onDraftChange({ ...draft, relatedContactIds: [...new Set([...selectedIds, selected.id])] })
+            onDraftChange({
+              ...draft,
+              relatedContactIds: [...new Set([...selectedIds, selected.id])],
+              relatedContactsRemovedHereOnly: removedHereOnly.filter((removedId) => removedId !== selected.id),
+            })
           }}
         />
       </div>
@@ -726,6 +752,16 @@ function ClientEditCardRelatedContacts({ contact, draft, onDraftChange, onEditRe
           <p className={STYLES.statusLine}>No related contacts selected.</p>
         )}
       </div>
+      {/* FB-0023: how a saved relationship is removed (both lists, or this person's only). */}
+      <RelatedContactRemoveDialog
+        currentName={contact.displayName}
+        related={pendingRemoval}
+        onCancel={() => setPendingRemoval(null)}
+        onChoose={(hereOnly) => {
+          if (pendingRemoval) applyRemoval(pendingRemoval.id, hereOnly)
+          setPendingRemoval(null)
+        }}
+      />
       {hoverState && typeof document !== 'undefined' ? createPortal(
         <div
           data-kr-theme-scope="krhomebase"

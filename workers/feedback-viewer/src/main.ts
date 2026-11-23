@@ -25,9 +25,9 @@
  */
 
 import { connectToHost, type ToolHost } from '@krhomebase/tool-sdk/frame'
-import { applyFeedbackTheme, paintTones, PRIORITY_TONES, STATUS_TONES, toneOf } from './feedbackColors.ts'
+import { applyFeedbackTheme, KIND_TONES, paintTones, PRIORITY_TONES, STATUS_TONES, toneOf } from './feedbackColors.ts'
 import { feedbackApi, problemText, type FeedbackAll, type FeedbackApi } from './feedbackApi.ts'
-import { FEEDBACK_PRIORITIES, FEEDBACK_STATUSES, type FeedbackDetail, type FeedbackKind, type FeedbackPriority, type FeedbackStatus } from './feedbackTypes.ts'
+import { FEEDBACK_KINDS, FEEDBACK_PRIORITIES, FEEDBACK_STATUSES, type FeedbackDetail, type FeedbackKind, type FeedbackPriority, type FeedbackStatus } from './feedbackTypes.ts'
 import { listOrder, PAGE_SIZES, TABLE_NAMES, type PageSize, type TableName } from './listTables.ts'
 import { installMagnifier, syncMagnifierControls } from './magnifier.ts'
 import { installMarkerPick } from './markerPick.ts'
@@ -74,8 +74,14 @@ function readDraft(): DraftChange | null {
   const data = new FormData(form)
   const status = String(data.get('status') ?? '')
   const priority = String(data.get('priority') ?? '')
+  const kind = String(data.get('kind') ?? '')
   if (!(FEEDBACK_STATUSES as readonly string[]).includes(status) || !(FEEDBACK_PRIORITIES as readonly string[]).includes(priority)) return null
-  return { status: status as FeedbackStatus, priority: priority as FeedbackPriority, note: String(data.get('note') ?? '') }
+  return {
+    status: status as FeedbackStatus,
+    priority: priority as FeedbackPriority,
+    ...((FEEDBACK_KINDS as readonly string[]).includes(kind) ? { kind: kind as FeedbackKind } : {}),
+    note: String(data.get('note') ?? ''),
+  }
 }
 
 /**
@@ -92,6 +98,8 @@ function refreshDirty(): void {
     if (words) words.textContent = dirty ? draftChangeWords(current, draft) : ''
     const status = form.querySelector<HTMLSelectElement>('select[name="status"]')
     const priority = form.querySelector<HTMLSelectElement>('select[name="priority"]')
+    const kind = form.querySelector<HTMLSelectElement>('select[name="kind"]')
+    if (kind && draft.kind) kind.dataset.fbTone = toneOf(KIND_TONES, draft.kind)
     if (status) status.dataset.fbTone = toneOf(STATUS_TONES, draft.status)
     if (priority) priority.dataset.fbTone = toneOf(PRIORITY_TONES, draft.priority)
     paintTones(form)
@@ -270,6 +278,7 @@ async function saveDraft(draft: DraftChange, complete = false): Promise<void> {
     if (form) {
       ;(form.elements.namedItem('status') as HTMLSelectElement).value = sent.status
       ;(form.elements.namedItem('priority') as HTMLSelectElement).value = draft.priority
+      if (draft.kind) (form.elements.namedItem('kind') as HTMLSelectElement).value = draft.kind
       ;(form.elements.namedItem('note') as HTMLTextAreaElement).value = draft.note
       refreshDirty()
     }

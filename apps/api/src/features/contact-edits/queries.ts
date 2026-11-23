@@ -24,7 +24,19 @@ export type MethodRow = { id: string; contact_type: string; value: string; label
 /** An address link with its address id. */
 export type AddressLinkRow = { id: string; address_id: string; is_primary: number; valid_to: string | null }
 /** An individual-to-individual relationship. */
-export type RelationshipRow = { id: string; individual_a_id: string; individual_b_id: string; valid_to: string | null }
+export type RelationshipRow = {
+  id: string
+  individual_a_id: string
+  individual_b_id: string
+  /** How A's list labels B (`lookup` id; `lk_relationship_side_removed` when B was removed from A's list only). */
+  a_to_b_relationship_lookup_id: string
+  /** How B's list labels A (the same rule). */
+  b_to_a_relationship_lookup_id: string
+  valid_to: string | null
+}
+
+/** One direction of a relationship row: `a_to_b` is A's list, `b_to_a` is B's list. */
+export type RelationshipSide = 'a_to_b' | 'b_to_a'
 /** A person linked to an entity in a role. */
 export type EntityContactRow = { id: string; individual_id: string; role_lookup_id: string; end_date: string | null }
 /** A login account linked to a person. */
@@ -171,6 +183,8 @@ export interface ContactEditQueries {
   insertAddressLink(kind: ContactKind, id: string, contactId: string, addressId: string, useContext: string, now: string): D1PreparedStatement
   endRelationship(id: string, now: string): D1PreparedStatement
   restoreRelationship(id: string, lookupId: string, now: string): D1PreparedStatement
+  /** Sets one direction's label (FB-0023): `lk_relationship_side_removed` takes it off that person's list only; a relationship type puts it back. */
+  setRelationshipSide(id: string, side: RelationshipSide, lookupId: string, now: string): D1PreparedStatement
   insertRelationship(id: string, aId: string, bId: string, lookupId: string, now: string): D1PreparedStatement
   endEntityContact(id: string, now: string): D1PreparedStatement
   restoreEntityContact(id: string, isPrimary: 0 | 1, now: string): D1PreparedStatement
@@ -227,7 +241,11 @@ export function createContactEditQueries(db: D1Database): ContactEditQueries {
     },
     relationshipsOf(individualId) {
       return all<RelationshipRow>(
-        db.prepare('SELECT id, individual_a_id, individual_b_id, valid_to FROM individual_relationship WHERE individual_a_id = ?1 OR individual_b_id = ?1').bind(individualId),
+        db
+          .prepare(
+            'SELECT id, individual_a_id, individual_b_id, a_to_b_relationship_lookup_id, b_to_a_relationship_lookup_id, valid_to FROM individual_relationship WHERE individual_a_id = ?1 OR individual_b_id = ?1',
+          )
+          .bind(individualId),
       )
     },
     entityContactsOf(entityId) {
@@ -368,6 +386,14 @@ export function createContactEditQueries(db: D1Database): ContactEditQueries {
           "UPDATE individual_relationship SET relationship_status = 'current', valid_to = NULL, a_to_b_relationship_lookup_id = ?2, b_to_a_relationship_lookup_id = ?2, updated_at = ?3 WHERE id = ?1",
         )
         .bind(id, lookupId, now)
+    },
+    setRelationshipSide(id, side, lookupId, now) {
+      // Two fixed statements: the column name never comes from a request.
+      const sql =
+        side === 'a_to_b'
+          ? 'UPDATE individual_relationship SET a_to_b_relationship_lookup_id = ?2, updated_at = ?3 WHERE id = ?1'
+          : 'UPDATE individual_relationship SET b_to_a_relationship_lookup_id = ?2, updated_at = ?3 WHERE id = ?1'
+      return db.prepare(sql).bind(id, lookupId, now)
     },
     insertRelationship(id, aId, bId, lookupId, now) {
       return db

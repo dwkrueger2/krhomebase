@@ -17,6 +17,9 @@
  *    requester: "SSN not being displayed despite showing up in edit contact"). The identity summary shows them
  *    masked; without them a contact read from the cache showed "No SSN recorded" until the next full load. A cache
  *    written before this change lacks them and is reloaded in full once (`cacheLacksTaxIdDigits`).
+ *  - A person's businesses (`relatedEntities`) and each contact's photo (`photo`: the image id and its circle, never
+ *    the image) are cached (Nov 23, 2026, web patch 586, the requester's plans). A cache written before lacks them and
+ *    is reloaded in full once (`cacheLacksNewFields`).
  */
 
 import { BLC, LCB } from '@/lib/KRUtilities'
@@ -24,7 +27,7 @@ import { applyClientDataDelta, readClientDataCollection, upsertClientDataElement
 import { recordClientDataMetric } from '@/lib/client-data-store/metrics.client'
 import type { ClientContactElement, ClientDataCollection } from '@/lib/client-data-store/types'
 import { fetchContactList } from './api.client'
-import type { KRContactRecord, KRRelatedContact } from './types'
+import type { KRContactPhoto, KRContactRecord, KRRelatedContact, KRRelatedEntity } from './types'
 
 const CONTACT_COLLECTION_SCHEMA_VERSION = 1
 
@@ -67,6 +70,30 @@ function relatedContactFromApi(value: unknown): KRRelatedContact | null {
     icid: typeof row.icid === 'string' ? row.icid : null,
     relationship: typeof row.relationship === 'string' ? row.relationship : null,
   }
+}
+
+/** One Related Entities line from the API, or null when it is not one (web patch 586). */
+function relatedEntityFromApi(value: unknown): KRRelatedEntity | null {
+  if (!value || typeof value !== 'object') return null
+  const row = value as Record<string, unknown>
+  if (typeof row.id !== 'string' || typeof row.displayName !== 'string') return null
+  return {
+    id: row.id,
+    displayName: row.displayName,
+    ecid: typeof row.ecid === 'string' ? row.ecid : null,
+    clientNumber: typeof row.clientNumber === 'string' ? row.clientNumber : null,
+    role: typeof row.role === 'string' ? row.role : 'Related contact',
+  }
+}
+
+/** The photo from the API, or null (FB-0019, web patch 586). */
+export function contactPhotoFromApi(value: unknown): KRContactPhoto | null {
+  if (!value || typeof value !== 'object') return null
+  const row = value as Record<string, unknown>
+  const number = (key: string) => (typeof row[key] === 'number' && Number.isFinite(row[key]) ? (row[key] as number) : null)
+  const [width, height, cropX, cropY, cropSize] = ['width', 'height', 'cropX', 'cropY', 'cropSize'].map(number)
+  if (typeof row.assetId !== 'string' || !width || !height || cropX == null || cropY == null || !cropSize) return null
+  return { assetId: row.assetId, width, height, cropX, cropY, cropSize, updatedAt: typeof row.updatedAt === 'string' ? row.updatedAt : '' }
 }
 
 /** Maps one server contact row to the Contacts Manager record shape. */
@@ -137,6 +164,10 @@ export function contactFromApiRow(row: Record<string, unknown>, index: number): 
     relatedContacts: Array.isArray(row.relatedContacts)
       ? row.relatedContacts.map(relatedContactFromApi).filter((contact): contact is KRRelatedContact => Boolean(contact))
       : [],
+    relatedEntities: Array.isArray(row.relatedEntities)
+      ? row.relatedEntities.map(relatedEntityFromApi).filter((entity): entity is KRRelatedEntity => Boolean(entity))
+      : [],
+    photo: contactPhotoFromApi(row.photo),
   }
 }
 
@@ -209,6 +240,8 @@ export function toClientContactElement(contact: KRContactRecord): ClientContactE
     pointOfContact: contact.pointOfContact ?? null,
     registeredAgent: contact.registeredAgent ?? null,
     relatedContacts: contact.relatedContacts,
+    relatedEntities: contact.relatedEntities ?? [], // Changed: web patch 586.
+    photo: contact.photo ?? null, // Changed: web patch 586 (the id and circle only).
     createdAt: contact.createdAt,
   }
 }
@@ -258,6 +291,8 @@ export function fromClientContactElement(element: ClientContactElement): KRConta
     pointOfContact: element.pointOfContact ?? null,
     registeredAgent: element.registeredAgent ?? null,
     relatedContacts: element.relatedContacts ?? [],
+    relatedEntities: element.relatedEntities ?? [], // Changed: web patch 586 (absent in older caches).
+    photo: element.photo ?? null,
   }
 }
 
@@ -339,10 +374,19 @@ export function cacheLacksTaxIdDigits(cached: ClientDataCollection<ClientContact
   return cached.elements.some((element) => !('ssnLast4' in element))
 }
 
+/**
+ * True when the cache was written before related entities and photos were cached (web patch 586). A delta refreshes
+ * only changed contacts, so every other contact would show no businesses and no photo; it is reloaded in full once.
+ */
+export function cacheLacksNewFields(cached: ClientDataCollection<ClientContactElement>): boolean {
+  return cached.elements.some((element) => !('relatedEntities' in element) || !('photo' in element))
+}
+
 /** Reconciles changed contacts from the server while retaining unchanged encrypted elements locally. */
 export async function syncContacts(scope: string, cached: ClientDataCollection<ClientContactElement> | null): Promise<ContactsSyncResult> {
   if (!cached) return syncFullContacts(scope)
   if (cacheLacksTaxIdDigits(cached)) return syncFullContacts(scope) // Changed: FB-0014.
+  if (cacheLacksNewFields(cached)) return syncFullContacts(scope) // Changed: web patch 586.
   if (Date.now() - readLastFullContactsSync(scope) > CONTACTS_FULL_RECONCILE_MS) return syncFullContacts(scope)
   const startedAt = window.performance.now()
   const response: ContactsClientDataResponse = await fetchContactList(cached.fetchedAt) // Changed: contract-checked call.

@@ -6,6 +6,8 @@
  *
  * Failures throw `ContactApiError` with the API's error code, so a screen can react to a code (for example
  * `CONTACT_CONFLICT`) and show the sentence in `message`.
+ *
+ * Web patch 586 (FB-0019): the contact photo calls (`uploadContactPhoto`, `cropContactPhoto`, `removeContactPhoto`).
  */
 
 import {
@@ -13,6 +15,7 @@ import {
   ClientStatusData,
   ContactCreateData,
   ContactDetailData,
+  ContactPhotoSavedData,
   ContactRemovalData,
   ContactRemovalPreflightData,
   ContactResolutionData,
@@ -47,6 +50,9 @@ export class ContactApiError extends Error {
 /** Sentences for codes a person may meet. Unknown codes show the API's own message. */
 const ERROR_SENTENCES: Record<string, string> = {
   CONTACTS_UNAVAILABLE: 'Contacts are not available right now.',
+  CONTACT_PHOTOS_UNAVAILABLE: 'Photos are not available right now.',
+  VALIDATION_CONTACT_PHOTO_TOO_LARGE: 'The photo is larger than 5 MB.',
+  VALIDATION_CONTACT_PHOTO_TYPE_UNSUPPORTED: 'Use a JPEG, PNG or WebP image.',
   PERMISSION_REQUIRED: 'Your role does not allow this change.',
   FORBIDDEN: 'Your role does not allow this change.',
   MAINTENANCE_LOCKED: 'KR Homebase is in maintenance. Saving is paused.',
@@ -104,6 +110,32 @@ export function createContact(body: ContactCreateBody) {
 export async function updateContact(contactId: string, body: ContactUpdateBody) {
   const data = await call(`/v1/contacts/${encodeURIComponent(contactId)}`, ContactUpdateData, { method: 'PATCH', body })
   return { ...data, contact: data.contact ? { ...contactFromApiRow(data.contact as unknown as Record<string, unknown>, 0), detailsLoaded: true } : null }
+}
+
+// ---- photos (FB-0019, web patch 586; API patch 58)
+
+/** Sends a new photo with its circle; the answer is the current photo. */
+export async function uploadContactPhoto(contactId: string, image: Blob, fields: { width: number; height: number; cropX: number; cropY: number; cropSize: number }, filename = 'photo') {
+  const form = new FormData()
+  form.set('file', image, filename)
+  for (const [key, value] of Object.entries(fields)) form.set(key, String(value))
+  const response = await fetch(`/api/v1/contacts/${encodeURIComponent(contactId)}/photo`, { method: 'PUT', cache: 'no-store', body: form })
+  const body: unknown = await response.json().catch(() => null)
+  const parsed = successEnvelope(ContactPhotoSavedData).safeParse(body)
+  if (response.ok && parsed.success) return parsed.data.data
+  const error = ErrorEnvelope.safeParse(body)
+  if (error.success) throw new ContactApiError(error.data.error.code, ERROR_SENTENCES[error.data.error.code] ?? error.data.error.message, response.status, error.data.error.details)
+  throw new ContactApiError('HTTP_ERROR', `The photo was not saved (HTTP ${response.status}).`, response.status)
+}
+
+/** Moves or sizes the circle of the current photo. */
+export function cropContactPhoto(contactId: string, circle: { cropX: number; cropY: number; cropSize: number }) {
+  return call(`/v1/contacts/${encodeURIComponent(contactId)}/photo`, ContactPhotoSavedData, { method: 'PATCH', body: circle })
+}
+
+/** Removes the current photo (the initials show again). */
+export function removeContactPhoto(contactId: string) {
+  return call(`/v1/contacts/${encodeURIComponent(contactId)}/photo`, ContactPhotoSavedData, { method: 'DELETE' })
 }
 
 // ---- client accounts

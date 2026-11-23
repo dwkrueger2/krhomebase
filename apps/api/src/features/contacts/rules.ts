@@ -16,7 +16,7 @@
  */
 
 import type { ContactDetail, ContactListItem } from '@krhomebase/contracts'
-import type { ContactTables } from './queries.ts'
+import type { ContactPhotoRow, ContactTables } from './queries.ts'
 
 /** A contact card before the login-account fields are added. */
 export type SerializedContact = Omit<ContactDetail, 'linkedUserId' | 'isCurrentUser' | 'canEditLoginEmail'>
@@ -174,6 +174,34 @@ const ENTITY_CONTACT_ROLE_PRINCIPAL = 'lk_entity_contact_role_principal'
 const ENTITY_CONTACT_ROLE_REGISTERED_AGENT = 'lk_entity_contact_role_registered_agent'
 const ENTITY_CONTACT_ROLE_RELATED = 'lk_entity_contact_role_related_contact'
 const RELATED_CONTACT_LOOKUP_ID = 'lk_relationship_related_contact'
+// See the lookup table as described in Schema 8.0: docs/Schema_8.0/table_lookup.html (section "How KR Homebase uses this table").
+/**
+ * The direction of an `individual_relationship` row that was removed from that person's list only (FB-0023, migration
+ * 077, API patch 57): the row stays current for the other person, and this person's list leaves it out.
+ */
+export const RELATIONSHIP_SIDE_REMOVED_LOOKUP_ID = 'lk_relationship_side_removed'
+
+/** A person's role at a business, as Related Entities shows it (API patch 58). */
+const ENTITY_ROLE_LABELS: Record<string, string> = {
+  [ENTITY_CONTACT_ROLE_PRINCIPAL]: 'Point of contact',
+  [ENTITY_CONTACT_ROLE_REGISTERED_AGENT]: 'Registered agent',
+  [ENTITY_CONTACT_ROLE_RELATED]: 'Related contact',
+}
+
+/** A current photo row in the wire shape, or null when its image's size is unknown (FB-0019, API patch 58). */
+export function serializeContactPhoto(row: ContactPhotoRow | undefined) {
+  if (!row || !row.width || !row.height) return null
+  return {
+    assetId: row.media_asset_id,
+    width: Number(row.width),
+    height: Number(row.height),
+    cropX: Number(row.crop_x),
+    cropY: Number(row.crop_y),
+    cropSize: Number(row.crop_size),
+    updatedAt: row.updated_at ?? row.created_at,
+  }
+}
+
 const RELATIONSHIP_LABELS: Record<string, string> = {
   lk_relationship_spouse: 'Spouse',
   lk_relationship_former_spouse: 'Former spouse',
@@ -322,7 +350,9 @@ export function serializeContacts(
   entityContactLinks: EntityContactRow[],
   individualRelationships: IndividualRelationshipRow[],
   resolutions: ContactResolutionRow[],
+  contactPhotos: ContactPhotoRow[] = [],
 ): SerializedContact[] {
+  const photoOf = (kind: 'individual' | 'entity', id: string) => serializeContactPhoto(contactPhotos.find((photo) => photo.contact_kind === kind && photo.contact_id === id))
   const resolvedIds = new Set(resolutions.map((resolution) => `${resolution.source_kind}:${resolution.source_contact_id}`))
   const individualContacts = individuals.map((row) => {
     const methods = individualMethods.filter((method) => method.individual_id === row.id)
@@ -337,12 +367,29 @@ export function serializeContacts(
         const related = individuals.find((individual) => individual.id === relatedId)
         if (!related) return null
         const lookupId = isA ? relationship.a_to_b_relationship_lookup_id : relationship.b_to_a_relationship_lookup_id
+        // Removed from this person's list only (FB-0023): the other person still lists this one.
+        if (lookupId === RELATIONSHIP_SIDE_REMOVED_LOOKUP_ID) return null
         return relatedContactOption(related, RELATIONSHIP_LABELS[lookupId] ?? 'Related contact')
       })
       .filter((related): related is PublicRelatedContact => Boolean(related))
+    // API patch 58: the businesses this person is linked to, with the role (Related Entities on the card).
+    const relatedEntities = entityContactLinks
+      .filter((link) => link.individual_id === row.id && !link.end_date)
+      .map((link) => {
+        const entity = entities.find((candidate) => candidate.id === link.entity_id)
+        if (!entity) return null
+        const entityClient = clientForContact(clients, clientMembers, 'entity', entity.id)
+        return { id: entity.id, displayName: entity.legal_name, ecid: entity.ecid ?? null, clientNumber: entityClient?.client_number ?? null, role: ENTITY_ROLE_LABELS[link.role_lookup_id] ?? 'Related contact' }
+      })
+      .filter((related): related is NonNullable<typeof related> => Boolean(related))
+      // One line per business and role; the name order of the card.
+      .filter((related, index, all) => all.findIndex((other) => other.id === related.id && other.role === related.role) === index)
+      .sort((left, right) => left.displayName.localeCompare(right.displayName))
     return {
       id: row.id,
       kind: 'individual' as const,
+      relatedEntities,
+      photo: photoOf('individual', row.id),
       icid: row.icid ?? null,
       typeLabel: 'Person',
       displayName: row.preferred_name || fullName,
@@ -412,6 +459,8 @@ export function serializeContacts(
     return {
       id: row.id,
       kind: 'entity' as const,
+      relatedEntities: [],
+      photo: photoOf('entity', row.id),
       ecid: row.ecid ?? null,
       entitySubtype: row.entity_subtype,
       partnershipType: row.partnership_type ?? null,
@@ -547,5 +596,6 @@ export function serializeContactTables(tables: ContactTables): SerializedContact
     tables.entityContactLinks,
     tables.individualRelationships,
     tables.resolutions,
+    tables.contactPhotos ?? [],
   )
 }

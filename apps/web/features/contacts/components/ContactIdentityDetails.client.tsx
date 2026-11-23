@@ -26,6 +26,10 @@
  *   card's look, and the card blinks when it copies (`KRCopyPreviewButton`); the copied address has "City, ST, Zip" on
  *   its own line (`contactCopyText.ts`); the summary's rows sit closer together.
  *
+ * Nov 23, 2026 (the requester's plan, web patch 586): a person's businesses are listed in their own box, **Related
+ *   Entities** (`ContactRelatedEntities`), under Related Contacts, which stays people only. A business's Related
+ *   Contacts also lists its point of contact and registered agent, each with that role (`relatedPeopleOf`).
+ *
  * Read-only: nothing here writes.
  */
 
@@ -34,6 +38,7 @@ import KRCopyButton from '@/components/ui/KRCopyButton.client'
 import KRCopyPreviewButton from '@/components/ui/KRCopyPreviewButton.client'
 import { contactCopyTexts } from '../contactCopyText'
 import type { KRContactRecord } from '../types'
+import ContactRelatedEntities from './ContactRelatedEntities.client'
 import ContactTaxIdLine from './ContactTaxIdLine.client'
 import { relatedContactLabel, useRelatedContactHover } from './RelatedContactHover.client'
 
@@ -244,6 +249,20 @@ export interface ContactIdentityDetailsProps {
 }
 
 /**
+ * The people of the Related Contacts box: a person's related contacts; for a business, its point of contact and
+ * registered agent (with those roles) and then its related contacts. One line per person and role.
+ */
+export function relatedPeopleOf(contact: Pick<KRContactRecord, 'kind' | 'relatedContacts' | 'pointOfContact' | 'registeredAgent'>) {
+  if (contact.kind !== 'entity') return contact.relatedContacts
+  const people = [
+    ...(contact.pointOfContact ? [{ ...contact.pointOfContact, relationship: 'Point of contact' }] : []),
+    ...(contact.registeredAgent ? [{ ...contact.registeredAgent, relationship: 'Registered agent' }] : []),
+    ...contact.relatedContacts,
+  ]
+  return people.filter((person, index) => people.findIndex((other) => other.id === person.id && other.relationship === person.relationship) === index)
+}
+
+/**
  * Renders the two-column identity details.
  *
  * @param props - The contact and the callbacks above.
@@ -254,6 +273,7 @@ export default function ContactIdentityDetails({ contact, onEdit, onOpenMatter, 
   // What the three address buttons copy, with "City, ST, Zip" on its own line (FB-0004).
   const copyTexts = contactCopyTexts(contact)
   const relatedHover = useRelatedContactHover()
+  const relatedPeople = relatedPeopleOf(contact)
 
   return (
     <div className={LAYOUT_STYLES.details} data-kr-element="contact-identity-details">
@@ -334,15 +354,15 @@ export default function ContactIdentityDetails({ contact, onEdit, onOpenMatter, 
         <div className={`${LAYOUT_STYLES.associationBlock} ${STYLES.associationBlock}`}>
           <h3 className={`${LAYOUT_STYLES.associationTitle} ${STYLES.associationTitle}`}>Related Contacts</h3>
           <div className={LAYOUT_STYLES.associationList}>
-            {contact.relatedContacts.length ? (
-              contact.relatedContacts.map((related) => {
+            {relatedPeople.length ? (
+              relatedPeople.map((related) => {
                 const label = relatedContactLabel(related, relatedHover.directoryContact(related.id))
                 return (
                   <button
                     aria-label={`${label} — ${related.relationship || 'Related contact'}`}
                     className={`${LAYOUT_STYLES.relatedItem} ${STYLES.associationItem}`}
                     data-kr-action="open-related-contact"
-                    key={related.id}
+                    key={`${related.id}:${related.relationship ?? ''}`}
                     type="button"
                     onClick={() => {
                       relatedHover.close()
@@ -360,9 +380,11 @@ export default function ContactIdentityDetails({ contact, onEdit, onOpenMatter, 
               <p className={`${LAYOUT_STYLES.mutedText} ${STYLES.mutedText}`}>No related contacts recorded.</p>
             )}
           </div>
-          {/* Related contact hover card (drawn into the body) */}
+          {/* Related contact hover card (drawn into the body; the Related Entities box shares it) */}
           {relatedHover.card}
         </div>
+        {/* A person's businesses, apart from the people (web patch 586) */}
+        {contact.kind === 'individual' ? <ContactRelatedEntities contact={contact} hover={relatedHover} onOpenContact={onOpenContact} /> : null}
       </aside>
     </div>
   )

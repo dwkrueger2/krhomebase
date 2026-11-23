@@ -11,6 +11,7 @@ import { ToolsUnavailableError } from './features/tools/queries.ts'
 import { registerTools } from './features/tools/routes.ts'
 import { registerContacts } from './features/contacts/routes.ts'
 import { registerContactEdits } from './features/contact-edits/routes.ts'
+import { registerContactPhotos } from './features/contact-photos/routes.ts'
 import { registerContactMaintenance } from './features/contact-maintenance/routes.ts'
 import { registerBilling } from './features/billing/routes.ts'
 import { registerBillingDocuments } from './features/billing-documents/routes.ts'
@@ -77,6 +78,7 @@ export function createApp() {
   registerTools(app)
   registerContacts(app)
   registerContactEdits(app)
+  registerContactPhotos(app)
   registerContactMaintenance(app)
   registerBilling(app)
   registerBillingDocuments(app)

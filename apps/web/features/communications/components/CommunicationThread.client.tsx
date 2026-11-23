@@ -20,9 +20,12 @@
  * - Nov 18, 2026 (web patch 571, "Following a code"): the source label ("Matter 090.0 · Name") opens the client's
  *   detail (or the lead), its hover naming the client ("Open Client 090 Best In Class"); the WSID opens the entry's
  *   dialog (`KRCodeLink`).
+ * - Nov 23, 2026 (FB-0019, web patch 586): an entry's avatar is its writer's photo circle when their contact has a
+ *   photo (`photoOf`, `KRPhotoCircle`, 24px); otherwise their initials, as before.
  */
 
 import KRCodeLink from '@/components/ui/KRCodeLink.client'
+import KRPhotoCircle, { type KRPhotoCrop } from '@/components/ui/KRPhotoCircle.client'
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
 import { useState } from 'react'
@@ -43,6 +46,8 @@ interface CommunicationThreadProps {
   onLoadOlder?: () => void
   /** Reassign an entry to another client and matter (D16, Nov 13, 2026). Absent: no Reassign button. */
   onReassign?: (wsid: string) => void
+  /** The writer's photo by user id (their linked contact's photo), or null for the initials (web patch 586). */
+  photoOf?: (userId: string) => { src: string; crop: KRPhotoCrop } | null
 }
 
 /** Reusable color, typography, border, and message treatments owned by this component. */
@@ -145,7 +150,7 @@ export function threadPagingSentence(count: number, hasOlder: boolean): string {
  * The parent owns the entries (newest first), the selection, the collapsed view and paging; this component keeps only
  * which collapsed rows are expanded.
  */
-export default function CommunicationThread({ collapsedView, contextLabel = 'Firm WorkStream feed', hasOlder = false, loading = false, loadingOlder = false, messages, onLoadOlder, onReassign, onSelectMessage, selectedWsid }: CommunicationThreadProps) {
+export default function CommunicationThread({ collapsedView, contextLabel = 'Firm WorkStream feed', hasOlder = false, loading = false, loadingOlder = false, messages, onLoadOlder, onReassign, onSelectMessage, photoOf, selectedWsid }: CommunicationThreadProps) {
   const [expandedMessageIds, setExpandedMessageIds] = useState<Set<string>>(new Set())
 
   /** Toggles one communication row while the thread is in condensed mode. */
@@ -182,7 +187,15 @@ export default function CommunicationThread({ collapsedView, contextLabel = 'Fir
           const expanded = !collapsedView || expandedMessageIds.has(message.wsid)
           return (
             <article key={message.wsid} className={`${LAYOUT_STYLES.row} ${collapsedView ? LAYOUT_STYLES.collapsedRow : ''} ${STYLES.row} ${selected ? STYLES.rowSelected : ''}`} data-kr-collapsed-expanded={collapsedView ? expanded : undefined} data-kr-element="communication-entry" onClick={() => toggleMessage(message)}>
-              <span className={`${STYLES.avatar} ${AVATAR_TONE_STYLES[message.author.avatarTone]}`} aria-hidden="true">{message.author.initials}</span>
+              {(() => {
+                // The writer's photo circle, else the initials (web patch 586).
+                const photo = photoOf?.(message.author.id) ?? null
+                return photo ? (
+                  <span aria-hidden="true" data-kr-element="communication-entry-photo"><KRPhotoCircle crop={photo.crop} initials={message.author.initials} label={message.author.name} size={24} src={photo.src} /></span>
+                ) : (
+                  <span className={`${STYLES.avatar} ${AVATAR_TONE_STYLES[message.author.avatarTone]}`} aria-hidden="true">{message.author.initials}</span>
+                )
+              })()}
               {expanded ? <div className={LAYOUT_STYLES.messageColumn}>
                 {/* Message identity stays above the bubble to match the reference communication layout. */}
                 <div className={`${LAYOUT_STYLES.byline} ${STYLES.byline}`}><strong className={STYLES.bylineStrong}>{message.author.name}</strong><span>{message.createdLabel}</span><span className={STYLES.accentBadge}>{message.direction}</span><span className={STYLES.activityBadge}>{activityLabel}</span><span className={STYLES.sourceBadge}>{message.sourceTarget ? <KRCodeLink code={message.sourceTarget.code} kind={message.sourceTarget.kind} title={message.sourceTarget.title} tone="dark">{message.sourceLabel}</KRCodeLink> : message.sourceLabel}</span>{message.assigneeLabel ? <span>· Assigned to {message.assigneeLabel}</span> : null}{message.edited ? <span>· Edited</span> : null}<code className={`${LAYOUT_STYLES.bylineCode} ${STYLES.bylineCode}`}><KRCodeLink code={message.wsid} kind="workstream" tone="dark" /></code></div>

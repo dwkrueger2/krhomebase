@@ -28,6 +28,7 @@ import {
   STATUS_LABELS,
   type FeedbackDetail,
   type FeedbackImage,
+  type FeedbackKind,
   type FeedbackNote,
   type FeedbackPriority,
   type FeedbackStatus,
@@ -41,10 +42,12 @@ export interface Notice {
   text: string
 }
 
-/** The change form's values as the person has set them (status, priority, note), not yet saved. */
+/** The change form's values as the person has set them (status, priority, kind, note), not yet saved. */
 export interface DraftChange {
   status: FeedbackStatus
   priority: FeedbackPriority
+  /** The kind chosen on the form (tool 1.8.0, the requester, Nov 23, 2026); left out: unchanged. */
+  kind?: FeedbackKind
   note: string
 }
 
@@ -269,16 +272,17 @@ export function completionNote(note: string, displayName: string): string {
  * Whether the change form differs from what is saved (root `AGENTS.md`, "Unsaved Changes Standard": dirty means
  * different from the saved values, so setting a value back makes the form clean again).
  */
-export function isDraftDirty(item: Pick<FeedbackDetail, 'status' | 'priority'>, draft: DraftChange): boolean {
-  return draft.status !== item.status || draft.priority !== item.priority || draft.note.trim() !== ''
+export function isDraftDirty(item: Pick<FeedbackDetail, 'status' | 'priority' | 'kind'>, draft: DraftChange): boolean {
+  return draft.status !== item.status || draft.priority !== item.priority || Boolean(draft.kind && draft.kind !== item.kind) || draft.note.trim() !== ''
 }
 
 /**
  * What Save Changes will change, shown beside the button while the form is dirty (tool kit guide, rule 4: show the
  * person what the tool will change before it changes it). Empty when nothing would change.
  */
-export function draftChangeWords(item: Pick<FeedbackDetail, 'status' | 'priority'>, draft: DraftChange): string {
+export function draftChangeWords(item: Pick<FeedbackDetail, 'status' | 'priority' | 'kind'>, draft: DraftChange): string {
   const parts: string[] = []
+  if (draft.kind && draft.kind !== item.kind) parts.push(`Kind ${labelOf(KIND_LABELS, item.kind)} → ${labelOf(KIND_LABELS, draft.kind)}`)
   if (draft.status !== item.status) parts.push(`Status ${labelOf(STATUS_LABELS, item.status)} → ${labelOf(STATUS_LABELS, draft.status)}`)
   if (draft.priority !== item.priority) parts.push(`Priority ${labelOf(PRIORITY_LABELS, item.priority)} → ${labelOf(PRIORITY_LABELS, draft.priority)}`)
   if (draft.note.trim()) parts.push(parts.length ? 'with the note' : 'Add the note')
@@ -356,7 +360,8 @@ export function detailView(item: FeedbackDetail, options: { canTriage: boolean; 
         .join('')
     : '<p class="meta">No notes yet.</p>'
 
-  // One form saves the status, the priority and a note together (the API keeps a note sent with no other change as a
+  // One form saves the kind (tool 1.8.0: a request sent as the wrong kind, recorded by the API as a note), the status,
+  // the priority and a note together (the API keeps a note sent with no other change as a
   // plain note). Save Changes keeps its place but shows only while the form differs from what is saved; `main.ts`
   // sets `dirty` on the form and writes what will change beside the button (root AGENTS.md, Unsaved Changes Standard).
   // Save and Mark Complete (FB-0013, tool 1.6.0) shows while the request is still open: one click saves the form with
@@ -368,7 +373,8 @@ export function detailView(item: FeedbackDetail, options: { canTriage: boolean; 
   const changeForm = !options.canTriage
     ? '<p class="meta">You may read this request but not change it (you need developer_tools update).</p>'
     : `<form data-action="change" data-kr-element="feedback-viewer-change">
-<div class="form-row"><label>Status <select name="status" ${toneAttr(toneOf(STATUS_TONES, item.status))}>${optionsHtml(FEEDBACK_STATUSES, STATUS_LABELS, item.status, undefined, STATUS_TONES)}</select></label>
+<div class="form-row"><label>Kind <select name="kind" ${toneAttr(toneOf(KIND_TONES, item.kind))} data-kr-element="feedback-viewer-kind">${optionsHtml(FEEDBACK_KINDS, KIND_LABELS, item.kind, undefined, KIND_TONES)}</select></label>
+<label>Status <select name="status" ${toneAttr(toneOf(STATUS_TONES, item.status))}>${optionsHtml(FEEDBACK_STATUSES, STATUS_LABELS, item.status, undefined, STATUS_TONES)}</select></label>
 <label>Priority <select name="priority" ${toneAttr(toneOf(PRIORITY_TONES, item.priority))}>${optionsHtml(FEEDBACK_PRIORITIES, PRIORITY_LABELS, item.priority, undefined, PRIORITY_TONES)}</select></label></div>
 <label class="block">Note (optional)<textarea name="note" maxlength="10000"></textarea></label>
 <div class="save-row"><button type="submit" class="save" data-kr-element="feedback-viewer-save">Save Changes</button>${completeButton}<span class="change-words meta" aria-live="polite"></span></div>
@@ -398,7 +404,7 @@ ${images}
 <div data-kr-element="feedback-viewer-notes">${notes}</div>
 </section>
 <section>
-<h3>Status, priority and notes</h3>
+<h3>Kind, status, priority and notes</h3>
 ${changeForm}
 <h3>Page it was sent from</h3>
 <table data-kr-element="feedback-viewer-context"><tbody>${contextRows.map(([label, value]) => `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value)}</td></tr>`).join('')}</tbody></table>

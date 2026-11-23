@@ -20,7 +20,8 @@ import type { WidgetDefinition } from '@krhomebase/tool-sdk/types'
 const LAYOUT_STYLES = {
   card: 'min-w-0 overflow-hidden flex flex-col',
   wide: 'md:col-span-2',
-  fixed300: 'w-[300px] min-w-[300px]',
+  // 300px, or less on a screen narrower than that (FB-0025: a minimum width made the cards spill into the next column).
+  fixed300: 'w-[300px] max-w-full',
   header: 'min-h-[30px] px-[8px] py-[6px] gap-[8px] flex items-center justify-between',
   body: 'p-[8px] min-w-0',
 } as const

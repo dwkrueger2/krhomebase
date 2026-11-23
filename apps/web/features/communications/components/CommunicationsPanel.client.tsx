@@ -39,6 +39,7 @@ import { createWorkstreamEntry, fetchWorkstreamAssignees, WorkstreamApiError } f
 import { resolveCommunicationSaveTarget, saveTargetBlockReason, type CommunicationComposerOwner, type CommunicationsContext } from '../communicationSaveTarget'
 import { communicationEntryFromActivity, communicationUserFromViewer, parseWorkstreamSlashCommands, subjectFromBody, type CommunicationClientState, type CommunicationEntry, type CommunicationsViewer, type WorkstreamCommunicationActivityType } from '../communicationTypes'
 import { useCommunicationsFeed } from '../useCommunicationsFeed.client'
+import { writerPhotosOf } from '../writerPhotos'
 import CommunicationActivityFilters from './CommunicationActivityFilters.client'
 import CommunicationAttributionPanel from './CommunicationAttributionPanel.client'
 import CommunicationComposer from './CommunicationComposer.client'
@@ -105,6 +106,8 @@ function errorSentence(error: unknown): string {
 export default function CommunicationsPanel({ context, viewer }: CommunicationsPanelProps) {
   const currentUser = useMemo(() => communicationUserFromViewer(viewer), [viewer])
   const contacts = useOptionalDataStore()?.contacts ?? NO_CONTACTS
+  // FB-0019 (web patch 586): each writer's photo, from their linked contact.
+  const writerPhotos = useMemo(() => writerPhotosOf(contacts), [contacts])
   const fixedContext = Boolean(context?.clientId || context?.leadId)
   // The types shown: the person's WorkStream view setting at first (User Settings → Preferences), then the filter row.
   const savedTypes = usePreferences().data.preferences.workstreamTypes
@@ -281,6 +284,7 @@ export default function CommunicationsPanel({ context, viewer }: CommunicationsP
             onLoadOlder={feed.loadOlder}
             onReassign={setReassignWsid}
             onSelectMessage={setSelectedWsid}
+            photoOf={(userId) => writerPhotos.get(userId) ?? null}
             selectedWsid={selectedWsid}
           />
         </div>
