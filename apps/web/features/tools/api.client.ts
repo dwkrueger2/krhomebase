@@ -15,6 +15,7 @@ import {
   ToolListData,
   ToolRegistrationData,
   ToolSecretData,
+  ToolSandboxSecretData,
   ToolSdkData,
   successEnvelope,
   type ToolCreateBody,
@@ -30,6 +31,7 @@ const ERROR_SENTENCES: Record<string, string> = {
   TOOL_ENTRY_URL_REFUSED: 'That address is not allowed. Use https (http only for localhost), and not this site itself.',
   TOOL_NOT_FOUND: 'That tool no longer exists. Reload the list.',
   TOOL_SERVER_ACCESS_OFF: 'Turn server access on before making a client secret.',
+  TOOLS_SANDBOX_NOT_CONFIGURED: 'The tool sandbox is not set up yet: its signing secret (KR_TOOL_SANDBOX_SECRET) is missing on the API.',
   TOOLS_UNAVAILABLE: 'The outside-tool tables are not available. Has the migration been applied?',
   TOOL_SDK_NOT_FOUND: 'No tool kit stored yet.',
   FORBIDDEN: 'Only a super admin may manage outside tools.',
@@ -104,3 +106,7 @@ export async function downloadToolSdk(): Promise<ToolsCallResult<{ blob: Blob; f
     return { ok: false, message: 'The tool kit could not be downloaded. Try again.' }
   }
 }
+
+/** A sandbox secret for a tool (sample data only, 30 days); shown once, recorded in the tool's Activity. */
+export const makeSandboxSecret = (toolId: string) =>
+  callTools(`/v1/tools/registrations/${encodeURIComponent(toolId)}/sandbox-secret`, ToolSandboxSecretData, { method: 'POST' })

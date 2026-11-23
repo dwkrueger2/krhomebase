@@ -24,6 +24,7 @@
  */
 
 import { z } from 'zod'
+import { TOOL_SANDBOX_ADDRESS } from './toolSandbox.ts'
 
 /* ------------------------------------------------------------------------------------------------------------------
  * The catalog
@@ -70,7 +71,7 @@ export interface ItCatalogWorker {
 const NO_HEALTH_ROUTE = 'This Worker reports no version: it has no health-check route that answers with one.'
 
 /**
- * The ten deployed Workers, in the order of `docs/04_Deployed_Architecture.md` section 1 (bindings from its section 4
+ * The deployed Workers (and the tool sandbox, listed before its first deploy), in the order of `docs/04_Deployed_Architecture.md` section 1 (bindings from its section 4
  * and from each configuration file).
  */
 export const IT_WORKERS: readonly ItCatalogWorker[] = [
@@ -217,6 +218,19 @@ export const IT_WORKERS: readonly ItCatalogWorker[] = [
       { binding: 'KRHOMEBASE_DB', kind: 'd1', target: 'krhomebase' },
       { binding: 'ARTICLE_BUCKET', kind: 'r2', target: 'kr-homebase-articles' },
     ],
+  },
+  {
+    // The outside-tool sandbox (the requester, Nov 23, 2026). Listed before its first deploy, so the IT Overview shows
+    // "Not reported" until the requester deploys it (pnpm deploy:sandbox). No data binding, by design.
+    name: 'krhomebase-sandbox-api',
+    role: 'The outside-tool sandbox: made-up sample data for tool developers. No database.',
+    folder: 'apps/sandbox-api',
+    configFile: 'apps/sandbox-api/kr-sandbox-api-wrangler.jsonc',
+    publicAddress: TOOL_SANDBOX_ADDRESS.slice('https://'.length),
+    versionSource: 'health-route',
+    healthUrl: `${TOOL_SANDBOX_ADDRESS}/health-check`,
+    versionNote: null,
+    bindings: [{ binding: 'CF_VERSION_METADATA', kind: 'version', target: 'its deployed version' }],
   },
 ]
 

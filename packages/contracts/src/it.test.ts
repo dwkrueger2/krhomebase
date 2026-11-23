@@ -9,10 +9,11 @@ import { describe, expect, it } from 'vitest'
 import { formatItVersion, IT_BUCKETS, IT_DATABASES, IT_KEY_STORES, IT_WORKERS, itBoundBy } from './it.ts'
 
 describe('IT catalog', () => {
-  it('names the ten deployed Workers, each once', () => {
+  it('names the ten deployed Workers and the tool sandbox (listed before its first deploy), each once', () => {
     const names = IT_WORKERS.map((worker) => worker.name)
-    expect(names).toHaveLength(10)
-    expect(new Set(names).size).toBe(10)
+    expect(names).toHaveLength(11)
+    expect(new Set(names).size).toBe(11)
+    expect(names).toContain('krhomebase-sandbox-api')
   })
 
   it('points every binding at something the catalog lists', () => {

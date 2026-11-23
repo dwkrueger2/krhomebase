@@ -4,6 +4,9 @@
  * Shows a new client secret once, right after a tool is registered with server access or a secret is
  * replaced. Part of `OutsideToolsAdmin`. The secret is held only in the parent's state and is gone when this
  * notice is closed; the API keeps only its hash and can never show it again.
+ *
+ * Nov 23, 2026 (web patch 581): it also shows a sandbox secret (`sandbox` set), with the sandbox's address and its end
+ * date, and says it opens the sandbox's made-up sample data only.
  */
 
 import { useState } from 'react'
@@ -15,6 +18,11 @@ export interface ToolSecretNoticeProps {
   clientSecret: string
   /** Until when the replaced secret still works (ISO time), or null. */
   previousValidUntil: string | null
+  /**
+   * Set for a sandbox secret (Nov 23, 2026): it opens the tool sandbox's made-up sample data only, so the notice says so
+   * and adds the sandbox's address and the end date. Left out: a real client secret.
+   */
+  sandbox?: { address: string; expiresAt: string; secretId: string }
   /** Called when the super admin says the secret is saved. */
   onDone: () => void
 }
@@ -42,7 +50,7 @@ const STYLES = {
  * @param props - Tool, id, secret, overlap end and the done callback.
  * @returns A `<section data-kr-id="ToolSecretNotice">`.
  */
-export default function ToolSecretNotice({ label, clientId, clientSecret, previousValidUntil, onDone }: ToolSecretNoticeProps) {
+export default function ToolSecretNotice({ label, clientId, clientSecret, previousValidUntil, sandbox, onDone }: ToolSecretNoticeProps) {
   const [copied, setCopied] = useState('')
 
   async function copy(name: string, value: string): Promise<void> {
@@ -56,11 +64,24 @@ export default function ToolSecretNotice({ label, clientId, clientSecret, previo
 
   return (
     <section className={`${LAYOUT_STYLES.box} ${STYLES.box}`} role="status" data-kr-id="ToolSecretNotice">
-      <h3 className={STYLES.heading}>Client secret for {label}: shown only now</h3>
-      <p className={STYLES.text}>
-        Give it to the tool's developer through a safe channel (not plain email). KR Homebase keeps only a scrambled copy and cannot show it again.
-        {previousValidUntil ? ` The old secret keeps working until ${new Date(previousValidUntil).toLocaleString()}.` : ''}
-      </p>
+      {sandbox ? (
+        <>
+          <h3 className={STYLES.heading}>Sandbox secret for {label}: shown only now</h3>
+          <p className={STYLES.text}>
+            It opens the tool sandbox's made-up sample data only, never firm data, with this tool's permissions and permitted users as they are now. It ends
+            {` ${new Date(sandbox.expiresAt).toLocaleDateString()}`} and is recorded in the tool's Activity (id {sandbox.secretId}). Give the developer the client id,
+            this secret and the sandbox address; KR Homebase does not keep the secret.
+          </p>
+        </>
+      ) : (
+        <>
+          <h3 className={STYLES.heading}>Client secret for {label}: shown only now</h3>
+          <p className={STYLES.text}>
+            Give it to the tool's developer through a safe channel (not plain email). KR Homebase keeps only a scrambled copy and cannot show it again.
+            {previousValidUntil ? ` The old secret keeps working until ${new Date(previousValidUntil).toLocaleString()}.` : ''}
+          </p>
+        </>
+      )}
 
       {/* Client id (public) and client secret (private), each with a copy button */}
       <div className={LAYOUT_STYLES.row}>
@@ -69,10 +90,17 @@ export default function ToolSecretNotice({ label, clientId, clientSecret, previo
         <button type="button" className={`${STYLES.button} ${STYLES.copy}`} onClick={() => void copy('id', clientId)}>{copied === 'id' ? 'Copied' : 'Copy'}</button>
       </div>
       <div className={LAYOUT_STYLES.row}>
-        <span className={STYLES.label}>Client secret</span>
+        <span className={STYLES.label}>{sandbox ? 'Sandbox secret' : 'Client secret'}</span>
         <code className={STYLES.value}>{clientSecret}</code>
         <button type="button" className={`${STYLES.button} ${STYLES.copy}`} onClick={() => void copy('secret', clientSecret)}>{copied === 'secret' ? 'Copied' : 'Copy'}</button>
       </div>
+      {sandbox && (
+        <div className={LAYOUT_STYLES.row} data-kr-element="tool-secret-sandbox-address">
+          <span className={STYLES.label}>Sandbox address</span>
+          <code className={STYLES.value}>{sandbox.address}</code>
+          <button type="button" className={`${STYLES.button} ${STYLES.copy}`} onClick={() => void copy('address', sandbox.address)}>{copied === 'address' ? 'Copied' : 'Copy'}</button>
+        </div>
+      )}
 
       <div className={LAYOUT_STYLES.actions}>
         <button type="button" className={`${STYLES.button} ${STYLES.done}`} onClick={onDone}>I have saved it</button>

@@ -8,11 +8,12 @@
  * Only made-up tools, people and addresses are used. Run: `pnpm --dir apps/api run test`.
  */
 
-import { TOOL_GATEWAY_HEADER, TOOL_GATEWAY_VALUE, TOOL_ID_HEADER, type ToolPermittedUserEmail, type ToolScope } from '@krhomebase/contracts'
+import { TOOL_GATEWAY_HEADER, TOOL_GATEWAY_VALUE, TOOL_ID_HEADER, TOOL_SANDBOX_ADDRESS, type ToolPermittedUserEmail, type ToolScope } from '@krhomebase/contracts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../app.ts'
 import { routeRegistry } from '../../platform/defineRoute.ts'
 import { clearSessionCache } from '../../platform/sessionClient.ts'
+import { signSandboxSecret } from '../../platform/toolSandbox.ts'
 import { createTestD1, signedInEnv } from '../../../test/fakes.ts'
 import { clearPermissionCache } from '../permissions/rules.ts'
 import {
@@ -368,6 +369,13 @@ describe('outside tools through the API', () => {
       expect(server.status).toBe(403)
       expect(server.body.error.details.reason).toBe('tool_channel_not_allowed')
 
+      // A frame write keeps the person's own checks: the signed-in person needs contacts.create (no implicit super admin).
+      d1.sqlite.exec(`
+        INSERT INTO role_set (id, role_key, label, is_system) VALUES ('rs-tool-writer', 'test_tool_writer', 'Tool writer', 0);
+        INSERT INTO role_set_permission (id, role_set_id, permission_key, permission_label, permission_group, can_create, can_read, can_update) VALUES ('p-tool-writer', 'rs-tool-writer', 'contacts', 'Contacts', 'People', 1, 1, 1);
+        INSERT OR IGNORE INTO user (id, individual_id, email, password_hash, role) VALUES ('user-test-1', NULL, 'dankrueger@legaldrive.net', 'x', 'super_admin');
+        INSERT INTO user_role_set (id, user_id, role_set_id) VALUES ('urs-tool-writer', 'user-test-1', 'rs-tool-writer');
+      `)
       const frame = await call('super_admin', 'POST', '/v1/contacts', body, { [TOOL_ID_HEADER]: tool.clientId })
       expect(frame.status, JSON.stringify(frame.body)).toBe(201)
       expect(frame.body.data.displayName).toBe('Tool Writer')
@@ -376,6 +384,38 @@ describe('outside tools through the API', () => {
       const deniedFrame = await call('super_admin', 'POST', '/v1/contacts', { ...body, firstName: 'No' }, { [TOOL_ID_HEADER]: unscopedTool.clientId })
       expect(deniedFrame.status).toBe(403)
       expect(deniedFrame.body.error.details.reason).toBe('scope_not_granted')
+    })
+
+    it('makes a sandbox secret for a super admin with the tool\'s permissions, records it, and never stores it', async () => {
+      const { tool } = await register({ scopes: ['contacts:read', 'tasks:read'], permittedUsers: ['marcusrichard@legaldrive.net'], serverAccessEnabled: false })
+      const ask = (toolId: string, extra: Record<string, unknown>) =>
+        app.request(`/v1/tools/registrations/${toolId}/sandbox-secret`, { method: 'POST', headers: cookieFor('super_admin') }, envFor('super_admin', extra))
+
+      // Without the signing secret the API says the sandbox is not set up.
+      const missing = await ask(tool.id, {})
+      expect(missing.status).toBe(503)
+      expect(((await missing.json()) as Json).error.code).toBe('TOOLS_SANDBOX_NOT_CONFIGURED')
+
+      const made = await ask(tool.id, { KR_TOOL_SANDBOX_SECRET: 'fixed-example-key' })
+      expect(made.status).toBe(200)
+      expect(made.headers.get('cache-control')).toBe('no-store')
+      const data = ((await made.json()) as Json).data
+      expect(data).toMatchObject({ clientId: tool.clientId, scopes: ['contacts:read', 'tasks:read'], sandboxAddress: TOOL_SANDBOX_ADDRESS })
+      expect(data.sandboxSecret).toMatch(/^krsbx1_41\.2\./)
+      expect(data.sandboxSecret).toContain(`.${data.secretId}.`)
+      // Recorded in the tool's Activity; the secret itself is in no table.
+      expect(auditRows().at(-1)).toMatchObject({ channel: 'admin', method: 'SANDBOX_SECRET', status: 200 })
+      const dump = JSON.stringify(d1.sqlite.prepare('SELECT * FROM workspace_tool').all())
+      expect(dump).not.toContain(data.sandboxSecret)
+
+      expect((await ask('tool-unknown', { KR_TOOL_SANDBOX_SECRET: 'fixed-example-key' })).status).toBe(404)
+      const staff = await app.request(`/v1/tools/registrations/${tool.id}/sandbox-secret`, { method: 'POST', headers: cookieFor('staff') }, envFor('staff', { KR_TOOL_SANDBOX_SECRET: 'k' }))
+      expect(staff.status).toBe(403)
+    })
+
+    it('signs the fixed example the sandbox checks (apps/sandbox-api/src/signing.test.ts)', async () => {
+      const secret = await signSandboxSecret('fixed-example-key', 'krt_FixedExample00000001', { scopes: ['contacts:read', 'tasks:read'], emails: ['marcusrichard@legaldrive.net'], expiresAt: 1_800_000_000 }, 'FixedNon')
+      expect(secret).toBe('krsbx1_41.2.tro8w0.1rrujo3.FixedNon.3lv92cp4SRAxxiRDL7MB8UM_inFJv0-_VsSzFrkuzR4')
     })
 
     it('keeps a frame call subject to the person permission while the server path uses only the tool scope', async () => {

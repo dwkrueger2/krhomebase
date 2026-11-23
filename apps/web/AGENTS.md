@@ -1,7 +1,7 @@
 # KR Homebase Web Agent Guide
 
-<small>Version 3.50</small><br>
-<small>Updated Nov 18, 2026 11:00pm</small>
+<small>Version 3.51</small><br>
+<small>Updated Nov 23, 2026 3:03pm</small>
 
 ## Purpose
 
@@ -139,7 +139,8 @@ Design and security model: `docs/05_Outside_Tools.md`. Guide for outside develop
 - The bridge's message shapes come from `@krhomebase/tool-sdk/protocol`, the same file the tools use. Do not write a second copy.
 - **Own icons and health (web patch 544):** a tool's `iconSvg` is drawn only by `components/ui/ToolSvgIcon.client.tsx` (checked again with `checkToolIcon`, built from the checked elements with React, never `dangerouslySetInnerHTML`; the built-in icon is the fallback), in the left menu and on the Outside tools screen. `ExternalToolFrame` asks `fetchToolHealth` (`lib/toolRelay.ts`, `GET /api/v1/tools/menu/{clientId}/health`) each time a tool opens, without waiting, and shows a notice in place of the frame when the tool does not answer its health route (`/health-check`). The registration form ticks roles from `ToolRoleNames` (any one sees the tool; Super admin is always ticked, grey and locked), shows beside the fallback icon (default `tool`, the orange diamond in `KRHomebaseIcon`) the icon the tool serves at `/tool-icon.svg` (read by the API; never typed), separates Roles, Permissions and Server access with thin rules, and has Check health with a **Details** dialog (`ToolHealthDetailDialog`, the raw answer as colored JSON). **Dev Mode (web patch 549):** when KR Homebase runs on `localhost` and a tool's origin is not local, `ExternalToolFrame` shows a notice instead of the frame (a deployed tool's `frame-ancestors` allows only `https://krhomebase.com`, so the browser would refuse it), with the health answer in a read-only text box, Check again and Open anyway.
 - **Shown options (web patch 564, migration 058):** the registration form has a **Shown** row under Roles: **Local development only** (only under `pnpm dev`; a localhost address left unticked gets a hint, `isLocalToolAddress`) and **Developers only** (only people with the Internal Developer role set). The API decides who sees the tool; the menu simply shows what `GET /v1/tools/menu` returns. The tool list tags both.
-- `TOOL_FRAME_SANDBOX` in `ExternalToolFrame.client.tsx` is a security setting. Adding a permission to it (for example `allow-top-navigation` or `allow-modals`) needs the requester's approval and an update to `docs/05_Outside_Tools.md` and the kit's README.
+- **README First and sandbox secrets (web patch 581, the requester, Nov 23, 2026):** the Outside tools header and the registration form (beside Permissions) open `ToolReadmeFirstDialog`, which shows `docs/help-docs/Outside-Tools-README-First.md` in a dialog: bundled as text (`?raw`, loaded on first open) and drawn by `features/tools/helpDocument.ts` as React elements, never as HTML; `helpDocument.test.ts` checks that its permission table names every `ToolScopes` entry. Each tool row has **Sandbox secret** (`makeSandboxSecret`): after `U6ConfirmationDialog`, `ToolSecretNotice` shows the secret once with the sandbox address and end date. It opens the tool sandbox (`apps/sandbox-api`) only.
+- `TOOL_FRAME_SANDBOX` in `ExternalToolFrame.client.tsx` is a security setting. The tool sandbox's host page copies it (`HOST_FRAME_SANDBOX` in `apps/sandbox-api/src/hostPage.ts`); change both together. Adding a permission to it (for example `allow-top-navigation` or `allow-modals`) needs the requester's approval and an update to `docs/05_Outside_Tools.md` and the kit's README.
 - `app/api/[...path]/route.ts` removes `x-kr-gateway` from every browser request. Keep it that way.
 
 ## Tooling notes

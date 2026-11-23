@@ -27,6 +27,9 @@
  * the same tool list, so a tool at a localhost address showed in the deployed menu too); a localhost address with the
  * box unticked gets a hint. **Developers only** shows the tool only to people who hold `developer_tools` read (the
  * Internal Developer role set), whatever their role. The API applies both (`toolRefusal`).
+ *
+ * Nov 23, 2026 (web patch 581): the Permissions hint has a **README First** button (`onShowReadme`) that opens the
+ * super admin's help on what each permission hands over, in a dialog the parent owns.
  */
 
 import { useState, type FormEvent } from 'react'
@@ -58,6 +61,8 @@ export interface ToolRegistrationFormProps {
   /** Called with the request body. For a change, `status` is included. */
   onSave: (body: ToolCreateBody | ToolUpdateBody) => void
   onCancel: () => void
+  /** Opens "Outside Tools: README First" (what each permission hands over); the parent owns the dialog. */
+  onShowReadme?: () => void
 }
 
 type ToolRoleName = (typeof ToolRoleNames)[number]
@@ -132,8 +137,6 @@ const STYLES = {
   button: 'h-[24px] px-[8px] rounded-[2px] border cursor-pointer text-[12px] font-semibold leading-tight whitespace-nowrap disabled:cursor-wait disabled:opacity-65',
   cancel: 'border-(--kr-theme-line) bg-transparent text-(color:--kr-theme-text)',
   save: 'border-(--kr-theme-button-primary-background) bg-(--kr-theme-button-primary-background) text-(color:--kr-theme-text-inverse)',
-  userChip: 'gap-[3px] px-[5px] py-[2px] inline-flex items-center rounded-[2px] border border-(--kr-theme-line) text-[11px] leading-tight text-(color:--kr-theme-text)',
-  removeUser: 'size-[16px] inline-flex items-center justify-center rounded-[2px] border-0 bg-transparent cursor-pointer text-[13px] leading-none text-(color:--kr-theme-text-muted) hover:text-(color:--kr-theme-danger)',
 // b1: ' border-red-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
 // b2: ' border-blue-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
 // b3: ' border-green-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
@@ -173,7 +176,7 @@ function toggled<T>(current: ReadonlySet<T>, value: T): Set<T> {
  * @param props - The tool to change (or null), busy and error state, and the save and cancel callbacks.
  * @returns A `<form data-kr-id="ToolRegistrationForm">`.
  */
-export default function ToolRegistrationForm({ tool, busy, error, onSave, onCancel }: ToolRegistrationFormProps) {
+export default function ToolRegistrationForm({ tool, busy, error, onSave, onCancel, onShowReadme }: ToolRegistrationFormProps) {
   const [label, setLabel] = useState(tool?.label ?? '')
   const [description, setDescription] = useState(tool?.description ?? '')
   const [icon, setIcon] = useState<string>(tool?.icon ?? 'tool')
@@ -406,6 +409,12 @@ export default function ToolRegistrationForm({ tool, busy, error, onSave, onCanc
         </div>
         <p className={STYLES.hint} data-kr-element="tool-write-scopes-frame-only">
           Write permissions work only when the tool is open in the signed-in Homebase frame. Server calls remain read-only.
+          {onShowReadme && (
+            <>
+              {' '}What each permission hands over:{' '}
+              <button type="button" className={STYLES.link} onClick={onShowReadme} data-kr-element="tool-scopes-readme-first">README First</button>
+            </>
+          )}
         </p>
       </div>
 

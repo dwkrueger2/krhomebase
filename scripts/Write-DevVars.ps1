@@ -42,10 +42,15 @@
                                       from feedback-image-ticket-secret.txt (added Nov 16, 2026: Homebase Feedback
                                       screenshots in the local viewer). A local value only, never the deployed secret;
                                       when the file is missing the script makes it (32 random bytes, base64).
+        KR_TOOL_SANDBOX_SECRET        from tool-sandbox-secret.txt (added Nov 23, 2026: sandbox secrets on the Outside
+                                      Tools screen). A local value only; made by the script when missing.
         KR_SUPER_ADMIN_EMAILS         only when -SuperAdminEmails is given
     workers\feedback-viewer\.dev.vars   (the viewer's image Worker under pnpm dev:feedback-viewer:worker)
         KR_FEEDBACK_IMAGE_TICKET_SECRET  the same value as the API's: the local API signs the image tickets and the
                                          local viewer's Worker checks them
+    apps\sandbox-api\.dev.vars          (the tool sandbox under pnpm dev:sandbox)
+        KR_TOOL_SANDBOX_SECRET           the same value as the API's: the local API signs sandbox secrets and the local
+                                         sandbox checks them
 
   The script prints setting names and character counts only. It never prints a value.
   It will not replace a `.dev.vars` file that it did not write itself (one without the
@@ -197,6 +202,22 @@ $apiSettings['KR_FEEDBACK_IMAGE_TICKET_SECRET'] = (Read-KeyValue -FileName $tick
 $viewerSettings = [ordered]@{
   KR_FEEDBACK_IMAGE_TICKET_SECRET = $apiSettings['KR_FEEDBACK_IMAGE_TICKET_SECRET']
 }
+# Tool sandbox (Nov 23, 2026): one local signing secret, shared by the API (which signs the sandbox secrets on the
+# Outside Tools screen) and the local sandbox (pnpm dev:sandbox, which checks them). A local value of its own; the
+# deployed secret is made once and set with wrangler secret put on both Workers. Made here when the file is missing.
+$sandboxFile = 'tool-sandbox-secret.txt'
+$sandboxPath = Join-Path $KeysFolder $sandboxFile
+if (-not (Test-Path -LiteralPath $sandboxPath)) {
+  $sandboxBytes = New-Object byte[] 32
+  [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($sandboxBytes)
+  [System.IO.File]::WriteAllText($sandboxPath, [Convert]::ToBase64String($sandboxBytes), $utf8NoBom)
+  Remove-Variable sandboxBytes
+  "Made $sandboxFile in the keys folder (a new local value; the deployed secret is separate)."
+}
+$apiSettings['KR_TOOL_SANDBOX_SECRET'] = (Read-KeyValue -FileName $sandboxFile -Kind Secret)
+$sandboxSettings = [ordered]@{
+  KR_TOOL_SANDBOX_SECRET = $apiSettings['KR_TOOL_SANDBOX_SECRET']
+}
 if (-not [string]::IsNullOrWhiteSpace($SuperAdminEmails)) {
   if ($SuperAdminEmails -match '["$`\s]') { throw 'SuperAdminEmails: use plain addresses separated by commas, with no spaces or quotes.' }
   $apiSettings['KR_SUPER_ADMIN_EMAILS'] = $SuperAdminEmails
@@ -206,4 +227,5 @@ Write-DevVarsFile -RelativeFolder 'workers\d1-workers\crud-worker' -Settings $cr
 Write-DevVarsFile -RelativeFolder 'workers\d1-workers\session-worker' -Settings $sessionSettings
 Write-DevVarsFile -RelativeFolder 'apps\api' -Settings $apiSettings
 Write-DevVarsFile -RelativeFolder 'workers\feedback-viewer' -Settings $viewerSettings
+Write-DevVarsFile -RelativeFolder 'apps\sandbox-api' -Settings $sandboxSettings
 'Done. Values were not printed. Counts above include the \n markers that stand for line breaks.'

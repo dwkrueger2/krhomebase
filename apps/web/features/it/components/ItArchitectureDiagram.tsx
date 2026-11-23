@@ -53,6 +53,8 @@ export const PLACES: Readonly<Record<string, Place>> = {
   'krhomebase-crud-worker': { row: 'inner', column: 1 },
   'krhomebase-crud-worker-pub-inquiry': { row: 'inner', column: 2 },
   'krhomebase-gpt-models-worker': { row: 'inner', column: 3 },
+  // The tool sandbox has no binding to any other Worker: it stands alone, in the last inner place.
+  'krhomebase-sandbox-api': { row: 'inner', column: 4 },
 }
 
 const VIEW = { width: 812, height: 396 }

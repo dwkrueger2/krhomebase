@@ -38,6 +38,8 @@ export const WORKSTREAM_TYPES_MIGRATION = join(here, '..', '..', '..', 'docs', '
 export const TASK_NOTES_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch003_11_18_task_notes.sql')
 /** Migration 058: the outside tools' `local_only` and `developers_only` columns (repository patch 58). Always added. */
 export const TOOL_VISIBILITY_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch058_11_17_tool_visibility.sql')
+/** Migration 062: `employee_shift_status`, the per-shift Team Status notes (clock-out reads it). Built with fullSchema. */
+export const TEAM_STATUS_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch062_11_18_team_status.sql')
 /** Migration 073: the Outside Tools' permitted sign-in emails. Always added after the base tool table. */
 export const TOOL_PERMITTED_USERS_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch073_11_21_tool_permitted_users.sql')
 
@@ -47,7 +49,10 @@ export const TOOL_PERMITTED_USERS_MIGRATION = join(here, '..', '..', '..', 'docs
  */
 function withoutLogRow(sql: string): string {
   const cut = sql.indexOf('-- Last statement')
-  return cut === -1 ? sql : sql.slice(0, cut)
+  if (cut !== -1) return sql.slice(0, cut)
+  // A migration written without the marker (062): cut at its log row instead.
+  const logRow = sql.indexOf('INSERT OR IGNORE INTO kr_schema_migration')
+  return logRow === -1 ? sql : sql.slice(0, logRow)
 }
 
 /** Headers that make the sign-in middleware ask the Session Worker. */
@@ -138,6 +143,7 @@ export function createTestD1(options: { fullSchema?: boolean; withoutLicenseMigr
   if (options.fullSchema) sqlite.exec(readFileSync(DEPLOY_WINDOW_MIGRATION, 'utf8'))
   if (options.fullSchema) sqlite.exec(withoutLogRow(readFileSync(WORKSTREAM_TYPES_MIGRATION, 'utf8')))
   if (options.fullSchema) sqlite.exec(withoutLogRow(readFileSync(TASK_NOTES_MIGRATION, 'utf8')))
+  if (options.fullSchema) sqlite.exec(withoutLogRow(readFileSync(TEAM_STATUS_MIGRATION, 'utf8')))
   sqlite.exec(readFileSync(WORKSPACE_TOOLS_MIGRATION, 'utf8'))
   if (!options.withoutToolVisibilityMigration) sqlite.exec(withoutLogRow(readFileSync(TOOL_VISIBILITY_MIGRATION, 'utf8')))
   sqlite.exec(withoutLogRow(readFileSync(TOOL_PERMITTED_USERS_MIGRATION, 'utf8')))

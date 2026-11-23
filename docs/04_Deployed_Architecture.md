@@ -1,7 +1,7 @@
 # Deployed Architecture
 
-<small>Version 3.0</small><br>
-<small>Updated Nov 21, 2026 12:21pm</small>
+<small>Version 3.1</small><br>
+<small>Updated Nov 23, 2026 2:04pm</small>
 
 **Status:** live since Nov 6, 2026. Read this file before any work that touches a Worker, a binding, a web address, a secret or a deploy command. Update it in the same change as any of those.
 
@@ -130,6 +130,7 @@ When an item goes live, move its line into sections 1 to 4.
 | Item | State | To go live |
 |---|---|---|
 | IT Overview (Settings → Firm IT; API patch 50, web patch 574, Nov 18, 2026) | Built and tested; not committed or deployed. The API's configuration gains the `CF_VERSION_METADATA` binding; the route is `GET /v1/it/overview` (super admin). | The requester commits and deploys the API and the web app (`pnpm deploy:hot` or `pnpm deploy:warn`). The secret `KR_CF_READ_TOKEN` is already set on `krhomebase-api` (Nov 18, 2026; section 5). Then move this line into sections 4 and 5. |
+| Tool sandbox `krhomebase-sandbox-api` (`apps/sandbox-api`; API patch 55, Nov 23, 2026) | Built and tested; not committed or deployed. Public (`workers_dev`, `https://krhomebase-sandbox-api.dankrueger.workers.dev`), one binding (`CF_VERSION_METADATA`), one secret (`KR_TOOL_SANDBOX_SECRET`, the same value as the API's), no data binding. Health route `GET /health-check` (API track). Already in the IT Overview's catalog, which shows it as not reporting until it is deployed. | The requester makes one random value, sets `KR_TOOL_SANDBOX_SECRET` on `krhomebase-api` and `krhomebase-sandbox-api` (`wrangler secret put`), deploys the API (the route `POST /v1/tools/registrations/{toolId}/sandbox-secret`) and the web app, then `pnpm deploy:sandbox`. Then move this line into sections 1, 2, 4 and 5. |
 | Custom Domain for `krhomebase-external-api` | The Worker is deployed (Nov 9, 2026); no domain is recorded here. The `workspace_tool*` tables exist (checked Nov 13, 2026) and the tool routes are in the deployed API. | The requester chooses a domain, adds it in the dashboard, and records it in section 2. |
 | The public site reading `krhomebase-public-article-worker` | The Worker is deployed (section 1). Not checked here: whether the public site's `KR_R2_PUBLIC_ARTICLE_WORKER_URL` points at it. Until it does, the public site reads the old `kr-r2-public-article-worker` (the old database), so nothing published from this app appears there. | The requester checks or changes the setting on the public site (`Readme-public-article-worker.md` in the Worker's folder), then records it in section 2. |
 
@@ -144,4 +145,4 @@ When an item goes live, move its line into sections 1 to 4.
 3. Is reachable by the API: a public address, or a service binding from `krhomebase-api`.
 4. Is added to the catalog with `versionSource: 'health-route'` and its `healthUrl`.
 
-Today four Workers report a version (`krhomebase-api`, `krhomebase-web`, `kr-pay-worker-live`, `krhomebase-feedback-viewer`). Six do not, and the IT Overview says so for each: `krhomebase-crud-worker`, `krhomebase-session-worker`, `krhomebase-crud-worker-pub-inquiry`, `krhomebase-gpt-models-worker`, `krhomebase-external-api` and `krhomebase-public-article-worker`. Giving them the route is open work (each needs the requester's go-ahead: the copied Workers are not edited without it, root `AGENTS.md`, "Workers").
+Today four Workers report a version (`krhomebase-api`, `krhomebase-web`, `kr-pay-worker-live`, `krhomebase-feedback-viewer`); the tool sandbox `krhomebase-sandbox-api` has the route and will report once deployed (section 7). Six do not, and the IT Overview says so for each: `krhomebase-crud-worker`, `krhomebase-session-worker`, `krhomebase-crud-worker-pub-inquiry`, `krhomebase-gpt-models-worker`, `krhomebase-external-api` and `krhomebase-public-article-worker`. Giving them the route is open work (each needs the requester's go-ahead: the copied Workers are not edited without it, root `AGENTS.md`, "Workers").

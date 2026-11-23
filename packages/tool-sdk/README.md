@@ -1,6 +1,6 @@
 # KR Homebase Tool Kit: Developer Guide
-<small>Version 2.0</small><br>
-<small>Updated Nov 21, 2026 8:16pm</small>
+<small>Version 2.1</small><br>
+<small>Updated Nov 23, 2026 3:03pm</small>
 
 **Who this is for:** a developer building an outside tool for KR Homebase without access to the KR Homebase code.
 
@@ -15,7 +15,7 @@
 KR Homebase is private. Nothing about a tool is self-service: a KR Homebase super admin gives you the kit, registers your tool and grants what it may do.
 
 1. **Get the kit.** The kit lives in the private GitHub repository `dwkrueger2/krhomebase-sdk`. Ask the super admin to give your GitHub account access. Once you have it, the repository's front page names the current version, and `releases/krhomebase-sdk-<version>.zip` holds the kit file (`krhomebase-tool-sdk-<version>.tgz`), this guide, `CHANGELOG.md`, the API reference (section 6) and the example tool. Without access, GitHub shows "Page not found"; that is GitHub hiding a private repository, not a broken link.
-2. **Build and test on your own computer** (sections 3 to 5 and 9). For a copy at a `localhost` address, set `localOnly: true` in `defineTool`.
+2. **Build and test on your own computer, against the tool sandbox** (sections 3 to 5 and 9). The sandbox answers every route open to tools with made-up sample data, so you never touch live data while you build. It needs a **sandbox secret** from the super admin (step 4).
 3. **Send the registration sheet.** `registrationSheet(tool)` prints what the super admin types in: the label, description, version, your address, the roles and Shown options you suggest, the permissions you need and whether your own server will call KR Homebase. It holds no secret; email or chat is fine.
 4. **The super admin registers the tool** in KR Homebase (Settings → Application Settings → Outside tools → **Register tool**) and presses **Check health**, which reads your `/health-check` (section 5.3). KR Homebase then issues the tool's identity:
 
@@ -25,6 +25,7 @@ KR Homebase is private. Nothing about a tool is self-service: a KR Homebase supe
 | Permissions | What the super admin ticked. It may be fewer than you asked for. | The super admin tells you. |
 | Client secret (`krts_...`), server path only | The password your **server** uses to get 15-minute access tokens (section 7). | Shown **once**, on the super admin's screen, when **Server access** is ticked. The super admin sends it to you by a private channel (a password manager share, not plain email). KR Homebase keeps only a hash, so a lost secret cannot be shown again: ask for a new one. |
 | External API address, server path only | Where your server calls. | The super admin sends it. |
+| Sandbox secret (`krsbx1_...`) and the sandbox address | Opens the tool sandbox's sample data only (section 9), with your tool's permissions; never KR Homebase data. Works for 30 days. | The super admin presses **Sandbox secret** on your tool and sends it with the address. The tool may stay turned off in KR Homebase meanwhile. |
 
 5. **A frame tool needs no key.** In the frame (path A), KR Homebase vouches for your page: your registered address plus the signed-in person. Nothing secret ever goes into your web page.
 6. **Replacing the secret.** The super admin presses **New secret** and chooses how long the old one keeps working: 0, 24 or 72 hours (0 also ends the old tokens at once). Put the new secret in your server's secret store within that time.
@@ -53,6 +54,7 @@ Most tools need only the frame path.
 | Server path only: client secret | `krts_...` | **Yes.** Shown once. |
 | Server path only: external API address | `https://<address the super admin gives you>` | No |
 | Server path only: `tool-registration:read` permission | Required only when your server must read its registration's permitted email list | No |
+| Sandbox secret, and the sandbox address | `krsbx1_...`, `https://krhomebase-sandbox-api.dankrueger.workers.dev` | **Yes**, but it opens sample data only. Ends after 30 days. |
 
 The super admin needs from you: the label, description, version, your page's address (the entry URL), the roles it is for, the permissions you need, and whether you need the server path. `registrationSheet()` (section 5) prints this list, with your health and icon routes.
 
@@ -215,10 +217,13 @@ A permission is `<area>:read` (look) or `<area>:write` (create, change, delete).
 `contacts`, `leads`, `workstream`, `tasks`, `timekeeping`, `billing`, `matters`, `documents`, `homebase-feedback` (each `:read` and `:write`), `reports:read`, and `tool-registration:read` (server path only). A new permission comes with a new version of this kit.
 
 - A route accepts tools only when KR Homebase opened it to them. **The API reference in the release zip** lists only those routes: `api-reference/API-REFERENCE.md` (to read: each route, the permission it needs, its parameters and its body) and `api-reference/openapi-tools.json` (the same routes as an OpenAPI 3.1 file, for a type generator). Each route's description ends with a line `Outside tools: ...` naming the permission it needs.
-- **Routes open to tools today:** `GET /v1/tools/context` (any tool), `GET /v1/tools/permitted-users` (`tool-registration:read`, server path only, and only this registration's list), the Homebase Feedback routes, and the approved contacts, client/matters, leads, tasks, WorkStream, billing and timekeeping routes listed in `docs/05_Outside_Tools.md`. Frame calls retain the person's authorization checks. Server calls have no person and use the route's granted scope; time-card calls name an employee, while server clock-state returns no person's clock. The next kit release's API reference will include these routes.
+- **Routes open to tools today:** `GET /v1/tools/context` (any tool), `GET /v1/tools/permitted-users` (`tool-registration:read`, server path only, and only this registration's list), the Homebase Feedback routes, and the approved contacts, client/matters, leads, tasks, WorkStream, billing and timekeeping routes, every one listed in `api-reference/API-REFERENCE.md` in the release zip. Frame calls retain the person's authorization checks. Server calls have no person and use the route's granted scope; time-card calls name an employee, while server clock-state returns no person's clock.
+- **Check your grant yourself:** `GET /v1/tools/context` answers the permissions your call may use (`tool.scopes`), on both paths and in the sandbox, so you need not ask the super admin.
 - A frame call also needs the person to be allowed: KR Homebase applies both your permissions and the person's role and login email. The super admin chooses permitted emails from a fixed firm list; an empty list denies everyone.
 
 ## 7. Your server (path B)
+
+**Not reachable yet:** KR Homebase's external API address for tool servers has not been published, so a server cannot call KR Homebase itself today. Build and test your server against the sandbox (section 9): it answers `POST /v1/tools/token` and the routes the same way. The super admin sends the real address once it exists.
 
 ```ts
 import { createServerClient } from '@krhomebase/tool-sdk/server'
@@ -255,15 +260,30 @@ When your server needs the emails currently permitted for its registration, gran
 | `VALIDATION_FAILED` | The body did not match what the route expects. | `details` lists the fields. |
 | `BRIDGE_TIMEOUT`, `BRIDGE_CLOSED`, `BAD_PATH` | Made by the kit: no answer, disconnected, or a path outside `/v1/`. | Check the path; reload the tool. |
 
-`details.reason` for `TOOL_FORBIDDEN`: `tool_unknown`, `tool_disabled`, `role_not_allowed` (the person's role may not use the tool), `user_not_allowed` (the person's email is not on the registration), `route_not_open_to_tools`, `scope_not_granted` (`details.needs` names the permission), `server_access_disabled`, `ip_not_allowed`.
+`details.reason` for `TOOL_FORBIDDEN`: `tool_unknown`, `tool_disabled`, `role_not_allowed` (the person's role may not use the tool), `user_not_allowed` (the person's email is not on the registration, or the list is empty), `developers_only` (the tool is shown only to Internal Developers), `tool_local_only` (registered as Local development only: it works only in a KR Homebase run with `pnpm dev`), `route_not_open_to_tools`, `scope_not_granted` (`details.needs` names the permission), `tool_channel_not_allowed` (the route works on the other path only: write routes only in the frame, `GET /v1/tools/permitted-users` only from a server; `details.availableChannels` names it), `server_access_disabled`, `ip_not_allowed`.
+
+`details.reason` for `TOOL_TOKEN_INVALID`: `token_missing`, `token_invalid`, `token_expired`, `secret_invalid`; in the sandbox also `secret_expired` and `sandbox_secret_outdated` (ask the super admin for a new sandbox secret).
 
 Every reply has a `requestId`. Include it when you report a problem; it matches the KR Homebase logs.
 
-## 9. Testing on your own computer
+## 9. Testing: the tool sandbox
 
-1. Serve your page, for example on `http://localhost:5173`.
-2. Ask the super admin of a KR Homebase **test** copy to register `http://localhost:5173/` with your test permissions. A KR Homebase developer running KR Homebase locally uses `http://localhost:3011`; add that to `hostOrigins`.
-3. Open KR Homebase, choose your tool in the menu, and use your browser's developer tools on the frame.
+The **tool sandbox** is a separate KR Homebase service that answers every route open to tools with made-up sample data: one invented firm whose contacts, client accounts, matters, leads, tasks, WorkStream entries, billing and time cards point at each other, so the ids you get from a list open the record. It has no KR Homebase data at all. Writes answer as if they were saved, but nothing is saved; every reply carries the header `x-kr-sandbox`. Its routes, permissions, request checks, reply shapes and refusals follow KR Homebase's own, and KR Homebase's tests fail whenever the two differ.
+
+You need the tool's client id and a **sandbox secret** from the super admin (section 0), and the sandbox address, `https://krhomebase-sandbox-api.dankrueger.workers.dev`.
+
+**A frame page (path A):**
+
+1. Add the sandbox address to `hostOrigins` in `defineTool`, and, if your page sends a Content-Security-Policy, allow it in `frame-ancestors` beside `https://krhomebase.com`.
+2. Serve your page, for example on `http://localhost:5173` (the sandbox can frame a `localhost` page; KR Homebase cannot).
+3. Open the sandbox address in your browser. Type your page's address, the client id and the sandbox secret, choose the display mode (`workspace`, `popout`, `widget`) and the theme (light, dark), and press **Open tool**.
+4. The sandbox frames your page with KR Homebase's own frame settings, answers `krh:hello` with `krh:init` and each `krh:request` from the sample data, and lists every message beside the frame. `/v1/tools/context` names a sample person; their permissions are your tool's.
+
+**A server (path B):** set `baseUrl` to the sandbox address and `clientSecret` to the sandbox secret in `createServerClient`; nothing else changes. `kr.getPermittedUsers()` answers the permitted users your tool had when the sandbox secret was made.
+
+**What the sandbox shows that KR Homebase also does:** a permission your tool lacks is refused with `scope_not_granted`; a write from a server with `tool_channel_not_allowed`; an empty permitted-user list keeps the frame closed (`user_not_allowed`); a bad body with `VALIDATION_FAILED`. **What it does not show:** a person's own limits (the sample person may do everything your permissions allow), real dates moving on (the sample firm's "today" is fixed), and the rate limit.
+
+When the tool works in the sandbox, host it at its https address and send the registration sheet; the super admin then opens it to people in KR Homebase.
 
 ## 10. Try the example
 
@@ -277,7 +297,7 @@ pnpm install
 pnpm dev        # serves http://localhost:5173
 ```
 
-Then register `http://localhost:5173/` (section 9) with **Local development only** ticked (the example's `defineTool` asks for it). Its health route and icon are `public/health-check` and `public/tool-icon.svg` (sections 5.3 and 5.1). `server-sync.mjs` shows the server path (`pnpm run sync`, with the three settings named at its top).
+Then open it in the sandbox (section 9) with the client id and sandbox secret the super admin gave you; the example already lists the sandbox in `hostOrigins`. Its health route and icon are `public/health-check` and `public/tool-icon.svg` (sections 5.3 and 5.1). `server-sync.mjs` shows the server path (`pnpm run sync`, with the three settings named at its top); point it at the sandbox address with the sandbox secret to try it today.
 
 ## 11. Rules for every tool
 

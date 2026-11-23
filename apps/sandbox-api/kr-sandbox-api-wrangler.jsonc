@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The tool sandbox (the requester, Nov 23, 2026): answers every route open to outside tools with made-up sample
+  // data, so developers build and test tools without live data. It has NO database, bucket, key store or service
+  // binding, and must never get one (apps/sandbox-api/src/isolation.test.ts fails if this file names one).
+  // Its one secret, KR_TOOL_SANDBOX_SECRET, is set with `wrangler secret put` (the same value as krhomebase-api's);
+  // it only checks the sandbox secrets the API signs.
+  "name": "krhomebase-sandbox-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-30",
+  // Public on purpose: outside developers reach it from their own computers. Its address is
+  // TOOL_SANDBOX_ADDRESS in packages/contracts/src/toolSandbox.ts; change both if the requester adds a Custom Domain.
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true
+  },
+  // Cloudflare's record of the deployed version, reported by GET /health-check for the IT Overview.
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA"
+  }
+}

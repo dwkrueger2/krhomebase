@@ -1,0 +1,23 @@
+{
+  "name": "@krhomebase/sandbox-api",
+  "private": true,
+  "type": "module",
+  "description": "krhomebase-sandbox-api Worker: the outside-tool sandbox. Answers every route open to tools with made-up sample data; no database. Part of the API version track (AGENTS_01).",
+  "scripts": {
+    "dev": "wrangler dev --config kr-sandbox-api-wrangler.jsonc --port 8794 --inspector-port 9346",
+    "deploy": "wrangler deploy --config kr-sandbox-api-wrangler.jsonc",
+    "typecheck": "wrangler types --config kr-sandbox-api-wrangler.jsonc && tsc --noEmit",
+    "test": "vitest run",
+    "types:cf": "wrangler types --config kr-sandbox-api-wrangler.jsonc"
+  },
+  "dependencies": {
+    "@krhomebase/contracts": "workspace:*",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.0",
+    "wrangler": "^4.156.2"
+  }
+}

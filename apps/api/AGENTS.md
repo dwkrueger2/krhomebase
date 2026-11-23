@@ -1,6 +1,6 @@
 # KR Homebase API Agent Guide
-<small>Version 1.57</small><br>
-<small>Updated Nov 21, 2026 4:11pm</small>
+<small>Version 1.58</small><br>
+<small>Updated Nov 23, 2026 3:03pm</small>
 
 ## Purpose
 
@@ -327,6 +327,7 @@ The design and security model are in `docs/05_Outside_Tools.md`. In this folder:
 - **Server-only permitted-user lookup:** `GET /v1/tools/permitted-users` requires the tool's `tool-registration:read` grant and returns only the caller's registration. `ServerClient.getPermittedUsers()` is in SDK source; do not build or publish a distribution from this task. The separate SDK distribution handoff note records the next release work.
 - **Opened write routes (approved Nov 21, 2026):** contacts POST/PATCH and client status (`contacts:write`); matter create/update/delete-check/delete (`matters:write`); lead create/update/convert (`leads:write`); task create/update/assignee replacement/notes (`tasks:write`); WorkStream create/update/move/delete/send-email (`workstream:write`); and all existing Timekeeping write routes, including punches, events, team status, clock actions, approvals and reopening (`timekeeping:write`). Every new write route is frame-only. Employee HR document upload is excluded; `documents:write`, `documents:read`, `reports:read` and `billing:write` remain closed. No matter or billing data route gets `billing:write`.
 - **Tool channel limits:** `toolChannels` in `defineRoute()` can restrict a route to `frame` or `server`; omitted means both. Frame-only writes retain the signed-in person's route roles, feature-specific permission and actor identity for auditing. The server gate refuses them with `TOOL_FORBIDDEN` and `tool_channel_not_allowed`, even when the tool has that write scope. This is required because the server path has no person, so route `access` roles and person checks do not apply. Frame calls still enforce own-contact and Attendance own/team/all rules. A server time-card call must name an employee; server `clock-state` returns an empty no-person state. Do not describe timekeeping's own/team/all checks as server-person authorization.
+- **Sandbox secrets (API patch 55, Nov 23, 2026):** `POST /v1/tools/registrations/{toolId}/sandbox-secret` (super admin) signs a sandbox secret for the tool sandbox `krhomebase-sandbox-api` (`apps/sandbox-api`) with the secret `KR_TOOL_SANDBOX_SECRET` (`src/platform/toolSandbox.ts`; format in `packages/contracts/src/toolSandbox.ts`). It carries the tool's permissions and permitted users, ends after 30 days, is never stored, and is recorded in the tool's audit as `SANDBOX_SECRET`. It opens the sandbox's sample data only. The sandbox's compliance test reads `openapi/openapi.json`: **opening, closing or changing a tool route fails `pnpm check` until `apps/sandbox-api/src/routes.ts` follows.**
 - **SDK download:** `GET /v1/tools/sdk` and `/download` have no `toolAccess`; they require `developer_tools.read` (which includes super admins). They read only the pointer and validated versioned ZIP under `DOCUMENTS` key prefix `tool-sdk/`. Missing archives answer `TOOL_SDK_NOT_FOUND`.
 - The tests use `test/fakes.ts`: a stand-in Session Worker and an in-memory D1 built from the real migration file with Node's `node:sqlite` (Node 22.13 or later).
 

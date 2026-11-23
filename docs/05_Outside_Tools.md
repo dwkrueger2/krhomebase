@@ -1,6 +1,6 @@
 # Outside Tools: Design, Security and Operation
-<small>Version 2.1</small><br>
-<small>Updated Nov 21, 2026 8:16pm</small>
+<small>Version 2.2</small><br>
+<small>Updated Nov 23, 2026 2:04pm</small>
 
 **Headline:** other developers can add a tool to the left menu without a redeploy. A super admin registers the tool's address and grants it permissions. KR Homebase shows the tool in a sealed frame, in the workspace or popped out. The tool reaches data only through KR Homebase, and only within its grant.
 
@@ -182,7 +182,21 @@ Added with Settings and Dashboard stage 3 (`docs/08_Settings_Dashboard_Plan.md`,
 - **Security:** an outside widget will run in the same sandboxed frame as a tool page (`TOOL_FRAME_SANDBOX` unchanged), with the same origin check and the same API relay, so it can do nothing a tool page cannot. A widget's `requires` only decides whether it is offered; every call it makes is still checked.
 - **Not done:** registering outside widgets in KR Homebase (the `workspace_tool` row has no widget list) and drawing them on the Dashboard. Until then, the registration sheet lists them so the super admin knows they exist.
 
+## 7b. The tool sandbox (the requester, Nov 23, 2026)
+
+A separate Worker, `krhomebase-sandbox-api` (`apps/sandbox-api`), lets an outside developer build and test a tool with **no live data and no internal developer**. It answers every route open to tools with made-up sample data (one invented firm in `apps/sandbox-api/src/sampleWorld.ts`) and saves nothing. It has no database, bucket, key store or service binding, and no link to `krhomebase-api` (`src/isolation.test.ts`).
+
+- **Frame tools:** the sandbox's host page (`GET /` on the sandbox's address) opens the tool in a frame with KR Homebase's `sandbox` attribute and answers the bridge as KR Homebase does (protocol 1), with a light or dark sample theme and a log of every message. The tool adds the sandbox's origin to `hostOrigins` and `frame-ancestors`.
+- **Tool servers:** `POST /v1/tools/token` on the sandbox's address with the client id and the sandbox secret, then `/v1/...` with the token, exactly as on the server path. Write routes are refused there as they are in KR Homebase (`tool_channel_not_allowed`).
+- **Sandbox secrets:** a super admin makes one on the Outside Tools screen (**Sandbox secret**, `POST /v1/tools/registrations/{toolId}/sandbox-secret`). It carries the tool's permissions and permitted users at that moment, ends after 30 days, is shown once, and is recorded in the tool's Activity (`SANDBOX_SECRET`). It is signed with the secret `KR_TOOL_SANDBOX_SECRET` (the API and the sandbox only) and never stored; format in `packages/contracts/src/toolSandbox.ts`. It opens sample data only: it is useless against KR Homebase, and a real client secret is useless against the sandbox.
+- **Held to the API:** `apps/sandbox-api/src/compliance.test.ts` (part of `pnpm check`) compares the sandbox with `apps/api/openapi/openapi.json`: the same routes open to tools, the same permission and channel limit, the same request bodies, replies that match the reference's schemas, and refusal codes the API lists. Opening, closing or changing a tool route fails `pnpm check` until the sandbox follows.
+- **Go-live (the requester):** make one random value and set it as `KR_TOOL_SANDBOX_SECRET` on both Workers (`wrangler secret put`), deploy the API (the new route), then `pnpm deploy:sandbox`. The address is `TOOL_SANDBOX_ADDRESS` in the contracts (its `workers.dev` host until a Custom Domain is chosen).
+
 ## 8. Open items
+
+- **Protected information (future enhancement; the requester, Nov 23, 2026).** `contacts:read` includes the full SSN and date of birth (`GET /v1/contacts/{contactId}`), on both paths; a tool server with that permission can read them for every contact. Outside tools will need this data, and today every tool developer is inside the firm, so it stays as it is for now. The suggested change: an **express permission to share protected information** (for example `contacts:protected`), separate from `contacts:read`, that the super admin ticks on purpose; without it, tool calls get the masked values (last four digits) the browser cache keeps. The same reasoning applies beyond SSNs: `workstream:read` hands over client communications and `billing:read` the financial record. In the end every permission is a decision to **trust the tool**, so the registration form's warnings and "Outside Tools: README First" (`docs/help-docs/Outside-Tools-README-First.md`, shown in a dialog on the Outside Tools screen) are the safeguard until then.
+- **Keep tool permissions close (the requester, Nov 23, 2026).** Grant outside tools as few permissions as they need, and keep the deployment of outside tools and their permissions under tight control, until someone is assigned squarely to outside-tool security.
+- **Tool review before going live (discussed Nov 23, 2026; not decided).** A code review and an automated (AI) check a tool must pass before registration help as an entry gate, but cannot bind code the developer hosts and can change later, and a leaked secret stays leaked. The controls that hold regardless are enforced by KR Homebase: less data per permission, frame tools over server tools, the server address list, refused calls in the audit, and volume warnings.
 
 - **Page security settings:** the app sends no `Content-Security-Policy` yet. A `frame-src` list made from the registered origins would add a second guard on where frames may load from.
 - **Audit retention:** `workspace_tool_audit` grows without limit. Decide how long to keep rows.

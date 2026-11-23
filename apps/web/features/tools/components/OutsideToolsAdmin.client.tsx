@@ -24,14 +24,20 @@
  * Nov 21, 2026 (web patch 577): the header links to the private GitHub repository, the source for the kit, guide and
  * changes, and shows the versioned archive stored in R2. GitHub decides who may open the repository; the download
  * button is also available from the developer-facing Feedback panel to people with `developer_tools`.
+ *
+ * Nov 23, 2026 (web patch 581, the requester): the header's **README First** opens the super admin's help on what each
+ * permission hands over (`ToolReadmeFirstDialog`; the registration form opens it too), and each row has **Sandbox
+ * secret**: after a confirmation, a sandbox secret for the tool sandbox's made-up sample data (30 days, recorded in the
+ * tool's Activity), shown once with the sandbox's address.
  */
 
 import { useCallback, useEffect, useState } from 'react'
 import type { ToolAuditEntry, ToolCreateBody, ToolRegistration, ToolUpdateBody } from '@krhomebase/contracts'
 import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
-import { createTool, deleteTool, fetchToolAudit, listTools, rotateToolSecret, updateTool } from '@/features/tools/api.client'
+import { createTool, deleteTool, fetchToolAudit, listTools, makeSandboxSecret, rotateToolSecret, updateTool } from '@/features/tools/api.client'
 import ToolAuditList from '@/features/tools/components/ToolAuditList.client'
+import ToolReadmeFirstDialog from '@/features/tools/components/ToolReadmeFirstDialog.client'
 import ToolRegistrationForm from '@/features/tools/components/ToolRegistrationForm.client'
 import ToolSecretNotice from '@/features/tools/components/ToolSecretNotice.client'
 import KRHomebaseIcon from '@/components/ui/KRHomebaseIcon.client'
@@ -51,10 +57,32 @@ interface SecretToShow {
   clientId: string
   clientSecret: string
   previousValidUntil: string | null
+  /** Set for a sandbox secret (sample data only). */
+  sandbox?: { address: string; expiresAt: string; secretId: string }
 }
 
 /** A change that waits for the super admin to confirm it. */
-type PendingConfirm = { kind: 'delete'; tool: ToolRegistration } | { kind: 'rotate'; tool: ToolRegistration }
+type PendingConfirm = { kind: 'delete'; tool: ToolRegistration } | { kind: 'rotate'; tool: ToolRegistration } | { kind: 'sandbox'; tool: ToolRegistration }
+
+/** The confirmation words for each kind of change. */
+const CONFIRM_WORDS: Record<PendingConfirm['kind'], { title: (label: string) => string; description: string; confirmLabel: string }> = {
+  delete: {
+    title: (label) => `Remove ${label}?`,
+    description: 'The tool leaves the menu for everyone and its access tokens end now. Its activity record is kept.',
+    confirmLabel: 'Remove tool',
+  },
+  rotate: {
+    title: (label) => `New client secret for ${label}?`,
+    description: 'A new secret is made and shown once. Choose how long the current secret keeps working.',
+    confirmLabel: 'Make new secret',
+  },
+  sandbox: {
+    title: (label) => `Sandbox secret for ${label}?`,
+    description:
+      "It opens the tool sandbox's made-up sample data only, never firm data, with this tool's permissions and permitted users as they are now. It works for 30 days, is shown once and is recorded in the tool's Activity.",
+    confirmLabel: 'Make sandbox secret',
+  },
+}
 
 const LAYOUT_STYLES = {
   screen: 'mx-[8px] my-[6px] lg:mx-auto max-w-[1100px] gap-[6px] flex flex-col',
@@ -67,6 +95,7 @@ const LAYOUT_STYLES = {
   actions: 'gap-[3px] flex flex-wrap',
   overlap: 'mt-[6px] gap-[6px] flex items-center',
   tag: 'ml-[4px] inline-block',
+  headActions: 'gap-[6px] flex items-center',
 } as const
 
 const STYLES = {
@@ -108,6 +137,7 @@ export default function OutsideToolsAdmin() {
   const [confirmError, setConfirmError] = useState('')
   const [overlapHours, setOverlapHours] = useState(24)
   const [audit, setAudit] = useState<{ label: string; entries: ToolAuditEntry[] } | null>(null)
+  const [readmeOpen, setReadmeOpen] = useState(false)
 
   // Stage 1: load the list.
   const reload = useCallback(async () => {
@@ -155,6 +185,12 @@ export default function OutsideToolsAdmin() {
       if (!result.ok) return setConfirmError(result.message)
       // A removed tool can no longer be changed: close its registration form if it is open.
       if (editing?.id === confirm.tool.id) setEditing(undefined)
+    } else if (confirm.kind === 'sandbox') {
+      const result = await makeSandboxSecret(confirm.tool.id)
+      setConfirmBusy(false)
+      if (!result.ok) return setConfirmError(result.message)
+      const data = result.data
+      setSecret({ label: confirm.tool.label, clientId: data.clientId, clientSecret: data.sandboxSecret, previousValidUntil: null, sandbox: { address: data.sandboxAddress, expiresAt: data.expiresAt, secretId: data.secretId } })
     } else {
       const result = await rotateToolSecret(confirm.tool.id, overlapHours)
       setConfirmBusy(false)
@@ -193,17 +229,23 @@ export default function OutsideToolsAdmin() {
           </a>
           <ToolKitDownload />
         </div>
-        <button type="button" className={`${STYLES.headButton} ${STYLES.primary}`} onClick={() => { setFormError(''); setEditing(null) }} disabled={editing !== undefined}>
-          Register tool
-        </button>
+        <div className={LAYOUT_STYLES.headActions}>
+          <button type="button" className={`${STYLES.headButton} ${STYLES.plain}`} onClick={() => setReadmeOpen(true)} data-kr-element="outside-tools-readme-first" title="What each permission and setting hands over, and what to check before approving a tool">
+            README First
+          </button>
+          <button type="button" className={`${STYLES.headButton} ${STYLES.primary}`} onClick={() => { setFormError(''); setEditing(null) }} disabled={editing !== undefined}>
+            Register tool
+          </button>
+        </div>
       </div>
 
       {loadError && <p className={STYLES.error} role="alert">{loadError}</p>}
       {secret && <ToolSecretNotice {...secret} onDone={() => setSecret(null)} />}
       {editing !== undefined && (
-        <ToolRegistrationForm key={editing?.id ?? 'new'} tool={editing} busy={saving} error={formError} onSave={(body) => void handleSave(body)} onCancel={() => setEditing(undefined)} />
+        <ToolRegistrationForm key={editing?.id ?? 'new'} tool={editing} busy={saving} error={formError} onSave={(body) => void handleSave(body)} onCancel={() => setEditing(undefined)} onShowReadme={() => setReadmeOpen(true)} />
       )}
       {audit && <ToolAuditList label={audit.label} entries={audit.entries} onClose={() => setAudit(null)} />}
+      <ToolReadmeFirstDialog open={readmeOpen} onClose={() => setReadmeOpen(false)} />
 
       {/* Registered tools: hidden while the registration form is open, so a tool cannot be removed or changed from the
           list while it is being edited (the requester, Nov 15, 2026) */}
@@ -260,6 +302,15 @@ export default function OutsideToolsAdmin() {
                           {tool.hasSecret ? 'New secret' : 'Make secret'}
                         </button>
                       )}
+                      <button
+                        type="button"
+                        className={`${STYLES.button} ${STYLES.plain}`}
+                        onClick={() => { setConfirmError(''); setConfirm({ kind: 'sandbox', tool }) }}
+                        title="A secret for the tool sandbox: made-up sample data only, for the developer's testing"
+                        data-kr-element="outside-tool-sandbox-secret"
+                      >
+                        Sandbox secret
+                      </button>
                       <button type="button" className={`${STYLES.button} ${STYLES.danger}`} onClick={() => { setConfirmError(''); setConfirm({ kind: 'delete', tool }) }}>Remove</button>
                     </div>
                   </td>
@@ -274,13 +325,9 @@ export default function OutsideToolsAdmin() {
       {/* Confirmation for removing a tool or replacing its secret */}
       <U6ConfirmationDialog
         open={confirm !== null}
-        title={confirm?.kind === 'delete' ? `Remove ${confirm.tool.label}?` : `New client secret for ${confirm?.tool.label ?? ''}?`}
-        description={
-          confirm?.kind === 'delete'
-            ? 'The tool leaves the menu for everyone and its access tokens end now. Its activity record is kept.'
-            : 'A new secret is made and shown once. Choose how long the current secret keeps working.'
-        }
-        confirmLabel={confirm?.kind === 'delete' ? 'Remove tool' : 'Make new secret'}
+        title={confirm ? CONFIRM_WORDS[confirm.kind].title(confirm.tool.label) : ''}
+        description={confirm ? CONFIRM_WORDS[confirm.kind].description : ''}
+        confirmLabel={confirm ? CONFIRM_WORDS[confirm.kind].confirmLabel : ''}
         busy={confirmBusy}
         error={confirmError}
         onCancel={() => setConfirm(null)}

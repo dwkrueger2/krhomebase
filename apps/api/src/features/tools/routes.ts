@@ -10,6 +10,7 @@
  *   PATCH  /v1/tools/registrations/{toolId}            change a tool (turning server access off ends its tokens)
  *   DELETE /v1/tools/registrations/{toolId}            remove a tool and its tokens (audit rows stay)
  *   POST   /v1/tools/registrations/{toolId}/secret     make a new client secret (shown once)
+ *   POST   /v1/tools/registrations/{toolId}/sandbox-secret  make a sandbox secret: sample data only (shown once)
  *   GET    /v1/tools/registrations/{toolId}/audit      the most recent calls and changes
  *   POST   /v1/tools/registrations/health-check        read a tool address's health route and icon route (before or after saving)
  *
@@ -56,8 +57,10 @@ import {
   ToolSecretRotateBody,
   ToolTokenBody,
   ToolTokenData,
-  ToolPermittedUsersData,
   ToolUpdateBody,
+  ToolSandboxSecretData,
+  TOOL_SANDBOX_ADDRESS,
+  TOOL_SANDBOX_SECRET_DAYS,
   ToolSdkData,
   ToolSdkPointer,
   ErrorEnvelope,
@@ -77,7 +80,9 @@ import { clientIp, toolViewerFor } from '../../platform/authGuard.ts'
 import { defineRoute } from '../../platform/defineRoute.ts'
 import { failure } from '../../platform/envelope.ts'
 import { logLine } from '../../platform/log.ts'
+import { randomBase64Url } from '../../platform/crypto.ts'
 import { checkToolHealth, fetchToolIcon } from '../../platform/toolHealth.ts'
+import { signSandboxSecret } from '../../platform/toolSandbox.ts'
 import type { AppEnv } from '../../platform/types.ts'
 import { toolQueriesFor, type ToolChanges, type ToolQueries } from './queries.ts'
 import {
@@ -199,6 +204,27 @@ export const rotateSecretRoute = defineRoute({
     404: errorBody('No such tool (TOOL_NOT_FOUND).'),
     409: errorBody('Turn server access on first (TOOL_SERVER_ACCESS_OFF).'),
     503: errorBody('The tools tables cannot be reached (TOOLS_UNAVAILABLE).'),
+  },
+})
+
+/**
+ * A sandbox secret (the requester, Nov 23, 2026): lets the tool's developer try the tool against the sandbox's made-up
+ * sample data (`krhomebase-sandbox-api`), with the tool's permissions and permitted users as they are now. It opens no
+ * firm data, is not stored, and ends after TOOL_SANDBOX_SECRET_DAYS; each one is recorded in the tool's Activity.
+ */
+export const sandboxSecretRoute = defineRoute({
+  method: 'post',
+  path: '/v1/tools/registrations/{toolId}/sandbox-secret',
+  feature: 'tools',
+  summary: "Make a sandbox secret for an outside tool: it opens the tool sandbox's made-up sample data only, never firm data, and ends after 30 days.",
+  access: SUPER_ADMIN,
+  errors: ['TOOL_NOT_FOUND', 'TOOLS_SANDBOX_NOT_CONFIGURED', 'TOOLS_UNAVAILABLE'],
+  sideEffects: ['Writes workspace_tool_audit'],
+  request: { params: ToolIdParams },
+  responses: {
+    200: { description: 'The sandbox secret, in this reply only.', content: json(successEnvelope(ToolSandboxSecretData)) },
+    404: errorBody('No such tool (TOOL_NOT_FOUND).'),
+    503: errorBody('The sandbox signing secret is not set (TOOLS_SANDBOX_NOT_CONFIGURED), or the tools tables cannot be reached (TOOLS_UNAVAILABLE).'),
   },
 })
 
@@ -603,6 +629,32 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
     if (!validUntil) await queries.deleteTokensForTool(toolId)
     await auditAdmin(c, queries, toolId, 'ROTATE_SECRET', 200)
     return c.json({ ok: true as const, data: { clientSecret: secret, previousSecretValidUntil: validUntil }, requestId: c.get('requestId') }, 200)
+  })
+
+  app.openapi(sandboxSecretRoute, async (c) => {
+    const queries = toolQueriesFor(c.env)
+    if (!queries) return unavailable(c)
+    const { toolId } = c.req.valid('param')
+    const tool = await queries.findToolById(toolId)
+    if (!tool) return failure(c, 404, 'TOOL_NOT_FOUND', 'No such tool.')
+    const key = (c.env as { KR_TOOL_SANDBOX_SECRET?: string } | undefined)?.KR_TOOL_SANDBOX_SECRET?.trim()
+    if (!key) return failure(c, 503, 'TOOLS_SANDBOX_NOT_CONFIGURED', 'The tool sandbox is not set up yet: its signing secret is missing.')
+
+    // The tool's grant now. A later change to the registration does not change a secret already made.
+    const expiresAt = Math.floor(Date.now() / 1000) + TOOL_SANDBOX_SECRET_DAYS * 86400
+    const secretId = randomBase64Url(6)
+    const sandboxSecret = await signSandboxSecret(key, tool.clientId, { scopes: tool.scopes, emails: tool.permittedUsers, expiresAt }, secretId)
+    await auditAdmin(c, queries, toolId, 'SANDBOX_SECRET', 200)
+    logLine('TOOLS_SANDBOX:secret', c.get('requestId'), { clientId: tool.clientId, secretId })
+    c.header('Cache-Control', 'no-store')
+    return c.json(
+      {
+        ok: true as const,
+        data: { clientId: tool.clientId, sandboxSecret, secretId, expiresAt: new Date(expiresAt * 1000).toISOString(), sandboxAddress: TOOL_SANDBOX_ADDRESS, scopes: tool.scopes },
+        requestId: c.get('requestId'),
+      },
+      200,
+    )
   })
 
   app.openapi(toolAuditRoute, async (c) => {

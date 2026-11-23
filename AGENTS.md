@@ -1,6 +1,6 @@
 # KR Homebase Agent Guide (repository root)
-<small>Version 2.36</small><br>
-<small>Updated Nov 21, 2026 4:11pm</small>
+<small>Version 2.37</small><br>
+<small>Updated Nov 23, 2026 2:04pm</small>
 
 ## Agent Guide Index
 
@@ -15,6 +15,7 @@
 - Read the nearest local guide to the files you are changing as well:
   - `apps/api/AGENTS.md` for routes, tests and API documentation.
   - `apps/external-api/AGENTS.md` for the public door for outside tool servers.
+  - `apps/sandbox-api/AGENTS.md` for the tool sandbox (sample data for outside developers; no database).
   - `apps/web/AGENTS.md` for screens.
   - `packages/contracts/AGENTS.md` for the zod descriptions shared by both.
   - `packages/tool-sdk/AGENTS.md` for the outside-tool kit (its `README.md` is the guide for outside developers).
@@ -121,6 +122,8 @@ apps/web/            Screens. Next.js on vinext, deployed as the krhomebase-web 
                      Folder layout and its rules: apps/web/AGENTS.md.
 apps/api/            API. Hono on a Cloudflare Worker (krhomebase-api). All business rules. The only code that touches D1.
 apps/external-api/   krhomebase-external-api Worker: the public door for outside tool servers. Forwards to the API; no rules.
+apps/sandbox-api/    krhomebase-sandbox-api Worker: the tool sandbox. Answers every route open to outside tools with made-up sample
+                     data (no database, no binding to the API), with a host page for frame tools. Held to the API by pnpm check.
 packages/contracts/  zod descriptions of every request, response and error. Shared by api, external-api and web.
 packages/tool-sdk/   Kit for outside tools (docs/05_Outside_Tools.md). Its README.md is the outside developers' guide. Its own version track;
                      released to the private GitHub repository dwkrueger2/krhomebase-sdk (pnpm release:tool-sdk).
@@ -145,6 +148,7 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 - `web` may import `contracts`, `tool-sdk` (the bridge protocol), `documents` and (later) `api-client`. It must not import from `apps/api`.
 - `api` may import `contracts` and `documents`. It must not import from `apps/web`.
 - `external-api` may import `contracts`. It must not import from either app.
+- `sandbox-api` may import `contracts` and `zod`, and read `apps/api/package.json` (its version track); nothing else from the apps. Its tests read `apps/api/openapi/openapi.json`. It has no database, bucket, key store or service binding (`apps/sandbox-api/src/isolation.test.ts`).
 - `contracts` imports nothing from the apps and nothing but `zod`.
 - `documents` imports only `contracts` and `react` (a peer dependency); nothing from the apps. Its templates are pure (no hooks, no browser APIs) so they render in a Worker and in a browser.
 - `tool-sdk` has no runtime dependencies (it installs on its own from a `.tgz`); `contracts` is a development-only dependency for its sync test.
@@ -168,6 +172,8 @@ Planned, not yet created: `packages/api-client` (generated typed client), `packa
 | 8792 | `workers/d1-workers/session-worker` (wrangler dev) | `pnpm dev:session` | `pnpm stop:port:8792` |
 | 9341 | `session-worker` debugger | started with it | `pnpm stop:port:9341` |
 | 8793 | `apps/external-api` (wrangler dev) | `pnpm dev:external` | `pnpm stop:port:8793` |
+| 8794 | `apps/sandbox-api` (wrangler dev; the tool sandbox) | `pnpm dev:sandbox` | `pnpm stop:port:8794` |
+| 9346 | `sandbox-api` debugger | started with it | `pnpm stop:port:9346` |
 | 5174 | `workers/feedback-viewer` (vite dev; the Feedback Viewer tool page), or the built page with its image Worker (wrangler dev; shows the screenshots) | `pnpm dev:feedback-viewer`, or `pnpm dev:feedback-viewer:worker` | `pnpm stop:port:5174` |
 | 9342 | `external-api` debugger | started with it | `pnpm stop:port:9342` |
 | 9343 | Feedback Viewer image Worker debugger | started with `pnpm dev:feedback-viewer:worker` | `pnpm stop:port:9343` |
@@ -242,6 +248,7 @@ pnpm dev:branch2      # GPTWork1 api (port 8789) and web (port 3031), inspector 
 pnpm dev:crud         # crud-worker on port 8791 (optional local run; see workers/Readme-workers.md)
 pnpm dev:session      # session-worker on port 8792
 pnpm dev:external     # external-api on port 8793 (calls the deployed API)
+pnpm dev:sandbox      # the tool sandbox on port 8794 (sample data only; needs KR_TOOL_SANDBOX_SECRET from Write-DevVars.ps1)
 pnpm dev:feedback-viewer  # the Feedback Viewer tool page on port 5174 (open it from a local KR Homebase menu)
 pnpm dev:feedback-viewer:worker  # the same port, built and run with its image Worker: shows the screenshots (no hot reload)
 pnpm check            # type check + all tests; must pass before the requester commits
@@ -255,6 +262,7 @@ pnpm deploy:status    # pending deploy, deploy window, live versions (deploy:fin
 pnpm deploy:api       # deploy the API Worker (apps/api); the requester runs it
 pnpm deploy:web       # deploy the web Worker (apps/web); needs the cf sign-in
 pnpm deploy:external  # deploy the external-api Worker; the requester runs it, after deploy:api
+pnpm deploy:sandbox   # deploy krhomebase-sandbox-api (the tool sandbox); the requester runs it (apps/sandbox-api/AGENTS.md)
 pnpm deploy:pay       # deploy kr-pay-worker-live (pay.krhomebase.com); the requester runs it (workers/d1-workers/kr-pay-worker/README.md)
 pnpm deploy:feedback-viewer  # build and deploy krhomebase-feedback-viewer (an outside tool on its workers.dev address); the requester runs it (workers/feedback-viewer/README.md)
 pnpm deploy:public-article  # deploy krhomebase-public-article-worker (the public site's article reader, bound to krhomebase); the requester runs it (workers/r2-workers/public-article-worker)
@@ -280,8 +288,8 @@ pnpm listScripts      # show the root scripts
 | `dev:branch2:api` | `apps/api` | `wrangler dev --port 8789 --inspector-port 9345 --var KR_APP_BASE_URL:http://localhost:3031` |
 | `dev:branch2:web` | `apps/web` | `vite dev --port 3031 --strictPort --mode branch2`; Vite embeds API port 8789 in the local Worker |
 | `build` | root | `build:web` |
-| `typecheck` | `packages/contracts`, `packages/tool-sdk`, `packages/documents`, `apps/api`, `apps/external-api`, `workers/feedback-viewer`, `apps/web` | `typecheck` in each, in that order, joined by `&&` |
-| `test` | `packages/contracts`, `packages/tool-sdk`, `packages/documents`, `apps/api`, `apps/external-api`, `workers/feedback-viewer`, `apps/web` | `test` in each, in that order, joined by `&&` |
+| `typecheck` | `packages/contracts`, `packages/tool-sdk`, `packages/documents`, `apps/api`, `apps/external-api`, `apps/sandbox-api`, `workers/feedback-viewer`, `apps/web` | `typecheck` in each, in that order, joined by `&&` |
+| `test` | `packages/contracts`, `packages/tool-sdk`, `packages/documents`, `apps/api`, `apps/external-api`, `apps/sandbox-api`, `workers/feedback-viewer`, `apps/web` | `test` in each, in that order, joined by `&&` |
 | `check` | root | `typecheck`, then `test` |
 | `types:cf` | `apps/api` | `wrangler types --config kr-api-wrangler.jsonc` |
 | `dev:api` | `apps/api` | `wrangler dev --port 8788 --inspector-port 9344` |
@@ -291,6 +299,8 @@ pnpm listScripts      # show the root scripts
 | `deploy:web` | `apps/web` | `vinext-cloudflare deploy` |
 | `dev:external` | `apps/external-api` | `wrangler dev --port 8793 --inspector-port 9342` |
 | `deploy:external` | `apps/external-api` | `wrangler deploy` |
+| `dev:sandbox` | `apps/sandbox-api` | `wrangler dev --config kr-sandbox-api-wrangler.jsonc --port 8794 --inspector-port 9346` |
+| `deploy:sandbox` | `apps/sandbox-api` | `wrangler deploy --config kr-sandbox-api-wrangler.jsonc` |
 | `deploy:pay` | `workers/d1-workers/kr-pay-worker` | `wrangler deploy --config kr-pay-worker.jsonc` |
 | `dev:feedback-viewer` | `workers/feedback-viewer` | `vite dev --port 5174 --strictPort` |
 | `dev:feedback-viewer:worker` | `workers/feedback-viewer` | `vite build`, `scripts/allow-local-frame.mjs` (lets `localhost:3011` frame the local build: `dist/_headers` only), then `wrangler dev --config feedback-viewer.jsonc --port 5174 --inspector-port 9343` (the real screenshots bucket, `remote: true`; the ticket secret from `.dev.vars`, written by `Write-DevVars.ps1`) |

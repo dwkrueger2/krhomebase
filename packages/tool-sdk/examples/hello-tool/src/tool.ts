@@ -10,10 +10,9 @@ export const tool = defineTool({
   version: '1.0.0',
   // While testing on your own computer. Use your real https address once it is hosted.
   entryUrl: 'http://localhost:5173/',
-  // The KR Homebase addresses this tool trusts. localhost:3011 is a KR Homebase developer's local copy.
-  hostOrigins: ['https://krhomebase.com', 'http://localhost:3011'],
+  // The KR Homebase addresses this tool trusts: KR Homebase itself, and the tool sandbox (sample data only), where you
+  // test with a sandbox secret before the tool is opened to anyone (guide section 9).
+  hostOrigins: ['https://krhomebase.com', 'https://krhomebase-sandbox-api.dankrueger.workers.dev'],
   scopes: [],
-  // While it runs on localhost, ask for Local development only, so the deployed KR Homebase never lists it.
-  localOnly: true,
   serverAccess: false,
 })

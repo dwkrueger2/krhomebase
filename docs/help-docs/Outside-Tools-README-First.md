@@ -1,7 +1,7 @@
 # Outside Tools: README First
 
 <small>Version 1.1.5</small><br>
-<small>Updated Nov 23, 2026 2:04pm</small>
+<small>Updated Nov 23, 2026 3:03pm</small>
 
 **For:** super admins, before registering an outside tool or changing one (Settings → Outside Tools).
 
@@ -61,6 +61,7 @@ Register only tools you trust, from developers you know, and give each tool the 
 - **New secret.** "Current secret keeps working for" sets how long the old secret still works. Choose **0 hours (ends now, with its tokens)** when a secret may have leaked.
 - **Status.** **disabled** hides the tool and refuses every call at once, frame and server, including tokens already handed out. It is the off switch.
 - **Check health.** Confirms the tool answers at its address. It says nothing about whether the tool is safe.
+- **Sandbox secret.** Lets the developer test the tool in the **tool sandbox**, a separate service with a made-up sample firm and **no KR Homebase data**. It carries the tool's permissions and permitted users as they are when you make it, works for 30 days, is shown once and is recorded in the tool's Activity. It cannot open anything in KR Homebase, so prefer it to registering a `localhost` address while a tool is being built.
 
 ## 5. Before you approve: checklist
 
@@ -83,9 +84,11 @@ Each tool's **Activity** list records every call KR Homebase **allowed**: when, 
 3. Read the tool's **Activity** for what was called, when and from which channel.
 4. Follow the firm's own steps for a possible data incident.
 
-## 8. Known gaps (being worked on)
+## 8. Known gaps
 
-- The registration form shows permission names only. Descriptions and warnings like those in section 3 are planned for the form.
-- With Server access, `contacts:read` returns the full SSN and date of birth (section 3). A change is planned.
+**Every permission is a decision to trust the tool.** Until someone is assigned squarely to outside-tool security, keep the tools you approve, and their permissions, as few as possible.
+
+- **Protected information (future enhancement).** `contacts:read` returns the full SSN and date of birth (section 3), and `workstream:read` hands over client communications. Outside tools will need such data, and today every tool developer is inside the firm, so this stays as it is for now. A separate, express permission to share protected information is planned, so that `contacts:read` alone would return only the last four digits.
+- The registration form shows permission names only. Use this page (the **README First** button) for what each one hands over.
 - **Server addresses** is optional; making it required with Server access is planned.
 - Refused calls are not yet recorded in **Activity**.
