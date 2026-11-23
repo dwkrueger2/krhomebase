@@ -37,3 +37,4 @@ worker-configuration.d.ts
 
 # IDE
 .idea/
+/check_results.txt
