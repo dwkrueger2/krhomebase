@@ -11,7 +11,8 @@
  * into `document.body` with `data-kr-theme-scope` (apps/web/AGENTS.md, "Portals"), stays open while the pointer moves
  * from the name onto it (a 160 ms grace), and keeps its presses from reaching a dialog behind it.
  *
- * `relatedContactLabel` puts a client's number before the name, "[107] Client Name" (the requester, Nov 16, 2026).
+ * `relatedContactLabel` puts a client's number before the name, "107 · Client Name" (the requester, Nov 16, 2026; the
+ * form "[107] Client Name" was changed to this by the requester on Nov 17, 2026).
  */
 
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
@@ -83,7 +84,7 @@ export function relatedContactHoverRow(related: KRRelatedContact, directoryConta
   }
 }
 
-/** "[107] Client Name" when the related contact has a client number, else the name alone. */
+/** "107 · Client Name" when the related contact has a client number, else the name alone. */
 export function relatedContactLabel(related: Pick<KRRelatedContact, 'displayName'>, directoryContact?: Pick<KRContactRecord, 'clientNumber'> | null): string {
   const number = directoryContact?.clientNumber?.trim()
   const rVal = number ? `${number} · ${related.displayName}` : related.displayName
