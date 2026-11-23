@@ -1,6 +1,6 @@
 # Schema 8.0 - KR Homebase operational database
 <small>Version 1.0</small><br>
-<small>Updated Nov 21, 2026 4:11pm</small>
+<small>Updated Nov 21, 2026 8:16pm</small>
 
 Definitive starting schema for the `krhomebase` repository. Rebuilt on 2026-10-24 from the live D1 schema of **krhomebase_dev** (read with `wrangler d1 execute ... --command "SELECT ... FROM sqlite_schema"`), using the Schema 7.0 documentation as the style and wording reference. It supersedes Schema 7.0.
 
@@ -53,6 +53,8 @@ Descriptions are hand-written; new tables and columns need a description added b
 ## Migrations after 8.0 (`migrations/`)
 
 Schema 8.0 documents the database as it was when this folder was written. Every change since then is a migration file in `migrations/`, applied by the requester (`AGENTS_06_d1-migration-procedures.md`).
+
+Migration 073 adds `workspace_tool.permitted_users`, a JSON email list for each Outside Tools registration. New registrations default to the three fixed allowed accounts; the admin form can narrow the list or leave it empty to deny all logins. API deployment must follow owner application of the migration.
 
 - Each file is named `Migration_Patch<repository patch>_<MM>_<DD>_<topic>.sql`. It says at the top what it changes, what it expects first, and the commands to check, apply and verify it.
 - Since migration 044, the live database records every applied migration in `kr_schema_migration`, and each new file ends by writing its own row there. To see what is applied (read-only, from `apps\api`):

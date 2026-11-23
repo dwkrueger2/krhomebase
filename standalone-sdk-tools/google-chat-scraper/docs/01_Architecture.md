@@ -1,6 +1,6 @@
 # Google Chat Scraper Architecture
-<small>Version 1.6</small><br>
-<small>Updated Nov 21, 2026 4:11pm</small>
+<small>Version 1.7</small><br>
+<small>Updated Nov 21, 2026 8:16pm</small>
 
 ## Runtime boundary
 

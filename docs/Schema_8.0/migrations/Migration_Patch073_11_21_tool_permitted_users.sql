@@ -18,11 +18,11 @@
 --     must return no rows.
 --
 -- Apply (the requester; PowerShell, from apps\api):
---   Set-Location "D:\Repos\krhomebase\apps\api"
---   $SetLocation = (Get-Location).Path
---   $Repo = Split-Path $SetLocation -Parent
+--   $Repo = "D:\Repos\KrhomebaseGPT"
+--   $Api = Join-Path $Repo "apps\api"
 --   $Db = "krhomebase"
 --   $File = Join-Path $Repo "docs\Schema_8.0\migrations\Migration_Patch073_11_21_tool_permitted_users.sql"
+--   Set-Location $Api
 --   pnpm.cmd exec wrangler d1 execute $Db --remote --config kr-api-wrangler.jsonc --file $File
 --
 -- Verify afterwards (read-only):

@@ -1,6 +1,6 @@
 # Google Chat Scraper
-<small>Version 1.9</small><br>
-<small>Updated Nov 21, 2026 4:11pm</small>
+<small>Version 2.0</small><br>
+<small>Updated Nov 21, 2026 8:16pm</small>
 
 The Google Chat Scraper is a portable KR Homebase SDK tool for importing read-only messages from the approved **Phone Call & Email Log** space. It stages them in a tool-owned D1 intake queue and drafts phone-call or email activity proposals for human review.
 

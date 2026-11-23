@@ -1,6 +1,6 @@
 # Google Chat Scraper: Current Project Checklist
-<small>Version 1.8</small><br>
-<small>Updated Nov 21, 2026 4:11pm</small>
+<small>Version 1.9</small><br>
+<small>Updated Nov 21, 2026 8:16pm</small>
 
 ## Status at a glance
 
@@ -64,8 +64,8 @@ Yes, before D1-backed queue routes can read or update proposals. Migration 0001 
 1. **Confirm isolated dependencies and build-script policy.** Cloudflare recommends local, pinned Wrangler; its current package placement is already correct.
 
    ```powershell
-   Set-Location "D:\Repos\krhomebase\standalone-sdk-tools\google-chat-scraper"
-   $SetLocation = (Get-Location).Path
+   $SetLocation = "D:\Repos\KrhomebaseGPT\standalone-sdk-tools\google-chat-scraper"
+   Set-Location $SetLocation
    pnpm install --ignore-workspace
    ```
 
@@ -77,23 +77,23 @@ Yes, before D1-backed queue routes can read or update proposals. Migration 0001 
 5. **Implement the single-owner importer and review queue.** Add the three-month backfill, D1 lease/checkpoint, retry behavior, and resource-name deduplication. Confirm retention before storing real messages.
 6. **Add human-approved Workstream export.** Define a Homebase authorization/API contract that atomically creates activity and links source message/segment for idempotency. Keep approval disabled until implemented and reviewed.
 
-### D1 commands when the schema is approved
+### D1 migration command for a new database only
 
-The following migration command changes the separate tool database. Do not run it until the schema has been reviewed and the owner is ready to create the tables.
+The requester reports that migration 0001 was applied to the tool database. Do not run the migration command against that database again. It is shown only for initializing a different, empty tool database after reviewing the schema.
 
 ```powershell
-  Set-Location "D:\Repos\krhomebase\standalone-sdk-tools\google-chat-scraper\worker-and-d1"
-  $SetLocation = (Get-Location).Path
+$SetLocation = "D:\Repos\KrhomebaseGPT\standalone-sdk-tools\google-chat-scraper\worker-and-d1"
 $Db = "krhtool-google-chat-scraper"
+Set-Location $SetLocation
 pnpm exec wrangler d1 migrations apply $Db --remote --config .\chat-worker-wrangler.jsonc
 ```
 
 After the owner applies it, use these read-only checks from the same directory:
 
 ```powershell
-  Set-Location "D:\Repos\krhomebase\standalone-sdk-tools\google-chat-scraper\worker-and-d1"
-  $SetLocation = (Get-Location).Path
+$SetLocation = "D:\Repos\KrhomebaseGPT\standalone-sdk-tools\google-chat-scraper\worker-and-d1"
 $Db = "krhtool-google-chat-scraper"
+Set-Location $SetLocation
 pnpm exec wrangler d1 execute $Db --remote --config .\chat-worker-wrangler.jsonc --command "SELECT id, file_name, applied_at FROM chat_schema_migration ORDER BY id;"
 pnpm exec wrangler d1 execute $Db --remote --config .\chat-worker-wrangler.jsonc --command "PRAGMA table_info(chat_schema_migration);"
 pnpm exec wrangler d1 execute $Db --remote --config .\chat-worker-wrangler.jsonc --command "PRAGMA table_info(chat_sync_state);"
@@ -110,16 +110,16 @@ The repository rules require the owner to run deploy and secret commands. Homeba
 Deploy the D1-owning Worker first:
 
 ```powershell
-  Set-Location "D:\Repos\krhomebase\standalone-sdk-tools\google-chat-scraper"
-  $SetLocation = (Get-Location).Path
+$SetLocation = "D:\Repos\KrhomebaseGPT\standalone-sdk-tools\google-chat-scraper"
+Set-Location $SetLocation
 pnpm run deploy:worker
 ```
 
 Set `KR_EXTERNAL_API_URL` in the Worker config to the exact external API domain confirmed by the owner. Then upload the OAuth client secret and the registration's tool client id and secret. Wrangler prompts for each value; paste them directly into those prompts. Do not put them in command arguments, config files, or chat.
 
 ```powershell
-  Set-Location "D:\Repos\krhomebase\standalone-sdk-tools\google-chat-scraper\worker-and-d1"
-  $SetLocation = (Get-Location).Path
+$SetLocation = "D:\Repos\KrhomebaseGPT\standalone-sdk-tools\google-chat-scraper\worker-and-d1"
+Set-Location $SetLocation
 pnpm exec wrangler secret put GOOGLE_OAUTH_CLIENT_SECRET --config .\chat-worker-wrangler.jsonc
 pnpm exec wrangler secret put KR_TOOL_CLIENT_ID --config .\chat-worker-wrangler.jsonc
 pnpm exec wrangler secret put KR_TOOL_CLIENT_SECRET --config .\chat-worker-wrangler.jsonc
@@ -128,8 +128,10 @@ pnpm exec wrangler secret put KR_TOOL_CLIENT_SECRET --config .\chat-worker-wrang
 Then deploy the web Worker to attach the custom domain:
 
 ```powershell
-  Set-Location "D:\Repos\krhomebase\standalone-sdk-tools\google-chat-scraper"
-  $SetLocation = (Get-Location).Path
+$SetLocation = "D:\Repos\KrhomebaseGPT\standalone-sdk-tools\google-chat-scraper\worker-and-d1"
+Set-Location $SetLocation
+$SetLocation = "D:\Repos\KrhomebaseGPT\standalone-sdk-tools\google-chat-scraper"
+Set-Location $SetLocation
 pnpm run deploy:web
 ```
 

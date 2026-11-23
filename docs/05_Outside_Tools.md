@@ -1,6 +1,6 @@
 # Outside Tools: Design, Security and Operation
-<small>Version 2.0</small><br>
-<small>Updated Nov 21, 2026 4:11pm</small>
+<small>Version 2.1</small><br>
+<small>Updated Nov 21, 2026 8:16pm</small>
 
 **Headline:** other developers can add a tool to the left menu without a redeploy. A super admin registers the tool's address and grants it permissions. KR Homebase shows the tool in a sealed frame, in the workspace or popped out. The tool reaches data only through KR Homebase, and only within its grant.
 
@@ -26,6 +26,12 @@
 | Access token | A 15-minute pass (`krtt_...`) the tool server gets with its secret. Stored only as a hash. |
 | Permission (scope) | What a tool may do, as `<area>:read` or `<area>:write`. List: `ToolScopes` in `packages/contracts/src/tools.ts`. |
 | `toolAccess` | A field on a route's `defineRoute()` that opens the route to tools (`'any'` or one permission). |
+
+## Permitted users (repository patch 73, migration 073)
+
+Each registration has a `permitted_users` JSON column containing exact sign-in email addresses chosen from the fixed list in `packages/contracts/src/tools.ts`: `dankrueger@legaldrive.net`, `marcusrichard@legaldrive.net`, and `davismcclellan@legaldrive.net`. New registrations default to all three. The Outside Tools form places **Permitted users** directly under **Roles**; selected addresses appear as removable chips. An empty list denies everyone. This is a second gate in addition to role, local/developer visibility and permissions. It applies to the menu, tool health route and every frame API call, including super admins.
+
+For a tool that has its own sign-in (such as Google OpenID Connect), its server may read only its own list using `GET /v1/tools/permitted-users`. The route requires server access and the `tool-registration:read` scope, uses the tool's own bearer token, returns no-store data, and does not permit frame access or reads of another registration. The SDK exposes `ServerClient.getPermittedUsers()`. The tool must fail closed if the request is refused or unavailable. Changing a registration list applies immediately to frame checks and to the next standalone sign-in/session validation.
 
 ## 2. The two paths
 

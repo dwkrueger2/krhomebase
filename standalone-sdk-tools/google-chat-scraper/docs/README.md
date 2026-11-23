@@ -1,6 +1,6 @@
 # Google Chat Scraper Documentation
-<small>Version 1.8</small><br>
-<small>Updated Nov 21, 2026 4:11pm</small>
+<small>Version 1.9</small><br>
+<small>Updated Nov 21, 2026 8:16pm</small>
 
 | Document | Purpose |
 |---|---|

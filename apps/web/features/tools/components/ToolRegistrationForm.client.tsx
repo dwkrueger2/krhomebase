@@ -132,6 +132,8 @@ const STYLES = {
   button: 'h-[24px] px-[8px] rounded-[2px] border cursor-pointer text-[12px] font-semibold leading-tight whitespace-nowrap disabled:cursor-wait disabled:opacity-65',
   cancel: 'border-(--kr-theme-line) bg-transparent text-(color:--kr-theme-text)',
   save: 'border-(--kr-theme-button-primary-background) bg-(--kr-theme-button-primary-background) text-(color:--kr-theme-text-inverse)',
+  userChip: 'gap-[3px] px-[5px] py-[2px] inline-flex items-center rounded-[2px] border border-(--kr-theme-line) text-[11px] leading-tight text-(color:--kr-theme-text)',
+  removeUser: 'size-[16px] inline-flex items-center justify-center rounded-[2px] border-0 bg-transparent cursor-pointer text-[13px] leading-none text-(color:--kr-theme-text-muted) hover:text-(color:--kr-theme-danger)',
 // b1: ' border-red-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
 // b2: ' border-blue-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
 // b3: ' border-green-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
@@ -337,9 +339,9 @@ export default function ToolRegistrationForm({ tool, busy, error, onSave, onCanc
         </div>
       </div>
 
-      {/* Permitted users: a fixed set of firm accounts, enforced by the API on the menu, health check and frame path. */}
+      {/* Permitted users: a fixed set of firm accounts, enforced by the API for frame use and available to the tool server through its own grant. */}
       <div className={`${LAYOUT_STYLES.rowTop} ${LAYOUT_STYLES.section} ${STYLES.section}`} data-kr-element="tool-permitted-users-row">
-        <span className={STYLES.label} title="Only these exact sign-in emails may use this tool">Permitted users</span>
+        <label className={STYLES.label} htmlFor="tool-permitted-user-add" title="Only these exact sign-in emails may use this tool">Permitted users</label>
         <div className={LAYOUT_STYLES.permittedUsers}>
           {[...permittedUsers].map((email) => (
             <span key={email} className={STYLES.userChip} data-kr-element="tool-permitted-user-chip">

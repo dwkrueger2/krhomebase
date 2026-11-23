@@ -1,6 +1,6 @@
 # KR Homebase Tool Kit: Developer Guide
-<small>Version 1.9</small><br>
-<small>Updated Nov 21, 2026 4:11pm</small>
+<small>Version 2.0</small><br>
+<small>Updated Nov 21, 2026 8:16pm</small>
 
 **Who this is for:** a developer building an outside tool for KR Homebase without access to the KR Homebase code.
 
@@ -52,6 +52,7 @@ Most tools need only the frame path.
 | Permissions granted | `contacts:read` | No |
 | Server path only: client secret | `krts_...` | **Yes.** Shown once. |
 | Server path only: external API address | `https://<address the super admin gives you>` | No |
+| Server path only: `tool-registration:read` permission | Required only when your server must read its registration's permitted email list | No |
 
 The super admin needs from you: the label, description, version, your page's address (the entry URL), the roles it is for, the permissions you need, and whether you need the server path. `registrationSheet()` (section 5) prints this list, with your health and icon routes.
 
@@ -229,6 +230,7 @@ const kr = createServerClient({
 })
 
 const who = await kr.get('/v1/tools/context') // who.data.channel === 'server', who.data.user === null
+const permitted = await kr.getPermittedUsers() // requires tool-registration:read; returns only this registration's list
 ```
 
 When your server needs the emails currently permitted for its registration, grant `tool-registration:read` and call `kr.getPermittedUsers()`. It returns only this registration's list. Treat a failed reply as denied access; do not fall back to a local allowlist or allow the user through.
@@ -237,6 +239,7 @@ When your server needs the emails currently permitted for its registration, gran
 - **Keep the client secret on your server only.** Use a secret store or an environment setting. Never put it in a browser page, the frame page, a log or a code repository.
 - Calls are limited to about 120 a minute per token. Over the limit, the reply is `RATE_LIMITED` (HTTP 429); wait a minute.
 - The super admin may also limit your server to a list of IP addresses.
+- `getPermittedUsers()` reads the current allowed-email list for this tool's own registration. It requires server access and the `tool-registration:read` grant, and does not expose another tool's registration. Use it when the tool has its own sign-in; fail closed if the call fails.
 - **New secret.** When the super admin makes a new secret, the old one usually keeps working for 24 hours. Switch to the new one in that time.
 
 ## 8. Errors

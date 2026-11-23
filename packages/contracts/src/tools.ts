@@ -309,6 +309,12 @@ export const ToolSecretData = z.object({
 })
 export type ToolSecretData = z.infer<typeof ToolSecretData>
 
+/** Registration-specific users returned only to the registered tool's server path. */
+export const ToolPermittedUsersData = z.object({
+  emails: ToolPermittedUsers.describe('Exact email addresses currently permitted to use this tool; an empty list denies all users.'),
+})
+export type ToolPermittedUsersData = z.infer<typeof ToolPermittedUsersData>
+
 /** One recorded call or change. Holds no request or reply bodies. */
 export const ToolAuditEntry = z.object({
   id: z.string().describe('Id of the audit row.'),

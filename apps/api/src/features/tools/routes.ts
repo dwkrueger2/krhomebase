@@ -56,6 +56,7 @@ import {
   ToolSecretRotateBody,
   ToolTokenBody,
   ToolTokenData,
+  ToolPermittedUsersData,
   ToolUpdateBody,
   ToolSdkData,
   ToolSdkPointer,
