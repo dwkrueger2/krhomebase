@@ -1,7 +1,7 @@
 {
   "name": "@krhomebase/tool-sdk",
   "version": "1.2.0",
-  "patchNum": "5",
+  "patchNum": "7",
   "patchDate": "11-23",
   "private": true,
   "type": "module",

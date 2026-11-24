@@ -1,7 +1,7 @@
 // file: apps/web/lib/client-data-store/types.ts
-// Ported from the old repository (apps/kr-homebase/src/hb-lib/hb-client-data-store/types.ts). Two changes, marked
-// below: the optional `clientDisplayName` on ClientContactElement (Nov 9, 2026), and its optional `ssnLast4` and
-// `einLast4` (Nov 17, 2026, FB-0014).
+// Ported from the old repository (apps/kr-homebase/src/hb-lib/hb-client-data-store/types.ts). Changes, marked
+// below: the optional `clientDisplayName` on ClientContactElement (Nov 9, 2026), its optional `ssnLast4` and
+// `einLast4` (Nov 17, 2026, FB-0014), and the `drafts` collection (Nov 23, 2026, FB-0026, web patch 588).
 // Design notes: lib/client-data-store/Readme-client-data-store.md.
 /** Type contract for the encrypted data store owned by the client browser. */
 
@@ -20,7 +20,8 @@ export interface ClientDataElement {
 }
 
 /** Named collections currently approved for the browser client-data store. */
-export type ClientDataCollectionId = 'individuals' | 'entities' | 'clients' | 'contacts'
+// `drafts` added Nov 23, 2026 (FB-0026, web patch 588): the person's unsent WorkStream entries, approved by the requester.
+export type ClientDataCollectionId = 'individuals' | 'entities' | 'clients' | 'contacts' | 'drafts'
 
 /** Refresh behavior supported by a collection or its individual elements. */
 export type ClientDataRefreshMode = 'collection' | 'element'
@@ -187,8 +188,29 @@ export interface ClientContactElement extends ClientDataElement {
   readonly photo?: { assetId: string; width: number; height: number; cropX: number; cropY: number; cropSize: number; updatedAt: string } | null
 }
 
+/**
+ * One unsent WorkStream entry (FB-0026, web patch 588; the requester, Nov 23, 2026). Written only by this browser for
+ * the signed-in person, never sent to the API; it may hold client details, which is why it lives in the encrypted
+ * store and not in `localStorage`. `id` names the place it was typed (`workstream:feed`, `workstream:client:<id>`,
+ * `workstream:lead:<id>`); `updatedAt` is when it was last saved.
+ */
+export interface ClientDraftElement extends ClientDataElement {
+  readonly kind: 'workstream-draft'
+  /** The text as typed (what the parser reads). */
+  readonly body: string
+  /** The editor's HTML (bold, links); cleaned again before it is shown. */
+  readonly html: string
+  readonly activityTypes: string[]
+  /** Client, Lead or Internal, as chosen in the composer. */
+  readonly clientState: string
+  /** The client picked in the composer (the firm feed only). */
+  readonly owner: { clientId: string; clientNumber: string | null; displayName: string } | null
+  readonly matter: { id: string; number: string; label: string } | null
+  readonly assigneeUserIds: string[]
+}
+
 /** Union of element types approved for the first client-data-store implementation. */
-export type ApprovedClientDataElement = ClientIndividualElement | ClientEntityElement | ClientClientElement | ClientContactElement
+export type ApprovedClientDataElement = ClientIndividualElement | ClientEntityElement | ClientClientElement | ClientContactElement | ClientDraftElement
 
 /** Type map connecting each approved collection to its element type. */
 export interface ClientDataCollections {
@@ -200,6 +222,8 @@ export interface ClientDataCollections {
   readonly clients: ClientDataCollection<ClientClientElement>
   /** Materialized contact-ledger collection. */
   readonly contacts: ClientDataCollection<ClientContactElement>
+  /** The person's unsent WorkStream entries (FB-0026). */
+  readonly drafts: ClientDataCollection<ClientDraftElement>
 }
 
 /** Request to refresh one collection or one element and its declared relationships. */
@@ -323,4 +347,23 @@ export const CLIENT_DATA_COLLECTION_DEFINITIONS = {
     ],
     searchableKeys: ['displayName', 'typeLabel', 'firstName', 'middleName', 'lastName', 'preferredName', 'email', 'phone', 'addressLine1', 'addressLine2', 'city', 'state', 'postalCode', 'status', 'clientNumber', 'clientType', 'clientStatus'],
   } satisfies ClientDataCollectionDefinition<ClientContactElement>,
+  // FB-0026 (web patch 588): written and read only by this browser; never searched.
+  drafts: {
+    collectionId: 'drafts',
+    label: 'WorkStream drafts',
+    elementType: 'ClientDraftElement',
+    initialLoadMode: 'collection',
+    elementRefreshable: true,
+    refreshesCollections: [],
+    fields: [
+      { key: 'body', storageClass: 'detail', sensitive: true, searchable: false },
+      { key: 'html', storageClass: 'detail', sensitive: true, searchable: false },
+      { key: 'activityTypes', storageClass: 'detail', sensitive: false, searchable: false },
+      { key: 'clientState', storageClass: 'detail', sensitive: false, searchable: false },
+      { key: 'owner', storageClass: 'detail', sensitive: true, searchable: false },
+      { key: 'matter', storageClass: 'detail', sensitive: true, searchable: false },
+      { key: 'assigneeUserIds', storageClass: 'detail', sensitive: false, searchable: false },
+    ],
+    searchableKeys: [],
+  } satisfies ClientDataCollectionDefinition<ClientDraftElement>,
 } as const

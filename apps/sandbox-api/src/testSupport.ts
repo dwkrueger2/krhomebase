@@ -4,7 +4,7 @@
  * exactly as the API signs one (`apps/api/src/platform/toolSandbox.ts`), and a way to ask the handler for tokens.
  */
 
-import { TOOL_SANDBOX_SECRET_PREFIX, ToolPermittedUserEmails, ToolScopes, sandboxSecretPayload, sandboxSigningMessage, type SandboxGrant, type ToolPermittedUserEmail, type ToolScope } from '@krhomebase/contracts'
+import { TOOL_SANDBOX_SECRET_PREFIX, ToolScopes, sandboxSecretPayload, sandboxSigningMessage, type SandboxGrant, type ToolScope } from '@krhomebase/contracts'
 import { handleSandboxRequest, type SandboxEnv } from './sandbox.ts'
 import { hmacBase64Url } from './signing.ts'
 
@@ -14,11 +14,10 @@ export const TEST_ENV: SandboxEnv = { KR_TOOL_SANDBOX_SECRET: TEST_KEY }
 export const TEST_NOW = Date.parse('2026-11-20T16:00:00.000Z')
 export const TEST_CLIENT = 'krt_SandboxTest0000000001'
 export const ALL_SCOPES: ToolScope[] = [...ToolScopes]
-export const ALL_EMAILS: ToolPermittedUserEmail[] = [...ToolPermittedUserEmails]
 
 /** A sandbox secret as the API makes one. */
 export async function signedSecret(grant: Partial<SandboxGrant> = {}, clientId = TEST_CLIENT, nonce = 'TestNonc'): Promise<string> {
-  const full: SandboxGrant = { scopes: ALL_SCOPES, emails: ALL_EMAILS, expiresAt: Math.floor(TEST_NOW / 1000) + 30 * 86400, ...grant }
+  const full: SandboxGrant = { scopes: ALL_SCOPES, hasUsers: true, expiresAt: Math.floor(TEST_NOW / 1000) + 30 * 86400, ...grant }
   const payload = sandboxSecretPayload(full, nonce)
   return `${TOOL_SANDBOX_SECRET_PREFIX}${payload}.${await hmacBase64Url(TEST_KEY, sandboxSigningMessage('secret', clientId, payload))}`
 }

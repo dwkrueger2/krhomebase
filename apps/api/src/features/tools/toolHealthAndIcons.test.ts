@@ -115,7 +115,9 @@ describe('health, icon and role routes', () => {
   beforeEach(() => {
     clearSessionCache()
     clearToolHealthCache()
-    d1 = createTestD1()
+    // fullSchema: a registration's permitted users are checked against the accounts (a made-up tester here).
+    d1 = createTestD1({ fullSchema: true })
+    d1.sqlite.prepare("INSERT INTO user (id, email, password_hash, role, is_active) VALUES ('user-test-1', 'tester@example.com', 'x', 'super_admin', 1)").run()
     server = toolServer({ '/health-check': { body: HEALTH }, '/tool-icon.svg': { body: ICON, type: 'image/svg+xml' } })
     vi.stubGlobal('fetch', server.fetcher)
   })
@@ -125,7 +127,7 @@ describe('health, icon and role routes', () => {
     const res = await app.request(
       path,
       { method, headers: { cookie: `kr_session=test-${role}`, ...(body === undefined ? {} : { 'content-type': 'application/json' }) }, body: body === undefined ? undefined : JSON.stringify(body) },
-      signedInEnv(role, { krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE }, 'user-test-1', 'dankrueger@legaldrive.net'),
+      signedInEnv(role, { krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE }, 'user-test-1', 'tester@example.com'),
     )
     return { status: res.status, body: (await res.json()) as Json }
   }

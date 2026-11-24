@@ -8,7 +8,8 @@
  *
  * Changed from the old shell: the collapse button is not ported (the old clock widget had it disabled, and collapsed
  * state was never saved); a widget is hidden in User Settings → Dashboard instead. The old scope tag is not ported.
- * A `wide` widget takes two columns from tablet width. The two timekeeping widgets have a fixed 300px width and minimum width; Team Status stays medium so it occupies one grid column.
+ * Every card has a fixed width (web patch 587): `small` and `medium` 300px, `wide` 608px (two cards and the gap), each
+ * narrowed only when the screen itself is narrower, so the Dashboard's flow never stretches or moves a card.
  *
  * @param props - The widget's definition and its body.
  * @returns The widget card.
@@ -18,10 +19,11 @@ import type { ReactNode } from 'react'
 import type { WidgetDefinition } from '@krhomebase/tool-sdk/types'
 
 const LAYOUT_STYLES = {
-  card: 'min-w-0 overflow-hidden flex flex-col',
-  wide: 'md:col-span-2',
-  // 300px, or less on a screen narrower than that (FB-0025: a minimum width made the cards spill into the next column).
-  fixed300: 'w-[300px] max-w-full',
+  card: 'min-w-0 max-w-full shrink-0 overflow-hidden flex flex-col',
+  // One card's width: 300px (the time widgets' width).
+  single: 'w-[300px]',
+  // Two cards and the 8px gap between them.
+  wide: 'w-[608px]',
   header: 'min-h-[30px] px-[8px] py-[6px] gap-[8px] flex items-center justify-between',
   body: 'p-[8px] min-w-0',
 } as const
@@ -50,7 +52,7 @@ export default function DashboardWidgetShell({ definition, children }: Dashboard
   return (
     <article
       aria-labelledby={`dashboard-widget-${definition.id}-title`}
-      className={`${LAYOUT_STYLES.card} ${definition.size === 'wide' ? LAYOUT_STYLES.wide : ''} ${definition.id === 'team-status' || definition.id === 'employee-clock-in' ? LAYOUT_STYLES.fixed300 : ''} ${STYLES.card}`}
+      className={`${LAYOUT_STYLES.card} ${definition.size === 'wide' ? LAYOUT_STYLES.wide : LAYOUT_STYLES.single} ${STYLES.card}`}
       data-kr-component="DashboardWidgetShell"
       data-kr-id={`dashboard-widget-${definition.id}`}
       data-kr-widget-size={definition.size}

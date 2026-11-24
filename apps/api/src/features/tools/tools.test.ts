@@ -8,7 +8,9 @@
  * Only made-up tools, people and addresses are used. Run: `pnpm --dir apps/api run test`.
  */
 
-import { TOOL_GATEWAY_HEADER, TOOL_GATEWAY_VALUE, TOOL_ID_HEADER, TOOL_SANDBOX_ADDRESS, type ToolPermittedUserEmail, type ToolScope } from '@krhomebase/contracts'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { TOOL_GATEWAY_HEADER, TOOL_GATEWAY_VALUE, TOOL_ID_HEADER, TOOL_SANDBOX_ADDRESS, type ToolScope } from '@krhomebase/contracts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../app.ts'
 import { routeRegistry } from '../../platform/defineRoute.ts'
@@ -26,6 +28,7 @@ import {
   secretMatches,
   tokenScopes,
   toolUsableBy,
+  unknownPermittedUsers,
   withSuperAdmin,
 } from './rules.ts'
 
@@ -46,8 +49,8 @@ describe('tool rules', () => {
   })
 
   it('lets listed roles and always the super admin use an active tool', () => {
-    const tool = { status: 'active' as const, allowedRoles: ['staff'], permittedUsers: ['dankrueger@legaldrive.net'] as ToolPermittedUserEmail[], localOnly: false, developersOnly: false }
-    const as = (role: string) => ({ email: 'dankrueger@legaldrive.net', role, developmentServer: false, isDeveloper: false })
+    const tool = { status: 'active' as const, allowedRoles: ['staff'], permittedUsers: ['tester@example.com'], localOnly: false, developersOnly: false, sandboxOnly: false }
+    const as = (role: string) => ({ email: 'tester@example.com', role, developmentServer: false, isDeveloper: false })
     expect(toolUsableBy(tool, as('staff'))).toBe(true)
     expect(toolUsableBy(tool, as('billing'))).toBe(false)
     // A row saved before the super admin became automatic still shows to a super admin.
@@ -56,6 +59,11 @@ describe('tool rules', () => {
     expect(toolUsableBy(tool, { ...as('super_admin'), email: 'someone-else@example.com' })).toBe(false)
     expect(toolUsableBy({ ...tool, permittedUsers: [] }, as('super_admin'))).toBe(false)
     expect(withSuperAdmin(['staff', 'super_admin', 'staff'])).toEqual(['super_admin', 'staff'])
+  })
+
+  it('names the permitted users that are not active accounts, ignoring case', () => {
+    expect(unknownPermittedUsers(['Tester@Example.com', 'stranger@example.com'], ['tester@example.com'])).toEqual(['stranger@example.com'])
+    expect(unknownPermittedUsers([], [])).toEqual([])
   })
 
   it('opens a route only through toolAccess and a granted permission', () => {
@@ -151,6 +159,15 @@ describe('tool rules', () => {
   })
 })
 
+describe('the published reference', () => {
+  // The kit's API reference is built from openapi.json and handed to outside developers (repository patch 80): no
+  // sign-in email may appear in it, so permitted users are plain strings checked against the database, never a list.
+  it('holds no email address', () => {
+    const text = readFileSync(join(import.meta.dirname, '..', '..', '..', 'openapi', 'openapi.json'), 'utf8')
+    expect(text.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) ?? []).toEqual([])
+  })
+})
+
 describe('outside tools through the API', () => {
   let d1: ReturnType<typeof createTestD1>
 
@@ -158,13 +175,20 @@ describe('outside tools through the API', () => {
     clearSessionCache()
     clearPermissionCache()
     d1 = createTestD1({ fullSchema: true })
+    // The made-up accounts: the tester (role super_admin, so a developer by the default rule), another staff member,
+    // and an account that is no longer active. Permitted users must be active accounts.
+    d1.sqlite.exec(`
+      INSERT INTO user (id, email, password_hash, role, is_active) VALUES ('user-test-1', 'tester@example.com', 'x', 'super_admin', 1);
+      INSERT INTO user (id, email, password_hash, role, is_active) VALUES ('user-test-other', 'other@example.com', 'x', 'staff', 1);
+      INSERT INTO user (id, email, password_hash, role, is_active, account_status) VALUES ('user-test-gone', 'gone@example.com', 'x', 'staff', 0, 'deactivated');
+    `)
     // Saving a registration reads the tool's icon route; these tools serve none (a stand-in, never the network).
     vi.stubGlobal('fetch', async () => new Response('not found', { status: 404 }))
   })
   afterEach(() => vi.unstubAllGlobals())
 
   /** Bindings for a person with `role`, with the in-memory database and the app address. */
-  const envFor = (role: string, extra: Record<string, unknown> = {}) => signedInEnv(role, { krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE, ...extra }, 'user-test-1', 'dankrueger@legaldrive.net')
+  const envFor = (role: string, extra: Record<string, unknown> = {}) => signedInEnv(role, { krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE, ...extra }, 'user-test-1', 'tester@example.com')
   /** Bindings for a call with no person (the server path). */
   const bareEnv = () => ({ krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE }) as unknown as Env
   /** Each role gets its own cookie, so the session cache never mixes two roles. */
@@ -230,15 +254,49 @@ describe('outside tools through the API', () => {
       expect(tool.hasSecret).toBe(false)
     })
 
-    it('saves the default permitted users and allows the list to be narrowed or emptied', async () => {
+    it('saves the developers as the default permitted users and allows the list to be narrowed or emptied', async () => {
       const { tool } = await register()
-      expect(tool.permittedUsers).toEqual(['dankrueger@legaldrive.net', 'marcusrichard@legaldrive.net', 'davismcclellan@legaldrive.net'])
-      const narrowed = await call('super_admin', 'PATCH', `/v1/tools/registrations/${tool.id}`, {
-        permittedUsers: ['marcusrichard@legaldrive.net'],
-      })
-      expect(narrowed.body.data.tool.permittedUsers).toEqual(['marcusrichard@legaldrive.net'])
+      // Left out: the active accounts that hold developer_tools read (here the tester, by the super_admin role).
+      expect(tool.permittedUsers).toEqual(['tester@example.com'])
+      const changed = await call('super_admin', 'PATCH', `/v1/tools/registrations/${tool.id}`, { permittedUsers: ['Other@Example.com'] })
+      expect(changed.body.data.tool.permittedUsers).toEqual(['other@example.com'])
       const empty = await call('super_admin', 'PATCH', `/v1/tools/registrations/${tool.id}`, { permittedUsers: [] })
       expect(empty.body.data.tool.permittedUsers).toEqual([])
+    })
+
+    it('refuses a permitted user that is not an active KR Homebase account, on create and on change', async () => {
+      const refused = await call('super_admin', 'POST', '/v1/tools/registrations', {
+        label: 'X',
+        entryUrl: 'https://x.example.com/',
+        allowedRoles: ['staff'],
+        permittedUsers: ['tester@example.com', 'stranger@example.com', 'gone@example.com'],
+      })
+      expect(refused.status).toBe(422)
+      expect(refused.body.error.code).toBe('TOOL_PERMITTED_USER_UNKNOWN')
+      expect(refused.body.error.details.emails).toEqual(['stranger@example.com', 'gone@example.com'])
+      const { tool } = await register()
+      const change = await call('super_admin', 'PATCH', `/v1/tools/registrations/${tool.id}`, { permittedUsers: ['stranger@example.com'] })
+      expect(change.status).toBe(422)
+      expect((await call('super_admin', 'GET', `/v1/tools/registrations/${tool.id}`)).body.data.tool.permittedUsers).toEqual(['tester@example.com'])
+      // Not an email at all is the contract's refusal.
+      expect((await call('super_admin', 'PATCH', `/v1/tools/registrations/${tool.id}`, { permittedUsers: ['not an email'] })).status).toBe(422)
+    })
+
+    it('lists the active accounts as choices, with the developers as the default, for the super admin only', async () => {
+      d1.sqlite.exec(`
+        INSERT INTO individual (id, first_name, last_name) VALUES ('i-other', 'Olive', 'Other');
+        UPDATE user SET individual_id = 'i-other' WHERE id = 'user-test-other';
+      `)
+      const res = await call('super_admin', 'GET', '/v1/tools/permitted-user-choices')
+      expect(res.status).toBe(200)
+      expect(res.body.data).toEqual({
+        users: [
+          { email: 'other@example.com', name: 'Olive Other', isDeveloper: false },
+          { email: 'tester@example.com', name: 'tester@example.com', isDeveloper: true },
+        ],
+        defaultEmails: ['tester@example.com'],
+      })
+      expect((await call('staff', 'GET', '/v1/tools/permitted-user-choices')).status).toBe(403)
     })
 
     it('refuses an address that is not https or is the app itself', async () => {
@@ -267,7 +325,6 @@ describe('outside tools through the API', () => {
     function grantDeveloperToolsRead() {
       d1.sqlite.exec(`
         INSERT INTO role_set (id, role_key, label, is_system, is_active) VALUES ('rs_dev_test', 'internal_developer_test', 'Internal Developer Test', 0, 1);
-        INSERT INTO user (id, email, password_hash, role) VALUES ('user-test-1', 'developer@example.test', 'unused', 'staff');
         INSERT INTO user_role_set (id, user_id, role_set_id, is_primary, is_active) VALUES ('urs_dev_test', 'user-test-1', 'rs_dev_test', 1, 1);
         INSERT INTO role_set_permission (id, role_set_id, permission_key, permission_label, permission_group, can_read) VALUES ('rsp_dev_test', 'rs_dev_test', 'developer_tools', 'Internal Developer Tools', 'developer_tools', 1);
       `)
@@ -330,18 +387,18 @@ describe('outside tools through the API', () => {
 
   describe('frame path (path A)', () => {
     it('enforces permitted emails for the menu and frame calls, including super admins', async () => {
-      const { tool } = await register({ permittedUsers: ['marcusrichard@legaldrive.net'] })
+      const { tool } = await register({ permittedUsers: ['other@example.com'] })
       const deniedMenu = await call('staff', 'GET', '/v1/tools/menu')
       expect(deniedMenu.body.data.tools).toEqual([])
       const deniedFrame = await call('super_admin', 'GET', '/v1/tools/context', undefined, { [TOOL_ID_HEADER]: tool.clientId })
       expect(deniedFrame.status).toBe(403)
       expect(deniedFrame.body.error.details.reason).toBe('user_not_allowed')
-      const permitted = await app.request('/v1/tools/menu', { headers: { cookie: 'kr_session=test-marcus' } }, signedInEnv('staff', { krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE }, 'user-test-marcus', 'marcusrichard@legaldrive.net'))
+      const permitted = await app.request('/v1/tools/menu', { headers: { cookie: 'kr_session=test-other' } }, signedInEnv('staff', { krhomebase: d1.db, KR_APP_BASE_URL: APP_BASE }, 'user-test-other', 'other@example.com'))
       expect(((await permitted.json()) as Json).data.tools).toHaveLength(1)
     })
 
     it('returns only this registration permitted users to a server with its explicit scope', async () => {
-      const emails = ['marcusrichard@legaldrive.net']
+      const emails = ['other@example.com']
       const { tool, clientSecret } = await register({ scopes: ['tool-registration:read'], permittedUsers: emails, serverAccessEnabled: true })
       const issued = await token(tool.clientId, clientSecret!)
       const headers = { ...GATEWAY, authorization: `Bearer ${issued.body.data.accessToken}` }
@@ -373,7 +430,6 @@ describe('outside tools through the API', () => {
       d1.sqlite.exec(`
         INSERT INTO role_set (id, role_key, label, is_system) VALUES ('rs-tool-writer', 'test_tool_writer', 'Tool writer', 0);
         INSERT INTO role_set_permission (id, role_set_id, permission_key, permission_label, permission_group, can_create, can_read, can_update) VALUES ('p-tool-writer', 'rs-tool-writer', 'contacts', 'Contacts', 'People', 1, 1, 1);
-        INSERT OR IGNORE INTO user (id, individual_id, email, password_hash, role) VALUES ('user-test-1', NULL, 'dankrueger@legaldrive.net', 'x', 'super_admin');
         INSERT INTO user_role_set (id, user_id, role_set_id) VALUES ('urs-tool-writer', 'user-test-1', 'rs-tool-writer');
       `)
       const frame = await call('super_admin', 'POST', '/v1/contacts', body, { [TOOL_ID_HEADER]: tool.clientId })
@@ -387,7 +443,7 @@ describe('outside tools through the API', () => {
     })
 
     it('makes a sandbox secret for a super admin with the tool\'s permissions, records it, and never stores it', async () => {
-      const { tool } = await register({ scopes: ['contacts:read', 'tasks:read'], permittedUsers: ['marcusrichard@legaldrive.net'], serverAccessEnabled: false })
+      const { tool } = await register({ scopes: ['contacts:read', 'tasks:read'], permittedUsers: ['other@example.com'], serverAccessEnabled: false })
       const ask = (toolId: string, extra: Record<string, unknown>) =>
         app.request(`/v1/tools/registrations/${toolId}/sandbox-secret`, { method: 'POST', headers: cookieFor('super_admin') }, envFor('super_admin', extra))
 
@@ -401,7 +457,9 @@ describe('outside tools through the API', () => {
       expect(made.headers.get('cache-control')).toBe('no-store')
       const data = ((await made.json()) as Json).data
       expect(data).toMatchObject({ clientId: tool.clientId, scopes: ['contacts:read', 'tasks:read'], sandboxAddress: TOOL_SANDBOX_ADDRESS })
-      expect(data.sandboxSecret).toMatch(/^krsbx1_41\.2\./)
+      // The users part is a flag (1: someone is permitted); no email travels in the secret.
+      expect(data.sandboxSecret).toMatch(/^krsbx1_41\.1\./)
+      expect(data.sandboxSecret).not.toContain('@')
       expect(data.sandboxSecret).toContain(`.${data.secretId}.`)
       // Recorded in the tool's Activity; the secret itself is in no table.
       expect(auditRows().at(-1)).toMatchObject({ channel: 'admin', method: 'SANDBOX_SECRET', status: 200 })
@@ -414,8 +472,8 @@ describe('outside tools through the API', () => {
     })
 
     it('signs the fixed example the sandbox checks (apps/sandbox-api/src/signing.test.ts)', async () => {
-      const secret = await signSandboxSecret('fixed-example-key', 'krt_FixedExample00000001', { scopes: ['contacts:read', 'tasks:read'], emails: ['marcusrichard@legaldrive.net'], expiresAt: 1_800_000_000 }, 'FixedNon')
-      expect(secret).toBe('krsbx1_41.2.tro8w0.1rrujo3.FixedNon.3lv92cp4SRAxxiRDL7MB8UM_inFJv0-_VsSzFrkuzR4')
+      const secret = await signSandboxSecret('fixed-example-key', 'krt_FixedExample00000001', { scopes: ['contacts:read', 'tasks:read'], hasUsers: true, expiresAt: 1_800_000_000 }, 'FixedNon')
+      expect(secret).toBe('krsbx1_41.1.tro8w0.1evpnwf.FixedNon.3DID7WlxNwImBT9ihQZ3Wj0Lhs2DZz7QNzJRPxZCRZA')
     })
 
     it('keeps a frame call subject to the person permission while the server path uses only the tool scope', async () => {

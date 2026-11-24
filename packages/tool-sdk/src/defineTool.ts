@@ -62,6 +62,13 @@ export interface ToolManifest {
    * the Internal Developer permission (`developer_tools`), whatever their role. A request, printed on the sheet.
    */
   developersOnly?: boolean
+  /**
+   * Optional (next kit release): ask the super admin to tick **Sandbox only**, so KR Homebase treats the tool as not there
+   * (no menu entry, no access token, every call refused with `tool_sandbox_only`) while its sandbox secret keeps working.
+   * Use it while the tool is built and tested against the tool sandbox's made-up data, especially when it asks for
+   * permissions only for those tests. A request, printed on the sheet; the super admin decides.
+   */
+  sandboxOnly?: boolean
   /** True when the tool's own server will call KR Homebase (path B) and needs a client secret. */
   serverAccess: boolean
   /** Optional: the addresses the tool server calls from, when server access is on. */
@@ -153,10 +160,14 @@ export function registrationSheet(manifest: Readonly<ToolManifest>): string {
  * The Shown options the tool asks for, in the words of the KR Homebase registration form.
  *
  * @param manifest - A value returned by `defineTool`.
- * @returns For example `Local development only, Developers only`, or `everyone the roles allow`.
+ * @returns For example `Local development only, Developers only`, `Sandbox only`, or `everyone the roles allow`.
  */
 function shownOptions(manifest: Readonly<ToolManifest>): string {
-  const options = [...(manifest.localOnly ? ['Local development only'] : []), ...(manifest.developersOnly ? ['Developers only'] : [])]
+  const options = [
+    ...(manifest.localOnly ? ['Local development only'] : []),
+    ...(manifest.developersOnly ? ['Developers only'] : []),
+    ...(manifest.sandboxOnly ? ['Sandbox only'] : []),
+  ]
   return options.length ? options.join(', ') : 'everyone the roles allow'
 }
 

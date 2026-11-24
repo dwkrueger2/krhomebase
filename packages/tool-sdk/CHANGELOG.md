@@ -1,9 +1,20 @@
 # KR Homebase Tool Kit: Changes
 
-<small>Version 1.3</small><br>
-<small>Updated Nov 23, 2026 3:43pm</small>
+<small>Version 1.4</small><br>
+<small>Updated Nov 23, 2026 9:30pm</small>
 
 Each release of the kit, newest first. The kit's version is in its `package.json`, in `TOOL_SDK_VERSION` (`@krhomebase/tool-sdk/version`) and in the file names (`krhomebase-tool-sdk-<version>.tgz`, `krhomebase-sdk-<version>.zip`). The bridge between a tool and KR Homebase is protocol 1 in every release so far; a tool built with an earlier kit keeps working.
+
+## Next release (version not assigned)
+
+**Added**
+
+- `sandboxOnly` in `defineTool`: ask the super admin to tick **Sandbox only**, so KR Homebase treats the tool as not there (`tool_sandbox_only`) while its sandbox secret keeps working. The registration sheet prints it on its `Shown:` line. KR Homebase offers the box already, so a super admin can tick it for a tool built with 1.2.0.
+
+**Changed**
+
+- The API reference lists a permitted user as a plain email string (`ToolPermittedUsersData.emails`); it no longer names any address. The kit's `ToolPermittedUsersData` was already `string[]`.
+- A sandbox secret carries no email, only whether the tool permits anyone: in the sandbox, `getPermittedUsers()` answers the sandbox's own made-up staff (`example.com`), or an empty list. A sandbox secret made before this change is refused as outdated; ask for a new one.
 
 ## 1.2.0 (Nov 23, 2026)
 

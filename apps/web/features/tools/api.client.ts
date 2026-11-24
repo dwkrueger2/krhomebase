@@ -13,6 +13,7 @@ import {
   ToolDeletedData,
   ToolHealthData,
   ToolListData,
+  ToolPermittedUserChoicesData,
   ToolRegistrationData,
   ToolSecretData,
   ToolSandboxSecretData,
@@ -110,3 +111,6 @@ export async function downloadToolSdk(): Promise<ToolsCallResult<{ blob: Blob; f
 /** A sandbox secret for a tool (sample data only, 30 days); shown once, recorded in the tool's Activity. */
 export const makeSandboxSecret = (toolId: string) =>
   callTools(`/v1/tools/registrations/${encodeURIComponent(toolId)}/sandbox-secret`, ToolSandboxSecretData, { method: 'POST' })
+
+/** The active accounts a registration may permit, and the default ones for a new tool (read from the database by the API). */
+export const fetchPermittedUserChoices = () => callTools('/v1/tools/permitted-user-choices', ToolPermittedUserChoicesData)

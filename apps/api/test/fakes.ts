@@ -42,6 +42,8 @@ export const TOOL_VISIBILITY_MIGRATION = join(here, '..', '..', '..', 'docs', 'S
 export const TEAM_STATUS_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch062_11_18_team_status.sql')
 /** Migration 073: the Outside Tools' permitted sign-in emails. Always added after the base tool table. */
 export const TOOL_PERMITTED_USERS_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch073_11_21_tool_permitted_users.sql')
+/** Migration 080: the Outside Tools' `sandbox_only` column. Added with the visibility columns (left out with them). */
+export const TOOL_SANDBOX_ONLY_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch080_11_23_tool_sandbox_only.sql')
 /** Migration 077: the `lookup` row `lk_relationship_side_removed`, a related contact removed from one list only (FB-0023). Built with fullSchema. */
 export const RELATIONSHIP_SIDE_MIGRATION = join(here, '..', '..', '..', 'docs', 'Schema_8.0', 'migrations', 'Migration_Patch077_11_23_relationship_side.sql')
 /** Migration 078: `contact_photo`, a contact's photo and its circle (FB-0019). Built with fullSchema unless `withoutContactPhotoMigration`. */
@@ -132,7 +134,8 @@ class TestStatement {
  * `user_preference` table, the `content_asset` license columns and the Homebase Feedback tables from their migration
  * files, the deploy window columns (migration 034), `workstream_activity_type` (migration 002) and `task_note` (migration 003). Pass `withoutLicenseMigration: true` to leave the license columns out (a database before migration 031),
  * `withoutFeedbackMigration: true` to leave the feedback tables out (a database before migration 033), and
- * `withoutToolVisibilityMigration: true` to leave the tools' visibility columns out (a database before migration 058).
+ * `withoutToolVisibilityMigration: true` to leave the tools' visibility columns out (a database before migration 058, so
+ * before 080's `sandbox_only` too).
  *
  * @returns `db` (pass it as the `krhomebase` binding) and `sqlite` (to look at rows directly in a test).
  */
@@ -153,6 +156,7 @@ export function createTestD1(options: { fullSchema?: boolean; withoutLicenseMigr
   sqlite.exec(readFileSync(WORKSPACE_TOOLS_MIGRATION, 'utf8'))
   if (!options.withoutToolVisibilityMigration) sqlite.exec(withoutLogRow(readFileSync(TOOL_VISIBILITY_MIGRATION, 'utf8')))
   sqlite.exec(withoutLogRow(readFileSync(TOOL_PERMITTED_USERS_MIGRATION, 'utf8')))
+  if (!options.withoutToolVisibilityMigration) sqlite.exec(withoutLogRow(readFileSync(TOOL_SANDBOX_ONLY_MIGRATION, 'utf8')))
   const db = {
     prepare: (sql: string) => new TestStatement(sqlite, sql),
     batch: async (statements: TestStatement[]) => {

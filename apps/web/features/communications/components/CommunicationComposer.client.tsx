@@ -16,6 +16,11 @@
  * Changed: the help dialogs are portals (`WorkStreamQuickEntryHelpDialog.client.tsx`); loading and saving show
  * `RainbowBusySpinner` beside the status; the parser pills use the type colors (they were blue or grey); 24px avatar,
  * 8px padding, 4px corners (Density Contract).
+ *
+ * Drafts (FB-0026, web patch 588): the panel keeps the unsent entry in the browser (`workstreamDrafts.client.ts`). This
+ * card passes every change up (`onDraftChange`), starts the editor from a restored draft (`editorKey` and the
+ * `initial*` props start a fresh editor), and shows the draft line under the identity ("Draft saved 8:43pm" with
+ * Discard; `draftNotice`).
  */
 
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
@@ -55,6 +60,15 @@ interface CommunicationComposerProps {
   /** Loading or saving: the spinner shows beside the status. */
   statusBusy?: boolean
   disabled?: boolean
+  /** Every change to the draft (FB-0026: the panel keeps it in the browser). */
+  onDraftChange?: (draft: WorkStreamRTEDraftState) => void
+  /** A new value starts a fresh editor from the `initial*` values (a restored or discarded draft). */
+  editorKey?: string | number
+  initialBody?: string
+  initialHtml?: string
+  initialAssigneeUserIds?: readonly string[]
+  /** The draft line under the identity: what was kept and when, with Discard. Null: no line. */
+  draftNotice?: { label: string; onDiscard: () => void } | null
 }
 
 /** Reusable color, typography, border, and control treatments owned by this component. */
@@ -67,6 +81,8 @@ const STYLES = {
   avatarRose: 'bg-(--CommunicationAvatarRose)',
   identityName: 'text-[12px] text-(color:--kr-theme-communication-text)',
   identityDescription: 'text-[11px] text-(color:--kr-theme-communication-text-subtle)',
+  draftNotice: 'text-[11px] text-(color:--kr-theme-communication-text-subtle)',
+  draftDiscard: 'px-[5px] h-[18px] cursor-pointer rounded-[3px] border border-(--kr-theme-communication-text-subtle) bg-transparent text-[10px] font-bold leading-none text-(color:--kr-theme-communication-text-subtle) hover:border-(--kr-theme-communication-accent-strong) hover:text-(color:--kr-theme-communication-accent-strong)',
   selectedActivity: 'text-[11px] text-(color:--kr-theme-communication-text-subtle)',
   selectedActivityStrong: 'text-(color:--kr-theme-communication-accent)',
   footer: 'text-[11px] text-(color:--kr-theme-communication-text-subtle)',
@@ -93,6 +109,7 @@ const LAYOUT_STYLES = {
   composer: 'p-[8px]',
   identity: 'mb-[4px] gap-[6px] flex items-center',
   identityCopy: 'gap-x-[6px] flex flex-wrap items-baseline',
+  draftNotice: 'mb-[4px] gap-[6px] flex flex-wrap items-center',
   selectedActivity: 'm-0',
   footer: 'mt-[4px] gap-[3px] grid',
   status: 'gap-[4px] flex flex-wrap items-center',
@@ -169,11 +186,17 @@ export default function CommunicationComposer({
   contextLocked,
   currentUser,
   disabled = false,
+  draftNotice = null,
+  editorKey,
+  initialAssigneeUserIds,
+  initialBody,
+  initialHtml,
   leadButtonLabel,
   matterOptions,
   onActivityTypesChange,
   onClientStateChange,
   onContextContactSelected,
+  onDraftChange,
   onMatterChange,
   onSubmit,
   selectedMatterNumber,
@@ -199,8 +222,18 @@ export default function CommunicationComposer({
           </p>
         </div>
       </div>
+      {/* Draft line (FB-0026): the unsent entry is kept in this browser; Discard asks first (the panel's dialog). */}
+      {draftNotice ? (
+        <div className={`${LAYOUT_STYLES.draftNotice} ${STYLES.draftNotice}`} data-kr-element="communications-draft-notice">
+          <span role="status">{draftNotice.label}</span>
+          <button type="button" className={STYLES.draftDiscard} data-kr-action="discard-workstream-draft" onClick={draftNotice.onDiscard}>
+            Discard
+          </button>
+        </div>
+      ) : null}
       {/* Shared WorkStreamRTE owns the selector, context suggestions, rich-text surface, and send interaction. */}
       <WorkStreamRTE
+        key={editorKey}
         activityTypes={activityTypes}
         assigneeOptions={assigneeOptions}
         canSubmit={canSubmit}
@@ -212,12 +245,18 @@ export default function CommunicationComposer({
         disabled={disabled}
         editorAriaLabel="New communication entry"
         editorDataKrElement="communications-composer-input"
+        initialAssigneeUserIds={initialAssigneeUserIds}
+        initialBody={initialBody}
+        initialHtml={initialHtml}
         leadButtonLabel={leadButtonLabel}
         matterOptions={matterOptions}
         onActivityTypesChange={onActivityTypesChange}
         onClientStateChange={onClientStateChange}
         onContextContactSelected={onContextContactSelected}
-        onDraftChange={(next) => setDraft({ body: next.body, contextCue: next.contextCue, contextMatchCount: next.contextMatchCount })}
+        onDraftChange={(next) => {
+          setDraft({ body: next.body, contextCue: next.contextCue, contextMatchCount: next.contextMatchCount })
+          onDraftChange?.(next)
+        }}
         onMatterChange={onMatterChange}
         onSubmit={(next) => onSubmit(next.body, activityTypes, next.html, next.assigneeUserIds)}
         onHelpRequest={() => setShowCodeHelp(true)}

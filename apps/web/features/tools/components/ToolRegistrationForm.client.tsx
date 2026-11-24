@@ -31,25 +31,32 @@
  * Nov 23, 2026 (web patch 581): the Permissions hint has a **README First** button (`onShowReadme`) that opens the
  * super admin's help on what each permission hands over, in a dialog the parent owns. Web patch 582: that hint runs
  * across both columns (`fullWidthNote`) instead of wrapping in the 112px label column, which made the form too tall.
+ *
+ * Nov 23, 2026 (web patch 589, repository patch 80, the requester):
+ *  - **Permitted users** offers the active KR Homebase accounts the API reads from the database
+ *    (`fetchPermittedUserChoices`, `GET /v1/tools/permitted-user-choices`), by name and email, instead of a list in the
+ *    contract (which outside developers receive). A new tool starts with the API's default (the accounts that hold
+ *    developer_tools read) and, until the chips are changed, the form leaves the field out so the API applies it. A
+ *    saved email that is no longer an active account is marked; the API refuses to save it.
+ *  - **Sandbox only** in the Shown row: the tool may use the tool sandbox only; KR Homebase treats it as not there.
  */
 
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import {
   ToolIconNames,
-  ToolPermittedUserEmails,
   ToolRoleNames,
   ToolScopes,
   type ToolCreateBody,
   type ToolHealthData,
+  type ToolPermittedUserChoice,
   type ToolRegistration,
-  type ToolPermittedUserEmail,
   type ToolScope,
   type ToolUpdateBody,
 } from '@krhomebase/contracts'
 import KRHomebaseIcon from '@/components/ui/KRHomebaseIcon.client'
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
 import ToolSvgIcon from '@/components/ui/ToolSvgIcon.client'
-import { checkToolAddressHealth } from '@/features/tools/api.client'
+import { checkToolAddressHealth, fetchPermittedUserChoices } from '@/features/tools/api.client'
 import ToolHealthDetailDialog from '@/features/tools/components/ToolHealthDetailDialog.client'
 
 export interface ToolRegistrationFormProps {
@@ -129,6 +136,8 @@ const STYLES = {
   checkRow: 'h-[19px] text-[12px] leading-tight text-(color:--kr-theme-text)',
   checkRowLocked: 'h-[19px] cursor-not-allowed text-[12px] leading-tight text-(color:--kr-theme-text-muted) opacity-65',
   userChip: 'gap-[3px] px-[5px] py-[2px] inline-flex items-center rounded-[2px] border border-(--kr-theme-line) text-[11px] leading-tight text-(color:--kr-theme-text)',
+  // A saved email that is no longer an active account: the API refuses to save it until it is removed.
+  userChipUnknown: 'gap-[3px] px-[5px] py-[2px] inline-flex items-center rounded-[2px] border border-(--kr-theme-danger) text-[11px] leading-tight text-(color:--kr-theme-danger)',
   removeUser: 'size-[16px] inline-flex items-center justify-center rounded-[2px] border-0 bg-transparent cursor-pointer text-[13px] leading-none text-(color:--kr-theme-text-muted) hover:text-(color:--kr-theme-danger)',
   ok: 'text-[12px] leading-tight font-semibold text-(color:--kr-theme-success)',
   bad: 'text-[12px] leading-tight text-(color:--kr-theme-danger)',
@@ -188,12 +197,16 @@ export default function ToolRegistrationForm({ tool, busy, error, onSave, onCanc
   const [roles, setRoles] = useState<ReadonlySet<ToolRoleName>>(
     new Set([LOCKED_ROLE, ...(tool?.allowedRoles ?? ['staff']).filter((role): role is ToolRoleName => (ToolRoleNames as readonly string[]).includes(role))]),
   )
-  const [permittedUsers, setPermittedUsers] = useState<ReadonlySet<ToolPermittedUserEmail>>(
-    new Set(tool?.permittedUsers ?? [...ToolPermittedUserEmails]),
-  )
-  const [permittedUserToAdd, setPermittedUserToAdd] = useState<ToolPermittedUserEmail | ''>('')
+  // Null for a new tool until the chips are changed: the API's default applies (the field is left out on save).
+  const [chosenUsers, setChosenUsers] = useState<ReadonlySet<string> | null>(tool ? new Set(tool.permittedUsers) : null)
+  const [permittedUserToAdd, setPermittedUserToAdd] = useState('')
+  // The active accounts the API offers, and its default for a new tool; null while loading.
+  const [userChoices, setUserChoices] = useState<ToolPermittedUserChoice[] | null>(null)
+  const [defaultEmails, setDefaultEmails] = useState<string[]>([])
+  const [choicesError, setChoicesError] = useState('')
   const [localOnly, setLocalOnly] = useState(tool?.localOnly ?? false)
   const [developersOnly, setDevelopersOnly] = useState(tool?.developersOnly ?? false)
+  const [sandboxOnly, setSandboxOnly] = useState(tool?.sandboxOnly ?? false)
   const [scopes, setScopes] = useState<ReadonlySet<ToolScope>>(new Set(tool?.scopes ?? []))
   const [serverAccess, setServerAccess] = useState(tool?.serverAccessEnabled ?? false)
   const [ipList, setIpList] = useState((tool?.serverIpAllowlist ?? []).join(', '))
@@ -203,6 +216,34 @@ export default function ToolRegistrationForm({ tool, busy, error, onSave, onCanc
   const [healthBusy, setHealthBusy] = useState(false)
   const [healthError, setHealthError] = useState('')
   const [detailOpen, setDetailOpen] = useState(false)
+
+  // Reads the accounts once. A reply after the form closed is ignored.
+  useEffect(() => {
+    let live = true
+    void fetchPermittedUserChoices().then((result) => {
+      if (!live) return
+      if (result.ok) {
+        setUserChoices(result.data.users)
+        setDefaultEmails(result.data.defaultEmails)
+      } else {
+        setUserChoices([])
+        setChoicesError(result.message)
+      }
+    })
+    return () => {
+      live = false
+    }
+  }, [])
+
+  // The chips shown: the chosen list, or for a new tool not yet changed, the API's default.
+  const permittedUsers: ReadonlySet<string> = chosenUsers ?? new Set(defaultEmails)
+  const knownEmails = new Set((userChoices ?? []).map((choice) => choice.email))
+  const nameOf = (email: string) => userChoices?.find((choice) => choice.email === email)?.name ?? email
+
+  /** Changes the chips; from now on the form sends the list (a new tool stops using the API's default). */
+  function changeUsers(change: (current: ReadonlySet<string>) => Set<string>): void {
+    setChosenUsers(change(permittedUsers))
+  }
 
   // The icon to preview: the one the last check found, else the one stored at the last save, else the fallback.
   const previewSvg = health?.icon ? health.icon.svg : (tool?.iconSvg ?? null)
@@ -229,9 +270,11 @@ export default function ToolRegistrationForm({ tool, busy, error, onSave, onCanc
       menuOrder: Number.parseInt(menuOrder, 10) || 0,
       entryUrl: entryUrl.trim(),
       allowedRoles: ToolRoleNames.filter((role) => role === LOCKED_ROLE || roles.has(role)),
-      permittedUsers: ToolPermittedUserEmails.filter((email) => permittedUsers.has(email)),
+      // Left out for a new tool whose chips were not changed: the API gives it its default.
+      ...(chosenUsers ? { permittedUsers: [...chosenUsers] } : {}),
       localOnly,
       developersOnly,
+      sandboxOnly,
       scopes: ToolScopes.filter((scope) => scopes.has(scope)),
       serverAccessEnabled: serverAccess,
       serverIpAllowlist: serverAccess ? splitList(ipList) : [],
@@ -345,43 +388,56 @@ export default function ToolRegistrationForm({ tool, busy, error, onSave, onCanc
         </div>
       </div>
 
-      {/* Permitted users: a fixed set of firm accounts, enforced by the API for frame use and available to the tool server through its own grant. */}
+      {/* Permitted users: active KR Homebase accounts read by the API, enforced for frame use and available to the tool server through its own grant. */}
       <div className={`${LAYOUT_STYLES.rowTop} ${LAYOUT_STYLES.section} ${STYLES.section}`} data-kr-element="tool-permitted-users-row">
         <label className={STYLES.label} htmlFor="tool-permitted-user-add" title="Only these exact sign-in emails may use this tool">Permitted users</label>
         <div className={LAYOUT_STYLES.permittedUsers}>
-          {[...permittedUsers].map((email) => (
-            <span key={email} className={STYLES.userChip} data-kr-element="tool-permitted-user-chip">
-              {email}
-              <button
-                type="button"
-                className={STYLES.removeUser}
-                aria-label={`Remove ${email}`}
-                title={`Remove ${email}`}
-                onClick={() => setPermittedUsers((current) => toggled(current, email))}
-                data-kr-element="tool-permitted-user-remove"
-              >×</button>
-            </span>
-          ))}
-          {permittedUsers.size === 0 && <span className={STYLES.hint} data-kr-element="tool-no-permitted-users">No users selected; nobody can open this tool.</span>}
+          {[...permittedUsers].map((email) => {
+            // Marked only once the accounts are read: a saved email that is no longer an active account.
+            const unknown = userChoices !== null && !choicesError && !knownEmails.has(email)
+            return (
+              <span
+                key={email}
+                className={unknown ? STYLES.userChipUnknown : STYLES.userChip}
+                title={unknown ? `${email} is not an active KR Homebase account: remove it before saving.` : `${nameOf(email)} (${email})`}
+                data-kr-element={unknown ? 'tool-permitted-user-chip-unknown' : 'tool-permitted-user-chip'}
+              >
+                {email}
+                <button
+                  type="button"
+                  className={STYLES.removeUser}
+                  aria-label={`Remove ${email}`}
+                  title={`Remove ${email}`}
+                  onClick={() => changeUsers((current) => toggled(current, email))}
+                  data-kr-element="tool-permitted-user-remove"
+                >×</button>
+              </span>
+            )
+          })}
+          {permittedUsers.size === 0 && (chosenUsers !== null || userChoices !== null) && <span className={STYLES.hint} data-kr-element="tool-no-permitted-users">No users selected; nobody can open this tool.</span>}
           <select
             id="tool-permitted-user-add"
             aria-label="Add permitted user"
             className={STYLES.field}
             value={permittedUserToAdd}
+            disabled={!userChoices?.length}
             onChange={(event) => {
-              const email = event.target.value as ToolPermittedUserEmail | ''
-              if (email) setPermittedUsers((current) => new Set([...current, email]))
+              const email = event.target.value
+              if (email) changeUsers((current) => new Set([...current, email]))
               setPermittedUserToAdd('')
             }}
             data-kr-element="tool-permitted-user-add"
           >
-            <option value="">Add a user…</option>
-            {ToolPermittedUserEmails.filter((email) => !permittedUsers.has(email)).map((email) => <option key={email} value={email}>{email}</option>)}
+            <option value="">{userChoices === null ? 'Reading accounts...' : 'Add a user...'}</option>
+            {(userChoices ?? []).filter((choice) => !permittedUsers.has(choice.email)).map((choice) => (
+              <option key={choice.email} value={choice.email}>{choice.name === choice.email ? choice.email : `${choice.name} (${choice.email})`}</option>
+            ))}
           </select>
+          {choicesError && <span className={STYLES.bad} data-kr-element="tool-permitted-users-error">The accounts could not be read: {choicesError}</span>}
         </div>
       </div>
 
-      {/* Shown: two narrowing options (migration 058); the API applies them to the menu, the health check and every call */}
+      {/* Shown: three narrowing options (migrations 058 and 080); the API applies them to the menu, the health check and every call */}
       <div className={`${LAYOUT_STYLES.rowTop} ${LAYOUT_STYLES.section} ${STYLES.section}`} data-kr-element="tool-visibility-row">
         <span className={STYLES.label} title="Narrows who sees the tool beyond its roles">Shown</span>
         <div className={LAYOUT_STYLES.visibility}>
@@ -392,6 +448,10 @@ export default function ToolRegistrationForm({ tool, busy, error, onSave, onCanc
           <label className={`${LAYOUT_STYLES.check} ${STYLES.checkRow}`} title="Shown only to people who hold developer_tools read (the Internal Developer role set; Super Admin holds every permission)" data-kr-element="tool-developers-only">
             <input type="checkbox" checked={developersOnly} onChange={(e) => setDevelopersOnly(e.target.checked)} />
             Developers only (Internal Developer)
+          </label>
+          <label className={`${LAYOUT_STYLES.check} ${STYLES.checkRow}`} title="The tool may use the tool sandbox's made-up data only. KR Homebase treats it as not there for everyone, super admins included: no menu entry, no access token, every call refused (tool_sandbox_only). Its Sandbox secret still works." data-kr-element="tool-sandbox-only">
+            <input type="checkbox" checked={sandboxOnly} onChange={(e) => setSandboxOnly(e.target.checked)} />
+            Sandbox only
           </label>
           {!localOnly && isLocalToolAddress(entryUrl) && (
             <span className={STYLES.hint} data-kr-element="tool-local-address-hint">This address is on this computer, so the deployed app cannot load it: tick Local development only.</span>

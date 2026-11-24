@@ -48,6 +48,17 @@ describe('Dashboard', () => {
     expect(html).not.toContain('notes-body')
   })
 
+  it('flows fixed-width cards with a fixed gap instead of stretching columns (web patch 587)', () => {
+    const html = renderToStaticMarkup(
+      <PreferencesProvider initial={withChoices({})}>
+        <DashboardPanel widgets={[clock]} />
+      </PreferencesProvider>,
+    )
+    expect(html).toContain('gap-[8px] flex flex-wrap items-start')
+    expect(html).not.toContain('grid-cols')
+    expect(html).toMatch(/class="[^"]*w-\[300px\][^"]*"[^>]*data-kr-id="dashboard-widget-employee-clock-in"/)
+  })
+
   it('says how to choose widgets when none is turned on', () => {
     const html = renderToStaticMarkup(
       <PreferencesProvider initial={withChoices({ 'employee-clock-in': { enabled: false, order: 5 } })}>

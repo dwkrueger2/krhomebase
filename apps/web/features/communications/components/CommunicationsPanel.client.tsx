@@ -27,9 +27,13 @@
  * - Nov 18, 2026 (FB-0016, FB-0017, web patch 570): a draft is saved once, as one entry with every chosen type
  *   (it was saved once for each type, one entry and one WSID each). With Task chosen, the "Assignees" menu's people
  *   become the task's assignees on the Tasks screen (only the first was sent before, and no task was made).
+ * - Nov 23, 2026 (FB-0026, web patch 588): the unsent entry is kept as a draft in this browser for this place (the
+ *   feed, the client or the lead) and restored when the panel opens again (`useWorkstreamDraft`); a sent entry removes
+ *   it, and Discard asks first.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
 import { useOptionalDataStore } from '@/features/contacts/DataStoreProvider.client'
 import { usePreferences } from '@/features/preferences/PreferencesProvider.client'
 import type { KRContactRecord } from '@/features/contacts/types'
@@ -37,8 +41,10 @@ import { fetchClientMatters } from '@/features/matters/api.client'
 import { L } from '@/lib/KRUtilities'
 import { createWorkstreamEntry, fetchWorkstreamAssignees, WorkstreamApiError } from '../api.client'
 import { resolveCommunicationSaveTarget, saveTargetBlockReason, type CommunicationComposerOwner, type CommunicationsContext } from '../communicationSaveTarget'
-import { communicationEntryFromActivity, communicationUserFromViewer, parseWorkstreamSlashCommands, subjectFromBody, type CommunicationClientState, type CommunicationEntry, type CommunicationsViewer, type WorkstreamCommunicationActivityType } from '../communicationTypes'
+import { communicationEntryFromActivity, WORKSTREAM_COMMUNICATION_ACTIVITY_OPTIONS, communicationUserFromViewer, parseWorkstreamSlashCommands, subjectFromBody, type CommunicationClientState, type CommunicationEntry, type CommunicationsViewer, type WorkstreamCommunicationActivityType } from '../communicationTypes'
 import { useCommunicationsFeed } from '../useCommunicationsFeed.client'
+import { useWorkstreamDraft } from '../useWorkstreamDraft.client'
+import { draftPlaceId, type WorkstreamDraft } from '../workstreamDrafts.client'
 import { writerPhotosOf } from '../writerPhotos'
 import CommunicationActivityFilters from './CommunicationActivityFilters.client'
 import CommunicationAttributionPanel from './CommunicationAttributionPanel.client'
@@ -87,6 +93,11 @@ function contactForClient(contacts: readonly KRContactRecord[], clientId: string
   return clientId ? contacts.find((contact) => contact.clientId === clientId) ?? null : null
 }
 
+/** The composer's starting types. */
+const DEFAULT_COMPOSER_TYPES: WorkstreamCommunicationActivityType[] = ['PhoneCalls']
+const ACTIVITY_TYPE_VALUES = new Set<string>(WORKSTREAM_COMMUNICATION_ACTIVITY_OPTIONS.map((option) => option.value))
+const CLIENT_STATES = new Set<string>(['Client', 'Lead', 'Internal'])
+
 function errorSentence(error: unknown): string {
   return error instanceof WorkstreamApiError || error instanceof Error ? error.message : 'Unknown save error.'
 }
@@ -114,7 +125,7 @@ export default function CommunicationsPanel({ context, viewer }: CommunicationsP
   const [threadFilterTypes, setThreadFilterTypes] = useState<WorkstreamCommunicationActivityType[]>(() => [...savedTypes])
   const [reassignWsid, setReassignWsid] = useState<string | null>(null)
   const [collapsedView, setCollapsedView] = useState(false)
-  const [composerActivityTypes, setComposerActivityTypes] = useState<WorkstreamCommunicationActivityType[]>(['PhoneCalls'])
+  const [composerActivityTypes, setComposerActivityTypes] = useState<WorkstreamCommunicationActivityType[]>(DEFAULT_COMPOSER_TYPES)
   const [selectedWsid, setSelectedWsid] = useState<string | null>(null)
   const [statusOverride, setStatusOverride] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -123,6 +134,27 @@ export default function CommunicationsPanel({ context, viewer }: CommunicationsP
   const [composerMatter, setComposerMatter] = useState<WorkStreamRTEMatterOption | null>(null)
   const [assigneeOptions, setAssigneeOptions] = useState<WorkStreamRTEAssigneeOption[]>([])
   const [matterOptions, setMatterOptions] = useState<WorkStreamRTEMatterOption[]>([])
+
+  // FB-0026: the unsent entry, kept in this browser for this place and restored when the panel opens again.
+  const restoreComposer = useCallback((draft: WorkstreamDraft | null): void => {
+    const types = (draft?.activityTypes ?? []).filter((type): type is WorkstreamCommunicationActivityType => ACTIVITY_TYPE_VALUES.has(type))
+    setComposerActivityTypes(types.length ? types : DEFAULT_COMPOSER_TYPES)
+    if (context?.leadId) return
+    if (!context?.clientId) {
+      const state = draft && CLIENT_STATES.has(draft.clientState) ? draft.clientState as CommunicationClientState : 'Internal'
+      setComposerClientState(state)
+      setComposerOwner(state === 'Client' ? draft?.owner ?? null : null)
+      setComposerMatter(state === 'Client' ? draft?.matter ?? null : null)
+      return
+    }
+    setComposerMatter(draft?.matter ?? null)
+  }, [context?.clientId, context?.leadId])
+  const workstreamDraft = useWorkstreamDraft({
+    scope: viewer?.userId ?? null,
+    placeId: draftPlaceId(context),
+    choices: { activityTypes: composerActivityTypes, clientState: composerClientState, owner: composerOwner, matter: composerMatter },
+    restore: restoreComposer,
+  })
 
   // The list's owner: the fixed context, else the client chosen in the composer, else the firm feed.
   const listClientId = context?.clientId ?? (!context?.leadId && composerClientState === 'Client' ? composerOwner?.clientId ?? null : null)
@@ -226,6 +258,7 @@ export default function CommunicationsPanel({ context, viewer }: CommunicationsP
         // FB-0017: the Assignees menu's people are the task's (all of them); other entries keep the API's default.
         ...(savedActivityTypes.includes('Tasks') && assigneeUserIds ? { assigneeUserIds: [...assigneeUserIds] } : {}),
       })
+      workstreamDraft.onSent()
       const entry: CommunicationEntry = communicationEntryFromActivity(activity, currentUser)
       const belongsToList = (threadFilterTypes.length === 0 || entry.activityTypes.some((type) => threadFilterTypes.includes(type))) && (!context?.matterId || activity.matterId === context.matterId)
       if (belongsToList) feed.prepend([entry])
@@ -262,11 +295,17 @@ export default function CommunicationsPanel({ context, viewer }: CommunicationsP
             contextLocked={fixedContext}
             currentUser={currentUser}
             disabled={saving}
+            draftNotice={workstreamDraft.notice}
+            editorKey={workstreamDraft.editor.key}
+            initialAssigneeUserIds={workstreamDraft.editor.assigneeUserIds}
+            initialBody={workstreamDraft.editor.body}
+            initialHtml={workstreamDraft.editor.html}
             leadButtonLabel={context?.leadId ? `Lead:${context.contextLabel || context.leadId}` : null}
             matterOptions={matterOptions}
             onActivityTypesChange={setComposerActivityTypes}
             onClientStateChange={handleComposerClientStateChange}
             onContextContactSelected={handleComposerContextSelected}
+            onDraftChange={workstreamDraft.onDraftChange}
             onMatterChange={setComposerMatter}
             onSubmit={handleDraftSubmit}
             selectedMatterNumber={selectedMatterNumber}
@@ -304,6 +343,16 @@ export default function CommunicationsPanel({ context, viewer }: CommunicationsP
           setStatusOverride(`Reassigned ${activity.wsid} to ${activity.matterNumber ?? 'the client'}.`)
           setReassignWsid(null)
         }}
+      />
+      {/* Discard draft (FB-0026): the unsent entry is thrown away, so ask first */}
+      <U6ConfirmationDialog
+        cancelLabel="Keep"
+        confirmLabel="Discard"
+        description="The unsent entry kept on this computer is removed and the composer is emptied. This cannot be undone."
+        onCancel={workstreamDraft.discardDialog.onCancel}
+        onConfirm={workstreamDraft.discardDialog.onConfirm}
+        open={workstreamDraft.discardDialog.open}
+        title="Discard this draft?"
       />
     </section>
   )

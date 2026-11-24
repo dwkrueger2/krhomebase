@@ -50,18 +50,35 @@ export const ToolScopes = [
 export const ToolScope = z.enum(ToolScopes).describe('A permission granted to an outside tool, in the form <area>:<read|write>.')
 export type ToolScope = z.infer<typeof ToolScope>
 
-/** Fixed user accounts the Outside Tools registration form may grant access to. */
-export const ToolPermittedUserEmails = [
-  'dankrueger@legaldrive.net',
-  'marcusrichard@legaldrive.net',
-  'davismcclellan@legaldrive.net',
-] as const
-export const ToolPermittedUserEmail = z.enum(ToolPermittedUserEmails)
-export const ToolPermittedUsers = z.array(ToolPermittedUserEmail).max(ToolPermittedUserEmails.length)
+/**
+ * Permitted users (migration 073; plain emails since repository patch 80, Nov 23, 2026). The contract holds no list of
+ * addresses: it is published to outside developers (the kit's API reference is built from it). The API checks each
+ * email against the KR Homebase accounts in the database (`TOOL_PERMITTED_USER_UNKNOWN`), and the registration form
+ * offers the accounts the API lists (`GET /v1/tools/permitted-user-choices`).
+ */
+export const TOOL_PERMITTED_USERS_MAX = 50
+export const ToolPermittedUserEmail = z.string().trim().toLowerCase().max(254).email()
+  .describe('A sign-in email of a KR Homebase account, in lowercase.')
+export const ToolPermittedUsers = z.array(ToolPermittedUserEmail).max(TOOL_PERMITTED_USERS_MAX)
   .refine((emails) => new Set(emails).size === emails.length, 'Choose each permitted user once.')
-  .describe('The exact user emails allowed to open this registered tool and make frame calls.')
+  .describe('The exact sign-in emails allowed to open this registered tool and make frame calls. Each must be an active KR Homebase account.')
 export type ToolPermittedUserEmail = z.infer<typeof ToolPermittedUserEmail>
 export type ToolPermittedUsers = z.infer<typeof ToolPermittedUsers>
+
+/** One account the super admin may add to a tool's permitted users. */
+export const ToolPermittedUserChoice = z.object({
+  email: z.string().describe("The account's sign-in email, in lowercase."),
+  name: z.string().describe("The person's name, or the email when the account has no person record."),
+  isDeveloper: z.boolean().describe('True when the account holds developer_tools read now (Internal Developer or Super Admin role set).'),
+})
+export type ToolPermittedUserChoice = z.infer<typeof ToolPermittedUserChoice>
+
+/** The accounts a registration may permit, for the registration form. */
+export const ToolPermittedUserChoicesData = z.object({
+  users: z.array(ToolPermittedUserChoice).describe('Every active KR Homebase account, by name.'),
+  defaultEmails: z.array(z.string()).describe('The permitted users a new registration gets when none are chosen: the active accounts that hold developer_tools read.'),
+})
+export type ToolPermittedUserChoicesData = z.infer<typeof ToolPermittedUserChoicesData>
 
 /** The latest SDK archive stored in R2; the ZIP itself is served by the adjacent download route. */
 export const ToolSdkData = z.object({
@@ -202,6 +219,14 @@ export const ToolDevelopersOnly = z
   .boolean()
   .describe('True: shown and usable only by people who hold developer_tools read (the Internal Developer role set; Super Admin holds every permission), whatever their role.')
 
+/**
+ * Sandbox only (repository patch 80, the requester, Nov 23, 2026; migration 080): the tool is built and tested against
+ * the tool sandbox's made-up data only. Live KR Homebase treats it as not there for everyone, super admins included.
+ */
+export const ToolSandboxOnly = z
+  .boolean()
+  .describe('True: the tool may use the tool sandbox only. KR Homebase treats it as not there: no menu entry, no access token, and every call refused (tool_sandbox_only). Its sandbox secret still works.')
+
 /** A tool registration as a super admin sees it. Never includes the client secret or its hash. */
 export const ToolRegistration = z.object({
   id: z.string().describe('Id of the registration row.'),
@@ -217,6 +242,7 @@ export const ToolRegistration = z.object({
   permittedUsers: ToolPermittedUsers.describe('Exact sign-in emails allowed to see and use this tool.'),
   localOnly: ToolLocalOnly,
   developersOnly: ToolDevelopersOnly,
+  sandboxOnly: ToolSandboxOnly,
   scopes: z.array(ToolScope).describe('Permissions granted to the tool.'),
   status: ToolStatus,
   serverAccessEnabled: z.boolean().describe('True when the tool server may get access tokens (path B).'),
@@ -242,9 +268,10 @@ export const ToolCreateBody = z.object({
   menuOrder: z.number().int().min(0).max(9999).default(100).describe('Position among the outside tools; lower comes first.'),
   entryUrl: ToolEntryUrl,
   allowedRoles: z.array(RoleName).min(1).max(20).describe('Roles that see and may use the tool (any one of them). The API always adds super_admin.'),
-  permittedUsers: ToolPermittedUsers.default([...ToolPermittedUserEmails]),
+  permittedUsers: ToolPermittedUsers.optional().describe('The exact sign-in emails allowed to use the tool, each an active KR Homebase account. Left out: the active accounts that hold developer_tools read. Empty: nobody.'),
   localOnly: ToolLocalOnly.default(false),
   developersOnly: ToolDevelopersOnly.default(false),
+  sandboxOnly: ToolSandboxOnly.default(false),
   scopes: z.array(ToolScope).max(ToolScopes.length).default([]).describe('Permissions to grant. Empty means the tool can learn only who is using it.'),
   serverAccessEnabled: z.boolean().default(false).describe('True to let the tool server get access tokens (path B). A client secret is made and shown once.'),
   serverIpAllowlist: z.array(IpAddress).max(20).default([]).describe('Optional: the only addresses the tool server may call from.'),
@@ -262,6 +289,7 @@ export const ToolUpdateBody = z.object({
   permittedUsers: ToolPermittedUsers.optional(),
   localOnly: ToolLocalOnly.optional(),
   developersOnly: ToolDevelopersOnly.optional(),
+  sandboxOnly: ToolSandboxOnly.optional(),
   scopes: z.array(ToolScope).max(ToolScopes.length).optional().describe('New list of permissions. Replaces the old list.'),
   status: ToolStatus.optional(),
   serverAccessEnabled: z.boolean().optional().describe('Turn the server path on or off. Turning it off ends every access token at once.'),

@@ -23,7 +23,7 @@ import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import apiPackage from '../../api/package.json'
 import { SANDBOX_ROUTES, type SandboxRoute } from './routes.ts'
-import { ALL_EMAILS, ALL_SCOPES, TEST_CLIENT, TEST_NOW, call, signedSecret, tokenFor } from './testSupport.ts'
+import { ALL_SCOPES, TEST_CLIENT, TEST_NOW, call, signedSecret, tokenFor } from './testSupport.ts'
 
 type Json = Record<string, any>
 type Operation = { summary?: string; description?: string; responses: Record<string, Json>; requestBody?: Json }
@@ -161,7 +161,7 @@ describe('tokens, permissions and channels', () => {
   })
 
   it('lets nobody into the frame when the permitted-user list is empty, as KR Homebase does', async () => {
-    const response = await call('POST', '/sandbox/frame-token', { body: { clientId: TEST_CLIENT, clientSecret: await signedSecret({ emails: [] }) } })
+    const response = await call('POST', '/sandbox/frame-token', { body: { clientId: TEST_CLIENT, clientSecret: await signedSecret({ hasUsers: false }) } })
     expect(await refusal(response)).toMatchObject({ status: 403, code: 'TOOL_FORBIDDEN', reason: 'user_not_allowed' })
   })
 
@@ -208,8 +208,11 @@ describe('tokens, permissions and channels', () => {
     expect(frame.data.user.displayName).toBeTruthy()
     const server = (await (await call('GET', '/v1/tools/context', { token: await tokenFor('server') })).json()) as Json
     expect(server.data).toMatchObject({ channel: 'server', user: null })
-    const users = (await (await call('GET', '/v1/tools/permitted-users', { token: await tokenFor('server', { emails: [ALL_EMAILS[0]!] }) })).json()) as Json
-    expect(users.data.emails).toEqual([ALL_EMAILS[0]])
+    // The secret carries no email (repository patch 80): the sandbox names its own made-up staff, or nobody.
+    const users = (await (await call('GET', '/v1/tools/permitted-users', { token: await tokenFor('server') })).json()) as Json
+    expect(users.data.emails).toEqual(['jordan.sample@example.com', 'riley.example@example.com'])
+    const nobody = (await (await call('GET', '/v1/tools/permitted-users', { token: await tokenFor('server', { hasUsers: false }) })).json()) as Json
+    expect(nobody.data.emails).toEqual([])
   })
 })
 

@@ -133,7 +133,7 @@ export async function handleSandboxRequest(request: Request, env: SandboxEnv, no
       const checked = await checkSandboxSecret(key, clientId, clientSecret, nowSeconds)
       if (!checked.ok) return failure(401, 'TOOL_TOKEN_INVALID', TOKEN_WORDS[checked.reason], requestId, { reason: checked.reason === 'secret_expired' || checked.reason === 'sandbox_secret_outdated' ? checked.reason : 'secret_invalid' })
       // As in KR Homebase: a frame needs a permitted person; an empty permitted-user list lets nobody in.
-      if (isFrameToken && checked.grant.emails.length === 0) {
+      if (isFrameToken && !checked.grant.hasUsers) {
         return failure(403, 'TOOL_FORBIDDEN', 'Nobody is permitted to use this tool: its permitted-user list is empty.', requestId, { reason: 'user_not_allowed' })
       }
       const requested = isFrameToken ? undefined : (parsed.data as z.infer<typeof ToolTokenBody>).scopes

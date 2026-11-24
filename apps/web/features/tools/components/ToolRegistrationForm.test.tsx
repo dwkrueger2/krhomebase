@@ -1,6 +1,7 @@
 // file: apps/web/features/tools/components/ToolRegistrationForm.test.tsx
 // The registration form's Shown row (web patch 564, migration 058): Local development only, Developers only, and the
-// hint for a localhost address.
+// hint for a localhost address; Sandbox only (web patch 589, migration 080). The Permitted users row (web patch 589):
+// made-up accounts only; the choices come from the API after the first draw, which these text renders do not run.
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { ToolRegistration } from '@krhomebase/contracts'
@@ -17,9 +18,10 @@ const tool: ToolRegistration = {
   origin: 'http://localhost:5174',
   entryUrl: 'http://localhost:5174/',
   allowedRoles: ['super_admin'],
-  permittedUsers: ['dankrueger@legaldrive.net', 'marcusrichard@legaldrive.net', 'davismcclellan@legaldrive.net'],
+  permittedUsers: ['ada@example.com', 'ben@example.com', 'cy@example.com'],
   localOnly: false,
   developersOnly: true,
+  sandboxOnly: false,
   scopes: [],
   status: 'active',
   serverAccessEnabled: false,
@@ -31,7 +33,7 @@ const tool: ToolRegistration = {
   updatedAt: '2026-11-17T00:00:00Z',
 }
 
-const render = (value: ToolRegistration) =>
+const render = (value: ToolRegistration | null) =>
   renderToStaticMarkup(<ToolRegistrationForm tool={value} busy={false} error="" onSave={() => {}} onCancel={() => {}} />)
 
 describe('isLocalToolAddress', () => {
@@ -53,6 +55,14 @@ describe('ToolRegistrationForm Shown row', () => {
     expect(render({ ...tool, localOnly: true })).not.toContain('tool-local-address-hint')
   })
 
+  it('shows Sandbox only beside the other two, as saved', () => {
+    const html = render(tool)
+    expect(html.indexOf('tool-developers-only')).toBeLessThan(html.indexOf('tool-sandbox-only'))
+    expect(html).toMatch(/data-kr-element="tool-sandbox-only"><input type="checkbox"\/>Sandbox only/)
+    expect(render({ ...tool, sandboxOnly: true })).toMatch(/data-kr-element="tool-sandbox-only"><input type="checkbox" checked=""\/>/)
+    expect(html).toContain('tool_sandbox_only')
+  })
+
   it('enables route-backed read and frame-only write scopes and marks the remaining permissions TBD', () => {
     const html = render(tool)
     expect(html).toMatch(/tool-scope-contacts-read"><input type="checkbox"\/>contacts:read/)
@@ -67,11 +77,18 @@ describe('ToolRegistrationForm Shown row', () => {
 })
 
 describe('ToolRegistrationForm permitted users row', () => {
-  it('shows the fixed allowed accounts after Roles and explains that an empty list denies access', () => {
+  it('shows the saved accounts after Roles and explains that an empty list denies access', () => {
     const html = render(tool)
     expect(html.indexOf('tool-roles-row')).toBeLessThan(html.indexOf('tool-permitted-users-row'))
     expect(html).toContain('Permitted users')
     expect(html.match(/tool-permitted-user-chip/g)).toHaveLength(3)
     expect(render({ ...tool, permittedUsers: [] })).toContain('No users selected; nobody can open this tool.')
+  })
+
+  it('waits for the accounts for a new tool instead of saying nobody may open it', () => {
+    const html = render(null)
+    expect(html).toContain('Reading accounts...')
+    expect(html).not.toContain('tool-permitted-user-chip')
+    expect(html).not.toContain('No users selected')
   })
 })

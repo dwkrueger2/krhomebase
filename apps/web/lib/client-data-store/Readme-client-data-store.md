@@ -1,12 +1,13 @@
 # `client-data-store`: Browser Client Data Store Specification
 
-<small>Version 1.3</small><br>
-<small>Updated Nov 9, 2026 2:45pm</small>
+<small>Version 1.4</small><br>
+<small>Updated Nov 23, 2026 9:00pm</small>
 
 ## 0. In this repository
 
 - Ported from the old repository's `apps/kr-homebase/src/hb-lib/hb-client-data-store/README.md` (version 1.1). Sections 1 to 13 below are that document unchanged; they still use the old paths and API addresses.
 - Ported (web patch 509): `types.ts`, `browserStore.client.ts`, `metrics.client.ts`, with tests in `browserStore.test.ts`. `types.ts` gained one optional field in patch 510 (`clientDisplayName` on the contact element).
+- Collection `drafts` (web patch 588, FB-0026, approved by the requester Nov 23, 2026): `ClientDraftElement`, the person's unsent WorkStream entries, written and read only by this browser (`features/communications/workstreamDrafts.client.ts`), never synchronized or searched.
 - The contacts adapter (old `contacts.client.ts`), the provider and the search live in `apps/web/features/contacts/` (patch 510), because they use the contacts area's types and API call.
 - Old paths and their new places:
 

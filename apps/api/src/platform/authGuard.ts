@@ -128,6 +128,8 @@ async function serverToolGate(c: Context<AppEnv>, next: Next, route: RouteMeta |
   const tool = await queries.findToolById(stored.toolId)
   if (!tool) return failure(c, 401, 'TOOL_TOKEN_INVALID', 'The access token is not valid.', { reason: 'token_invalid' })
   if (tool.status !== 'active') return failure(c, 403, 'TOOL_FORBIDDEN', 'This tool is turned off.', { reason: 'tool_disabled' })
+  // A sandbox-only tool (migration 080) reaches the tool sandbox only; a token it still holds opens nothing here.
+  if (tool.sandboxOnly) return failure(c, 403, 'TOOL_FORBIDDEN', TOOL_REFUSAL_WORDS.tool_sandbox_only, { reason: 'tool_sandbox_only' })
   if (!tool.serverAccessEnabled) return failure(c, 403, 'TOOL_FORBIDDEN', 'Server access is turned off for this tool.', { reason: 'server_access_disabled' })
   // A local-only tool (migration 058) does not exist for the deployed API, on this path too.
   if (tool.localOnly && !isDevelopmentServer(c.env)) {
@@ -149,6 +151,7 @@ async function serverToolGate(c: Context<AppEnv>, next: Next, route: RouteMeta |
 /** The sentence for each reason a person may not use a tool (`toolRefusal`). */
 const TOOL_REFUSAL_WORDS: Record<NonNullable<ReturnType<typeof toolRefusal>>, string> = {
   tool_disabled: 'This tool is turned off.',
+  tool_sandbox_only: 'This tool may use the tool sandbox only; it cannot reach KR Homebase.',
   tool_local_only: 'This tool is for local development only.',
   role_not_allowed: 'Your role may not use this tool.',
   developers_only: 'This tool is for developers only.',

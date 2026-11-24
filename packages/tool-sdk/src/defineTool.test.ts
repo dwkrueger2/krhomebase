@@ -45,6 +45,8 @@ describe('defineTool', () => {
     expect(registrationSheet(defineTool(good))).toContain('Shown: everyone the roles allow')
     expect(registrationSheet(defineTool({ ...good, localOnly: true, developersOnly: true }))).toContain('Shown: Local development only, Developers only')
     expect(registrationSheet(defineTool({ ...good, developersOnly: true }))).toContain('Shown: Developers only')
+    expect(registrationSheet(defineTool({ ...good, sandboxOnly: true }))).toContain('Shown: Sandbox only')
+    expect(registrationSheet(defineTool({ ...good, developersOnly: true, sandboxOnly: true }))).toContain('Shown: Developers only, Sandbox only')
   })
 
   it('writes the health document', () => {

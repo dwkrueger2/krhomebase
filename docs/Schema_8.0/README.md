@@ -1,6 +1,6 @@
 # Schema 8.0 - KR Homebase operational database
-<small>Version 1.0</small><br>
-<small>Updated Nov 21, 2026 8:16pm</small>
+<small>Version 1.1</small><br>
+<small>Updated Nov 23, 2026 9:30pm</small>
 
 Definitive starting schema for the `krhomebase` repository. Rebuilt on 2026-10-24 from the live D1 schema of **krhomebase_dev** (read with `wrangler d1 execute ... --command "SELECT ... FROM sqlite_schema"`), using the Schema 7.0 documentation as the style and wording reference. It supersedes Schema 7.0.
 
@@ -54,7 +54,9 @@ Descriptions are hand-written; new tables and columns need a description added b
 
 Schema 8.0 documents the database as it was when this folder was written. Every change since then is a migration file in `migrations/`, applied by the requester (`AGENTS_06_d1-migration-procedures.md`).
 
-Migration 073 adds `workspace_tool.permitted_users`, a JSON email list for each Outside Tools registration. New registrations default to the three fixed allowed accounts; the admin form can narrow the list or leave it empty to deny all logins. API deployment must follow owner application of the migration.
+Migration 073 adds `workspace_tool.permitted_users`, a JSON email list for each Outside Tools registration. Since repository patch 80 the API checks each email against the active accounts and a new registration naming none gets the accounts that hold `developer_tools` read (the column's own default still holds the three addresses it was created with). The admin form can narrow the list or leave it empty to deny all logins. API deployment must follow owner application of the migration.
+
+Migration 080 (`Migration_Patch080_11_23_tool_sandbox_only.sql`) adds `workspace_tool.sandbox_only` (0 or 1, default 0): the Outside Tools option **Sandbox only**. Apply it before API patch 59.
 
 - Each file is named `Migration_Patch<repository patch>_<MM>_<DD>_<topic>.sql`. It says at the top what it changes, what it expects first, and the commands to check, apply and verify it.
 - Since migration 044, the live database records every applied migration in `kr_schema_migration`, and each new file ends by writing its own row there. To see what is applied (read-only, from `apps\api`):

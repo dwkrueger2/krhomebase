@@ -37,10 +37,10 @@ describe('the sample data is made up', () => {
     for (const [ein] of source.matchAll(/\b\d{2}-\d{7}\b/g)) expect(ein).toMatch(/^00-/)
   })
 
-  it('answers every sample call with example.com emails only (the permitted-user list aside, which comes from the secret)', async () => {
+  it('answers every sample call with example.com emails only, the permitted-user list included (no email is in a secret)', async () => {
     const frame = await tokenFor('frame')
     const server = await tokenFor('server')
-    for (const route of SANDBOX_ROUTES.filter((entry) => !entry.isTokenRoute && entry.path !== '/v1/tools/permitted-users')) {
+    for (const route of SANDBOX_ROUTES.filter((entry) => !entry.isTokenRoute)) {
       const token = route.channels?.includes('server') && !route.channels.includes('frame') ? server : frame
       const text = await (await call(route.method, route.sample.path, { token, body: route.sample.body })).text()
       for (const [email] of text.matchAll(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g)) expect(email, `${route.method} ${route.path}`).toMatch(/@([a-z0-9-]+\.)*example\.com$/)

@@ -7,14 +7,14 @@
 import { describe, expect, it } from 'vitest'
 import { checkSandboxSecret, checkSandboxToken, makeSandboxToken } from './signing.ts'
 
-/** Key `fixed-example-key`, client `krt_FixedExample00000001`, contacts:read and tasks:read, the second permitted user, ends 1800000000, nonce `FixedNon`. */
-const FIXED_EXAMPLE = 'krsbx1_41.2.tro8w0.1rrujo3.FixedNon.3lv92cp4SRAxxiRDL7MB8UM_inFJv0-_VsSzFrkuzR4'
+/** Key `fixed-example-key`, client `krt_FixedExample00000001`, contacts:read and tasks:read, someone permitted (users flag 1), ends 1800000000, nonce `FixedNon`. */
+const FIXED_EXAMPLE = 'krsbx1_41.1.tro8w0.1evpnwf.FixedNon.3DID7WlxNwImBT9ihQZ3Wj0Lhs2DZz7QNzJRPxZCRZA'
 const NOW = 1_763_600_000
 
 describe('sandbox secrets and tokens', () => {
-  it('accepts the fixed example the API signs, with its permissions and permitted user', async () => {
+  it('accepts the fixed example the API signs, with its permissions and users flag', async () => {
     const checked = await checkSandboxSecret('fixed-example-key', 'krt_FixedExample00000001', FIXED_EXAMPLE, NOW)
-    expect(checked).toEqual({ ok: true, secretId: 'FixedNon', grant: { scopes: ['contacts:read', 'tasks:read'], emails: ['marcusrichard@legaldrive.net'], expiresAt: 1_800_000_000 } })
+    expect(checked).toEqual({ ok: true, secretId: 'FixedNon', grant: { scopes: ['contacts:read', 'tasks:read'], hasUsers: true, expiresAt: 1_800_000_000 } })
   })
 
   it('refuses it under another key, for another client, after it ends, or with a changed permission', async () => {
@@ -26,7 +26,7 @@ describe('sandbox secrets and tokens', () => {
   })
 
   it('makes a token that ends after 15 minutes, or with its secret if that is sooner, and is never a secret', async () => {
-    const grant = { scopes: ['contacts:read' as const], emails: [], expiresAt: NOW + 60 }
+    const grant = { scopes: ['contacts:read' as const], hasUsers: false, expiresAt: NOW + 60 }
     const { token, expiresIn } = await makeSandboxToken('k', 'krt_FixedExample00000001', grant, 'server', NOW)
     expect(expiresIn).toBe(60)
     expect(await checkSandboxToken('k', token, NOW)).toMatchObject({ ok: true, channel: 'server', clientId: 'krt_FixedExample00000001' })

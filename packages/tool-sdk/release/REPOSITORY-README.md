@@ -1,7 +1,7 @@
 # KR Homebase Tool Kit (SDK)
 
-<small>Version 1.0</small><br>
-<small>Updated Nov 20, 2026 6:45pm</small>
+<small>Version 1.1</small><br>
+<small>Updated Nov 23, 2026 4:10pm</small>
 
 **Current kit: {{VERSION}}** (released {{RELEASE_DATE}}). Download: [`releases/krhomebase-sdk-{{VERSION}}.zip`](releases/krhomebase-sdk-{{VERSION}}.zip).
 
@@ -15,6 +15,7 @@ This private repository is where KR Homebase publishes its tool kit: the kit out
 | `DEVELOPER-GUIDE.md` | The developer guide of the current kit (also in the zip as `README.md`). Start with section 0, "Getting access". |
 | `CHANGELOG.md` | What changed in each release. |
 | `api-reference/API-REFERENCE.md` | The KR Homebase routes a tool may call, with the permission each one needs. `openapi-tools.json` beside it is the same list as an OpenAPI 3.1 file. |
+| `hello-krhomebase/` | **Hello KRH**, a Hello World sample in two apps built only from the released kit: `HelloKRH-Web` (a page in the KR Homebase frame) and `HelloKRH-Server` (a tool server). vinext on Cloudflare Workers. Start with its `README.md`. |
 
 ## Inside the zip
 
@@ -29,7 +30,7 @@ This private repository is where KR Homebase publishes its tool kit: the kit out
 
 1. Download the newest zip and unpack it.
 2. Read `README.md`, section 0 ("Getting access") and section 1 ("How it works").
-3. Run the example (section 10), then build your own tool and print its registration sheet (section 5).
+3. Run the example (section 10), or Hello KRH (`hello-krhomebase/README.md`) for a framework app with a server, then build your own tool and print its registration sheet (section 5).
 4. Send the sheet to the KR Homebase super admin, who registers the tool and sends you its client id (and, only for a tool server, its client secret, privately).
 
 ## Questions and problems

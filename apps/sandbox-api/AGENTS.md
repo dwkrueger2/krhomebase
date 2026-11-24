@@ -1,7 +1,7 @@
 # Sandbox API Agent Guide
 
-<small>Version 1.0</small><br>
-<small>Updated Nov 23, 2026 2:04pm</small>
+<small>Version 1.1</small><br>
+<small>Updated Nov 23, 2026 9:30pm</small>
 
 ## Purpose
 
@@ -15,7 +15,7 @@ The root guides (`AGENTS.md` and `AGENTS_01` to `AGENTS_06`) apply. This folder 
 2. **Sample data is made up.** Everything is in `src/sampleWorld.ts`: invented names, `example.com` emails, `(555) 01x-xxxx` phones, SSNs starting `000`, EINs starting `00`. The isolation test checks them. Never copy a row from a live database or `snapshots\`.
 3. **The API is the source of truth.** `src/compliance.test.ts` compares `src/routes.ts` with `apps/api/openapi/openapi.json`: the same routes open to tools, the same permission and channel limit, the same request bodies, replies that match the reference's schemas, and refusal codes the API lists. When a route opened to tools changes (and `pnpm openapi` rewrites the reference), change `routes.ts` and `sampleWorld.ts` until `pnpm check` passes. Do not weaken the test.
 4. **Nothing is saved.** Writes answer as if saved; the next read shows the sample data unchanged. Every reply carries `x-kr-sandbox`.
-5. **Secrets are signed, not stored.** A super admin makes a sandbox secret on the Outside Tools screen (`POST /v1/tools/registrations/{toolId}/sandbox-secret`); it carries the tool's permissions and permitted users and ends after 30 days. The format is `packages/contracts/src/toolSandbox.ts`; the API signs (`apps/api/src/platform/toolSandbox.ts`) and this Worker checks (`src/signing.ts`) with the secret `KR_TOOL_SANDBOX_SECRET`, the same value on both Workers. `src/signing.test.ts` and the API's `tools.test.ts` check one fixed example.
+5. **Secrets are signed, not stored.** A super admin makes a sandbox secret on the Outside Tools screen (`POST /v1/tools/registrations/{toolId}/sandbox-secret`); it carries the tool's permissions and whether the tool permits anyone (a flag, never an email: `GET /v1/tools/permitted-users` answers the sample staff of `src/sampleWorld.ts`, `SAMPLE_PERMITTED_EMAILS`) and ends after 30 days. The format is `packages/contracts/src/toolSandbox.ts`; the API signs (`apps/api/src/platform/toolSandbox.ts`) and this Worker checks (`src/signing.ts`) with the secret `KR_TOOL_SANDBOX_SECRET`, the same value on both Workers. `src/signing.test.ts` and the API's `tools.test.ts` check one fixed example.
 6. The configuration file is `kr-sandbox-api-wrangler.jsonc`. Every wrangler command names it with `--config`.
 7. Do not run `wrangler deploy` or `wrangler secret put`. Give the commands to the requester.
 

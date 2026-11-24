@@ -55,6 +55,12 @@ export const STAFF = [
   { userId: 'usr_sbx_riley', label: 'Riley Example', staffCode: 'RE', employeeId: 'emp_sbx_riley', employeeNumber: 'E-902' },
 ] as const
 
+/**
+ * The made-up permitted users `GET /v1/tools/permitted-users` answers (repository patch 80): a sandbox secret no longer
+ * carries the registration's real emails, only whether anyone is permitted, so the sandbox names its own sample staff.
+ */
+export const SAMPLE_PERMITTED_EMAILS = ['jordan.sample@example.com', 'riley.example@example.com'] as const
+
 const JORDAN = STAFF[0]
 const RILEY = STAFF[1]
 

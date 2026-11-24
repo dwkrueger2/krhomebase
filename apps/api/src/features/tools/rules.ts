@@ -5,7 +5,8 @@
  *  - Where a tool may be hosted (`parseToolEntryUrl`): https only, except http://localhost and
  *    http://127.0.0.1 for a developer's own computer, and never the app's own origin. A frame from the app's
  *    own origin would escape the sandbox, because the frame is given `allow-scripts allow-same-origin`.
- *  - Who may use a tool (`toolRefusal`, `toolUsableBy`): the tool is active; a local-only tool only on a
+ *  - Who may use a tool (`toolRefusal`, `toolUsableBy`): the tool is active; a sandbox-only tool never (migration 080:
+ *    it reaches the tool sandbox's made-up data only, so KR Homebase treats it as not there); a local-only tool only on a
  *    development server (`pnpm dev`); the person's role is on its list (any one of them; `super_admin` is always on
  *    it, `withSuperAdmin`); a developers-only tool only for a person who holds `developer_tools` read (migration 058);
  *    and the exact login email is on the registration's permitted-user list (migration 073). The email check also
@@ -16,12 +17,15 @@
  *    SHA-256 (not a slow password hash) is right here because the values are random, not chosen by a person.
  *
  * Error reasons (used as `details.reason` with `TOOL_FORBIDDEN` or `TOOL_TOKEN_INVALID`): `tool_unknown`,
- * `tool_disabled`, `tool_local_only`, `developers_only`, `route_not_open_to_tools`, `scope_not_granted`,
+ * `tool_disabled`, `tool_sandbox_only`, `tool_local_only`, `developers_only`, `route_not_open_to_tools`, `scope_not_granted`,
  * `role_not_allowed`, `user_not_allowed`, `token_missing`, `token_invalid`, `token_expired`, `server_access_disabled`, `ip_not_allowed`,
  * `secret_invalid`.
+ *
+ * Permitted users (repository patch 80, Nov 23, 2026): plain emails, each an active KR Homebase account
+ * (`unknownPermittedUsers`; the accounts come from `queries.ts`), so no address is written in code.
  */
 
-import type { SessionUser, ToolPermittedUserEmail, ToolScope } from '@krhomebase/contracts'
+import type { SessionUser, ToolScope } from '@krhomebase/contracts'
 import { randomBase64Url, sha256Hex, timingSafeEqualText } from '../../platform/crypto.ts'
 
 /** Seconds an access token lasts. */
@@ -41,12 +45,14 @@ export interface ToolRecord {
   origin: string
   entryUrl: string
   allowedRoles: string[]
-  /** Exact login emails allowed to see and use the tool (migration 073). */
-  permittedUsers: ToolPermittedUserEmail[]
+  /** Exact login emails allowed to see and use the tool (migration 073), lowercase. */
+  permittedUsers: string[]
   /** Shown and usable only on a development server (migration 058; a missing column reads as false). */
   localOnly: boolean
   /** Shown and usable only by people who hold `developer_tools` read (migration 058). */
   developersOnly: boolean
+  /** Reaches the tool sandbox only; KR Homebase treats it as not there (migration 080; a missing column reads as false). */
+  sandboxOnly: boolean
   scopes: ToolScope[]
   status: 'active' | 'disabled'
   serverAccessEnabled: boolean
@@ -128,7 +134,7 @@ export interface ToolViewer {
 }
 
 /** Why a person may not use a tool (`details.reason`). */
-export type ToolRefusal = 'tool_disabled' | 'tool_local_only' | 'role_not_allowed' | 'developers_only' | 'user_not_allowed'
+export type ToolRefusal = 'tool_disabled' | 'tool_sandbox_only' | 'tool_local_only' | 'role_not_allowed' | 'developers_only' | 'user_not_allowed'
 
 /**
  * Why this person may not see or use the tool here, or null when they may. The checks run in this order, so the
@@ -137,8 +143,10 @@ export type ToolRefusal = 'tool_disabled' | 'tool_local_only' | 'role_not_allowe
  * @param tool - The registration.
  * @param viewer - The person's role, whether this is a development server, and whether they are a developer.
  */
-export function toolRefusal(tool: Pick<ToolRecord, 'status' | 'allowedRoles' | 'localOnly' | 'developersOnly' | 'permittedUsers'>, viewer: ToolViewer): ToolRefusal | null {
+export function toolRefusal(tool: Pick<ToolRecord, 'status' | 'allowedRoles' | 'localOnly' | 'developersOnly' | 'sandboxOnly' | 'permittedUsers'>, viewer: ToolViewer): ToolRefusal | null {
   if (tool.status !== 'active') return 'tool_disabled'
+  // Sandbox only: no person, role or server here may use it, super admins included (the requester, Nov 23, 2026).
+  if (tool.sandboxOnly) return 'tool_sandbox_only'
   if (tool.localOnly && !viewer.developmentServer) return 'tool_local_only'
   if (viewer.role !== ALWAYS_ALLOWED_ROLE && !tool.allowedRoles.includes(viewer.role)) return 'role_not_allowed'
   if (tool.developersOnly && !viewer.isDeveloper) return 'developers_only'
@@ -147,8 +155,20 @@ export function toolRefusal(tool: Pick<ToolRecord, 'status' | 'allowedRoles' | '
 }
 
 /** True when the person may see and use the tool here (`toolRefusal` finds nothing). */
-export function toolUsableBy(tool: Pick<ToolRecord, 'status' | 'allowedRoles' | 'localOnly' | 'developersOnly' | 'permittedUsers'>, viewer: ToolViewer): boolean {
+export function toolUsableBy(tool: Pick<ToolRecord, 'status' | 'allowedRoles' | 'localOnly' | 'developersOnly' | 'sandboxOnly' | 'permittedUsers'>, viewer: ToolViewer): boolean {
   return toolRefusal(tool, viewer) === null
+}
+
+/**
+ * The emails in a permitted-user list that are not active KR Homebase accounts (compared in lowercase).
+ *
+ * @param emails - The list the super admin sent.
+ * @param accounts - The sign-in emails of the active accounts (`listPermittedUserChoices` in queries.ts).
+ * @returns The unknown emails, in the order sent; empty when every one is known.
+ */
+export function unknownPermittedUsers(emails: readonly string[], accounts: readonly string[]): string[] {
+  const known = new Set(accounts.map((email) => email.trim().toLowerCase()))
+  return emails.filter((email) => !known.has(email.trim().toLowerCase()))
 }
 
 /**

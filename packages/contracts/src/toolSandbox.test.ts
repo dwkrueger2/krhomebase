@@ -1,6 +1,6 @@
 // file: packages/contracts/src/toolSandbox.test.ts
 /**
- * The sandbox secret and token format (`toolSandbox.ts`): masks round-trip, payloads parse back to the same grant, and
+ * The sandbox secret and token format (`toolSandbox.ts`): the permission mask and the users flag round-trip, payloads parse back to the same grant, and
  * anything malformed or made for another permission list is refused before any signature is checked.
  */
 import { describe, expect, it } from 'vitest'
@@ -15,30 +15,34 @@ import {
   sandboxSecretPayload,
   sandboxSigningMessage,
   sandboxTokenPayload,
-  sandboxUserMask,
-  sandboxUsersFromMask,
+  sandboxHasUsersFromFlag,
+  sandboxUsersFlag,
   type SandboxGrant,
 } from './toolSandbox.ts'
-import { ToolPermittedUserEmails, ToolScopes } from './tools.ts'
+import { ToolScopes } from './tools.ts'
 
-const GRANT: SandboxGrant = { scopes: ['contacts:read', 'tasks:write', 'tool-registration:read'], emails: [ToolPermittedUserEmails[1]], expiresAt: 1_800_000_000 }
+const GRANT: SandboxGrant = { scopes: ['contacts:read', 'tasks:write', 'tool-registration:read'], hasUsers: true, expiresAt: 1_800_000_000 }
 const CLIENT = 'krt_Ab12Cd34Ef56Gh78Ij90'
 
 describe('sandbox masks', () => {
-  it('round-trips every permission and every permitted user', () => {
+  it('round-trips every permission and the users flag', () => {
     expect(sandboxScopesFromMask(sandboxScopeMask([...ToolScopes]))).toEqual([...ToolScopes])
     expect(sandboxScopesFromMask(sandboxScopeMask([]))).toEqual([])
-    expect(sandboxUsersFromMask(sandboxUserMask([...ToolPermittedUserEmails]))).toEqual([...ToolPermittedUserEmails])
+    expect([sandboxHasUsersFromFlag(sandboxUsersFlag(true)), sandboxHasUsersFromFlag(sandboxUsersFlag(false))]).toEqual([true, false])
     expect(sandboxScopesFromMask(sandboxScopeMask(GRANT.scopes))).toEqual(GRANT.scopes)
   })
 
-  it('refuses a mask that is not hexadecimal or names an item past the end of the list', () => {
+  it('refuses a mask that is not hexadecimal, and a users part that is not 0 or 1 (the old email mask)', () => {
     expect(sandboxScopesFromMask('xyz')).toBeNull()
-    expect(sandboxUsersFromMask((1 << ToolPermittedUserEmails.length).toString(16))).toBeNull()
+    expect(sandboxHasUsersFromFlag('7')).toBeNull()
   })
 })
 
 describe('sandbox secrets and tokens', () => {
+  it('carries no email: the payload is masks, a flag, the end time, the mark and the nonce', () => {
+    expect(sandboxSecretPayload(GRANT, 'Nonce123')).not.toMatch(/@/)
+  })
+
   it('parses a secret back to its grant and keeps it well under the 200-character limit of a client secret', () => {
     const payload = sandboxSecretPayload(GRANT, 'Nonce123')
     const secret = `${TOOL_SANDBOX_SECRET_PREFIX}${payload}.${'s'.repeat(43)}`

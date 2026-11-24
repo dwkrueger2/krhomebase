@@ -6,7 +6,7 @@
  *
  * Sandbox secrets. A super admin makes one for a registered tool on the Outside Tools screen
  * (`POST /v1/tools/registrations/{toolId}/sandbox-secret`, recorded in the tool's Activity). It carries the tool's
- * permissions and permitted users at that moment, and an end date, signed with HMAC-SHA-256 under the secret
+ * permissions at that moment, whether anyone is permitted to use it, and an end date, signed with HMAC-SHA-256 under the secret
  * `KR_TOOL_SANDBOX_SECRET`, which only the API and the sandbox hold. The sandbox needs no database to check it: the
  * signature proves the API made it. It opens sample data only, never firm data.
  *
@@ -18,17 +18,19 @@
  *   sandbox token   krsbt1_<clientId>.<scopes>.<users>.<expires>.<channel>.<catalog>.<signature>
  *
  *   scopes    the granted permissions as a hexadecimal bit mask over `ToolScopes` (bit 0 is the first)
- *   users     the permitted users as a hexadecimal bit mask over `ToolPermittedUserEmails`
+ *   users     `1` when the registration permits at least one user, `0` when it permits nobody. Since repository
+ *             patch 80 (Nov 23, 2026) no email travels in a secret: the sandbox answers its own made-up users instead
+ *             (it was a bit mask over a list of staff emails, which the published contract no longer holds).
  *   expires   end time, whole seconds since 1970, base 36
- *   catalog   `TOOL_SANDBOX_CATALOG_MARK`: a short fingerprint of both lists, so a secret made before a list changed is
- *             refused ("ask for a new sandbox secret") instead of being read with the wrong meaning
+ *   catalog   `TOOL_SANDBOX_CATALOG_MARK`: a short fingerprint of the permission list and this format, so a secret
+ *             made before either changed is refused ("ask for a new sandbox secret") instead of being read wrongly
  *   nonce     8 random base64url characters; also the secret's id in the Activity record
  *   channel   `f` (the frame, through the sandbox's host page) or `s` (a tool server)
  *   signature HMAC-SHA-256 of `sandboxSigningMessage(kind, clientId, payload)`, base64url
  */
 
 import { z } from 'zod'
-import { ToolPermittedUserEmails, ToolScopes, type ToolPermittedUserEmail, type ToolScope } from './tools.ts'
+import { ToolScopes, type ToolScope } from './tools.ts'
 
 /** The sandbox's address (its workers.dev host until the requester gives it a Custom Domain). */
 export const TOOL_SANDBOX_ADDRESS = 'https://krhomebase-sandbox-api.dankrueger.workers.dev'
@@ -55,8 +57,8 @@ function fnv1a36(text: string): string {
   return hash.toString(36)
 }
 
-/** Fingerprint of `ToolScopes` and `ToolPermittedUserEmails`, in order. Changes whenever either list changes. */
-export const TOOL_SANDBOX_CATALOG_MARK = fnv1a36(`${ToolScopes.join(',')}|${ToolPermittedUserEmails.join(',')}`)
+/** Fingerprint of `ToolScopes` (in order) and the users flag format. Changes whenever the list or the format changes. */
+export const TOOL_SANDBOX_CATALOG_MARK = fnv1a36(`${ToolScopes.join(',')}|users:flag`)
 
 /** A bit mask over a fixed list, as lowercase hexadecimal. */
 function maskOf<T extends string>(list: readonly T[], chosen: readonly T[]): string {
@@ -78,13 +80,16 @@ function itemsOf<T extends string>(list: readonly T[], mask: string): T[] | null
 
 export const sandboxScopeMask = (scopes: readonly ToolScope[]): string => maskOf(ToolScopes, scopes)
 export const sandboxScopesFromMask = (mask: string): ToolScope[] | null => itemsOf(ToolScopes, mask)
-export const sandboxUserMask = (emails: readonly ToolPermittedUserEmail[]): string => maskOf(ToolPermittedUserEmails, emails)
-export const sandboxUsersFromMask = (mask: string): ToolPermittedUserEmail[] | null => itemsOf(ToolPermittedUserEmails, mask)
+/** The users part: `1` when anyone is permitted, `0` when nobody is. */
+export const sandboxUsersFlag = (hasUsers: boolean): string => (hasUsers ? '1' : '0')
+/** Reads the users part, or null when it is neither `0` nor `1`. */
+export const sandboxHasUsersFromFlag = (flag: string): boolean | null => (flag === '1' ? true : flag === '0' ? false : null)
 
 /** What a sandbox secret or token says. */
 export interface SandboxGrant {
   scopes: ToolScope[]
-  emails: ToolPermittedUserEmail[]
+  /** True when the registration permitted at least one user when the secret was made (a frame needs a person). */
+  hasUsers: boolean
   /** End time, whole seconds since 1970. */
   expiresAt: number
 }
@@ -96,12 +101,12 @@ export function sandboxSigningMessage(kind: 'secret' | 'token', clientId: string
 
 /** The signed part of a sandbox secret. */
 export function sandboxSecretPayload(grant: SandboxGrant, nonce: string): string {
-  return [sandboxScopeMask(grant.scopes), sandboxUserMask(grant.emails), grant.expiresAt.toString(36), TOOL_SANDBOX_CATALOG_MARK, nonce].join('.')
+  return [sandboxScopeMask(grant.scopes), sandboxUsersFlag(grant.hasUsers), grant.expiresAt.toString(36), TOOL_SANDBOX_CATALOG_MARK, nonce].join('.')
 }
 
 /** The signed part of a sandbox token. */
 export function sandboxTokenPayload(clientId: string, grant: SandboxGrant, channel: 'frame' | 'server'): string {
-  return [clientId, sandboxScopeMask(grant.scopes), sandboxUserMask(grant.emails), grant.expiresAt.toString(36), channel === 'frame' ? 'f' : 's', TOOL_SANDBOX_CATALOG_MARK].join('.')
+  return [clientId, sandboxScopeMask(grant.scopes), sandboxUsersFlag(grant.hasUsers), grant.expiresAt.toString(36), channel === 'frame' ? 'f' : 's', TOOL_SANDBOX_CATALOG_MARK].join('.')
 }
 
 /** A sandbox secret or token taken apart, before its signature is checked. */
@@ -112,28 +117,28 @@ export type SandboxParsed =
 const BASE64URL = /^[A-Za-z0-9_-]+$/
 
 /** The grant fields shared by secrets and tokens, or the reason they are unreadable. */
-function grantOf(scopeMask: string, userMask: string, expires: string, catalog: string): SandboxGrant | 'malformed' | 'outdated' {
+function grantOf(scopeMask: string, usersFlag: string, expires: string, catalog: string): SandboxGrant | 'malformed' | 'outdated' {
   if (catalog !== TOOL_SANDBOX_CATALOG_MARK) return 'outdated'
   const scopes = sandboxScopesFromMask(scopeMask)
-  const emails = sandboxUsersFromMask(userMask)
+  const hasUsers = sandboxHasUsersFromFlag(usersFlag)
   const expiresAt = /^[0-9a-z]{1,10}$/.test(expires) ? parseInt(expires, 36) : NaN
-  if (!scopes || !emails || !Number.isSafeInteger(expiresAt)) return 'malformed'
-  return { scopes, emails, expiresAt }
+  if (!scopes || hasUsers === null || !Number.isSafeInteger(expiresAt)) return 'malformed'
+  return { scopes, hasUsers, expiresAt }
 }
 
 /**
  * Takes a sandbox secret apart. The caller checks the signature over `payload` and the end time.
  *
  * @param secret - The text after `clientSecret` in the token request.
- * @returns Its parts, or why it cannot be read (`outdated`: made before a permission or user list changed).
+ * @returns Its parts, or why it cannot be read (`outdated`: made before the permission list or the format changed).
  */
 export function parseSandboxSecret(secret: string): SandboxParsed {
   if (!secret.startsWith(TOOL_SANDBOX_SECRET_PREFIX)) return { ok: false, reason: 'malformed' }
   const parts = secret.slice(TOOL_SANDBOX_SECRET_PREFIX.length).split('.')
   if (parts.length !== 6 || !parts.every(Boolean)) return { ok: false, reason: 'malformed' }
-  const [scopeMask, userMask, expires, catalog, nonce, signature] = parts as [string, string, string, string, string, string]
+  const [scopeMask, usersFlag, expires, catalog, nonce, signature] = parts as [string, string, string, string, string, string]
   if (!BASE64URL.test(nonce) || !BASE64URL.test(signature)) return { ok: false, reason: 'malformed' }
-  const grant = grantOf(scopeMask, userMask, expires, catalog)
+  const grant = grantOf(scopeMask, usersFlag, expires, catalog)
   if (typeof grant === 'string') return { ok: false, reason: grant }
   return { ok: true, payload: parts.slice(0, 5).join('.'), signature, grant, nonce, clientId: null, channel: null }
 }
@@ -148,9 +153,9 @@ export function parseSandboxToken(token: string): SandboxParsed {
   if (!token.startsWith(TOOL_SANDBOX_TOKEN_PREFIX)) return { ok: false, reason: 'malformed' }
   const parts = token.slice(TOOL_SANDBOX_TOKEN_PREFIX.length).split('.')
   if (parts.length !== 7 || !parts.every(Boolean)) return { ok: false, reason: 'malformed' }
-  const [clientId, scopeMask, userMask, expires, channel, catalog, signature] = parts as [string, string, string, string, string, string, string]
+  const [clientId, scopeMask, usersFlag, expires, channel, catalog, signature] = parts as [string, string, string, string, string, string, string]
   if (!/^krt_[A-Za-z0-9_-]{16,64}$/.test(clientId) || (channel !== 'f' && channel !== 's') || !BASE64URL.test(signature)) return { ok: false, reason: 'malformed' }
-  const grant = grantOf(scopeMask, userMask, expires, catalog)
+  const grant = grantOf(scopeMask, usersFlag, expires, catalog)
   if (typeof grant === 'string') return { ok: false, reason: grant }
   return { ok: true, payload: parts.slice(0, 6).join('.'), signature, grant, nonce: '', clientId, channel: channel === 'f' ? 'frame' : 'server' }
 }

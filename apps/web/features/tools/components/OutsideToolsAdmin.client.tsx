@@ -29,6 +29,11 @@
  * permission hands over (`ToolReadmeFirstDialog`; the registration form opens it too), and each row has **Sandbox
  * secret**: after a confirmation, a sandbox secret for the tool sandbox's made-up sample data (30 days, recorded in the
  * tool's Activity), shown once with the sandbox's address.
+ *
+ * Nov 24, 2026 (web patch 590, the requester): a tool's buttons (Change, Activity, the secrets, Remove) moved to one
+ * line of their own under its facts, so a row is no longer as tall as four stacked buttons and "Sandbox secret" no
+ * longer spills out of its button. Each tool is its own `tbody` (`outside-tool`): the facts row (`outside-tool-row`)
+ * and the buttons row (`outside-tool-actions-row`), with the rule under the buttons only.
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -50,6 +55,9 @@ import ToolKitDownload from '@/features/tools/components/ToolKitDownload.client'
  * moves (for example to a GitHub organization).
  */
 const TOOL_SDK_REPOSITORY_URL = 'https://github.com/dwkrueger2/krhomebase-sdk'
+
+/** The list's columns; the row buttons sit on a second row under them (web patch 590). */
+const TOOL_COLUMNS = ['Tool', 'Address', 'Roles', 'Permissions', 'Status', 'Server'] as const
 
 /** A secret to show once. */
 interface SecretToShow {
@@ -93,6 +101,7 @@ const LAYOUT_STYLES = {
   headCell: 'px-[6px] py-[3px]',
   toolCell: 'gap-[6px] flex items-center',
   actions: 'gap-[3px] flex flex-wrap',
+  actionsCell: 'px-[6px] pt-[1px] pb-[3px]',
   overlap: 'mt-[6px] gap-[6px] flex items-center',
   tag: 'ml-[4px] inline-block',
   headActions: 'gap-[6px] flex items-center',
@@ -105,13 +114,15 @@ const STYLES = {
   error: 'm-0 text-[12px] leading-tight text-(color:--kr-theme-danger)',
   table: 'w-full border-collapse text-[12px] leading-tight',
   th: 'text-left text-[10.5px] font-semibold uppercase tracking-[0.045em] text-(color:--kr-theme-text-muted) bg-(--kr-theme-table-heading-light) border-b border-(--kr-theme-line)',
-  td: 'border-b border-(--kr-theme-line) align-middle',
+  td: 'align-top',
+  actionsTd: 'border-b border-(--kr-theme-line)',
+  nowrap: 'whitespace-nowrap',
   toolIcon: 'size-[18px] shrink-0 text-(color:--kr-theme-text)',
   mono: 'font-mono text-[11px]',
   badgeOn: 'px-[5px] rounded-[2px] bg-(--kr-theme-success)/15 text-[11px] text-(color:--kr-theme-success) font-semibold',
   badgeOff: 'px-[5px] rounded-[2px] bg-(--kr-theme-muted-surface) text-[11px] text-(color:--kr-theme-text-muted) font-semibold',
   headButton: 'h-[24px] px-[8px] rounded-[2px] border cursor-pointer text-[12px] font-semibold leading-tight disabled:cursor-wait disabled:opacity-65',
-  button: 'h-[20px] px-[6px] rounded-[2px] border cursor-pointer text-[11px] font-semibold leading-tight disabled:cursor-wait disabled:opacity-65',
+  button: 'h-[20px] px-[6px] rounded-[2px] border cursor-pointer whitespace-nowrap text-[11px] font-semibold leading-tight disabled:cursor-wait disabled:opacity-65',
   plain: 'border-(--kr-theme-line) bg-transparent text-(color:--kr-theme-text)',
   primary: 'border-(--kr-theme-button-primary-background) bg-(--kr-theme-button-primary-background) text-(color:--kr-theme-text-inverse)',
   danger: 'border-(--kr-theme-danger) bg-transparent text-(color:--kr-theme-danger)',
@@ -259,14 +270,15 @@ export default function OutsideToolsAdmin() {
           <table className={STYLES.table}>
             <thead>
               <tr>
-                {['Tool', 'Address', 'Roles', 'Permissions', 'Status', 'Server', ''].map((name) => (
-                  <th key={name || 'actions'} className={`${LAYOUT_STYLES.headCell} ${STYLES.th}`}>{name}</th>
+                {TOOL_COLUMNS.map((name) => (
+                  <th key={name} className={`${LAYOUT_STYLES.headCell} ${STYLES.th}`}>{name}</th>
                 ))}
               </tr>
             </thead>
-            <tbody>
-              {tools.map((tool) => (
-                <tr key={tool.id} data-kr-element="outside-tool-row">
+            {/* One tbody per tool: its facts on the first row, its buttons on the second (web patch 590) */}
+            {tools.map((tool) => (
+              <tbody key={tool.id} data-kr-element="outside-tool">
+                <tr data-kr-element="outside-tool-row">
                   <td className={`${LAYOUT_STYLES.cell} ${STYLES.td}`}>
                     {/* Tool: its menu icon (own SVG, else built-in), label and client id */}
                     <div className={LAYOUT_STYLES.toolCell}>
@@ -286,14 +298,22 @@ export default function OutsideToolsAdmin() {
                     {tool.allowedRoles.join(', ')}
                     {tool.localOnly && <span className={`${LAYOUT_STYLES.tag} ${STYLES.badgeOff}`} title="Shown only under pnpm dev" data-kr-element="tool-tag-local-only">local only</span>}
                     {tool.developersOnly && <span className={`${LAYOUT_STYLES.tag} ${STYLES.badgeOff}`} title="Shown only to people who hold developer_tools read" data-kr-element="tool-tag-developers-only">developers only</span>}
+                    {tool.sandboxOnly && <span className={`${LAYOUT_STYLES.tag} ${STYLES.badgeOff}`} title="Uses the tool sandbox only: KR Homebase treats it as not there (its Sandbox secret still works)" data-kr-element="tool-tag-sandbox-only">sandbox only</span>}
                   </td>
-                  <td className={`${LAYOUT_STYLES.cell} ${STYLES.td}`}>{tool.scopes.length ? tool.scopes.join(', ') : 'none'}</td>
+                  <td className={`${LAYOUT_STYLES.cell} ${STYLES.td}`}>
+                    {/* Each permission stays whole on its line ("tool-registration:read" never breaks at its hyphen) */}
+                    {tool.scopes.length
+                      ? tool.scopes.map((scope, index) => <span key={scope} className={STYLES.nowrap}>{scope}{index < tool.scopes.length - 1 ? ', ' : ''}</span>)
+                      : 'none'}
+                  </td>
                   <td className={`${LAYOUT_STYLES.cell} ${STYLES.td}`}>
                     <span className={tool.status === 'active' ? STYLES.badgeOn : STYLES.badgeOff}>{tool.status}</span>
                   </td>
                   <td className={`${LAYOUT_STYLES.cell} ${STYLES.td}`}>{tool.serverAccessEnabled ? (tool.hasSecret ? 'on' : 'on, no secret') : 'off'}</td>
-                  <td className={`${LAYOUT_STYLES.cell} ${STYLES.td}`}>
-                    {/* Row actions */}
+                </tr>
+                <tr data-kr-element="outside-tool-actions-row">
+                  <td colSpan={TOOL_COLUMNS.length} className={`${LAYOUT_STYLES.actionsCell} ${STYLES.actionsTd}`}>
+                    {/* Row actions: one line under the tool's facts, so the buttons no longer stack and widen the row */}
                     <div className={LAYOUT_STYLES.actions}>
                       <button type="button" className={`${STYLES.button} ${STYLES.plain}`} onClick={() => { setFormError(''); setEditing(tool) }}>Change</button>
                       <button type="button" className={`${STYLES.button} ${STYLES.plain}`} onClick={() => void showAudit(tool)}>Activity</button>
@@ -315,8 +335,8 @@ export default function OutsideToolsAdmin() {
                     </div>
                   </td>
                 </tr>
-              ))}
-            </tbody>
+              </tbody>
+            ))}
           </table>
         )}
       </div>

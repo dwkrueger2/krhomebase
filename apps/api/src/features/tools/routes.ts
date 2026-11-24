@@ -13,6 +13,7 @@
  *   POST   /v1/tools/registrations/{toolId}/sandbox-secret  make a sandbox secret: sample data only (shown once)
  *   GET    /v1/tools/registrations/{toolId}/audit      the most recent calls and changes
  *   POST   /v1/tools/registrations/health-check        read a tool address's health route and icon route (before or after saving)
+ *   GET    /v1/tools/permitted-user-choices            the active accounts a registration may permit, and the default ones
  *
  *  Any signed-in person:
  *   GET    /v1/tools/menu                              active tools this person may use (`toolRefusal`: role, permitted email, local only, developers only)
@@ -27,6 +28,14 @@
  * tool registered at a localhost address, which the deployed app could not load anyway) and `developersOnly` to people
  * who hold `developer_tools` read. Both are applied by `toolRefusal` (rules.ts) to the menu, the health check and every
  * frame call; a hidden tool's health answers 404, as if it did not exist.
+ *
+ * Sandbox only (repository patch 80, migration 080): `sandboxOnly` keeps a tool to the tool sandbox. `toolRefusal`
+ * refuses it to everyone (`tool_sandbox_only`), the token route gives it no access token, and the server gate refuses
+ * any token it still holds. Its sandbox secret keeps working: the sandbox has only made-up data.
+ *
+ * Permitted users (repository patch 80): plain emails. A save checks each against the active KR Homebase accounts in
+ * the database (422 `TOOL_PERMITTED_USER_UNKNOWN`, the unknown emails in `details.emails`); a new registration that
+ * names none gets the active accounts that hold developer_tools read. No address is written in code or the contract.
  *
  * Health: every tool answers `GET <origin>/health-check` with `{ status, version }` (`platform/toolHealth.ts`). The
  * menu does not wait for it; the frame asks when a person opens the tool and shows a notice in place of the tool
@@ -45,6 +54,7 @@ import {
   ToolAuditData,
   ToolContextData,
   ToolPermittedUsersData,
+  ToolPermittedUserChoicesData,
   ToolCreateBody,
   ToolCreatedData,
   ToolDeletedData,
@@ -97,6 +107,7 @@ import {
   secretMatches,
   tokenScopes,
   toolUsableBy,
+  unknownPermittedUsers,
   withSuperAdmin,
   type ToolRecord,
 } from './rules.ts'
@@ -126,12 +137,13 @@ export const createToolRoute = defineRoute({
   feature: 'tools',
   summary: 'Register an outside tool and, when server access is on, make its client secret.',
   access: SUPER_ADMIN,
-  errors: ['TOOL_ENTRY_URL_REFUSED', 'TOOLS_UNAVAILABLE'],
-  sideEffects: ['Calls the icon route of the tool (<origin>/tool-icon.svg)', 'Writes workspace_tool', 'Writes workspace_tool_audit'],
+  errors: ['TOOL_ENTRY_URL_REFUSED', 'TOOL_PERMITTED_USER_UNKNOWN', 'TOOLS_UNAVAILABLE'],
+  sideEffects: ['Calls the icon route of the tool (<origin>/tool-icon.svg)', 'Reads user (the active accounts)', 'Writes workspace_tool', 'Writes workspace_tool_audit'],
   request: { body: { required: true, content: json(ToolCreateBody) } },
   responses: {
     201: { description: 'Registered. The client secret is in this reply only.', content: json(successEnvelope(ToolCreatedData)) },
     400: errorBody('The tool address is not allowed (TOOL_ENTRY_URL_REFUSED); details.reason says why.'),
+    422: errorBody('A permitted user is not an active KR Homebase account (TOOL_PERMITTED_USER_UNKNOWN); details.emails lists them.'),
     503: errorBody('The tools tables cannot be reached (TOOLS_UNAVAILABLE).'),
   },
 })
@@ -156,13 +168,14 @@ export const updateToolRoute = defineRoute({
   method: 'patch',
   path: '/v1/tools/registrations/{toolId}',
   feature: 'tools',
-  summary: 'Change an outside tool: menu text, address, roles, permissions, status or server access.',
+  summary: 'Change an outside tool: menu text, address, roles, permitted users, Shown options, permissions, status or server access.',
   access: SUPER_ADMIN,
-  errors: ['TOOL_NOT_FOUND', 'TOOL_ENTRY_URL_REFUSED', 'TOOLS_UNAVAILABLE'],
+  errors: ['TOOL_NOT_FOUND', 'TOOL_ENTRY_URL_REFUSED', 'TOOL_PERMITTED_USER_UNKNOWN', 'TOOLS_UNAVAILABLE'],
   sideEffects: [
     'Calls the icon route of the tool (<origin>/tool-icon.svg)',
+    'Reads user (the active accounts) when permitted users are sent',
     'Writes workspace_tool',
-    'Deletes workspace_tool_token rows when the tool is turned off, server access is turned off or permissions change',
+    'Deletes workspace_tool_token rows when the tool is turned off, made sandbox only, server access is turned off or permissions change',
     'Writes workspace_tool_audit',
   ],
   request: { params: ToolIdParams, body: { required: true, content: json(ToolUpdateBody) } },
@@ -170,7 +183,26 @@ export const updateToolRoute = defineRoute({
     200: { description: 'The changed tool.', content: json(successEnvelope(ToolRegistrationData)) },
     400: errorBody('The tool address is not allowed (TOOL_ENTRY_URL_REFUSED).'),
     404: errorBody('No such tool (TOOL_NOT_FOUND).'),
+    422: errorBody('A permitted user is not an active KR Homebase account (TOOL_PERMITTED_USER_UNKNOWN); details.emails lists them.'),
     503: errorBody('The tools tables cannot be reached (TOOLS_UNAVAILABLE).'),
+  },
+})
+
+/**
+ * The accounts the registration form offers as permitted users (repository patch 80): every active KR Homebase account,
+ * read from the database, and the ones a new registration gets by default (those holding developer_tools read).
+ */
+export const permittedUserChoicesRoute = defineRoute({
+  method: 'get',
+  path: '/v1/tools/permitted-user-choices',
+  feature: 'tools',
+  summary: "List the active KR Homebase accounts an outside tool's registration may permit, and the default ones for a new tool, for the super admin.",
+  access: SUPER_ADMIN,
+  errors: ['TOOLS_UNAVAILABLE'],
+  sideEffects: ['None'],
+  responses: {
+    200: { description: 'The accounts, by name, and the default emails.', content: json(successEnvelope(ToolPermittedUserChoicesData)) },
+    503: errorBody('The accounts cannot be read (TOOLS_UNAVAILABLE).'),
   },
 })
 
@@ -372,6 +404,7 @@ export function toRegistration(tool: ToolRecord): ToolRegistration {
     permittedUsers: tool.permittedUsers,
     localOnly: tool.localOnly,
     developersOnly: tool.developersOnly,
+    sandboxOnly: tool.sandboxOnly,
     scopes: tool.scopes,
     status: tool.status,
     serverAccessEnabled: tool.serverAccessEnabled,
@@ -404,6 +437,10 @@ async function auditAdmin(c: Context<AppEnv>, queries: ToolQueries, toolId: stri
 }
 
 const unavailable = (c: Context<AppEnv>) => failure(c, 503, 'TOOLS_UNAVAILABLE', 'Outside tools are not available right now.')
+
+/** 422 for permitted users that are not active accounts. Names them: the super admin typed or chose them. */
+const unknownUsers = (c: Context<AppEnv>, emails: string[]) =>
+  failure(c, 422, 'TOOL_PERMITTED_USER_UNKNOWN', `Not an active KR Homebase account: ${emails.join(', ')}.`, { emails })
 
 const toolSdkMissing = (c: Context<AppEnv>) => failure(c, 404, 'TOOL_SDK_NOT_FOUND', 'No tool kit ZIP is stored yet.')
 
@@ -503,6 +540,17 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
     return new Response(stored.archive.body, { status: 200, headers: c.res.headers })
   })
 
+  app.openapi(permittedUserChoicesRoute, async (c) => {
+    const queries = toolQueriesFor(c.env)
+    if (!queries) return unavailable(c)
+    const users = await queries.listPermittedUserChoices()
+    c.header('Cache-Control', 'no-store, private')
+    return c.json(
+      { ok: true as const, data: { users, defaultEmails: users.filter((user) => user.isDeveloper).map((user) => user.email) }, requestId: c.get('requestId') },
+      200,
+    )
+  })
+
   app.openapi(listToolsRoute, async (c) => {
     const queries = toolQueriesFor(c.env)
     if (!queries) return unavailable(c)
@@ -517,6 +565,12 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
     const place = parseToolEntryUrl(body.entryUrl, c.env?.KR_APP_BASE_URL?.trim() || null)
     if (!place.ok) return failure(c, 400, 'TOOL_ENTRY_URL_REFUSED', 'This tool address is not allowed.', { reason: place.reason })
 
+    // Permitted users: each must be an active account; none named means the accounts holding developer_tools read.
+    const accounts = await queries.listPermittedUserChoices()
+    const unknown = body.permittedUsers ? unknownPermittedUsers(body.permittedUsers, accounts.map((account) => account.email)) : []
+    if (unknown.length) return unknownUsers(c, unknown)
+    const permittedUsers = body.permittedUsers ?? accounts.filter((account) => account.isDeveloper).map((account) => account.email)
+
     const now = new Date().toISOString()
     const secret = body.serverAccessEnabled ? newClientSecret() : null
     const tool: ToolRecord = {
@@ -529,9 +583,10 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
       origin: place.origin,
       entryUrl: place.entryUrl,
       allowedRoles: withSuperAdmin(body.allowedRoles),
-      permittedUsers: body.permittedUsers,
+      permittedUsers,
       localOnly: body.localOnly,
       developersOnly: body.developersOnly,
+      sandboxOnly: body.sandboxOnly,
       scopes: [...new Set(body.scopes)],
       status: 'active',
       serverAccessEnabled: body.serverAccessEnabled,
@@ -564,6 +619,10 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
     const body = c.req.valid('json')
     const tool = await queries.findToolById(toolId)
     if (!tool) return failure(c, 404, 'TOOL_NOT_FOUND', 'No such tool.')
+    if (body.permittedUsers) {
+      const unknown = unknownPermittedUsers(body.permittedUsers, (await queries.listPermittedUserChoices()).map((account) => account.email))
+      if (unknown.length) return unknownUsers(c, unknown)
+    }
 
     const changes: ToolChanges = {
       label: body.label,
@@ -573,6 +632,7 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
       permittedUsers: body.permittedUsers,
       localOnly: body.localOnly,
       developersOnly: body.developersOnly,
+      sandboxOnly: body.sandboxOnly,
       scopes: body.scopes ? [...new Set(body.scopes)] : undefined,
       status: body.status,
       serverAccessEnabled: body.serverAccessEnabled,
@@ -591,7 +651,8 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
 
     // Tokens carry the permissions they were issued with, so any narrowing ends them at once.
     const scopesChanged = changes.scopes !== undefined && JSON.stringify([...changes.scopes].sort()) !== JSON.stringify([...tool.scopes].sort())
-    if (body.status === 'disabled' || body.serverAccessEnabled === false || scopesChanged) await queries.deleteTokensForTool(toolId)
+    // A tool made sandbox only loses its tokens too (the server gate would refuse them anyway).
+    if (body.status === 'disabled' || body.serverAccessEnabled === false || body.sandboxOnly === true || scopesChanged) await queries.deleteTokensForTool(toolId)
 
     await auditAdmin(c, queries, toolId, 'UPDATE', 200)
     const updated = (await queries.findToolById(toolId)) ?? tool
@@ -640,10 +701,11 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
     const key = (c.env as { KR_TOOL_SANDBOX_SECRET?: string } | undefined)?.KR_TOOL_SANDBOX_SECRET?.trim()
     if (!key) return failure(c, 503, 'TOOLS_SANDBOX_NOT_CONFIGURED', 'The tool sandbox is not set up yet: its signing secret is missing.')
 
-    // The tool's grant now. A later change to the registration does not change a secret already made.
+    // The tool's grant now. A later change to the registration does not change a secret already made. A sandbox-only
+    // tool gets one too: the sandbox is where it may run. No email goes in the secret, only whether anyone is permitted.
     const expiresAt = Math.floor(Date.now() / 1000) + TOOL_SANDBOX_SECRET_DAYS * 86400
     const secretId = randomBase64Url(6)
-    const sandboxSecret = await signSandboxSecret(key, tool.clientId, { scopes: tool.scopes, emails: tool.permittedUsers, expiresAt }, secretId)
+    const sandboxSecret = await signSandboxSecret(key, tool.clientId, { scopes: tool.scopes, hasUsers: tool.permittedUsers.length > 0, expiresAt }, secretId)
     await auditAdmin(c, queries, toolId, 'SANDBOX_SECRET', 200)
     logLine('TOOLS_SANDBOX:secret', c.get('requestId'), { clientId: tool.clientId, secretId })
     c.header('Cache-Control', 'no-store')
@@ -732,6 +794,9 @@ export function registerTools(app: OpenAPIHono<AppEnv>) {
       return failure(c, 401, 'TOOL_TOKEN_INVALID', 'Unknown client id or wrong client secret.', { reason: 'secret_invalid' })
     }
     if (tool.status !== 'active') return failure(c, 403, 'TOOL_FORBIDDEN', 'This tool is turned off.', { reason: 'tool_disabled' })
+    if (tool.sandboxOnly) {
+      return failure(c, 403, 'TOOL_FORBIDDEN', 'This tool may use the tool sandbox only; use its sandbox secret there.', { reason: 'tool_sandbox_only' })
+    }
     if (!tool.serverAccessEnabled) return failure(c, 403, 'TOOL_FORBIDDEN', 'Server access is turned off for this tool.', { reason: 'server_access_disabled' })
     if (!ipAllowed(tool.serverIpAllowlist, clientIp(c.req.raw.headers))) {
       return failure(c, 403, 'TOOL_FORBIDDEN', 'This address may not ask for tokens for this tool.', { reason: 'ip_not_allowed' })

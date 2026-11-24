@@ -1,6 +1,6 @@
 # KR Homebase Tool Kit: Developer Guide
-<small>Version 2.2</small><br>
-<small>Updated Nov 23, 2026 3:43pm</small>
+<small>Version 2.3</small><br>
+<small>Updated Nov 23, 2026 9:30pm</small>
 
 **Who this is for:** a developer building an outside tool for KR Homebase without access to the KR Homebase code.
 
@@ -153,6 +153,7 @@ export const tool = defineTool({
   roles: ['staff', 'paralegal'],     // optional suggestion (section 5.2)
   localOnly: false,                  // optional request: shown only under a local KR Homebase (section 5.2)
   developersOnly: false,             // optional request: shown only to KR Homebase developers (section 5.2)
+  sandboxOnly: false,                // optional request: the tool sandbox only, never live data (section 5.2; next kit release)
   icon: 'documents',                 // optional built-in fallback (section 5.1); left out: the default tool icon
   serverAccess: false,
 })
@@ -193,7 +194,7 @@ Draw like the KR Homebase menu icons: a 24 by 24 grid, strokes of about 1.8, rou
 
 Every KR Homebase account holds one role: `super_admin`, `attorney`, `paralegal`, `staff`, `billing`, `client` or `external_cpa` (`TOOL_ROLES` in `@krhomebase/tool-sdk/types`). The super admin ticks the roles your tool is for; a person holding **any one** of them sees it in the menu. `super_admin` is always included. `roles` in `defineTool` is your suggestion and is printed on the registration sheet. A frame call still needs the person's own permission for each route, whatever their role.
 
-**Shown options.** Two boxes narrow who sees a tool beyond its roles. **Local development only** shows it only while KR Homebase runs on a developer's computer (`pnpm dev`); use it for a copy at a `localhost` address, because a local KR Homebase and the deployed one share the same tool list. **Developers only** shows it only to people who hold KR Homebase's Internal Developer permission. Ask for them with `localOnly: true` and `developersOnly: true` in `defineTool`; the sheet prints them on its `Shown:` line.
+**Shown options.** Two boxes narrow who sees a tool beyond its roles. **Local development only** shows it only while KR Homebase runs on a developer's computer (`pnpm dev`); use it for a copy at a `localhost` address, because a local KR Homebase and the deployed one share the same tool list. **Developers only** shows it only to people who hold KR Homebase's Internal Developer permission. Ask for them with `localOnly: true` and `developersOnly: true` in `defineTool`; the sheet prints them on its `Shown:` line. A third box, **Sandbox only**, keeps the tool to the tool sandbox (section 9): KR Homebase treats it as not there for everyone (no menu entry, no access token, every call refused with `tool_sandbox_only`), while its sandbox secret keeps working. Ask for it with `sandboxOnly: true` (in the next kit release; KR Homebase offers the box already) while you build and test, especially when you ask for permissions only for your sandbox tests.
 
 ### 5.3 The health route: `/health-check` (required)
 
@@ -219,7 +220,7 @@ A permission is `<area>:read` (look) or `<area>:write` (create, change, delete).
 - A route accepts tools only when KR Homebase opened it to them. **The API reference in the release zip** lists only those routes: `api-reference/API-REFERENCE.md` (to read: each route, the permission it needs, its parameters and its body) and `api-reference/openapi-tools.json` (the same routes as an OpenAPI 3.1 file, for a type generator). Each route's description ends with a line `Outside tools: ...` naming the permission it needs.
 - **Routes open to tools today:** `GET /v1/tools/context` (any tool), `GET /v1/tools/permitted-users` (`tool-registration:read`, server path only, and only this registration's list), the Homebase Feedback routes, and the approved contacts, client/matters, leads, tasks, WorkStream, billing and timekeeping routes, every one listed in `api-reference/API-REFERENCE.md` in the release zip. Frame calls retain the person's authorization checks. Server calls have no person and use the route's granted scope; time-card calls name an employee, while server clock-state returns no person's clock.
 - **Check your grant yourself:** `GET /v1/tools/context` answers the permissions your call may use (`tool.scopes`), on both paths and in the sandbox, so you need not ask the super admin.
-- A frame call also needs the person to be allowed: KR Homebase applies both your permissions and the person's role and login email. The super admin chooses permitted emails from a fixed firm list; an empty list denies everyone.
+- A frame call also needs the person to be allowed: KR Homebase applies both your permissions and the person's role and login email. The super admin chooses permitted emails from the firm's KR Homebase accounts; an empty list denies everyone.
 
 ## 7. Your server (path B)
 
@@ -260,7 +261,7 @@ When your server needs the emails currently permitted for its registration, gran
 | `VALIDATION_FAILED` | The body did not match what the route expects. | `details` lists the fields. |
 | `BRIDGE_TIMEOUT`, `BRIDGE_CLOSED`, `BAD_PATH` | Made by the kit: no answer, disconnected, or a path outside `/v1/`. | Check the path; reload the tool. |
 
-`details.reason` for `TOOL_FORBIDDEN`: `tool_unknown`, `tool_disabled`, `role_not_allowed` (the person's role may not use the tool), `user_not_allowed` (the person's email is not on the registration, or the list is empty), `developers_only` (the tool is shown only to Internal Developers), `tool_local_only` (registered as Local development only: it works only in a KR Homebase run with `pnpm dev`), `route_not_open_to_tools`, `scope_not_granted` (`details.needs` names the permission), `tool_channel_not_allowed` (the route works on the other path only: write routes only in the frame, `GET /v1/tools/permitted-users` only from a server; `details.availableChannels` names it), `server_access_disabled`, `ip_not_allowed`.
+`details.reason` for `TOOL_FORBIDDEN`: `tool_unknown`, `tool_disabled`, `role_not_allowed` (the person's role may not use the tool), `user_not_allowed` (the person's email is not on the registration, or the list is empty), `developers_only` (the tool is shown only to Internal Developers), `tool_sandbox_only` (registered as Sandbox only: use the tool sandbox), `tool_local_only` (registered as Local development only: it works only in a KR Homebase run with `pnpm dev`), `route_not_open_to_tools`, `scope_not_granted` (`details.needs` names the permission), `tool_channel_not_allowed` (the route works on the other path only: write routes only in the frame, `GET /v1/tools/permitted-users` only from a server; `details.availableChannels` names it), `server_access_disabled`, `ip_not_allowed`.
 
 `details.reason` for `TOOL_TOKEN_INVALID`: `token_missing`, `token_invalid`, `token_expired`, `secret_invalid`; in the sandbox also `secret_expired` and `sandbox_secret_outdated` (ask the super admin for a new sandbox secret).
 
@@ -279,7 +280,7 @@ You need the tool's client id and a **sandbox secret** from the super admin (sec
 3. Open the sandbox address in your browser. Type your page's address, the client id and the sandbox secret, choose the display mode (`workspace`, `popout`, `widget`) and the theme (light, dark), and press **Open tool**.
 4. The sandbox frames your page with KR Homebase's own frame settings, answers `krh:hello` with `krh:init` and each `krh:request` from the sample data, and lists every message beside the frame. `/v1/tools/context` names a sample person; their permissions are your tool's.
 
-**A server (path B):** set `baseUrl` to the sandbox address and `clientSecret` to the sandbox secret in `createServerClient`; nothing else changes. `kr.getPermittedUsers()` answers the permitted users your tool had when the sandbox secret was made.
+**A server (path B):** set `baseUrl` to the sandbox address and `clientSecret` to the sandbox secret in `createServerClient`; nothing else changes. `kr.getPermittedUsers()` answers the sandbox's own made-up staff (`example.com` addresses) when your tool permitted anyone when the sandbox secret was made, and an empty list when it permitted nobody. No real email is in a sandbox secret.
 
 **What the sandbox shows that KR Homebase also does:** a permission your tool lacks is refused with `scope_not_granted`; a write from a server with `tool_channel_not_allowed`; an empty permitted-user list keeps the frame closed (`user_not_allowed`); a bad body with `VALIDATION_FAILED`. **What it does not show:** a person's own limits (the sample person may do everything your permissions allow), real dates moving on (the sample firm's "today" is fixed), and the rate limit.
 

@@ -1624,6 +1624,253 @@
         }
       }
     },
+    "/v1/tools/permitted-user-choices": {
+      "get": {
+        "summary": "List the active KR Homebase accounts an outside tool's registration may permit, and the default ones for a new tool, for the super admin.",
+        "description": "Roles: super_admin.\n\nSide effects: None.\n\nOutside tools: not allowed.\n\nError codes: UNAUTHENTICATED, FORBIDDEN, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
+        "tags": [
+          "tools"
+        ],
+        "responses": {
+          "200": {
+            "description": "The accounts, by name, and the default emails.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "users": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "email": {
+                                "type": "string",
+                                "description": "The account's sign-in email, in lowercase."
+                              },
+                              "name": {
+                                "type": "string",
+                                "description": "The person's name, or the email when the account has no person record."
+                              },
+                              "isDeveloper": {
+                                "type": "boolean",
+                                "description": "True when the account holds developer_tools read now (Internal Developer or Super Admin role set)."
+                              }
+                            },
+                            "required": [
+                              "email",
+                              "name",
+                              "isDeveloper"
+                            ]
+                          },
+                          "description": "Every active KR Homebase account, by name."
+                        },
+                        "defaultEmails": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "The permitted users a new registration gets when none are chosen: the active accounts that hold developer_tools read."
+                        }
+                      },
+                      "required": [
+                        "users",
+                        "defaultEmails"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (INTERNAL_ERROR).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The accounts cannot be read (TOOLS_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "error",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/tools/registrations": {
       "get": {
         "summary": "List every registered outside tool, for the super admin.",
@@ -1719,13 +1966,11 @@
                                 "type": "array",
                                 "items": {
                                   "type": "string",
-                                  "enum": [
-                                    "dankrueger@legaldrive.net",
-                                    "marcusrichard@legaldrive.net",
-                                    "davismcclellan@legaldrive.net"
-                                  ]
+                                  "maxLength": 254,
+                                  "format": "email",
+                                  "description": "A sign-in email of a KR Homebase account, in lowercase."
                                 },
-                                "maxItems": 3,
+                                "maxItems": 50,
                                 "description": "Exact sign-in emails allowed to see and use this tool."
                               },
                               "localOnly": {
@@ -1735,6 +1980,10 @@
                               "developersOnly": {
                                 "type": "boolean",
                                 "description": "True: shown and usable only by people who hold developer_tools read (the Internal Developer role set; Super Admin holds every permission), whatever their role."
+                              },
+                              "sandboxOnly": {
+                                "type": "boolean",
+                                "description": "True: the tool may use the tool sandbox only. KR Homebase treats it as not there: no menu entry, no access token, and every call refused (tool_sandbox_only). Its sandbox secret still works."
                               },
                               "scopes": {
                                 "type": "array",
@@ -1826,6 +2075,7 @@
                               "permittedUsers",
                               "localOnly",
                               "developersOnly",
+                              "sandboxOnly",
                               "scopes",
                               "status",
                               "serverAccessEnabled",
@@ -2029,7 +2279,7 @@
       },
       "post": {
         "summary": "Register an outside tool and, when server access is on, make its client secret.",
-        "description": "Roles: super_admin.\n\nSide effects: Calls the icon route of the tool (<origin>/tool-icon.svg); Writes workspace_tool; Writes workspace_tool_audit.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TOOL_ENTRY_URL_REFUSED, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
+        "description": "Roles: super_admin.\n\nSide effects: Calls the icon route of the tool (<origin>/tool-icon.svg); Reads user (the active accounts); Writes workspace_tool; Writes workspace_tool_audit.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TOOL_ENTRY_URL_REFUSED, TOOL_PERMITTED_USER_UNKNOWN, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "tools"
         ],
@@ -2108,19 +2358,12 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "enum": [
-                        "dankrueger@legaldrive.net",
-                        "marcusrichard@legaldrive.net",
-                        "davismcclellan@legaldrive.net"
-                      ]
+                      "maxLength": 254,
+                      "format": "email",
+                      "description": "A sign-in email of a KR Homebase account, in lowercase."
                     },
-                    "maxItems": 3,
-                    "default": [
-                      "dankrueger@legaldrive.net",
-                      "marcusrichard@legaldrive.net",
-                      "davismcclellan@legaldrive.net"
-                    ],
-                    "description": "The exact user emails allowed to open this registered tool and make frame calls."
+                    "maxItems": 50,
+                    "description": "The exact sign-in emails allowed to use the tool, each an active KR Homebase account. Left out: the active accounts that hold developer_tools read. Empty: nobody."
                   },
                   "localOnly": {
                     "type": "boolean",
@@ -2131,6 +2374,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "True: shown and usable only by people who hold developer_tools read (the Internal Developer role set; Super Admin holds every permission), whatever their role."
+                  },
+                  "sandboxOnly": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "True: the tool may use the tool sandbox only. KR Homebase treats it as not there: no menu entry, no access token, and every call refused (tool_sandbox_only). Its sandbox secret still works."
                   },
                   "scopes": {
                     "type": "array",
@@ -2278,13 +2526,11 @@
                               "type": "array",
                               "items": {
                                 "type": "string",
-                                "enum": [
-                                  "dankrueger@legaldrive.net",
-                                  "marcusrichard@legaldrive.net",
-                                  "davismcclellan@legaldrive.net"
-                                ]
+                                "maxLength": 254,
+                                "format": "email",
+                                "description": "A sign-in email of a KR Homebase account, in lowercase."
                               },
-                              "maxItems": 3,
+                              "maxItems": 50,
                               "description": "Exact sign-in emails allowed to see and use this tool."
                             },
                             "localOnly": {
@@ -2294,6 +2540,10 @@
                             "developersOnly": {
                               "type": "boolean",
                               "description": "True: shown and usable only by people who hold developer_tools read (the Internal Developer role set; Super Admin holds every permission), whatever their role."
+                            },
+                            "sandboxOnly": {
+                              "type": "boolean",
+                              "description": "True: the tool may use the tool sandbox only. KR Homebase treats it as not there: no menu entry, no access token, and every call refused (tool_sandbox_only). Its sandbox secret still works."
                             },
                             "scopes": {
                               "type": "array",
@@ -2385,6 +2635,7 @@
                             "permittedUsers",
                             "localOnly",
                             "developersOnly",
+                            "sandboxOnly",
                             "scopes",
                             "status",
                             "serverAccessEnabled",
@@ -2550,7 +2801,7 @@
             }
           },
           "422": {
-            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "description": "A permitted user is not an active KR Homebase account (TOOL_PERMITTED_USER_UNKNOWN); details.emails lists them.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2785,13 +3036,11 @@
                               "type": "array",
                               "items": {
                                 "type": "string",
-                                "enum": [
-                                  "dankrueger@legaldrive.net",
-                                  "marcusrichard@legaldrive.net",
-                                  "davismcclellan@legaldrive.net"
-                                ]
+                                "maxLength": 254,
+                                "format": "email",
+                                "description": "A sign-in email of a KR Homebase account, in lowercase."
                               },
-                              "maxItems": 3,
+                              "maxItems": 50,
                               "description": "Exact sign-in emails allowed to see and use this tool."
                             },
                             "localOnly": {
@@ -2801,6 +3050,10 @@
                             "developersOnly": {
                               "type": "boolean",
                               "description": "True: shown and usable only by people who hold developer_tools read (the Internal Developer role set; Super Admin holds every permission), whatever their role."
+                            },
+                            "sandboxOnly": {
+                              "type": "boolean",
+                              "description": "True: the tool may use the tool sandbox only. KR Homebase treats it as not there: no menu entry, no access token, and every call refused (tool_sandbox_only). Its sandbox secret still works."
                             },
                             "scopes": {
                               "type": "array",
@@ -2892,6 +3145,7 @@
                             "permittedUsers",
                             "localOnly",
                             "developersOnly",
+                            "sandboxOnly",
                             "scopes",
                             "status",
                             "serverAccessEnabled",
@@ -3177,8 +3431,8 @@
         }
       },
       "patch": {
-        "summary": "Change an outside tool: menu text, address, roles, permissions, status or server access.",
-        "description": "Roles: super_admin.\n\nSide effects: Calls the icon route of the tool (<origin>/tool-icon.svg); Writes workspace_tool; Deletes workspace_tool_token rows when the tool is turned off, server access is turned off or permissions change; Writes workspace_tool_audit.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TOOL_NOT_FOUND, TOOL_ENTRY_URL_REFUSED, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
+        "summary": "Change an outside tool: menu text, address, roles, permitted users, Shown options, permissions, status or server access.",
+        "description": "Roles: super_admin.\n\nSide effects: Calls the icon route of the tool (<origin>/tool-icon.svg); Reads user (the active accounts) when permitted users are sent; Writes workspace_tool; Deletes workspace_tool_token rows when the tool is turned off, made sandbox only, server access is turned off or permissions change; Writes workspace_tool_audit.\n\nOutside tools: not allowed.\n\nError codes: VALIDATION_FAILED, UNAUTHENTICATED, FORBIDDEN, TOOL_NOT_FOUND, TOOL_ENTRY_URL_REFUSED, TOOL_PERMITTED_USER_UNKNOWN, TOOLS_UNAVAILABLE, INTERNAL_ERROR.",
         "tags": [
           "tools"
         ],
@@ -3268,14 +3522,12 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "enum": [
-                        "dankrueger@legaldrive.net",
-                        "marcusrichard@legaldrive.net",
-                        "davismcclellan@legaldrive.net"
-                      ]
+                      "maxLength": 254,
+                      "format": "email",
+                      "description": "A sign-in email of a KR Homebase account, in lowercase."
                     },
-                    "maxItems": 3,
-                    "description": "The exact user emails allowed to open this registered tool and make frame calls."
+                    "maxItems": 50,
+                    "description": "The exact sign-in emails allowed to open this registered tool and make frame calls. Each must be an active KR Homebase account."
                   },
                   "localOnly": {
                     "type": "boolean",
@@ -3284,6 +3536,10 @@
                   "developersOnly": {
                     "type": "boolean",
                     "description": "True: shown and usable only by people who hold developer_tools read (the Internal Developer role set; Super Admin holds every permission), whatever their role."
+                  },
+                  "sandboxOnly": {
+                    "type": "boolean",
+                    "description": "True: the tool may use the tool sandbox only. KR Homebase treats it as not there: no menu entry, no access token, and every call refused (tool_sandbox_only). Its sandbox secret still works."
                   },
                   "scopes": {
                     "type": "array",
@@ -3431,13 +3687,11 @@
                               "type": "array",
                               "items": {
                                 "type": "string",
-                                "enum": [
-                                  "dankrueger@legaldrive.net",
-                                  "marcusrichard@legaldrive.net",
-                                  "davismcclellan@legaldrive.net"
-                                ]
+                                "maxLength": 254,
+                                "format": "email",
+                                "description": "A sign-in email of a KR Homebase account, in lowercase."
                               },
-                              "maxItems": 3,
+                              "maxItems": 50,
                               "description": "Exact sign-in emails allowed to see and use this tool."
                             },
                             "localOnly": {
@@ -3447,6 +3701,10 @@
                             "developersOnly": {
                               "type": "boolean",
                               "description": "True: shown and usable only by people who hold developer_tools read (the Internal Developer role set; Super Admin holds every permission), whatever their role."
+                            },
+                            "sandboxOnly": {
+                              "type": "boolean",
+                              "description": "True: the tool may use the tool sandbox only. KR Homebase treats it as not there: no menu entry, no access token, and every call refused (tool_sandbox_only). Its sandbox secret still works."
                             },
                             "scopes": {
                               "type": "array",
@@ -3538,6 +3796,7 @@
                             "permittedUsers",
                             "localOnly",
                             "developersOnly",
+                            "sandboxOnly",
                             "scopes",
                             "status",
                             "serverAccessEnabled",
@@ -3737,7 +3996,7 @@
             }
           },
           "422": {
-            "description": "The request did not match the contract (VALIDATION_FAILED).",
+            "description": "A permitted user is not an active KR Homebase account (TOOL_PERMITTED_USER_UNKNOWN); details.emails lists them.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6962,13 +7221,11 @@
                           "type": "array",
                           "items": {
                             "type": "string",
-                            "enum": [
-                              "dankrueger@legaldrive.net",
-                              "marcusrichard@legaldrive.net",
-                              "davismcclellan@legaldrive.net"
-                            ]
+                            "maxLength": 254,
+                            "format": "email",
+                            "description": "A sign-in email of a KR Homebase account, in lowercase."
                           },
-                          "maxItems": 3,
+                          "maxItems": 50,
                           "description": "Exact email addresses currently permitted to use this tool; an empty list denies all users."
                         }
                       },

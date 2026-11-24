@@ -12,10 +12,13 @@
  * which the requester applies. Columns are snake_case; this file maps them to the camelCase records the
  * rules and routes use. JSON columns that do not parse are read as empty lists, so a bad row hides a tool
  * rather than crashing the menu.
+ *
+ * It also reads the active KR Homebase accounts (`user`, with `individual` for the name) for the permitted-user
+ * check and the registration form's choices (`listPermittedUserChoices`, repository patch 80): read only, no write.
  */
 
-import type { ToolAuditEntry, ToolPermittedUserEmail, ToolScope } from '@krhomebase/contracts'
-import { ToolPermittedUserEmails, ToolScopes } from '@krhomebase/contracts'
+import type { ToolAuditEntry, ToolPermittedUserChoice, ToolScope } from '@krhomebase/contracts'
+import { ToolScopes } from '@krhomebase/contracts'
 import type { ToolRecord } from './rules.ts'
 
 /** A row of `workspace_tool`, as D1 returns it. */
@@ -34,6 +37,8 @@ interface ToolRow {
   local_only?: number | null
   /** Migration 058; missing on a database before it, read as 0. */
   developers_only?: number | null
+  /** Migration 080; missing on a database before it, read as 0. */
+  sandbox_only?: number | null
   scopes: string
   status: string
   server_access_enabled: number
@@ -55,9 +60,10 @@ export interface ToolChanges {
   origin?: string
   entryUrl?: string
   allowedRoles?: string[]
-  permittedUsers?: ToolPermittedUserEmail[]
+  permittedUsers?: string[]
   localOnly?: boolean
   developersOnly?: boolean
+  sandboxOnly?: boolean
   scopes?: ToolScope[]
   status?: 'active' | 'disabled'
   serverAccessEnabled?: boolean
@@ -86,6 +92,8 @@ export interface ToolQueries {
   deleteExpiredTokens(now: string): Promise<void>
   insertAudit(entry: ToolAuditEntry & { toolId: string }): Promise<void>
   listAudit(toolId: string, limit: number): Promise<ToolAuditEntry[]>
+  /** The active KR Homebase accounts (`user.is_active = 1`, `account_status = 'active'`), by name. */
+  listPermittedUserChoices(): Promise<ToolPermittedUserChoice[]>
 }
 
 /**
@@ -124,12 +132,40 @@ function scopeList(text: string | null | undefined): ToolScope[] {
   return stringList(text).filter((item): item is ToolScope => (ToolScopes as readonly string[]).includes(item))
 }
 
-/** Reads only fixed user emails; legacy rows without the migration default to all choices, malformed values deny everyone. */
-function permittedUserList(text: string | null | undefined): ToolPermittedUserEmail[] {
-  if (text == null) return [...ToolPermittedUserEmails]
-  const emails = stringList(text).map((email) => email.trim().toLowerCase())
-    .filter((email): email is ToolPermittedUserEmail => (ToolPermittedUserEmails as readonly string[]).includes(email))
+/**
+ * Reads the permitted emails, lowercase and without repeats. A missing or malformed value denies everyone (migration 073
+ * filled every row, so a missing value is not expected); the API checked each email against the accounts when it was saved.
+ */
+function permittedUserList(text: string | null | undefined): string[] {
+  const emails = stringList(text).map((email) => email.trim().toLowerCase()).filter((email) => email.includes('@'))
   return [...new Set(emails)]
+}
+
+/**
+ * 1 when the account holds, now, a role set that grants `developer_tools` read (the built-in Internal Developer) or the
+ * built-in Super Admin, else 0. The same rule as the Homebase Feedback list's `DEVELOPER_SENDER`; overrides are not
+ * counted: it only chooses the default permitted users and marks the choices.
+ */
+const ACCOUNT_IS_DEVELOPER = `CASE WHEN u.role = 'super_admin' OR EXISTS (
+         SELECT 1 FROM user_role_set urs
+          WHERE urs.user_id = u.id AND urs.is_active = 1
+            AND (urs.role_set_id = 'role_super_admin' OR EXISTS (
+                  SELECT 1 FROM role_set_permission rsp
+                   WHERE rsp.role_set_id = urs.role_set_id AND rsp.permission_key = 'developer_tools' AND rsp.can_read = 1))) THEN 1 ELSE 0 END`
+
+/** A row of the permitted-user choices query. */
+interface AccountRow {
+  email: string
+  preferred_name: string | null
+  first_name: string | null
+  last_name: string | null
+  is_developer: number
+}
+
+/** The account's display name: preferred or first name and last name, else its email. */
+function accountName(row: AccountRow): string {
+  const name = [row.preferred_name?.trim() || row.first_name?.trim(), row.last_name?.trim()].filter(Boolean).join(' ')
+  return name || row.email
 }
 
 /** Maps a `workspace_tool` row to the record the rules use. */
@@ -148,6 +184,8 @@ function toRecord(row: ToolRow): ToolRecord {
     // Before migration 058 the columns are missing: every tool reads as shown everywhere, as it was.
     localOnly: Number(row.local_only ?? 0) === 1,
     developersOnly: Number(row.developers_only ?? 0) === 1,
+    // Before migration 080 the column is missing: every tool reads as reaching KR Homebase, as it was.
+    sandboxOnly: Number(row.sandbox_only ?? 0) === 1,
     scopes: scopeList(row.scopes),
     status: row.status === 'active' ? 'active' : 'disabled',
     serverAccessEnabled: Number(row.server_access_enabled) === 1,
@@ -173,6 +211,7 @@ const CHANGE_COLUMNS: { [K in keyof ToolChanges]-?: [column: string, store: (val
   permittedUsers: ['permitted_users', (v) => JSON.stringify(v)],
   localOnly: ['local_only', (v) => (v ? 1 : 0)],
   developersOnly: ['developers_only', (v) => (v ? 1 : 0)],
+  sandboxOnly: ['sandbox_only', (v) => (v ? 1 : 0)],
   scopes: ['scopes', (v) => JSON.stringify(v)],
   status: ['status', (v) => v],
   serverAccessEnabled: ['server_access_enabled', (v) => (v ? 1 : 0)],
@@ -206,9 +245,9 @@ export function createToolQueries(db: D1Database): ToolQueries {
       await db
         .prepare(
           `INSERT INTO workspace_tool (id, client_id, label, description, icon, menu_order, origin, entry_url, allowed_roles, permitted_users, local_only,
-             developers_only, scopes, status, server_access_enabled, server_ip_allowlist, secret_hash, secret_created_at, previous_secret_hash,
+             developers_only, sandbox_only, scopes, status, server_access_enabled, server_ip_allowlist, secret_hash, secret_created_at, previous_secret_hash,
              previous_secret_valid_until, created_at, created_by_user_id, updated_at, updated_by_user_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           tool.id,
@@ -223,6 +262,7 @@ export function createToolQueries(db: D1Database): ToolQueries {
           JSON.stringify(tool.permittedUsers),
           tool.localOnly ? 1 : 0,
           tool.developersOnly ? 1 : 0,
+          tool.sandboxOnly ? 1 : 0,
           JSON.stringify(tool.scopes),
           tool.status,
           tool.serverAccessEnabled ? 1 : 0,
@@ -318,6 +358,20 @@ export function createToolQueries(db: D1Database): ToolQueries {
         requestId: row.request_id,
         createdAt: row.created_at,
       }))
+    },
+
+    async listPermittedUserChoices() {
+      const { results } = await db
+        .prepare(
+          `SELECT LOWER(TRIM(u.email)) AS email, i.preferred_name, i.first_name, i.last_name, ${ACCOUNT_IS_DEVELOPER} AS is_developer
+             FROM user u
+             LEFT JOIN individual i ON i.id = u.individual_id
+            WHERE u.is_active = 1 AND u.account_status = 'active'`,
+        )
+        .all<AccountRow>()
+      return results
+        .map((row) => ({ email: row.email, name: accountName(row), isDeveloper: Number(row.is_developer) === 1 }))
+        .sort((a, b) => a.name.localeCompare(b.name) || a.email.localeCompare(b.email))
     },
   }
   // Every method goes through `guarded`, so a missing table is reported the same way everywhere.

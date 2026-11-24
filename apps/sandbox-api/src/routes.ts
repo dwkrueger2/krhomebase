@@ -97,6 +97,7 @@ import {
   SAMPLE_FRAME_PERSON,
   SAMPLE_NOW,
   SAMPLE_TODAY,
+  SAMPLE_PERMITTED_EMAILS,
   STAFF,
   TASKS,
   TASK_NOTES,
@@ -238,7 +239,8 @@ export const SANDBOX_ROUTES: readonly SandboxRoute[] = [
   },
   {
     method: 'GET', path: '/v1/tools/permitted-users', access: 'tool-registration:read', channels: ['server'], sample: { path: '/v1/tools/permitted-users' },
-    answer: (call) => ok({ emails: call.grant.emails } satisfies ToolPermittedUsersData),
+    // The secret says only whether anyone is permitted; the sandbox answers its own made-up staff (never real emails).
+    answer: (call) => ok({ emails: call.grant.hasUsers ? [...SAMPLE_PERMITTED_EMAILS] : [] } satisfies ToolPermittedUsersData),
   },
 
   // Contacts and client accounts

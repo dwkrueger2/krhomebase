@@ -1,7 +1,7 @@
 # Tool Kit Agent Guide
 
-<small>Version 1.3</small><br>
-<small>Updated Nov 21, 2026 12:21pm</small>
+<small>Version 1.4</small><br>
+<small>Updated Nov 23, 2026 4:15pm</small>
 
 ## Purpose
 
@@ -31,7 +31,7 @@ The kit is the fourth version track (the requester's decision; `AGENTS_01`, "Too
 
 ## Releasing the kit to developers
 
-Developers get the kit from the private GitHub repository `dwkrueger2/krhomebase-sdk` (the requester, Nov 20, 2026). Its local clone is `D:\Repos\krhomebase-sdk`, the one folder outside this checkout that a session here may write to, and only through the release script (root `AGENTS.md`, hard rule 1). The clone holds only the published kit, never KR Homebase source.
+Developers get the kit from the private GitHub repository `dwkrueger2/krhomebase-sdk` (the requester, Nov 20, 2026). Its local clone is `D:\Repos\krhomebase-sdk`, the one folder outside this checkout that a session here may write to, and only through the release script (root `AGENTS.md`, hard rule 1). The clone holds the published kit and the Hello KRH sample (`hello-krhomebase/`, developed in a session started in the clone, the requester, Nov 23, 2026), never KR Homebase source or internal documents. The front page lists Hello KRH through `release/REPOSITORY-README.md`.
 
 ```powershell
 $Repo = "D:\Repos\krhomebase"
