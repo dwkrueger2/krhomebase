@@ -35,6 +35,7 @@ import { PreferencesApiError } from '@/features/preferences/api.client'
 import ThemePreferencesCard from '@/features/preferences/components/ThemePreferencesCard.client'
 import TaskPreferencesCard from './TaskPreferencesCard.client'
 import WorkstreamPreferencesCard from './WorkstreamPreferencesCard.client'
+import WorkstreamTagPreferencesCard from './WorkstreamTagPreferencesCard.client'
 import { usePreferences } from '@/features/preferences/PreferencesProvider.client'
 
 /** Words for each auto logout choice (the old card's labels). */
@@ -220,6 +221,9 @@ export default function PreferencesPage() {
 
     {/* WorkStream view: the activity types WorkStream opens on (Nov 13, 2026) */}
     <WorkstreamPreferencesCard />
+
+    {/* WorkStream tags: the symbols that start a tag in the editor (FB-0027, web patch 590) */}
+    <WorkstreamTagPreferencesCard />
 
     {/* Task Settings: assign new tasks to the creator by default (plan 10, stage 5, D20) */}
     <TaskPreferencesCard />

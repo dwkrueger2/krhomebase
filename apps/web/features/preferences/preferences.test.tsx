@@ -19,7 +19,7 @@ import PreferencesPage from '@/features/preferences/components/PreferencesPage.c
 import { PreferencesProvider } from '@/features/preferences/PreferencesProvider.client'
 import { AUTH_ERROR_MESSAGES, AUTH_NOTICE_CODES } from '@/features/auth/authErrors'
 
-const SAVED: UserPreferencesData = { preferences: { theme: 'dark', autoLogoutMinutes: 15, startingSection: 'timekeeping', dashboardWidgets: {}, teamStatusRoster: [], personalTheme: { themeId: 'firm-default', density: 'compact', light: {}, dark: {} }, workstreamTypes: [], assignCreatorByDefault: true }, updatedAt: '2026-11-11T20:00:00.000Z' }
+const SAVED: UserPreferencesData = { preferences: { theme: 'dark', autoLogoutMinutes: 15, startingSection: 'timekeeping', dashboardWidgets: {}, teamStatusRoster: [], personalTheme: { themeId: 'firm-default', density: 'compact', light: {}, dark: {} }, workstreamTypes: [], workstreamTagPrefixes: { client: '@@', entity: '##', person: '!!', matter: '$$' }, assignCreatorByDefault: true }, updatedAt: '2026-11-11T20:00:00.000Z' }
 const USER = { displayName: 'Test Person', firmName: 'Test Firm', avatarInitials: 'TP' }
 const PANELS = Object.fromEntries(SHELL_NAV_ITEMS.map((item) => [item.id, <p key={item.id}>panel-{item.id}</p>])) as Record<ShellSectionId, ReactNode>
 

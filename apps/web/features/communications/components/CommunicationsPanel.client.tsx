@@ -2,11 +2,11 @@
 // file: apps/web/features/communications/components/CommunicationsPanel.client.tsx
 /**
  * The Communications section (menu id `communications`): the WorkStream firm feed, or one client's or lead's entries,
- * with the activity filters, the composer and the attribution panel. It replaces the "Module [TBD]" placeholder.
+ * with the activity filters and the composer. It replaces the "Module [TBD]" placeholder.
  *
  * Ported from the old `hb-components/KR-Communications/CommunicationsPanel.client.tsx` (plan 10, stage 2). Unchanged:
  * the dark chat look on the `--kr-theme-communication-*` tokens, the sticky filter row, Collapsed view, the thread
- * beside a 300px attribution panel on desktop, the composer's activity types (Phone Call by default), slash commands
+ * beside a 300px attribution panel on desktop (removed in web patch 590), the composer's activity types (Phone Call by default), slash commands
  * and natural-language cues, one draft saved once for each chosen type, the subject taken from `/sub:` or the first
  * line (160 characters at most), stored HTML kept only when no slash command had to be removed, the firm feed when no
  * owner is chosen, a chosen client becoming the list's owner, and the status line's sentences.
@@ -30,6 +30,8 @@
  * - Nov 23, 2026 (FB-0026, web patch 588): the unsent entry is kept as a draft in this browser for this place (the
  *   feed, the client or the lead) and restored when the panel opens again (`useWorkstreamDraft`); a sent entry removes
  *   it, and Discard asks first.
+ * - Nov 24, 2026 (web patch 590, the requester): the attribution panel beside the thread ("Awaiting selection", "Coming
+ *   soon") is removed; it served no purpose. The composer and the thread take the whole width.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -47,7 +49,6 @@ import { useWorkstreamDraft } from '../useWorkstreamDraft.client'
 import { draftPlaceId, type WorkstreamDraft } from '../workstreamDrafts.client'
 import { writerPhotosOf } from '../writerPhotos'
 import CommunicationActivityFilters from './CommunicationActivityFilters.client'
-import CommunicationAttributionPanel from './CommunicationAttributionPanel.client'
 import CommunicationComposer from './CommunicationComposer.client'
 import CommunicationThread from './CommunicationThread.client'
 import WorkstreamReassignDialog from './WorkstreamReassignDialog.client'
@@ -66,12 +67,11 @@ interface CommunicationsPanelProps {
 
 const NO_CONTACTS: readonly KRContactRecord[] = []
 
-/** Structural layout: the scrolling section, the two columns, and the left column's stack. */
+/** Structural layout: the scrolling section, the one column (the attribution panel was removed in web patch 590), and its stack. */
 const LAYOUT_STYLES = {
   panel: 'flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden overflow-y-auto',
-  columns: 'p-[6px] gap-[6px] grid min-w-0 flex-1 items-start lg:grid-cols-[minmax(0,1fr)_300px]',
+  columns: 'p-[6px] gap-[6px] grid min-w-0 flex-1 items-start',
   main: 'gap-[6px] flex min-w-0 flex-col',
-  aside: 'min-w-0',
 } as const
 
 /** The dark chat surface and its text color. */
@@ -165,7 +165,6 @@ export default function CommunicationsPanel({ context, viewer }: CommunicationsP
     subgroups: threadFilterTypes,
     currentUser,
   })
-  const selectedMessage = feed.entries.find((message) => message.wsid === selectedWsid) ?? null
 
   // Labels: the context's own, else the client's number from the contact list.
   const fixedClientContact = contactForClient(contacts, context?.clientId)
@@ -204,7 +203,7 @@ export default function CommunicationsPanel({ context, viewer }: CommunicationsP
     return () => { cancelled = true }
   }, [ownerClientId])
 
-  // A new list selects its newest entry for the attribution panel, and the status line returns to the load summary.
+  // A new list selects its newest entry, and the status line returns to the load summary.
   useEffect(() => {
     setSelectedWsid(feed.entries[0]?.wsid ?? null)
     setStatusOverride(null)
@@ -305,6 +304,7 @@ export default function CommunicationsPanel({ context, viewer }: CommunicationsP
             onActivityTypesChange={setComposerActivityTypes}
             onClientStateChange={handleComposerClientStateChange}
             onContextContactSelected={handleComposerContextSelected}
+            tagClientId={ownerClientId}
             onDraftChange={workstreamDraft.onDraftChange}
             onMatterChange={setComposerMatter}
             onSubmit={handleDraftSubmit}
@@ -327,8 +327,6 @@ export default function CommunicationsPanel({ context, viewer }: CommunicationsP
             selectedWsid={selectedWsid}
           />
         </div>
-        {/* Attribution context: a selected persisted WorkStream activity can hydrate this panel later. */}
-        <div className={LAYOUT_STYLES.aside}><CommunicationAttributionPanel message={selectedMessage} /></div>
       </div>
       {/* Reassign (D16): moves an entry, typically an Internal one on 050.1, to a client's matter */}
       <WorkstreamReassignDialog

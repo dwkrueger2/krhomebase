@@ -29,6 +29,7 @@ import KRPhotoCircle, { type KRPhotoCrop } from '@/components/ui/KRPhotoCircle.c
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
 import { useState } from 'react'
+import { followWorkstreamTag, WORKSTREAM_TAG_CHIP_STYLES } from '../workstreamTags'
 import { sanitizeWorkstreamNoteHtml, subjectIsDistinct, WORKSTREAM_COMMUNICATION_ACTIVITY_OPTIONS, type CommunicationEntry } from '../communicationTypes'
 
 interface CommunicationThreadProps {
@@ -127,7 +128,8 @@ const AVATAR_TONE_STYLES: Record<CommunicationEntry['author']['avatarTone'], str
 
 /** Converts safe URL and @mention tokens into accessible inline links/pills. */
 function renderBody(body: string, bodyHtml?: string) {
-  if (bodyHtml) return <span dangerouslySetInnerHTML={{ __html: sanitizeWorkstreamNoteHtml(bodyHtml) }} />
+  // FB-0027: a tag chip in the note opens its record (`followWorkstreamTag`), not the row.
+  if (bodyHtml) return <span className={WORKSTREAM_TAG_CHIP_STYLES} dangerouslySetInnerHTML={{ __html: sanitizeWorkstreamNoteHtml(bodyHtml) }} onClick={(event) => followWorkstreamTag(event)} onKeyDown={(event) => followWorkstreamTag(event)} />
   return body.split(/(https?:\/\/[^\s]+|@[\w-]+)/g).map((part, index) => {
     if (/^https?:\/\//.test(part)) return <a className={STYLES.link} key={`${part}-${index}`} href={part} target="_blank" rel="noreferrer">{part}</a>
     if (/^@[\w-]+$/.test(part)) return <span key={`${part}-${index}`} className={STYLES.mention}>{part}</span>

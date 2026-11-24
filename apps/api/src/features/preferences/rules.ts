@@ -30,6 +30,7 @@ import {
   type ThemeContrastProblem,
   DEFAULT_USER_PREFERENCES,
   StartingSection,
+  WorkstreamTagPrefixesPreference,
   WorkstreamTypesPreference,
   AssignCreatorByDefaultPreference,
   TeamStatusRoster,
@@ -99,6 +100,8 @@ export const PREFERENCE_FIELDS: { readonly [F in Field]: { key: string; schema: 
   teamStatusRoster: { key: 'team-status-roster', schema: TeamStatusRoster },
   personalTheme: { key: 'theme', schema: PersonalTheme },
   workstreamTypes: { key: 'workstream', schema: WorkstreamTypesPreference },
+  // A key of its own (FB-0027): each write stores one field, so sharing "workstream" would drop workstreamTypes.
+  workstreamTagPrefixes: { key: 'workstream-tags', schema: WorkstreamTagPrefixesPreference },
   assignCreatorByDefault: { key: 'tasks', schema: AssignCreatorByDefaultPreference },
 }
 

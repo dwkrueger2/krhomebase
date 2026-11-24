@@ -17,6 +17,7 @@
  *   dashboard    {"dashboardWidgets": {"<widget id>": {"enabled": true, "order": 5}, ...}}   (stage 3)
  *   team-status-roster   {"teamStatusRoster": ["<employee id>", ...]}   (Team Status widget roster)
  *   workstream   {"workstreamTypes": ["PhoneCalls", "Notes"]}   (plan 10, Nov 13, 2026; empty means All)
+ *   workstream-tags   {"workstreamTagPrefixes": {"client": "@@", "entity": "##", "person": "!!", "matter": "$$"}}   (FB-0027, Nov 24, 2026)
  *   tasks        {"assignCreatorByDefault": true}   (plan 10, stage 5, decision D20 of Nov 13, 2026)
  *   theme        {"personalTheme": {"themeId": "firm-default", "density": "compact", "light": {...}, "dark": {...}}}   (stage 2b, themes.ts)
  *
@@ -89,6 +90,39 @@ export const WorkstreamTypesPreference = z
   .describe('Activity types WorkStream shows when it opens; an empty list shows All.')
 export type WorkstreamTypesPreference = z.infer<typeof WorkstreamTypesPreference>
 
+/** The symbols a tag prefix may use (FB-0027): the four above the number keys and a few more, never a letter or digit. */
+export const WORKSTREAM_TAG_SYMBOLS = '!@#$%^&*~+='
+
+/** One tag prefix: one to three of `WORKSTREAM_TAG_SYMBOLS` ("@@"). */
+export const WorkstreamTagPrefix = z
+  .string()
+  .regex(/^[!@#$%^&*~+=]{1,3}$/, 'Use one to three of ! @ # $ % ^ & * ~ + =.')
+  .describe('Typed before a name in the WorkStream editor to tag it: one to three symbols.')
+
+/**
+ * The WorkStream tag prefixes (FB-0027, the requester, Nov 23, 2026): typed at the start of a word in the WorkStream
+ * editor, each opens a list of one kind of record, and the pick becomes a link in the entry. Doubled by default so a
+ * single symbol in an ordinary sentence ("@ 5pm", "#2") opens nothing. The four must differ, and none may start
+ * another ("@" and "@@" together would never reach "@@").
+ */
+export const WorkstreamTagPrefixesPreference = z
+  .object({
+    client: WorkstreamTagPrefix.describe('Clients (a client account).'),
+    entity: WorkstreamTagPrefix.describe('Businesses (entities), clients or not.'),
+    person: WorkstreamTagPrefix.describe('Leads and people who are not clients.'),
+    matter: WorkstreamTagPrefix.describe("The chosen client's matters."),
+  })
+  .strict()
+  .refine((prefixes) => {
+    const values = Object.values(prefixes)
+    return values.every((value, index) => values.every((other, otherIndex) => otherIndex === index || !other.startsWith(value)))
+  }, { message: 'Each tag prefix must differ, and none may start another.' })
+  .describe('The symbols that start a tag in the WorkStream editor, by kind of record.')
+export type WorkstreamTagPrefixesPreference = z.infer<typeof WorkstreamTagPrefixesPreference>
+
+/** The tag prefixes before a person chooses their own (the requester, Nov 23, 2026). */
+export const DEFAULT_WORKSTREAM_TAG_PREFIXES: WorkstreamTagPrefixesPreference = { client: '@@', entity: '##', person: '!!', matter: '$$' }
+
 /**
  * Task Settings (D20, the requester, Nov 13, 2026): whether a new task is assigned to the person creating it when no
  * assignees are given (`POST /v1/tasks` without `assigneeUserIds`). Default true, the old route's rule.
@@ -107,6 +141,7 @@ export const UserPreferences = z.object({
   teamStatusRoster: TeamStatusRoster,
   personalTheme: PersonalTheme.describe('The theme the person uses, their text size and their own color changes (stage 2b).'),
   workstreamTypes: WorkstreamTypesPreference,
+  workstreamTagPrefixes: WorkstreamTagPrefixesPreference,
   assignCreatorByDefault: AssignCreatorByDefaultPreference,
 })
 export type UserPreferences = z.infer<typeof UserPreferences>
@@ -120,6 +155,7 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   teamStatusRoster: [],
   personalTheme: DEFAULT_PERSONAL_THEME,
   workstreamTypes: [],
+  workstreamTagPrefixes: DEFAULT_WORKSTREAM_TAG_PREFIXES,
   assignCreatorByDefault: true,
 }
 

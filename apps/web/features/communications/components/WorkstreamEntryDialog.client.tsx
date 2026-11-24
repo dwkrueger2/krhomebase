@@ -27,6 +27,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { U6ConfirmationDialog } from '@/components/dialogs/U6ConfirmationDialog.client'
 import type { KRContactRecord } from '@/features/contacts/types'
+import { followWorkstreamTag, WORKSTREAM_TAG_CHIP_STYLES } from '../workstreamTags'
 import { communicationDateLabel, parseWorkstreamSlashCommands, sanitizeWorkstreamNoteHtml } from '../communicationTypes'
 import { activityTypesOf, ledgerRowFromActivity, titleFromNote } from '../workstreamLedgerRows'
 // Read, not only imported: a CSS module imported for its side effect is left out of the production build (web patch 554).
@@ -141,7 +142,8 @@ const LAYOUT_STYLES = {
 /** A saved HTML note is drawn as cleaned HTML; a plain note as text. */
 export function NoteBody({ activity, className }: { activity: WorkstreamActivity; className: string }) {
   const html = activity.noteHtml?.trim()
-  if (html) return <div className={className} dangerouslySetInnerHTML={{ __html: sanitizeWorkstreamNoteHtml(html) }} />
+  // FB-0027: a tag chip in the note opens its record (`followWorkstreamTag`).
+  if (html) return <div className={`${className} ${WORKSTREAM_TAG_CHIP_STYLES}`} dangerouslySetInnerHTML={{ __html: sanitizeWorkstreamNoteHtml(html) }} onClick={(event) => followWorkstreamTag(event)} onKeyDown={(event) => followWorkstreamTag(event)} />
   return <p className={className}>{activity.note.trim() || 'No note entered.'}</p>
 }
 

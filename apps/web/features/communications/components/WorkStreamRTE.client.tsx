@@ -25,6 +25,11 @@
  *   4px corners (7px before) and 12px text with 1.3 line height. Ellipses are "...".
  * - Nov 18, 2026 (FB-0017, web patch 570): a cleared note is emptied, so the prompt shows again; the edit dialog
  *   starts the task assignees from the entry (`initialAssigneeUserIds`).
+ * - Nov 24, 2026 (FB-0027, web patch 590): tags. A tag prefix typed at the start of a word (`@@` clients, `##`
+ *   businesses, `!!` leads and non-clients, `$$` matters; the person's own in Preferences) lists the records under the
+ *   editor (`WorkstreamTagList`); the pick goes into the note as a chip that opens the record once saved
+ *   (`useWorkstreamTagging`, `workstreamTags.ts`). The first client tagged, while no client is chosen, becomes the
+ *   entry's client (`onContextContactSelected`), and a tagged matter, while no matter is chosen, its matter.
  */
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
@@ -34,7 +39,10 @@ import { detectCommunicationActivityTypeTrigger } from '../communicationActivity
 import { detectCommunicationContextCue, type CommunicationContextCueMatch } from '../communicationContextTriggers'
 import { sanitizeWorkstreamNoteHtml, type CommunicationClientState, type CommunicationUser, type WorkstreamCommunicationActivityType } from '../communicationTypes'
 import { contextCandidateInsertText, contextCandidateLabel, rankContacts } from '../workStreamContacts'
+import { useWorkstreamTagging } from '../useWorkstreamTagging.client'
+import { WORKSTREAM_TAG_CHIP_STYLES, type WorkstreamTagCandidate } from '../workstreamTags'
 import WorkStreamEntrySelector, { type WorkStreamRTEAssigneeOption, type WorkStreamRTEMatterOption } from './WorkStreamEntrySelector.client'
+import WorkstreamTagList from './WorkstreamTagList.client'
 
 export type { WorkStreamRTEAssigneeOption, WorkStreamRTEMatterOption } from './WorkStreamEntrySelector.client'
 
@@ -71,6 +79,8 @@ export interface WorkStreamRTEProps {
   selectedMatterNumber?: string | null
   onMatterChange?: (matter: WorkStreamRTEMatterOption | null) => void
   onContextContactSelected?: (contact: KRContactRecord) => void
+  /** The client the entry is for, so a tagged matter opens the right contact (FB-0027). */
+  tagClientId?: string | null
   onDraftChange?: (draft: WorkStreamRTEDraftState) => void
   onSubmit?: (draft: WorkStreamRTEDraftState) => void | Promise<void>
   /** Opens the quick-entry help when the person types the `/help` command. */
@@ -90,7 +100,7 @@ export interface WorkStreamRTEProps {
 const STYLES = {
   shell: 'text-(color:--kr-theme-communication-text)',
   editorButton: 'px-[6px] h-[22px] cursor-pointer rounded-[3px] border border-(--kr-theme-communication-line) bg-transparent text-[11px] font-bold leading-tight text-(color:--kr-theme-communication-text-muted) hover:border-(--kr-theme-communication-accent-strong) hover:text-(color:--kr-theme-communication-text) disabled:cursor-not-allowed disabled:opacity-40',
-  editorInput: 'px-[6px] py-[4px] box-border min-h-[72px] w-full rounded-[4px] border border-(--kr-theme-communication-line) bg-(--kr-theme-communication-composer-surface) text-[12px] leading-[1.3] text-(color:--kr-theme-communication-text) outline-none whitespace-pre-wrap [&_a]:text-(color:--kr-theme-communication-accent) [&_a]:underline focus:border-(--kr-theme-communication-accent-strong) focus:ring-2 focus:ring-[color-mix(in_srgb,var(--kr-theme-communication-accent-strong)_28%,transparent)] empty:before:content-[attr(data-placeholder)] empty:before:text-(color:--kr-theme-communication-text-subtle)',
+  editorInput: `${WORKSTREAM_TAG_CHIP_STYLES} px-[6px] py-[4px] box-border min-h-[72px] w-full rounded-[4px] border border-(--kr-theme-communication-line) bg-(--kr-theme-communication-composer-surface) text-[12px] leading-[1.3] text-(color:--kr-theme-communication-text) outline-none whitespace-pre-wrap [&_a]:text-(color:--kr-theme-communication-accent) [&_a]:underline focus:border-(--kr-theme-communication-accent-strong) focus:ring-2 focus:ring-[color-mix(in_srgb,var(--kr-theme-communication-accent-strong)_28%,transparent)] empty:before:content-[attr(data-placeholder)] empty:before:text-(color:--kr-theme-communication-text-subtle)`,
   contextCue: 'px-[6px] py-[2px] rounded-[3px] border border-(--kr-theme-communication-accent-strong) bg-[color-mix(in_srgb,var(--kr-theme-communication-accent-strong)_8%,transparent)] text-[11px] text-(color:--kr-theme-communication-text-muted)',
   contextCueStrong: 'font-bold text-(color:--kr-theme-communication-accent)',
   contextTag: 'px-[4px] py-[1px] inline-block rounded-[3px] border border-(--CommunicationTagLine) bg-(--CommunicationTagSurface) font-mono text-[10px] font-bold text-(color:--CommunicationTagText)',
@@ -171,6 +181,7 @@ export default function WorkStreamRTE({
   showContextControls = true,
   showMatterMenu = true,
   showSendButton = true,
+  tagClientId = null,
 }: WorkStreamRTEProps) {
   const currentUserId = currentUser?.id || null
   const [body, setBody] = useState(initialBody)
@@ -189,6 +200,19 @@ export default function WorkStreamRTE({
   const bodyRef = useRef(body)
   const suppressedAutoTriggerRef = useRef<string | null>(null)
   const assigneeKey = assigneeIds.join('|')
+  // FB-0027: tags. A picked client or matter also becomes the entry's own while none is chosen.
+  const tagging = useWorkstreamTagging({
+    editorRef,
+    contacts: contextCandidates,
+    matters: matterOptions,
+    clientId: tagClientId,
+    onTagged: (candidate: WorkstreamTagCandidate) => {
+      if (candidate.contact && !clientButtonLabel && !contextLocked) onContextContactSelected?.(candidate.contact)
+      if (candidate.matter && !selectedMatterNumber) onMatterChange?.(candidate.matter)
+      const element = editorRef.current
+      if (element) setEditorBody(element.innerText || element.textContent || '', element.innerHTML)
+    },
+  })
   const assignmentOptions = useMemo(() => {
     const currentOption = currentUserId ? assigneeOptions.find((option) => option.id === currentUserId) : null
     const current = currentOption
@@ -342,6 +366,7 @@ export default function WorkStreamRTE({
       bodyRef.current = ''
       setContextCue(null)
       setContextMatches([])
+      tagging.close()
       suppressedAutoTriggerRef.current = null
       if (editorRef.current) editorRef.current.innerHTML = ''
       onDraftChange?.({ body: '', html: '', contextCue: null, contextMatchCount: 0, assigneeUserIds: assigneeIds })
@@ -373,9 +398,12 @@ export default function WorkStreamRTE({
       onActivityTypesChange([...activityTypes, trigger.activityType])
     }
     setEditorBody(nextBody, element.innerHTML)
+    tagging.detect()
   }
 
   function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void {
+    // An open tag list takes the arrow keys, Tab, Enter and Escape first (FB-0027).
+    if (tagging.handleKeyDown(event)) return
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); openLinkEditor() }
     else if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && contextMatches.length) { event.preventDefault(); setContextHighlightedIndex((current) => event.key === 'ArrowDown' ? Math.min(current + 1, contextMatches.length - 1) : Math.max(current - 1, 0)) }
     else if ((event.key === 'Tab' || event.key === 'Enter') && !event.ctrlKey && !event.metaKey && contextMatches[contextHighlightedIndex]) { event.preventDefault(); acceptContact(contextMatches[contextHighlightedIndex]!) }
@@ -426,7 +454,9 @@ export default function WorkStreamRTE({
             <button className={STYLES.editorButton} disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={openLinkEditor} type="button">Link (Ctrl+K)</button>
           </div>
           {/* Note: the contentEditable surface */}
-          <div aria-label={editorAriaLabel} aria-multiline="true" className={STYLES.editorInput} contentEditable={!disabled} data-kr-element={editorDataKrElement} data-placeholder={placeholder} onClick={(event) => handleEditorClick(event.target)} onInput={(event) => handleInput(event.currentTarget)} onKeyDown={handleKeyDown} ref={editorRef} role="textbox" suppressContentEditableWarning />
+          <div aria-label={editorAriaLabel} aria-multiline="true" className={STYLES.editorInput} contentEditable={!disabled} data-kr-element={editorDataKrElement} data-placeholder={placeholder} onBlur={tagging.close} onClick={(event) => handleEditorClick(event.target)} onInput={(event) => handleInput(event.currentTarget)} onKeyDown={handleKeyDown} ref={editorRef} role="textbox" suppressContentEditableWarning />
+          {/* Tag list (FB-0027): the records for the tag being typed */}
+          {tagging.trigger ? <WorkstreamTagList candidates={tagging.candidates} highlighted={tagging.highlighted} kind={tagging.trigger.kind} onHighlight={tagging.setHighlighted} onPick={tagging.accept} prefix={tagging.trigger.prefix} query={tagging.trigger.query} /> : null}
           {/* Context cue line: what the parser recognized and whether a match is ready */}
           {contextCue ? <div className={`${LAYOUT_STYLES.contextCue} ${STYLES.contextCue}`} data-kr-element="communications-context-cue" role="status"><strong className={STYLES.contextCueStrong}>{contextCue.label} reference recognized:</strong>{' '}<code className={STYLES.contextTag}>{contextCue.prefix} {contextCue.query}</code>{' '}{contextCue.kind === 'lead' ? 'Lead lookup comes with the Leads screen.' : contextLookupLoading ? 'Looking up matching records...' : contextMatches.length ? 'Match ready. Press Tab or Enter to use it.' : 'No match found yet; keep typing to continue.'}</div> : null}
           {/* Context suggestions: up to five contacts for the cue */}

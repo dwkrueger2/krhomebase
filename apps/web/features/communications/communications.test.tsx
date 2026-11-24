@@ -3,7 +3,7 @@
  * Communications / WorkStream (plan 10, stage 2): the slash-command parser, the activity type and context cue detectors,
  * the subject from the first line, the HTML sanitizer, the contact ranking, the save target rules (fixed context,
  * chosen client, Internal 050 / 050.1, blocked Lead), the entry mapping, the paging sentence (D10), and first draws
- * rendered to text of the panel, the thread, the composer and the attribution panel.
+ * rendered to text of the panel, the thread and the composer (the attribution panel was removed in web patch 590).
  *
  * Run: pnpm --dir apps/web exec vitest run features/communications/communications.test.tsx
  */
@@ -16,7 +16,6 @@ import { detectCommunicationActivityTypeTrigger } from './communicationActivityT
 import { detectCommunicationContextCue } from './communicationContextTriggers'
 import { resolveCommunicationSaveTarget, saveTargetBlockReason, type CommunicationSaveTargetInput } from './communicationSaveTarget'
 import { communicationEntryFromActivity, communicationInitials, communicationUserFromViewer, parseWorkstreamSlashCommands, sanitizeWorkstreamNoteHtml, subjectFromBody, subjectIsDistinct } from './communicationTypes'
-import CommunicationAttributionPanel from './components/CommunicationAttributionPanel.client'
 import CommunicationComposer from './components/CommunicationComposer.client'
 import CommunicationsPanel from './components/CommunicationsPanel.client'
 import CommunicationThread, { threadPagingSentence } from './components/CommunicationThread.client'
@@ -256,14 +255,14 @@ describe('entries and paging', () => {
 describe('first draws', () => {
   const me = communicationUserFromViewer(VIEWER)
 
-  it('draws the panel with the filters, the composer above the thread and the attribution panel, without a data store', () => {
+  it('draws the panel with the filters and the composer above the thread, without the attribution panel or a data store', () => {
     const html = renderToStaticMarkup(<CommunicationsPanel viewer={VIEWER} />)
     expect(html).toContain('data-kr-id="communications-module-panel"')
     expect(html).toContain('data-kr-id="Workstream-Activity-Filters"')
     expect(html.indexOf('communication-composer-card')).toBeLessThan(html.indexOf('communication-thread-card'))
     expect(html).toContain('Firm WorkStream feed')
     expect(html).toContain('Loading communications...')
-    expect(html).toContain('data-kr-id="communication-attribution-panel"')
+    expect(html).not.toContain('communication-attribution-panel')
     // Internal is the starting state; no text glyph icons are drawn.
     expect(html).toMatch(/aria-pressed="true"[^>]*data-kr-client-state="Internal"/)
     expect(html).not.toMatch(/[☎✉▤✓⇩⇧◌↩⋮×]/)
@@ -306,12 +305,5 @@ describe('first draws', () => {
     expect(html).toContain('Parser:')
     expect(html).toContain('HELP')
     expect(html).toContain('data-kr-element="communications-composer-input"')
-  })
-
-  it('draws the attribution panel waiting, then coming soon for a selected entry', () => {
-    expect(renderToStaticMarkup(<CommunicationAttributionPanel message={null} />)).toContain('Awaiting selection')
-    const html = renderToStaticMarkup(<CommunicationAttributionPanel message={communicationEntryFromActivity(activity(), me)} />)
-    expect(html).toContain('Coming soon')
-    expect(html).toContain('AB12CD3')
   })
 })

@@ -52,6 +52,8 @@ interface CommunicationComposerProps {
   onMatterChange?: (matter: WorkStreamRTEMatterOption | null) => void
   /** Promotes an accepted client lookup into the owning WorkStream context. */
   onContextContactSelected?: (contact: KRContactRecord) => void
+  /** The client the entry is for, so a tagged matter opens the right contact (FB-0027). */
+  tagClientId?: string | null
   /** Saves the draft; a rejection keeps the draft in the editor. */
   onSubmit: (body: string, activityTypes: readonly WorkstreamCommunicationActivityType[], noteHtml?: string, assigneeUserIds?: readonly string[]) => Promise<void>
   /** Whether sending is allowed; typing remains available when this is false. */
@@ -196,6 +198,7 @@ export default function CommunicationComposer({
   onActivityTypesChange,
   onClientStateChange,
   onContextContactSelected,
+  tagClientId,
   onDraftChange,
   onMatterChange,
   onSubmit,
@@ -253,6 +256,7 @@ export default function CommunicationComposer({
         onActivityTypesChange={onActivityTypesChange}
         onClientStateChange={onClientStateChange}
         onContextContactSelected={onContextContactSelected}
+        tagClientId={tagClientId}
         onDraftChange={(next) => {
           setDraft({ body: next.body, contextCue: next.contextCue, contextMatchCount: next.contextMatchCount })
           onDraftChange?.(next)

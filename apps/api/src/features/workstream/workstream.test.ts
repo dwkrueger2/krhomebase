@@ -80,6 +80,11 @@ describe('note helpers', () => {
     expect(sanitizeNoteHtml('<p onclick="x()">Hi<script>alert(1)</script> <a href="javascript:bad()">x</a></p>')).toBe('<p>Hi <a>x</a></p>')
     expect(plainTextFromHtml('<p>One &amp; two</p><p>Three<br>four</p>')).toBe('One & two\nThree\nfour')
   })
+  it('keeps a WorkStream tag chip (FB-0027): its data-ws attributes, role and tab stop', () => {
+    const chip = '<span data-ws-tag="client" data-ws-code="077" role="link" tabindex="0" title="Open client 077 Ann Example" contenteditable="false">077 Ann Example</span>'
+    expect(sanitizeNoteHtml(`Called ${chip} <span data-ws-tag="client" onclick="x()">x</span>`)).toBe(`Called ${chip} <span data-ws-tag="client">x</span>`)
+    expect(plainTextFromHtml(`Called ${chip}`)).toBe('Called 077 Ann Example')
+  })
   it('refuses a cursor that is not ours', () => {
     expect(() => decodeCursor('not-a-cursor')).toThrow()
   })

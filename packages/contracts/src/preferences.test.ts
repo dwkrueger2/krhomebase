@@ -10,7 +10,7 @@ import { DEFAULT_USER_PREFERENCES, UpdateUserPreferencesBody, UserPreferences } 
 
 describe('user preferences', () => {
   it('has defaults that pass their own schema (light, 60 minutes, Dashboard)', () => {
-    expect(UserPreferences.parse(DEFAULT_USER_PREFERENCES)).toEqual({ theme: 'light', autoLogoutMinutes: 60, startingSection: 'dashboard', dashboardWidgets: {}, teamStatusRoster: [], personalTheme: { themeId: 'firm-default', density: 'compact', light: {}, dark: {} }, workstreamTypes: [], assignCreatorByDefault: true })
+    expect(UserPreferences.parse(DEFAULT_USER_PREFERENCES)).toEqual({ theme: 'light', autoLogoutMinutes: 60, startingSection: 'dashboard', dashboardWidgets: {}, teamStatusRoster: [], personalTheme: { themeId: 'firm-default', density: 'compact', light: {}, dark: {} }, workstreamTypes: [], workstreamTagPrefixes: { client: '@@', entity: '##', person: '!!', matter: '$$' }, assignCreatorByDefault: true })
   })
 
   it('accepts a change of one preference', () => {
@@ -27,5 +27,13 @@ describe('user preferences', () => {
     expect(UpdateUserPreferencesBody.safeParse({ dashboardWidgets: { 'employee-clock-in': { enabled: false, order: 5 } } }).success).toBe(true)
     expect(UpdateUserPreferencesBody.safeParse({ dashboardWidgets: { 'Clock In': { enabled: true, order: 5 } } }).success).toBe(false)
     expect(UpdateUserPreferencesBody.safeParse({ dashboardWidgets: { 'employee-clock-in': { enabled: true, order: -1 } } }).success).toBe(false)
+  })
+
+  it('accepts WorkStream tag prefixes of one to three symbols, all different, none starting another (FB-0027)', () => {
+    expect(UpdateUserPreferencesBody.safeParse({ workstreamTagPrefixes: { client: '@', entity: '#', person: '!', matter: '$' } }).success).toBe(true)
+    expect(UpdateUserPreferencesBody.safeParse({ workstreamTagPrefixes: { client: '@@', entity: '@@', person: '!!', matter: '$$' } }).success).toBe(false)
+    expect(UpdateUserPreferencesBody.safeParse({ workstreamTagPrefixes: { client: '@', entity: '@@', person: '!!', matter: '$$' } }).success).toBe(false)
+    expect(UpdateUserPreferencesBody.safeParse({ workstreamTagPrefixes: { client: 'c:', entity: '##', person: '!!', matter: '$$' } }).success).toBe(false)
+    expect(UpdateUserPreferencesBody.safeParse({ workstreamTagPrefixes: { client: '@@@@', entity: '##', person: '!!', matter: '$$' } }).success).toBe(false)
   })
 })

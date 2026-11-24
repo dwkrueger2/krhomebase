@@ -17,6 +17,8 @@
  * - The matter button shows for Client only (a lead has no matters, D12); its list comes from the parent.
  * - Type colors from `ACTIVITY_TYPE_STYLES`, SVG icons for the glyphs, 24px buttons with 11px text and 3px corners
  *   (Density Contract; they were about 22px with 10px text and 5px corners); popovers 4px corners, 6px padding.
+ * - Nov 24, 2026 (web patch 590, the requester): chosen buttons stand out more (a doubled border drawn inside, a brighter
+ *   fill) and unchosen types are dimmed a little; shadows, a filter and opacity only, so no button moves.
  */
 
 import { useState } from 'react'
@@ -73,8 +75,15 @@ const STYLES = {
   /** Size and shape only; the colors come from `neutral`, `clientActive` or the activity type's treatment, so they never compete. */
   button: 'px-[6px] h-[24px] cursor-pointer rounded-[3px] border text-[11px] font-bold leading-tight disabled:cursor-not-allowed disabled:opacity-50',
   neutral: 'border-(--kr-theme-communication-line) bg-transparent text-(color:--kr-theme-communication-text-muted) hover:border-(--kr-theme-communication-accent-strong) hover:bg-(--kr-theme-communication-reaction-surface) hover:text-(color:--kr-theme-communication-text)',
-  activeRing: 'shadow-[0_0_0_1px_var(--kr-theme-communication-accent-strong)]',
-  clientActive: 'border-(--kr-theme-orange) bg-(--kr-theme-communication-reaction-surface) font-black text-(color:--kr-theme-communication-text)',
+  /**
+   * A chosen type (web patch 590, the requester: the chosen state was too dim). Shadows and a filter only, so nothing
+   * moves: an inner 1px line in the type's own text color doubles the border, the outer 1px ring stays, and the fill is
+   * brightened. Unchosen types are dimmed a little (`typeIdle`) so the chosen ones stand apart.
+   */
+  activeRing: 'shadow-[inset_0_0_0_1px_currentColor,0_0_0_1px_var(--kr-theme-communication-accent-strong)] brightness-[1.25]',
+  typeIdle: 'opacity-[0.72] hover:opacity-100',
+  /** The chosen Client, Lead or Internal and a chosen matter: the orange border doubled inside (web patch 590). */
+  clientActive: 'border-(--kr-theme-orange) bg-(--kr-theme-communication-reaction-surface) font-black text-(color:--kr-theme-communication-text) shadow-[inset_0_0_0_1px_var(--kr-theme-orange)]',
   divider: 'h-[16px] w-px bg-(--kr-theme-communication-line)',
   popover: 'rounded-[4px] border border-(--kr-theme-communication-line) bg-(--kr-theme-communication-surface-raised) shadow-[0_4px_12px_rgba(0,30,58,.25)]',
   popoverInput: 'px-[6px] h-[24px] min-w-0 flex-1 rounded-[3px] border border-(--kr-theme-communication-line) bg-(--kr-theme-communication-composer-surface) text-[12px] text-(color:--kr-theme-communication-text) outline-none focus:border-(--kr-theme-communication-accent-strong)',
@@ -175,7 +184,7 @@ export default function WorkStreamEntrySelector({
           {showActivityTypes ? <span className={`${LAYOUT_STYLES.label} ${STYLES.label}`}>Log as one or more</span> : null}
           {showActivityTypes ? WORKSTREAM_COMMUNICATION_ACTIVITY_OPTIONS.map((option) => {
             const selected = activityTypes.includes(option.value)
-            return <button aria-label={`${option.label}. ${COMMUNICATION_ACTIVITY_TYPE_COMMAND_HINTS[option.value]}`} aria-pressed={selected} className={`${LAYOUT_STYLES.button} ${STYLES.button} ${selected ? `${ACTIVITY_TYPE_STYLES[option.value].active} ${STYLES.activeRing}` : ACTIVITY_TYPE_STYLES[option.value].idle}`} data-kr-element="workstream-activity-type" data-kr-workstream-activity-type={option.value} disabled={disabled} key={option.value} onClick={() => onToggleActivityType(option.value)} title={COMMUNICATION_ACTIVITY_TYPE_COMMAND_HINTS[option.value]} type="button"><CommunicationActivityIcon name={option.icon} />{option.label}</button>
+            return <button aria-label={`${option.label}. ${COMMUNICATION_ACTIVITY_TYPE_COMMAND_HINTS[option.value]}`} aria-pressed={selected} className={`${LAYOUT_STYLES.button} ${STYLES.button} ${selected ? `${ACTIVITY_TYPE_STYLES[option.value].active} ${STYLES.activeRing}` : `${ACTIVITY_TYPE_STYLES[option.value].idle} ${STYLES.typeIdle}`}`} data-kr-element="workstream-activity-type" data-kr-workstream-activity-type={option.value} disabled={disabled} key={option.value} onClick={() => onToggleActivityType(option.value)} title={COMMUNICATION_ACTIVITY_TYPE_COMMAND_HINTS[option.value]} type="button"><CommunicationActivityIcon name={option.icon} />{option.label}</button>
           }) : null}
           {showContextControls ? <>
             <span className={`${LAYOUT_STYLES.divider} ${STYLES.divider}`} aria-hidden="true" />

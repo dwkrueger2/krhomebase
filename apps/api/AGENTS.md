@@ -1,6 +1,6 @@
 # KR Homebase API Agent Guide
-<small>Version 1.61</small><br>
-<small>Updated Nov 23, 2026 9:30pm</small>
+<small>Version 1.62</small><br>
+<small>Updated Nov 24, 2026 1:05am</small>
 
 ## Purpose
 
@@ -222,7 +222,7 @@ The contract test gives write routes a full-schema test database (the maintenanc
 
 `src/features/preferences/` (Settings plan `docs/08_Settings_Dashboard_Plan.md`, decision 1, stage 2) serves `GET /v1/me/preferences` and `PUT /v1/me/preferences`: the signed-in person's own theme, auto logout time and starting section. The person comes from the session only; there is no route to read or change anyone else's.
 
-- **Table:** `user_preference` (one row per person and key, JSON value; migration `docs/Schema_8.0/migrations/Migration_Patch026_11_11_user_preference.sql`, applied Nov 11, 2026). Keys: `appearance` (`theme`), `session` (`autoLogoutMinutes`), `navigation` (`startingSection`), `dashboard` (`dashboardWidgets`, stage 3: each widget's shown-or-hidden and order, by widget id); `rules.ts` `PREFERENCE_FIELDS` maps them. Values are compared by content, so an unchanged widget set is not written again.
+- **Table:** `user_preference` (one row per person and key, JSON value; migration `docs/Schema_8.0/migrations/Migration_Patch026_11_11_user_preference.sql`, applied Nov 11, 2026). Keys: `appearance` (`theme`), `session` (`autoLogoutMinutes`), `navigation` (`startingSection`), `dashboard` (`dashboardWidgets`, stage 3: each widget's shown-or-hidden and order, by widget id), `workstream-tags` (`workstreamTagPrefixes`, FB-0027, API patch 60: the four WorkStream tag prefixes, checked by `WorkstreamTagPrefixesPreference`; a key of its own, because each write stores one field per key and sharing `workstream` would drop `workstreamTypes`); `rules.ts` `PREFERENCE_FIELDS` maps them. A new field always gets a new key for that reason. Values are compared by content, so an unchanged widget set is not written again.
 - **Reading** fills every field: a missing row, a row that is not JSON, or a value no longer allowed reads as the default from `DEFAULT_USER_PREFERENCES` (contracts). Reads write nothing.
 - **Writing** saves only the fields that change, each key an upsert with its own `audit_log` row (resource `preferences`) in one batch; a change to nothing writes nothing. The PUT passes the write gate (not exempt).
 - A missing table or binding answers 503 `PREFERENCES_UNAVAILABLE`. The test database adds the table from the migration file when built with `fullSchema` (`test/fakes.ts`).
