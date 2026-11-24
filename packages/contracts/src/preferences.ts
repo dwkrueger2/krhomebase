@@ -17,7 +17,7 @@
  *   dashboard    {"dashboardWidgets": {"<widget id>": {"enabled": true, "order": 5}, ...}}   (stage 3)
  *   team-status-roster   {"teamStatusRoster": ["<employee id>", ...]}   (Team Status widget roster)
  *   workstream   {"workstreamTypes": ["PhoneCalls", "Notes"]}   (plan 10, Nov 13, 2026; empty means All)
- *   workstream-tags   {"workstreamTagPrefixes": {"client": "@@", "entity": "##", "person": "!!", "matter": "$$"}}   (FB-0027, Nov 24, 2026)
+ *   workstream-tags   {"workstreamTagPrefixes": {"client": "@@", "entity": "$$", "person": "!!", "matter": "##"}}   (FB-0027, Nov 24, 2026; ## and $$ swapped in web patch 591)
  *   tasks        {"assignCreatorByDefault": true}   (plan 10, stage 5, decision D20 of Nov 13, 2026)
  *   theme        {"personalTheme": {"themeId": "firm-default", "density": "compact", "light": {...}, "dark": {...}}}   (stage 2b, themes.ts)
  *
@@ -110,7 +110,7 @@ export const WorkstreamTagPrefixesPreference = z
     client: WorkstreamTagPrefix.describe('Clients (a client account).'),
     entity: WorkstreamTagPrefix.describe('Businesses (entities), clients or not.'),
     person: WorkstreamTagPrefix.describe('Leads and people who are not clients.'),
-    matter: WorkstreamTagPrefix.describe("The chosen client's matters."),
+    matter: WorkstreamTagPrefix.describe('Matters, by number (any client).'),
   })
   .strict()
   .refine((prefixes) => {
@@ -120,8 +120,8 @@ export const WorkstreamTagPrefixesPreference = z
   .describe('The symbols that start a tag in the WorkStream editor, by kind of record.')
 export type WorkstreamTagPrefixesPreference = z.infer<typeof WorkstreamTagPrefixesPreference>
 
-/** The tag prefixes before a person chooses their own (the requester, Nov 23, 2026). */
-export const DEFAULT_WORKSTREAM_TAG_PREFIXES: WorkstreamTagPrefixesPreference = { client: '@@', entity: '##', person: '!!', matter: '$$' }
+/** The tag prefixes before a person chooses their own (the requester, Nov 23, 2026; `##` matters and `$$` businesses since Nov 24, 2026). */
+export const DEFAULT_WORKSTREAM_TAG_PREFIXES: WorkstreamTagPrefixesPreference = { client: '@@', entity: '$$', person: '!!', matter: '##' }
 
 /**
  * Task Settings (D20, the requester, Nov 13, 2026): whether a new task is assigned to the person creating it when no

@@ -2,8 +2,9 @@
 // file: apps/web/features/preferences/components/WorkstreamTagPreferencesCard.client.tsx
 /**
  * User Settings → Preferences → WorkStream tags (FB-0027, web patch 590; the requester, Nov 23, 2026): the symbols
- * that start a tag in the WorkStream editor, one per kind of record. Defaults: `@@` clients, `##` businesses, `!!` leads
- * and people who are not clients, `$$` the chosen client's matters (`DEFAULT_WORKSTREAM_TAG_PREFIXES`). Doubled so a
+ * that start a tag in the WorkStream editor, one per kind of record. Defaults: `@@` clients, `##` matters (by number),
+ * `!!` leads and people who are not clients, `$$` businesses (`DEFAULT_WORKSTREAM_TAG_PREFIXES`; `##` and `$$` were
+ * swapped in web patch 591, the requester, Nov 24, 2026). Doubled so a
  * single symbol in an ordinary sentence opens nothing.
  *
  * Follows the Unsaved Changes Standard: Save Changes (Signal Orange, place kept) shows only while a field differs from
@@ -24,9 +25,9 @@ type TagKind = keyof WorkstreamTagPrefixesPreference
 /** The four fields, in the order the requester gave them. */
 const TAG_FIELDS: ReadonlyArray<{ kind: TagKind; label: string; hint: string }> = [
   { kind: 'client', label: 'Clients', hint: 'A client account; the first client tagged also sets where the entry is saved.' },
-  { kind: 'entity', label: 'Businesses', hint: 'Any business (entity), client or not.' },
+  { kind: 'matter', label: 'Matters', hint: 'A matter by its number (077.1), any client; with no client chosen it also sets the client.' },
   { kind: 'person', label: 'Leads and non-clients', hint: 'Leads, and people who are not clients.' },
-  { kind: 'matter', label: 'Matters', hint: "The chosen client's matters." },
+  { kind: 'entity', label: 'Businesses', hint: 'Any business (entity), client or not.' },
 ]
 
 const STYLES = {
@@ -112,7 +113,7 @@ export default function WorkstreamTagPreferencesCard() {
             </label>
           ))}
         </div>
-        {error ? <p className={STYLES.error} role="alert">{error}</p> : problem ? <p className={STYLES.error} role="alert">{problem}</p> : <p className={STYLES.hint}>For example {saved.client}Ann tags a client named Ann; {saved.matter}306.2 tags that client&apos;s matter 306.2.</p>}
+        {error ? <p className={STYLES.error} role="alert">{error}</p> : problem ? <p className={STYLES.error} role="alert">{problem}</p> : <p className={STYLES.hint}>For example {saved.client}Ann tags a client named Ann; {saved.matter}306.2 tags matter 306.2.</p>}
       </div>
     </KRModuleCard>
   )

@@ -26,10 +26,13 @@
  * - Nov 18, 2026 (FB-0017, web patch 570): a cleared note is emptied, so the prompt shows again; the edit dialog
  *   starts the task assignees from the entry (`initialAssigneeUserIds`).
  * - Nov 24, 2026 (FB-0027, web patch 590): tags. A tag prefix typed at the start of a word (`@@` clients, `##`
- *   businesses, `!!` leads and non-clients, `$$` matters; the person's own in Preferences) lists the records under the
- *   editor (`WorkstreamTagList`); the pick goes into the note as a chip that opens the record once saved
- *   (`useWorkstreamTagging`, `workstreamTags.ts`). The first client tagged, while no client is chosen, becomes the
+ *   matters, `!!` leads and non-clients, `$$` businesses since web patch 591; the person's own in Preferences) lists
+ *   the records under the editor (`WorkstreamTagList`); the pick goes into the note as a chip that opens the record once
+ *   saved (`useWorkstreamTagging`, `workstreamTags.ts`). The first client tagged, while no client is chosen, becomes the
  *   entry's client (`onContextContactSelected`), and a tagged matter, while no matter is chosen, its matter.
+ * - Nov 24, 2026 (web patch 591, the requester): a matter is tagged by number from any client; with no client chosen
+ *   (Internal included) it sets the client and the matter, with a client chosen only that client's matter is taken.
+ *   A small **Auto AI** switch sits above Send, greyed and off: a place for the coming feature, not a working control.
  */
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
@@ -110,6 +113,10 @@ const STYLES = {
   contextSuggestionMeta: 'shrink-0 text-[10px] leading-tight text-(color:--kr-theme-communication-text-subtle)',
   linkInput: 'px-[6px] h-[24px] min-w-0 flex-1 rounded-[3px] border border-(--kr-theme-communication-line) bg-(--kr-theme-communication-composer-surface) text-[12px] text-(color:--kr-theme-communication-text) outline-none focus:border-(--kr-theme-communication-accent-strong)',
   status: 'text-[11px] text-(color:--kr-theme-communication-text-muted)',
+  autoAi: 'cursor-not-allowed border-0 bg-transparent p-0 opacity-45',
+  autoAiLabel: 'text-[8.5px] font-bold uppercase leading-none tracking-[.04em] text-(color:--kr-theme-communication-text-subtle)',
+  autoAiTrack: 'rounded-[6px] border border-(--kr-theme-communication-line) bg-(--kr-theme-communication-composer-surface)',
+  autoAiKnob: 'rounded-full bg-(--kr-theme-communication-text-subtle)',
   sendButton: 'p-0 cursor-pointer rounded-[4px] border border-(--kr-theme-communication-accent-strong) bg-(--kr-theme-communication-accent-strong) text-(color:--kr-theme-communication-surface-elevated) hover:bg-(--kr-theme-communication-accent) disabled:cursor-not-allowed disabled:opacity-40',
 // b1: ' border-red-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
 // b2: ' border-blue-800 border-4 border-dashed', //<-- Keep space between ' and border so that I can add the string to existing className
@@ -125,6 +132,10 @@ const STYLES = {
 const LAYOUT_STYLES = {
   editorToolbar: 'mb-[3px] gap-[3px] flex flex-wrap items-center',
   editorRow: 'gap-[6px] flex items-end',
+  sendColumn: 'gap-[3px] flex shrink-0 flex-col items-center',
+  autoAi: 'gap-[2px] flex flex-col items-center',
+  autoAiTrack: 'p-[1px] h-[12px] w-[22px] relative inline-flex items-center',
+  autoAiKnob: 'h-[8px] w-[8px]',
   editorColumn: 'min-w-0 flex-1',
   contextCue: 'mt-[3px]',
   contextSuggestions: 'mt-[3px] p-[2px] gap-[1px] grid',
@@ -207,8 +218,11 @@ export default function WorkStreamRTE({
     matters: matterOptions,
     clientId: tagClientId,
     onTagged: (candidate: WorkstreamTagCandidate) => {
-      if (candidate.contact && !clientButtonLabel && !contextLocked) onContextContactSelected?.(candidate.contact)
-      if (candidate.matter && !selectedMatterNumber) onMatterChange?.(candidate.matter)
+      const noClientYet = !clientButtonLabel && !contextLocked
+      if (candidate.contact && noClientYet) onContextContactSelected?.(candidate.contact)
+      // A matter is taken only for the entry's own client (or with the client it just set), never another client's.
+      const matterFits = candidate.matter && (noClientYet ? Boolean(candidate.contact) : candidate.matter.clientId === tagClientId)
+      if (candidate.matter && matterFits && !selectedMatterNumber) onMatterChange?.(candidate.matter)
       const element = editorRef.current
       if (element) setEditorBody(element.innerText || element.textContent || '', element.innerHTML)
     },
@@ -464,7 +478,16 @@ export default function WorkStreamRTE({
           {/* Link editor: opened by Link or Ctrl+K */}
           {linkEditorOpen ? <div className={LAYOUT_STYLES.linkEditor} data-kr-element="workstream-rte-link-editor"><input aria-label="Document link text" className={STYLES.linkInput} onChange={(event) => setLinkLabel(event.target.value)} placeholder="Link text" value={linkLabel} /><input aria-label="Document link URL" className={STYLES.linkInput} onChange={(event) => setLinkUrl(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); applyLink() } else if (event.key === 'Escape') setLinkEditorOpen(false) }} placeholder="https:// or folder path" ref={linkUrlRef} value={linkUrl} /><button className={STYLES.editorButton} disabled={!linkUrl.trim()} onClick={applyLink} type="button">Add link</button></div> : null}
         </div>
-        {showSendButton ? <button aria-label={submitting ? 'Saving communication entry' : 'Send communication entry'} className={`${LAYOUT_STYLES.sendButton} ${STYLES.sendButton}`} data-kr-element="communications-composer-send-button" disabled={!body.trim() || disabled || !canSubmit || submitting} onClick={() => void submit()} title="Send (Ctrl+Enter)" type="button"><KRHomebaseIcon className={LAYOUT_STYLES.sendIcon} name="send" /></button> : null}
+        {showSendButton ? (
+          <div className={LAYOUT_STYLES.sendColumn}>
+            {/* Auto AI (web patch 591): drawn for the coming feature; greyed, off and not clickable yet */}
+            <button aria-checked={false} aria-label="Auto AI (coming later)" className={`${LAYOUT_STYLES.autoAi} ${STYLES.autoAi}`} data-kr-element="workstream-auto-ai-toggle" disabled role="switch" title="Auto AI: coming later" type="button">
+              <span className={STYLES.autoAiLabel}>Auto AI</span>
+              <span className={`${LAYOUT_STYLES.autoAiTrack} ${STYLES.autoAiTrack}`}><span className={`${LAYOUT_STYLES.autoAiKnob} ${STYLES.autoAiKnob}`} /></span>
+            </button>
+            <button aria-label={submitting ? 'Saving communication entry' : 'Send communication entry'} className={`${LAYOUT_STYLES.sendButton} ${STYLES.sendButton}`} data-kr-element="communications-composer-send-button" disabled={!body.trim() || disabled || !canSubmit || submitting} onClick={() => void submit()} title="Send (Ctrl+Enter)" type="button"><KRHomebaseIcon className={LAYOUT_STYLES.sendIcon} name="send" /></button>
+          </div>
+        ) : null}
       </div>
     </div>
   )

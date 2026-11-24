@@ -38,7 +38,7 @@ const LAYOUT_STYLES = {
 
 /** The sentence for an empty list. */
 function emptySentence(kind: WorkstreamTagKind, query: string): string {
-  if (kind === 'matter') return query ? `No matter of the chosen client matches "${query}".` : 'Choose or tag a client first; its matters are listed here.'
+  if (kind === 'matter') return query ? `No matter number starts with "${query}".` : 'Type a matter number, for example 077.1.'
   return query ? `No ${WORKSTREAM_TAG_KIND_LABELS[kind].toLowerCase()} match "${query}".` : 'Type part of a name or code.'
 }
 

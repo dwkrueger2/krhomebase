@@ -27,6 +27,9 @@ import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
 import RainbowBusySpinner from '@/components/ui/RainbowBusySpinner.client'
 import type { KRContactRecord } from '@/features/contacts/types'
 import { useState } from 'react'
+import { DEFAULT_WORKSTREAM_TAG_PREFIXES } from '@krhomebase/contracts'
+import { usePreferences } from '@/features/preferences/PreferencesProvider.client'
+import { workstreamComposerPrompt } from '../workstreamTags'
 import { COMMUNICATION_ACTIVITY_TYPE_TRIGGER_RULES } from '../communicationActivityTypeTriggers'
 import type { CommunicationContextCueMatch } from '../communicationContextTriggers'
 import { WORKSTREAM_COMMUNICATION_ACTIVITY_OPTIONS, type CommunicationClientState, type CommunicationUser, type WorkstreamCommunicationActivityType } from '../communicationTypes'
@@ -207,6 +210,8 @@ export default function CommunicationComposer({
   statusMessage = 'URLs are clickable · Ctrl+Enter to send',
 }: CommunicationComposerProps) {
   const [draft, setDraft] = useState<Pick<WorkStreamRTEDraftState, 'body' | 'contextCue' | 'contextMatchCount'>>({ body: '', contextCue: null, contextMatchCount: 0 })
+  // The prompt names the person's own tag prefixes (web patch 591).
+  const tagPrefixes = usePreferences().data.preferences.workstreamTagPrefixes ?? DEFAULT_WORKSTREAM_TAG_PREFIXES
   const [showStatusHelp, setShowStatusHelp] = useState(false)
   const [showCodeHelp, setShowCodeHelp] = useState(false)
   const selectedActivities = WORKSTREAM_COMMUNICATION_ACTIVITY_OPTIONS.filter((option) => activityTypes.includes(option.value))
@@ -264,7 +269,7 @@ export default function CommunicationComposer({
         onMatterChange={onMatterChange}
         onSubmit={(next) => onSubmit(next.body, activityTypes, next.html, next.assigneeUserIds)}
         onHelpRequest={() => setShowCodeHelp(true)}
-        placeholder="Type a note: /pc, /email, /n, /t, /sub: and Client: work here. Type /help for help."
+        placeholder={workstreamComposerPrompt(tagPrefixes)}
         selectedMatterNumber={selectedMatterNumber}
       />
       {/* Composer footer: persistence status and parser diagnostics remain separate rows for quick scanning. */}

@@ -17,6 +17,8 @@
  *   `/L421`, `/M306.1`, `@user` mentions, double-click for email, and Ctrl+Z / Ctrl+Y are removed, because the editor
  *   that was actually drawn never recognized them.
  * - The context paragraph names the Internal client and matter (050 and 050.1) where Internal entries are saved.
+ * - Nov 24, 2026 (web patch 591, the requester): a Tags section lists the person's own tag prefixes (FB-0027) with
+ *   what each finds and does; the old cue paragraphs follow under "Other cues".
  */
 
 import { KRHomebaseIcons } from '@/components/ui/KRHomebaseIcon.client'
@@ -25,6 +27,8 @@ import { createPortal } from 'react-dom'
 import PopOutBrowserWindow, { openPopoutBrowserWindow } from '@/components/shell/PopOutBrowserWindow.client'
 import { COMMUNICATION_ACTIVITY_TYPE_COMMAND_HINTS } from '../communicationActivityTypeTriggers'
 import { INTERNAL_CLIENT_NUMBER, INTERNAL_MATTER_NUMBER, WORKSTREAM_COMMUNICATION_ACTIVITY_OPTIONS } from '../communicationTypes'
+import { DEFAULT_WORKSTREAM_TAG_PREFIXES } from '@krhomebase/contracts'
+import { usePreferences } from '@/features/preferences/PreferencesProvider.client'
 
 interface HelpDialogProps {
   onClose: () => void
@@ -140,6 +144,7 @@ function HelpDialogFrame({ children, dataKrElement, onClose, title, titleId, wid
  * The companion help document is docs/help-docs/WorkStream-Quick-Entry-Status.md (not yet ported).
  */
 export default function WorkStreamQuickEntryHelpDialog({ onClose }: HelpDialogProps) {
+  const prefixes = usePreferences().data.preferences.workstreamTagPrefixes ?? DEFAULT_WORKSTREAM_TAG_PREFIXES
   return (
     <HelpDialogFrame dataKrElement="communications-code-help-dialog" onClose={onClose} title="WorkStream quick-entry help" titleId="communications-code-help-title" widthClass={LAYOUT_STYLES.quickEntryWidth}>
       {/* Activity rules: these are the entry types and command forms the composer understands. */}
@@ -169,9 +174,23 @@ export default function WorkStreamQuickEntryHelpDialog({ onClose }: HelpDialogPr
         Start with <code className={STYLES.code}>/sub: [Subject]</code> to set the subject; otherwise the first line of the note (up to 160 characters) becomes the subject.
       </p>
 
+      {/* Tags (FB-0027, web patch 591): the person's own prefixes; a pick becomes a link in the saved entry. */}
+      <p className={`${LAYOUT_STYLES.example} ${STYLES.body}`} data-kr-element="communications-tag-help">
+        <strong>Tags.</strong> Type a tag at the start of a word to pick a record; it goes into the note as a link that opens the record once the entry is saved. Up and Down move, Tab or Enter picks, Escape closes.
+      </p>
+      <ul className={`${LAYOUT_STYLES.list} ${STYLES.body}`}>
+        <li><code className={STYLES.code}>{prefixes.client}</code> a client, by name or number. With no client chosen yet, the first client tagged becomes the entry&apos;s client.</li>
+        <li><code className={STYLES.code}>{prefixes.matter}</code> a matter, by its number only (<code className={STYLES.code}>{prefixes.matter}077.1</code>), from any client. With no client chosen it also sets the client and the matter.</li>
+        <li><code className={STYLES.code}>{prefixes.person}</code> a lead, or a person who is not a client.</li>
+        <li><code className={STYLES.code}>{prefixes.entity}</code> a business, client or not.</li>
+      </ul>
+      <p className={`${LAYOUT_STYLES.example} ${STYLES.body}`}>
+        Change these symbols in User Settings → Preferences → WorkStream tags.
+      </p>
+
       {/* Context rules: prefixes open suggestions; accepting a suggestion inserts the name and phone. */}
       <p className={`${LAYOUT_STYLES.example} ${STYLES.body}`}>
-        Quick context tags identify records without requiring a lookup first:
+        <strong>Other cues</strong> identify records without requiring a lookup first:
       </p>
       <ul className={`${LAYOUT_STYLES.list} ${STYLES.body}`}>
         <li><code className={STYLES.code}>/C306</code> identifies Client 306.</li>

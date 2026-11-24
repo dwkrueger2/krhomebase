@@ -39115,7 +39115,7 @@
                                 "matter": {
                                   "type": "string",
                                   "pattern": "^[!@#$%^&*~+=]{1,3}$",
-                                  "description": "The chosen client's matters."
+                                  "description": "Matters, by number (any client)."
                                 }
                               },
                               "required": [
@@ -39524,7 +39524,7 @@
                       "matter": {
                         "type": "string",
                         "pattern": "^[!@#$%^&*~+=]{1,3}$",
-                        "description": "The chosen client's matters."
+                        "description": "Matters, by number (any client)."
                       }
                     },
                     "required": [
@@ -39737,7 +39737,7 @@
                                 "matter": {
                                   "type": "string",
                                   "pattern": "^[!@#$%^&*~+=]{1,3}$",
-                                  "description": "The chosen client's matters."
+                                  "description": "Matters, by number (any client)."
                                 }
                               },
                               "required": [

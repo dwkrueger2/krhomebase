@@ -7,11 +7,17 @@
  * | Kind     | Default | Lists                                         | Opens (`openKRCode`)                     |
  * |----------|---------|-----------------------------------------------|------------------------------------------|
  * | `client` | `@@`    | client accounts (the browser's contact list)  | the client (`client`, its number)        |
- * | `entity` | `##`    | businesses, clients or not                    | the business (`contact`, its ECID)       |
+ * | `matter` | `##`    | matters by number, any client                 | the matter (`matter`, with its client)   |
  * | `person` | `!!`    | leads, and people who are not clients         | the lead (`lead`, LCID) or the contact   |
- * | `matter` | `$$`    | the chosen client's matters                   | the matter (`matter`, with its client)   |
+ * | `entity` | `$$`    | businesses, clients or not                    | the business (`contact`, its ECID)       |
  *
  * The prefixes are the person's own (User Settings → Preferences → WorkStream tags, `workstreamTagPrefixes`).
+ *
+ * **Matters by number only** (web patch 591, the requester, Nov 24, 2026): a matter's title mostly repeats its client's
+ * name, so the matter tag follows digits and dots only (`##077.1`) and its chip is the number alone. It lists every
+ * client's matters from the browser's contact list (each contact's `relatedMatters`; the client is the number before
+ * the dot), the chosen client's first, so it works in the firm feed with no client chosen (Internal). `##` and `$$`
+ * were swapped in the same patch.
  *
  * **The chip in the saved note** is a `span` with `data-ws-tag` (the code kind), `data-ws-code`, and for a matter
  * `data-ws-client`, plus `role="link"`, `tabindex="0"` and a `title`. The API's note cleanup keeps these attributes
@@ -39,11 +45,13 @@ export interface WorkstreamTagTrigger {
   start: number
 }
 
-/** A matter the matter tag can offer (the composer's matter list). */
+/** A matter the matter tag can offer (the composer's matter list, or a contact's related matters). */
 export interface WorkstreamTagMatter {
   id: string
   number: string
   label?: string
+  /** The matter's client account, when known. */
+  clientId?: string | null
 }
 
 /** A lead the person tag can offer (read from the API once, `fetchLeads`). */
@@ -67,7 +75,7 @@ export interface WorkstreamTagCandidate {
   meta: string
   /** Where the chip leads. */
   target: KRCodeTarget
-  /** The client contact picked (the first client tag sets where the entry is saved). */
+  /** The client contact picked, or a tagged matter's client (the first client tag sets where the entry is saved). */
   contact?: KRContactRecord
   /** The matter picked (sets the entry's matter when none is chosen). */
   matter?: WorkstreamTagMatter
@@ -79,6 +87,14 @@ export const WORKSTREAM_TAG_KIND_LABELS: Record<WorkstreamTagKind, string> = {
   entity: 'Businesses',
   person: 'Leads and non-clients',
   matter: 'Matters',
+}
+
+/**
+ * The composer's prompt (web patch 591, the requester): the person's own tag prefixes, then the slash commands.
+ * "Type a note. Tags: @@ client, ## matter no., !! lead, $$ business. Commands: /pc /email /n /t /sub: /help"
+ */
+export function workstreamComposerPrompt(prefixes: WorkstreamTagPrefixesPreference): string {
+  return `Type a note. Tags: ${prefixes.client} client, ${prefixes.matter} matter no., ${prefixes.person} lead, ${prefixes.entity} business. Commands: /pc /email /n /t /sub: /help`
 }
 
 /** The longest query a tag list follows; past it the words are ordinary text again. */
@@ -103,6 +119,8 @@ export function findWorkstreamTagTrigger(textBeforeCaret: string, prefixes: Work
       if (!textBeforeCaret.startsWith(prefix, start)) continue
       const query = textBeforeCaret.slice(start + prefix.length)
       if (query.length > MAX_QUERY || /[\n\r]/.test(query) || /^\s/.test(query)) return null
+      // The matter tag follows a number only (`077.1`); anything else is ordinary text again.
+      if (kind === 'matter' && !/^[\d.]*$/.test(query)) return null
       return { kind, prefix, query, start }
     }
   }
@@ -185,16 +203,34 @@ export function workstreamTagCandidates(
       }, score(query, lead.displayName, lead.lcid, [lead.displayName, lead.lcid, lead.email, lead.phone].filter(Boolean).join(' ').toLowerCase()))
     }
   } else {
-    for (const matter of sources.matters) {
-      const label = [matter.number, matter.label].filter(Boolean).join(' ')
+    // Every matter the browser knows: the chosen client's list first (it has the titles the screen uses), then each
+    // client contact's related matters. The client is the number before the dot.
+    const clientsByNumber = new Map<string, KRContactRecord>()
+    for (const contact of sources.contacts) {
+      if (contact.isClient && contact.clientId && contact.clientNumber && !clientsByNumber.has(contact.clientNumber)) clientsByNumber.set(contact.clientNumber, contact)
+    }
+    const matters = new Map<string, WorkstreamTagMatter>()
+    for (const matter of sources.matters) matters.set(matter.id, { ...matter, clientId: matter.clientId ?? sources.clientId ?? null })
+    for (const contact of sources.contacts) {
+      for (const related of contact.relatedMatters ?? []) {
+        if (matters.has(related.id) || !related.matterNumber) continue
+        const client = clientsByNumber.get(related.matterNumber.split('.')[0] ?? '')
+        matters.set(related.id, { id: related.id, number: related.matterNumber, label: related.title, clientId: client?.clientId ?? null })
+      }
+    }
+    for (const matter of matters.values()) {
+      const number = matter.number.toLowerCase()
+      const value = !query ? 1 : number === query ? 1200 : number.startsWith(query) ? 900 : number.includes(query) ? 500 : 0
+      const client = clientsByNumber.get(matter.number.split('.')[0] ?? '')
       add({
         kind: 'matter',
         key: `matter:${matter.id}`,
-        label,
-        meta: 'Matter',
-        target: { kind: 'matter', code: matter.id, clientId: sources.clientId ?? null },
+        label: matter.number,
+        meta: [matter.label, client ? client.clientDisplayName?.trim() || client.displayName : null].filter(Boolean).join(' · ') || 'Matter',
+        target: { kind: 'matter', code: matter.id, clientId: matter.clientId ?? null },
         matter,
-      }, score(query, matter.label ?? '', matter.number, label.toLowerCase()))
+        contact: client,
+      }, value && matter.clientId && matter.clientId === sources.clientId ? value + 100 : value) // the chosen client's first
     }
   }
 
